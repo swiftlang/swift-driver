@@ -238,11 +238,13 @@ final class ExplicitModuleBuildTests: XCTestCase {
   func testExplicitModuleBuildJobs() throws {
     try withTemporaryDirectory { path in
       let main = path.appending(component: "testExplicitModuleBuildJobs.swift")
-      try localFileSystem.writeFileContents(main) {
-        $0 <<< "import C;"
-        $0 <<< "import E;"
-        $0 <<< "import G;"
-      }
+      try localFileSystem.writeFileContents(main, bytes:
+        """
+        import C;\
+        import E;\
+        import G;
+        """
+      )
 
       let cHeadersPath: AbsolutePath =
           testInputsPath.appending(component: "ExplicitModuleBuilds")
@@ -488,11 +490,13 @@ final class ExplicitModuleBuildTests: XCTestCase {
   func testExplicitModuleBuildPCHOutputJobs() throws {
     try withTemporaryDirectory { path in
       let main = path.appending(component: "testExplicitModuleBuildPCHOutputJobs.swift")
-      try localFileSystem.writeFileContents(main) {
-        $0 <<< "import C;"
-        $0 <<< "import E;"
-        $0 <<< "import G;"
-      }
+      try localFileSystem.writeFileContents(main, bytes:
+        """
+        import C;\
+        import E;\
+        import G;
+        """
+      )
 
       let cHeadersPath: AbsolutePath =
           testInputsPath.appending(component: "ExplicitModuleBuilds")
@@ -618,9 +622,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
   func testImmediateModeExplicitModuleBuild() throws {
     try withTemporaryDirectory { path in
       let main = path.appending(component: "testExplicitModuleBuildJobs.swift")
-      try localFileSystem.writeFileContents(main) {
-        $0 <<< "import C\n"
-      }
+      try localFileSystem.writeFileContents(main, bytes: "import C\n")
 
       let cHeadersPath: AbsolutePath =
           testInputsPath.appending(component: "ExplicitModuleBuilds")
@@ -729,9 +731,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
 
       let srcBar = path.appending(component: "bar.swift")
       let moduleBarPath = path.appending(component: "Bar.swiftmodule").nativePathString(escaped: true)
-      try localFileSystem.writeFileContents(srcBar) {
-        $0 <<< "public class KlassBar {}"
-      }
+      try localFileSystem.writeFileContents(srcBar, bytes: "public class KlassBar {}")
 
       // Create Bar.swiftmodule
       var driver = try Driver(args: ["swiftc",
@@ -762,10 +762,12 @@ final class ExplicitModuleBuildTests: XCTestCase {
       // in source files, while its contents are compiled as Bar (real
       // name on disk).
       let srcFoo = path.appending(component: "Foo.swift")
-      try localFileSystem.writeFileContents(srcFoo) {
-        $0 <<< "import Car\n"
-        $0 <<< "func run() -> Car.KlassBar? { return nil }"
-      }
+      try localFileSystem.writeFileContents(srcFoo, bytes:
+        """
+        import Car
+        func run() -> Car.KlassBar? { return nil }
+        """
+      )
 
       // Module alias with the fallback scanner (frontend scanner)
       var driverA = try Driver(args: ["swiftc",
@@ -838,9 +840,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       // in source files, while its contents are compiled as E (real
       // name on disk).
       let srcFoo = path.appending(component: "Foo.swift")
-      try localFileSystem.writeFileContents(srcFoo) {
-        $0 <<< "import Car\n"
-      }
+      try localFileSystem.writeFileContents(srcFoo, bytes: "import Car\n")
 
       // Module alias with the fallback scanner (frontend scanner)
       var driverA = try Driver(args: ["swiftc",
@@ -920,10 +920,12 @@ final class ExplicitModuleBuildTests: XCTestCase {
 
     try withTemporaryDirectory { path in
       let main = path.appending(component: "foo.swift")
-      try localFileSystem.writeFileContents(main) {
-        $0 <<< "import Car;"
-        $0 <<< "import Jet;"
-      }
+      try localFileSystem.writeFileContents(main, bytes:
+        """
+        import Car;\
+        import Jet;
+        """
+      )
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       let scannerCommand = ["-scan-dependencies",
                             "-import-prescan",
@@ -949,9 +951,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       try localFileSystem.createDirectory(moduleCachePath)
       let srcBar = path.appending(component: "bar.swift")
       let moduleBarPath = path.appending(component: "Bar.swiftmodule").nativePathString(escaped: true)
-      try localFileSystem.writeFileContents(srcBar) {
-        $0 <<< "public class KlassBar {}"
-      }
+      try localFileSystem.writeFileContents(srcBar, bytes: "public class KlassBar {}")
 
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       let (stdLibPath, shimsPath, _, _) = try getDriverArtifactsForScanning()
@@ -986,10 +986,12 @@ final class ExplicitModuleBuildTests: XCTestCase {
       // `-module-alias Car=Bar` allows Car (alias) to be referenced
       // in source files in Foo, but its contents will be compiled
       // as Bar (real name on-disk).
-      try localFileSystem.writeFileContents(srcFoo) {
-        $0 <<< "import Car\n"
-        $0 <<< "func run() -> Car.KlassBar? { return nil }"
-      }
+      try localFileSystem.writeFileContents(srcFoo, bytes:
+        """
+        import Car
+        func run() -> Car.KlassBar? { return nil }
+        """
+      )
       var driver2 = try Driver(args: ["swiftc",
                                       "-I", path.nativePathString(escaped: true),
                                       "-explicit-module-build",
@@ -1096,11 +1098,13 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let moduleCachePath = path.appending(component: "ModuleCache")
       try localFileSystem.createDirectory(moduleCachePath)
       let main = path.appending(component: "testExplicitModuleBuildEndToEnd.swift")
-      try localFileSystem.writeFileContents(main) {
-        $0 <<< "import C;"
-        $0 <<< "import E;"
-        $0 <<< "import G;"
-      }
+      try localFileSystem.writeFileContents(main, bytes:
+        """
+        import C;
+        import E;
+        import G;
+        """
+      )
 
       let cHeadersPath: AbsolutePath =
           testInputsPath.appending(component: "ExplicitModuleBuilds")
@@ -1138,15 +1142,11 @@ final class ExplicitModuleBuildTests: XCTestCase {
           frameworkModuleDir.appending(component: hostTriple.archName + ".swiftmodule")
       try localFileSystem.createDirectory(frameworkModuleDir, recursive: true)
       let fooSourcePath = path.appending(component: "Foo.swift")
-      try localFileSystem.writeFileContents(fooSourcePath) {
-        $0 <<< "public func foo() {}"
-      }
+      try localFileSystem.writeFileContents(fooSourcePath, bytes: "public func foo() {}")
 
       // Setup our main test module
       let mainSourcePath = path.appending(component: "Foo.swift")
-      try localFileSystem.writeFileContents(mainSourcePath) {
-        $0 <<< "import Foo"
-      }
+      try localFileSystem.writeFileContents(mainSourcePath, bytes: "import Foo")
 
       // 1. Build Foo module
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
@@ -1278,11 +1278,13 @@ final class ExplicitModuleBuildTests: XCTestCase {
     // Create a simple test case.
     try withTemporaryDirectory { path in
       let main = path.appending(component: "testDependencyScanning.swift")
-      try localFileSystem.writeFileContents(main) {
-        $0 <<< "import C;"
-        $0 <<< "import E;"
-        $0 <<< "import G;"
-      }
+      try localFileSystem.writeFileContents(main, bytes:
+        """
+        import C;\
+        import E;\
+        import G;"
+        """
+      )
       let cHeadersPath: AbsolutePath =
           testInputsPath.appending(component: "ExplicitModuleBuilds")
                         .appending(component: "CHeaders")
@@ -1387,9 +1389,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
 
     try withTemporaryDirectory { path in
       let main = path.appending(component: "testDependencyScanning.swift")
-      try localFileSystem.writeFileContents(main) {
-        $0 <<< "import S;"
-      }
+      try localFileSystem.writeFileContents(main, bytes: "import S;")
 
       let cHeadersPath: AbsolutePath =
       testInputsPath.appending(component: "ExplicitModuleBuilds")
@@ -1455,11 +1455,13 @@ final class ExplicitModuleBuildTests: XCTestCase {
     // Create a simple test case.
     try withTemporaryDirectory { path in
       let main = path.appending(component: "testDependencyScanning.swift")
-      try localFileSystem.writeFileContents(main) {
-        $0 <<< "import C;"
-        $0 <<< "import E;"
-        $0 <<< "import G;"
-      }
+      try localFileSystem.writeFileContents(main, bytes:
+        """
+        import C;\
+        import E;\
+        import G;
+        """
+      )
 
       let cHeadersPath: AbsolutePath =
           testInputsPath.appending(component: "ExplicitModuleBuilds")
@@ -1554,11 +1556,13 @@ final class ExplicitModuleBuildTests: XCTestCase {
   func testPrintingExplicitDependencyGraph() throws {
     try withTemporaryDirectory { path in
       let main = path.appending(component: "testPrintingExplicitDependencyGraph.swift")
-      try localFileSystem.writeFileContents(main) {
-        $0 <<< "import C;"
-        $0 <<< "import E;"
-        $0 <<< "import G;"
-      }
+      try localFileSystem.writeFileContents(main, bytes:
+        """
+        import C;\
+        import E;\
+        import G;
+        """
+      )
       let cHeadersPath: AbsolutePath = testInputsPath.appending(component: "ExplicitModuleBuilds").appending(component: "CHeaders")
       let swiftModuleInterfacesPath: AbsolutePath = testInputsPath.appending(component: "ExplicitModuleBuilds").appending(component: "Swift")
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
@@ -1651,11 +1655,13 @@ final class ExplicitModuleBuildTests: XCTestCase {
       // Create a simple test case.
       try withTemporaryDirectory { path in
         let main = path.appending(component: "testDependencyScanning.swift")
-        try localFileSystem.writeFileContents(main) {
-          $0 <<< "import C;"
-          $0 <<< "import E;"
-          $0 <<< "import G;"
-        }
+        try localFileSystem.writeFileContents(main, bytes:
+          """
+          import C;\
+          import E;\
+          import G;
+          """
+        )
 
         let cHeadersPath: AbsolutePath =
             testInputsPath.appending(component: "ExplicitModuleBuilds")
@@ -1705,11 +1711,13 @@ final class ExplicitModuleBuildTests: XCTestCase {
     try withTemporaryDirectory { path in
       let cacheSavePath = path.appending(component: "saved.moddepcache")
       let main = path.appending(component: "testDependencyScanning.swift")
-      try localFileSystem.writeFileContents(main) {
-        $0 <<< "import C;"
-        $0 <<< "import E;"
-        $0 <<< "import G;"
-      }
+      try localFileSystem.writeFileContents(main, bytes:
+        """
+        import C;\
+        import E;\
+        import G;
+        """
+      )
 
       let cHeadersPath: AbsolutePath =
           testInputsPath.appending(component: "ExplicitModuleBuilds")
@@ -1837,18 +1845,19 @@ final class ExplicitModuleBuildTests: XCTestCase {
     XCTAssertEqual(moduleMap[1].isFramework, false)
   }
 
-
   func testTraceDependency() throws {
     try withTemporaryDirectory { path in
       try localFileSystem.changeCurrentWorkingDirectory(to: path)
       let moduleCachePath = path.appending(component: "ModuleCache")
       try localFileSystem.createDirectory(moduleCachePath)
       let main = path.appending(component: "testTraceDependency.swift")
-      try localFileSystem.writeFileContents(main) {
-        $0 <<< "import C;"
-        $0 <<< "import E;"
-        $0 <<< "import G;"
-      }
+      try localFileSystem.writeFileContents(main, bytes: 
+        """
+        import C;\
+        import E;\
+        import G;
+        """
+      )
 
       let cHeadersPath: AbsolutePath =
           testInputsPath.appending(component: "ExplicitModuleBuilds")
@@ -1937,14 +1946,17 @@ final class ExplicitModuleBuildTests: XCTestCase {
 
     try withTemporaryDirectory { path in
       let main = path.appending(component: "testPrebuiltModuleGenerationJobs.swift")
-      try localFileSystem.writeFileContents(main) {
-        $0 <<< "import A\n"
-        $0 <<< "import E\n"
-        $0 <<< "import F\n"
-        $0 <<< "import G\n"
-        $0 <<< "import H\n"
-        $0 <<< "import Swift\n"
-      }
+      try localFileSystem.writeFileContents(main, bytes:
+        """
+        import A
+        import E
+        import F
+        import G
+        import H
+        import Swift
+
+        """
+      )
       let moduleCachePath = "/tmp/module-cache"
       var driver = try Driver(args: ["swiftc", main.pathString,
                                      "-sdk", mockSDKPath,
@@ -1990,9 +2002,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
     }
     try withTemporaryDirectory { path in
       let main = path.appending(component: "testPrebuiltModuleGenerationJobs.swift")
-      try localFileSystem.writeFileContents(main) {
-        $0 <<< "import H\n"
-      }
+      try localFileSystem.writeFileContents(main, bytes: "import H\n")
       var driver = try Driver(args: ["swiftc", main.pathString,
                                      "-sdk", mockSDKPath,
                                     ])
@@ -2028,9 +2038,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
     }
     try withTemporaryDirectory { path in
       let main = path.appending(component: "testPrebuiltModuleGenerationJobs.swift")
-      try localFileSystem.writeFileContents(main) {
-        $0 <<< "import Swift\n"
-      }
+      try localFileSystem.writeFileContents(main, bytes: "import Swift\n")
       var driver = try Driver(args: ["swiftc", main.pathString,
                                      "-sdk", mockSDKPath,
                                     ])
@@ -2044,9 +2052,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
     }
     try withTemporaryDirectory { path in
       let main = path.appending(component: "testPrebuiltModuleGenerationJobs.swift")
-      try localFileSystem.writeFileContents(main) {
-        $0 <<< "import F\n"
-      }
+      try localFileSystem.writeFileContents(main, bytes: "import F\n")
       var driver = try Driver(args: ["swiftc", main.pathString,
                                      "-sdk", mockSDKPath,
                                     ])
@@ -2064,9 +2070,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
     }
     try withTemporaryDirectory { path in
       let main = path.appending(component: "testPrebuiltModuleGenerationJobs.swift")
-      try localFileSystem.writeFileContents(main) {
-        $0 <<< "import H\n"
-      }
+      try localFileSystem.writeFileContents(main, bytes: "import H\n")
       var driver = try Driver(args: ["swiftc", main.pathString,
                                      "-sdk", mockSDKPath,
                                     ])
@@ -2104,9 +2108,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
     let interfaceMap = try collector.collectSwiftInterfaceMap().inputMap
     try withTemporaryDirectory { path in
       let main = path.appending(component: "testPrebuiltModuleGenerationJobs.swift")
-      try localFileSystem.writeFileContents(main) {
-        $0 <<< "import A\n"
-      }
+      try localFileSystem.writeFileContents(main, bytes: "import A\n")
       let moduleCachePath = "/tmp/module-cache"
       var driver = try Driver(args: ["swiftc", main.pathString,
                                      "-sdk", mockSDKPath,
@@ -2132,9 +2134,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
     let interfaceMap = try collector.collectSwiftInterfaceMap().inputMap
     try withTemporaryDirectory { path in
       let main = path.appending(component: "testPrebuiltModuleGenerationJobs.swift")
-      try localFileSystem.writeFileContents(main) {
-        $0 <<< "import A\n"
-      }
+      try localFileSystem.writeFileContents(main, bytes: "import A\n")
       let moduleCachePath = "/tmp/module-cache"
       var driver = try Driver(args: ["swiftc", main.pathString,
                                      "-sdk", mockSDKPathStr,

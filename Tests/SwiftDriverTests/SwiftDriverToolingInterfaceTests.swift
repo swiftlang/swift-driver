@@ -18,8 +18,8 @@ final class SwiftDriverToolingInterfaceTests: XCTestCase {
   func testCreateCompilerInvocation() throws {
     try withTemporaryDirectory { path in
       let inputFile = path.appending(components: "test.swift")
-      try localFileSystem.writeFileContents(inputFile) { $0 <<< "public func foo()" }
-
+      try localFileSystem.writeFileContents(inputFile) { $0.send("public func foo()") }
+      
       // Expected success scenarios:
       do {
         let testCommand = inputFile.description

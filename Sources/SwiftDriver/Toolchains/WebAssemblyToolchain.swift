@@ -72,7 +72,7 @@ public final class WebAssemblyToolchain: Toolchain {
     case .executable:
       return moduleName
     case .dynamicLibrary:
-      // WASM doesn't support dynamic libraries yet, but we'll report the error later.
+      // Wasm doesn't support dynamic libraries yet, but we'll report the error later.
       return ""
     case .staticLibrary:
       return "lib\(moduleName).a"

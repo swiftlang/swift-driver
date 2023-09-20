@@ -12,7 +12,6 @@
 
 import class Foundation.NSLock
 
-import TSCBasic // <<<
 import func TSCBasic.withTemporaryDirectory
 import protocol TSCBasic.FileSystem
 import struct TSCBasic.AbsolutePath
@@ -50,7 +49,7 @@ public final class ArgsResolver {
       // FIXME: withTemporaryDirectory uses FileManager.default, need to create a FileSystem.temporaryDirectory api.
       let tmpDir: AbsolutePath = try withTemporaryDirectory(removeTreeOnDeinit: false) { path in
         // FIXME: TSC removes empty directories even when removeTreeOnDeinit is false. This seems like a bug.
-        try fileSystem.writeFileContents(path.appending(component: ".keep-directory")) { $0 <<< "" }
+        try fileSystem.writeFileContents(path.appending(component: ".keep-directory")) { $0.send("") }
         return path
       }
       self.temporaryDirectory = .absolute(tmpDir)
@@ -152,7 +151,7 @@ public final class ArgsResolver {
     if let absPath = path.absolutePath {
       try fileSystem.writeFileContents(absPath) { out in
         for path in contents {
-          try! out <<< unsafeResolve(path: path) <<< "\n"
+          try! out.send("\(unsafeResolve(path: path))\n")
         }
       }
     }
@@ -167,13 +166,13 @@ public final class ArgsResolver {
       // and the frontend (llvm) only seems to support implicit block format.
       try fileSystem.writeFileContents(absPath) { out in
         for (input, map) in outputFileMap.entries {
-          out <<< quoteAndEscape(path: VirtualPath.lookup(input)) <<< ":"
+          out.send("\(quoteAndEscape(path: VirtualPath.lookup(input))):")
           if map.isEmpty {
-            out <<< " {}\n"
+            out.send(" {}\n")
           } else {
-            out <<< "\n"
+            out.send("\n")
             for (type, output) in map {
-              out <<< "  " <<< type.name <<< ": " <<< quoteAndEscape(path: VirtualPath.lookup(output)) <<< "\n"
+              out.send("  \(type.name): \(quoteAndEscape(path: VirtualPath.lookup(output)))\n")
             }
           }
         }
@@ -213,7 +212,7 @@ public final class ArgsResolver {
         //   Wrap all arguments in double quotes to ensure that both Unix and
         //   Windows tools understand the response file.
         try fileSystem.writeFileContents(absPath) {
-          $0 <<< resolvedArguments[1...].map { quote($0) }.joined(separator: "\n")
+          $0.send(resolvedArguments[1...].map { quote($0) }.joined(separator: "\n"))
         }
         resolvedArguments = [resolvedArguments[0], "@\(absPath.pathString)"]
       }

@@ -23,7 +23,6 @@ import Musl
 #error("Missing libc or equivalent")
 #endif
 
-import TSCBasic // <<<
 import class TSCBasic.DiagnosticsEngine
 import struct TSCBasic.Diagnostic
 import struct TSCBasic.ProcessResult
@@ -79,7 +78,7 @@ import var TSCBasic.stdoutStream
     case .regular, .silent:
       break
     case .verbose:
-      stdoutStream <<< arguments.map { $0.spm_shellEscaped() }.joined(separator: " ") <<< "\n"
+      stdoutStream.send("\(arguments.map { $0.spm_shellEscaped() }.joined(separator: " "))\n")
       stdoutStream.flush()
     case .parsableOutput:
       let messages = constructJobBeganMessages(job: job, arguments: arguments, pid: pid)
@@ -114,7 +113,7 @@ import var TSCBasic.stdoutStream
       let output = (try? result.utf8Output() + result.utf8stderrOutput()) ?? ""
       if !output.isEmpty {
         Driver.stdErrQueue.sync {
-          stderrStream <<< output
+          stderrStream.send(output)
           stderrStream.flush()
         }
       }
@@ -169,8 +168,13 @@ import var TSCBasic.stdoutStream
     // FIXME: Do we need to do error handling here? Can this even fail?
     guard let json = try? message.toJSON() else { return }
     Driver.stdErrQueue.sync {
-      stderrStream <<< json.count <<< "\n"
-      stderrStream <<< String(data: json, encoding: .utf8)! <<< "\n"
+      stderrStream.send(
+        """
+        \(json.count)
+        \(String(data: json, encoding: .utf8)!)
+
+        """
+      )
       stderrStream.flush()
     }
   }

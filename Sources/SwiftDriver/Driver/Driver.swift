@@ -12,14 +12,15 @@
 import SwiftOptions
 
 import class Dispatch.DispatchQueue
-
-import TSCBasic // <<<
 import class TSCBasic.DiagnosticsEngine
+import class TSCBasic.UnknownLocation
 import enum TSCBasic.ProcessEnv
+import func TSCBasic.withTemporaryDirectory
 import protocol TSCBasic.DiagnosticData
 import protocol TSCBasic.FileSystem
 import protocol TSCBasic.OutputByteStream
 import struct TSCBasic.AbsolutePath
+import struct TSCBasic.ByteString
 import struct TSCBasic.Diagnostic
 import struct TSCBasic.FileInfo
 import struct TSCBasic.RelativePath
@@ -475,23 +476,23 @@ public struct Driver {
     stdErrQueue.sync {
       let stream = stderrStream
       if !(diagnostic.location is UnknownLocation) {
-          stream <<< diagnostic.location.description <<< ": "
+          stream.send("\(diagnostic.location.description): ")
       }
 
       switch diagnostic.message.behavior {
       case .error:
-        stream <<< "error: "
+        stream.send("error: ")
       case .warning:
-        stream <<< "warning: "
+        stream.send("warning: ")
       case .note:
-        stream <<< "note: "
+        stream.send("note: ")
       case .remark:
-        stream <<< "remark: "
+        stream.send("remark: ")
       case .ignored:
           break
       }
 
-      stream <<< diagnostic.localizedDescription <<< "\n"
+      stream.send("\(diagnostic.localizedDescription)\n")
       stream.flush()
     }
   }
@@ -1430,7 +1431,7 @@ extension Driver {
 
     if parsedOptions.contains(.driverPrintOutputFileMap) {
       if let outputFileMap = self.outputFileMap {
-        stderrStream <<< outputFileMap.description
+        stderrStream.send(outputFileMap.description)
         stderrStream.flush()
       } else {
         diagnosticEngine.emit(.error_no_output_file_map_specified)
@@ -1507,9 +1508,9 @@ extension Driver {
       // Print the driver source version first before we print the compiler
       // versions.
       if inPlaceJob.kind == .versionRequest && !Driver.driverSourceVersion.isEmpty {
-        stderrStream <<< "swift-driver version: " <<< Driver.driverSourceVersion <<< " "
+        stderrStream.send("swift-driver version: \(Driver.driverSourceVersion) ")
         if let blocklistVersion = try Driver.findCompilerClientsConfigVersion(RelativeTo: try toolchain.executableDir) {
-          stderrStream <<< blocklistVersion <<< " "
+          stderrStream.send("\(blocklistVersion) ")
         }
         stderrStream.flush()
       }
@@ -1517,7 +1518,7 @@ extension Driver {
       if parsedOptions.contains(.v) {
         let arguments: [String] = try executor.resolver.resolveArgumentList(for: inPlaceJob,
                                                                             useResponseFiles: forceResponseFiles ? .forced : .heuristic)
-        stdoutStream <<< arguments.map { $0.spm_shellEscaped() }.joined(separator: " ") <<< "\n"
+        stdoutStream.send("\(arguments.map { $0.spm_shellEscaped() }.joined(separator: " "))\n")
         stdoutStream.flush()
       }
       try executor.execute(job: inPlaceJob,
@@ -1640,17 +1641,16 @@ extension Driver {
   }
 
   private func printBindings(_ job: Job) {
-    stdoutStream <<< #"# ""# <<< targetTriple.triple
-    stdoutStream <<< #"" - ""# <<< job.tool.basename
-    stdoutStream <<< #"", inputs: ["#
-    stdoutStream <<< job.displayInputs.map { "\"" + $0.file.name + "\"" }.joined(separator: ", ")
+    stdoutStream.send(#"# ""#).send(targetTriple.triple)
+    stdoutStream.send(#"" - ""#).send(job.tool.basename)
+    stdoutStream.send(#"", inputs: ["#)
+    stdoutStream.send(job.displayInputs.map { "\"" + $0.file.name + "\"" }.joined(separator: ", "))
 
-    stdoutStream <<< "], output: {"
+    stdoutStream.send("], output: {")
 
-    stdoutStream <<< job.outputs.map { $0.type.name + ": \"" + $0.file.name + "\"" }.joined(separator: ", ")
+    stdoutStream.send(job.outputs.map { $0.type.name + ": \"" + $0.file.name + "\"" }.joined(separator: ", "))
 
-    stdoutStream <<< "}"
-    stdoutStream <<< "\n"
+    stdoutStream.send("}\n")
     stdoutStream.flush()
   }
 
@@ -1721,19 +1721,19 @@ extension Driver {
       }
 
       // Print current Job
-      stdoutStream <<< nextId <<< ": " <<< job.kind.rawValue <<< ", {"
+      stdoutStream.send("\(nextId): ").send(job.kind.rawValue).send(", {")
       switch job.kind {
       // Don't sort for compile jobs. Puts pch last
       case .compile:
-        stdoutStream <<< inputIds.map(\.description).joined(separator: ", ")
+        stdoutStream.send(inputIds.map(\.description).joined(separator: ", "))
       default:
-        stdoutStream <<< inputIds.sorted().map(\.description).joined(separator: ", ")
+        stdoutStream.send(inputIds.sorted().map(\.description).joined(separator: ", "))
       }
       var typeName = job.outputs.first?.type.name
       if typeName == nil {
         typeName = "none"
       }
-      stdoutStream <<< "}, " <<< typeName! <<< "\n"
+      stdoutStream.send("}, \(typeName!)\n")
       jobIdMap[job] = nextId
       nextId += 1
     }
@@ -1741,16 +1741,16 @@ extension Driver {
 
   private static func printInputIfNew(_ input: TypedVirtualPath, inputIdMap: inout [TypedVirtualPath: UInt], nextId: inout UInt) {
     if inputIdMap[input] == nil {
-      stdoutStream <<< nextId <<< ": " <<< "input, "
-      stdoutStream <<< "\"" <<< input.file <<< "\", " <<< input.type <<< "\n"
+      stdoutStream.send("\(nextId): input, ")
+      stdoutStream.send("\"\(input.file)\", \(input.type)\n")
       inputIdMap[input] = nextId
       nextId += 1
     }
   }
 
   private func printVersion<S: OutputByteStream>(outputStream: inout S) throws {
-    outputStream <<< frontendTargetInfo.compilerVersion <<< "\n"
-    outputStream <<< "Target: \(frontendTargetInfo.target.triple.triple)\n"
+    outputStream.send("\(frontendTargetInfo.compilerVersion)\n")
+    outputStream.send("Target: \(frontendTargetInfo.target.triple.triple)\n")
     outputStream.flush()
   }
 }
@@ -2007,9 +2007,9 @@ extension Driver {
         let filePath = VirtualPath.absolute(absPath.appending(component: "main.swift"))
 
         try fileSystem.writeFileContents(filePath) { file in
-          file <<< ###"#sourceLocation(file: "-e", line: 1)\###n"###
+          file.send(###"#sourceLocation(file: "-e", line: 1)\###n"###)
           for option in parsedOptions.arguments(for: .e) {
-            file <<< option.argument.asSingle <<< "\n"
+            file.send("\(option.argument.asSingle)\n")
           }
         }
 

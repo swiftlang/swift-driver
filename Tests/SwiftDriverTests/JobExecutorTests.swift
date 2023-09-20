@@ -105,12 +105,8 @@ final class JobExecutorTests: XCTestCase {
       let foo = path.appending(component: "foo.swift")
       let main = path.appending(component: "main.swift")
 
-      try localFileSystem.writeFileContents(foo) {
-        $0 <<< "let foo = 5"
-      }
-      try localFileSystem.writeFileContents(main) {
-        $0 <<< "print(foo)"
-      }
+      try localFileSystem.writeFileContents(foo, bytes: "let foo = 5")
+      try localFileSystem.writeFileContents(main, bytes: "print(foo)")
 
       let exec = path.appending(component: "main")
 
@@ -263,9 +259,8 @@ final class JobExecutorTests: XCTestCase {
 
       // Create a file with inpuit
       let inputFile = path.appending(component: "main.swift")
-      try localFileSystem.writeFileContents(inputFile) {
-        $0 <<< "print(\"Hello, World\")"
-      }
+      try localFileSystem.writeFileContents(inputFile, bytes: "print(\"Hello, World\")")
+
       // We are going to override he executors standard input FileHandle to the above
       // input file, to simulate it being piped over standard input to this compilation.
       let testFile: FileHandle = FileHandle(forReadingAtPath: inputFile.description)!
@@ -348,18 +343,14 @@ final class JobExecutorTests: XCTestCase {
 #else
     try withTemporaryDirectory { path in
       let main = path.appending(component: "main.swift")
-      try localFileSystem.writeFileContents(main) {
-        $0 <<< "let foo = 1"
-      }
+      try localFileSystem.writeFileContents(main, bytes: "let foo = 1")
 
       var driver = try Driver(args: ["swift", main.pathString])
       let jobs = try driver.planBuild()
       XCTAssertTrue(jobs.count == 1 && jobs[0].requiresInPlaceExecution)
 
       // Change the file
-      try localFileSystem.writeFileContents(main) {
-        $0 <<< "let foo = 1"
-      }
+      try localFileSystem.writeFileContents(main, bytes: "let foo = 1")
 
       XCTAssertThrowsError(try driver.run(jobs: jobs)) {
         XCTAssertEqual($0 as? Job.InputError,
@@ -395,14 +386,10 @@ final class JobExecutorTests: XCTestCase {
   func testInputModifiedDuringMultiJobBuild() throws {
     try withTemporaryDirectory { path in
       let main = path.appending(component: "main.swift")
-      try localFileSystem.writeFileContents(main) {
-        $0 <<< "let foo = 1"
-      }
+      try localFileSystem.writeFileContents(main, bytes: "let foo = 1")
 
       let other = path.appending(component: "other.swift")
-      try localFileSystem.writeFileContents(other) {
-        $0 <<< "let bar = 2"
-      }
+      try localFileSystem.writeFileContents(other, bytes: "let bar = 2")
 
       let output = path.appending(component: "a.out")
 
@@ -416,9 +403,7 @@ final class JobExecutorTests: XCTestCase {
         XCTAssertTrue(jobs.count > 1)
 
         // Change the file
-        try localFileSystem.writeFileContents(other) {
-          $0 <<< "let bar = 3"
-        }
+        try localFileSystem.writeFileContents(other, bytes: "let bar = 3")
 
         verifier.expect(.error("input file '\(other.description)' was modified during the build"))
         // There's a tool-specific linker error that usually happens here from
@@ -481,9 +466,8 @@ final class JobExecutorTests: XCTestCase {
     do {
       try withTemporaryDirectory { path in
         let main = path.appending(component: "main.swift")
-        try localFileSystem.writeFileContents(main) {
-          $0 <<< "print(\"hello, world!\")"
-        }
+        try localFileSystem.writeFileContents(main, bytes: "print(\"hello, world!\")")
+
         let diags = DiagnosticsEngine()
         let executor = try SwiftDriverExecutor(diagnosticsEngine: diags,
                                                processSet: ProcessSet(),
@@ -518,9 +502,7 @@ final class JobExecutorTests: XCTestCase {
     do {
       try withTemporaryDirectory { path in
         let main = path.appending(component: "main.swift")
-        try localFileSystem.writeFileContents(main) {
-          $0 <<< "print(\"hello, world!\")"
-        }
+        try localFileSystem.writeFileContents(main, bytes: "print(\"hello, world!\")")
         let diags = DiagnosticsEngine()
         let executor = try SwiftDriverExecutor(diagnosticsEngine: diags,
                                                processSet: ProcessSet(),
@@ -556,9 +538,7 @@ final class JobExecutorTests: XCTestCase {
     do {
       try withTemporaryDirectory { path in
         let main = path.appending(component: "main.swift")
-        try localFileSystem.writeFileContents(main) {
-          $0 <<< "print(\"hello, world!\")"
-        }
+        try localFileSystem.writeFileContents(main, bytes: "print(\"hello, world!\")")
         let diags = DiagnosticsEngine()
         let executor = try SwiftDriverExecutor(diagnosticsEngine: diags,
                                                processSet: ProcessSet(),

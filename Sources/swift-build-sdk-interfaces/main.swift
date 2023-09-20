@@ -21,7 +21,6 @@ import Glibc
 import Musl
 #endif
 
-import TSCBasic // <<<
 import class TSCBasic.DiagnosticsEngine
 import class TSCBasic.ProcessSet
 import enum TSCBasic.ProcessEnv
@@ -134,7 +133,7 @@ do {
     let tempPath = $0.path
     try localFileSystem.writeFileContents(tempPath, body: {
       for module in allModules {
-        $0 <<< "import " <<< module <<< "\n"
+        $0.send("import \(module)\n")
       }
     })
     let executor = try SwiftDriverExecutor(diagnosticsEngine: diagnosticsEngine,
@@ -166,7 +165,7 @@ do {
       currentABIDir: currentABIDir, baselineABIDir: baselineABIDir)
     if verbose {
       Driver.stdErrQueue.sync {
-        stderrStream <<< "job count: \(jobs.count + danglingJobs.count)\n"
+        stderrStream.send("job count: \(jobs.count + danglingJobs.count)\n")
         stderrStream.flush()
       }
     }

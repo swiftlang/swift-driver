@@ -49,14 +49,14 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
       try localFileSystem.changeCurrentWorkingDirectory(to: path)
       let magic = path.appending(component: "magic.swift")
       try localFileSystem.writeFileContents(magic) {
-        $0 <<< "public func castASpell() {}"
+        $0.send("public func castASpell() {}")
       }
 
       let ofm = path.appending(component: "ofm.json")
       try localFileSystem.writeFileContents(ofm) {
-        $0 <<< self.makeOutputFileMap(in: path, module: "MagicKit", for: [ magic ]) {
+        $0.send(self.makeOutputFileMap(in: path, module: "MagicKit", for: [ magic ]) {
           $0 + "-some_suffix"
-        }
+        })
       }
 
       let driverArgs = [
@@ -76,9 +76,9 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
       }
 
       try localFileSystem.writeFileContents(ofm) {
-        $0 <<< self.makeOutputFileMap(in: path, module: "MagicKit", for: [ magic ]) {
+        $0.send(self.makeOutputFileMap(in: path, module: "MagicKit", for: [ magic ]) {
           $0 + "-some_other_suffix"
-        }
+        })
       }
 
       do {
@@ -98,12 +98,12 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
       do {
         let magic = path.appending(component: "magic.swift")
         try localFileSystem.writeFileContents(magic) {
-          $0 <<< "public func castASpell() {}"
+          $0.send("public func castASpell() {}")
         }
 
         let ofm = path.appending(component: "ofm.json")
         try localFileSystem.writeFileContents(ofm) {
-          $0 <<< self.makeOutputFileMap(in: path, module: "MagicKit", for: [ magic ])
+          $0.send(self.makeOutputFileMap(in: path, module: "MagicKit", for: [ magic ]))
         }
 
         var driver = try Driver(args: [
@@ -122,13 +122,13 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
 
       let main = path.appending(component: "main.swift")
       try localFileSystem.writeFileContents(main) {
-        $0 <<< "import MagicKit\n"
-        $0 <<< "castASpell()"
+        $0.send("import MagicKit\n")
+        $0.send("castASpell()")
       }
 
       let ofm = path.appending(component: "ofm2.json")
       try localFileSystem.writeFileContents(ofm) {
-        $0 <<< self.makeOutputFileMap(in: path, module: "theModule", for: [ main ])
+        $0.send(self.makeOutputFileMap(in: path, module: "theModule", for: [ main ]))
       }
 
       var driver = try Driver(args: [
