@@ -176,7 +176,6 @@ extension IncrementalCompilationState.FirstWaveComputer {
         for pathModuleId in pathSoFar {
           if !modulesRequiringRebuild.contains(pathModuleId) &&
              !isMainModule {
-            let pathModuleInfo = try moduleDependencyGraph.moduleInfo(of: pathModuleId)
             reporter.reportExplicitDependencyWillBeReBuilt(pathModuleId.moduleNameForDiagnostic,
                                                            reason: "Invalidated by downstream dependency")
           }
