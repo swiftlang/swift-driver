@@ -2335,6 +2335,7 @@ final class SwiftDriverTests: XCTestCase {
                                    pathDynamicReplacementsMac, path5_0iOS,
                                    path5_1iOS, pathDynamicReplacementsiOS,
                                    pathCompatibilityPacksMac] {
+        try localFileSystem.createDirectory(compatibilityLibPath.parentDirectory, recursive: true)
         try localFileSystem.writeFileContents(compatibilityLibPath, bytes: "Empty")
       }
       let commonArgs = ["swiftc", "foo.swift", "bar.swift",  "-module-name", "Test", "-resource-dir", path.pathString]
@@ -4245,6 +4246,7 @@ final class SwiftDriverTests: XCTestCase {
 
     try withTemporaryDirectory { tmpDir in
       let sdk1 = tmpDir.appending(component: "MacOSX10.15.sdk")
+      try localFileSystem.createDirectory(sdk1, recursive: true)
       try localFileSystem.writeFileContents(sdk1.appending(component: "SDKSettings.json"), bytes:
         """
         {
@@ -4265,6 +4267,7 @@ final class SwiftDriverTests: XCTestCase {
       )
 
       let sdk2 = tmpDir.appending(component: "MacOSX10.15.4.sdk")
+      try localFileSystem.createDirectory(sdk2, recursive: true)
       try localFileSystem.writeFileContents(sdk2.appending(component: "SDKSettings.json"), bytes:
         """
         {

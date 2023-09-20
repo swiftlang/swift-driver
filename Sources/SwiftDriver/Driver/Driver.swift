@@ -1508,7 +1508,7 @@ extension Driver {
       // Print the driver source version first before we print the compiler
       // versions.
       if inPlaceJob.kind == .versionRequest && !Driver.driverSourceVersion.isEmpty {
-          stderrStream.send("swift-driver version: \(Driver.driverSourceVersion) ")
+        stderrStream.send("swift-driver version: \(Driver.driverSourceVersion) ")
         if let blocklistVersion = try Driver.findCompilerClientsConfigVersion(RelativeTo: try toolchain.executableDir) {
           stderrStream.send("\(blocklistVersion) ")
         }

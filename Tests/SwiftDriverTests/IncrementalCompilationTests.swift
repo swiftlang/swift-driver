@@ -1313,7 +1313,7 @@ extension IncrementalCompilationTests {
 
     for (file, contents) in self.inputPathsAndContents {
       let linkTarget = tempDir.appending(component: "links").appending(component: file.basename)
-      try! localFileSystem.writeFileContents(linkTarget, bytes: .init(contents.utf8))
+      try! localFileSystem.writeFileContents(linkTarget) { $0.send(contents) }
     }
 
     try doABuild(
@@ -1346,7 +1346,7 @@ extension IncrementalCompilationTests {
   private func touch(_ path: AbsolutePath) {
     Thread.sleep(forTimeInterval: 1)
     let existingContents = try! localFileSystem.readFileContents(path)
-    try! localFileSystem.writeFileContents(path, bytes: existingContents)
+    try! localFileSystem.writeFileContents(path) { $0.send(existingContents) }
   }
 
   /// Set modification time of a file
@@ -1372,11 +1372,11 @@ extension IncrementalCompilationTests {
     try! localFileSystem.removeFileTree(swiftDepsPath)
   }
 
-  private func replace(contentsOf name: String, with replacement: String ) {
+  private func replace(contentsOf name: String, with replacement: String) {
     print("*** replacing \(name) ***", to: &stderrStream); stderrStream.flush()
     let path = inputPath(basename: name)
     let previousContents = try! localFileSystem.readFileContents(path).cString
-    try! localFileSystem.writeFileContents(path, bytes: .init(replacement.utf8))
+    try! localFileSystem.writeFileContents(path) { $0.send(replacement) }
     let newContents = try! localFileSystem.readFileContents(path).cString
     XCTAssert(previousContents != newContents, "\(path.pathString) unchanged after write")
     XCTAssert(replacement == newContents, "\(path.pathString) failed to write")
@@ -1384,7 +1384,7 @@ extension IncrementalCompilationTests {
 
   private func write(_ contents: String, to basename: String) {
     print("*** writing \(contents) to \(basename)")
-    try! localFileSystem.writeFileContents(inputPath(basename: basename), bytes: .init(contents.utf8))
+    try! localFileSystem.writeFileContents(inputPath(basename: basename)) { $0.send(contents) }
   }
 
   private func readPriors() -> ByteString? {
