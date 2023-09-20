@@ -730,7 +730,7 @@ final class SwiftDriverTests: XCTestCase {
 
     var driver2 = try Driver(args: ["swiftc", "-color-diagnostics", "foo.swift", "bar.swift", "-working-directory", workingDirectory.pathString, "-api-diff-data-file", "diff.txt", "-Xfrontend", "-HI", "-no-color-diagnostics", "-g"])
     let plannedJobs2 = try driver2.planBuild()
-    let compileJob = plannedJobs2.first(where: {$0.kind == .compile})!
+    let compileJob = try plannedJobs2.findJob(.compile)
     XCTAssert(compileJob.commandLine.contains(Job.ArgTemplate.path(.absolute(try AbsolutePath(validating: rebase("diff.txt", at: workingDirectory))))))
     XCTAssert(compileJob.commandLine.contains(.flag("-HI")))
     XCTAssert(!compileJob.commandLine.contains(.flag("-Xfrontend")))
@@ -1610,15 +1610,15 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(jobs.count, 3)
       XCTAssertEqual(Set(jobs.map { $0.kind }), Set([.emitModule, .compile]))
 
-      let emitModuleJob = jobs.first(where: { $0.kind == .emitModule })!
+      let emitModuleJob = try jobs.findJob(.emitModule)
       let emitModuleResolvedArgs: [String] =
         try resolver.resolveArgumentList(for: emitModuleJob)
       XCTAssertEqual(emitModuleResolvedArgs.count, 2)
       XCTAssertEqual(emitModuleResolvedArgs[1].first, "@")
 
       let compileJobs = jobs.filter { $0.kind == .compile }
+      XCTAssertEqual(compileJobs.count, 2)
       for compileJob in compileJobs {
-        XCTAssertEqual(compileJobs.count, 2)
         let compileResolvedArgs: [String] =
           try resolver.resolveArgumentList(for: compileJob)
         XCTAssertEqual(compileResolvedArgs.count, 2)
@@ -1636,15 +1636,15 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(jobs.count, 3)
       XCTAssertEqual(Set(jobs.map { $0.kind }), Set([.compile, .mergeModule]))
 
-      let mergeModuleJob = jobs.first(where: { $0.kind == .mergeModule })!
+      let mergeModuleJob = try jobs.findJob(.mergeModule)
       let mergeModuleResolvedArgs: [String] =
         try resolver.resolveArgumentList(for: mergeModuleJob)
       XCTAssertEqual(mergeModuleResolvedArgs.count, 2)
       XCTAssertEqual(mergeModuleResolvedArgs[1].first, "@")
 
       let compileJobs = jobs.filter { $0.kind == .compile }
+      XCTAssertEqual(compileJobs.count, 2)
       for compileJob in compileJobs {
-        XCTAssertEqual(compileJobs.count, 2)
         let compileResolvedArgs: [String] =
           try resolver.resolveArgumentList(for: compileJob)
         XCTAssertEqual(compileResolvedArgs.count, 2)
@@ -1683,7 +1683,7 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
 
       XCTAssertEqual(3, plannedJobs.count)
-      XCTAssertFalse(plannedJobs.contains { $0.kind == .autolinkExtract })
+      XCTAssertFalse(plannedJobs.containsJob(.autolinkExtract))
 
       let linkJob = plannedJobs[2]
       XCTAssertEqual(linkJob.kind, .link)
@@ -1719,7 +1719,7 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
 
       XCTAssertEqual(3, plannedJobs.count)
-      XCTAssertFalse(plannedJobs.contains { $0.kind == .autolinkExtract })
+      XCTAssertFalse(plannedJobs.containsJob(.autolinkExtract))
 
       let linkJob = plannedJobs[2]
       XCTAssertEqual(linkJob.kind, .link)
@@ -1739,7 +1739,7 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
 
       XCTAssertEqual(3, plannedJobs.count)
-      XCTAssertFalse(plannedJobs.contains { $0.kind == .autolinkExtract })
+      XCTAssertFalse(plannedJobs.containsJob(.autolinkExtract))
 
       let linkJob = plannedJobs[2]
       XCTAssertEqual(linkJob.kind, .link)
@@ -1759,7 +1759,7 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
 
       XCTAssertEqual(3, plannedJobs.count)
-      XCTAssertFalse(plannedJobs.contains { $0.kind == .autolinkExtract })
+      XCTAssertFalse(plannedJobs.containsJob(.autolinkExtract))
 
       let linkJob = plannedJobs[2]
       XCTAssertEqual(linkJob.kind, .link)
@@ -1856,7 +1856,7 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
 
       XCTAssertEqual(3, plannedJobs.count)
-      XCTAssertFalse(plannedJobs.contains { $0.kind == .autolinkExtract })
+      XCTAssertFalse(plannedJobs.containsJob(.autolinkExtract))
 
       let linkJob = plannedJobs[2]
       XCTAssertEqual(linkJob.kind, .link)
@@ -1876,7 +1876,7 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
 
       XCTAssertEqual(plannedJobs.count, 3)
-      XCTAssertFalse(plannedJobs.contains { $0.kind == .autolinkExtract })
+      XCTAssertFalse(plannedJobs.containsJob(.autolinkExtract))
 
       let linkJob = plannedJobs[2]
       XCTAssertEqual(linkJob.kind, .link)
@@ -1906,7 +1906,7 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
 
       XCTAssertEqual(plannedJobs.count, 3)
-      XCTAssertFalse(plannedJobs.contains { $0.kind == .autolinkExtract })
+      XCTAssertFalse(plannedJobs.containsJob(.autolinkExtract))
 
       let linkJob = plannedJobs[2]
       XCTAssertEqual(linkJob.kind, .link)
@@ -1939,7 +1939,7 @@ final class SwiftDriverTests: XCTestCase {
       var driver = try Driver(args: commonArgs + ["-emit-executable", "-target", "x86_64-apple-macosx10.15"], env: env)
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(3, plannedJobs.count)
-      XCTAssertFalse(plannedJobs.contains { $0.kind == .autolinkExtract })
+      XCTAssertFalse(plannedJobs.containsJob(.autolinkExtract))
 
       let linkJob = plannedJobs[2]
       XCTAssertEqual(linkJob.kind, .link)
@@ -1961,28 +1961,28 @@ final class SwiftDriverTests: XCTestCase {
       #if os(macOS)
       var driver1 = try Driver(args: commonArgs + ["-emit-executable", "-target", "x86_64-apple-macosx10.15", "-lto=llvm-thin"], env: env)
       let plannedJobs1 = try driver1.planBuild()
-      XCTAssertFalse(plannedJobs1.contains(where: { $0.kind == .autolinkExtract }))
-      let linkJob1 = plannedJobs1.first(where: { $0.kind == .link })
-      XCTAssertTrue(linkJob1?.tool.name.contains("clang"))
-      XCTAssertTrue(linkJob1?.commandLine.contains(.flag("-flto=thin")))
+      XCTAssertFalse(plannedJobs1.containsJob(.autolinkExtract))
+      let linkJob1 = try plannedJobs1.findJob(.link)
+      XCTAssertTrue(linkJob1.tool.name.contains("clang"))
+      XCTAssertTrue(linkJob1.commandLine.contains(.flag("-flto=thin")))
       #endif
 
       var driver2 = try Driver(args: commonArgs + ["-emit-executable", "-O", "-target", "x86_64-unknown-linux", "-lto=llvm-thin"], env: env)
       let plannedJobs2 = try driver2.planBuild()
-      XCTAssertFalse(plannedJobs2.contains(where: { $0.kind == .autolinkExtract }))
-      let linkJob2 = plannedJobs2.first(where: { $0.kind == .link })
-      XCTAssertTrue(linkJob2?.tool.name.contains("clang"))
-      XCTAssertTrue(linkJob2?.commandLine.contains(.flag("-flto=thin")))
-      XCTAssertTrue(linkJob2?.commandLine.contains(.flag("-O3")))
+      XCTAssertFalse(plannedJobs2.containsJob(.autolinkExtract))
+      let linkJob2 = try plannedJobs2.findJob(.link)
+      XCTAssertTrue(linkJob2.tool.name.contains("clang"))
+      XCTAssertTrue(linkJob2.commandLine.contains(.flag("-flto=thin")))
+      XCTAssertTrue(linkJob2.commandLine.contains(.flag("-O3")))
 
       var driver3 = try Driver(args: commonArgs + ["-emit-executable", "-target", "x86_64-unknown-linux", "-lto=llvm-full"], env: env)
       let plannedJobs3 = try driver3.planBuild()
-      XCTAssertFalse(plannedJobs3.contains(where: { $0.kind == .autolinkExtract }))
+      XCTAssertFalse(plannedJobs3.containsJob(.autolinkExtract))
 
-      let compileJob3 = try XCTUnwrap(plannedJobs3.first(where: { $0.kind == .compile }))
+      let compileJob3 = try plannedJobs3.findJob(.compile)
       XCTAssertTrue(compileJob3.outputs.contains { $0.file.basename.hasSuffix(".bc") })
 
-      let linkJob3 = try XCTUnwrap(plannedJobs3.first(where: { $0.kind == .link }))
+      let linkJob3 = try plannedJobs3.findJob(.link)
       XCTAssertTrue(linkJob3.tool.name.contains("clang"))
       XCTAssertTrue(linkJob3.commandLine.contains(.flag("-flto=full")))
     }
@@ -2778,7 +2778,7 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertTrue(matchTemporary(plannedJobs[0].outputs[0].file, "Test.o"))
     XCTAssert(!plannedJobs[0].commandLine.contains(.flag("-primary-file")))
 
-    let emitModuleJob = plannedJobs.first(where: {$0.kind == .emitModule})!
+    let emitModuleJob = try plannedJobs.findJob(.emitModule)
     XCTAssertEqual(emitModuleJob.outputs.count, driver1.targetTriple.isDarwin ? 8 : 7)
     XCTAssertEqual(emitModuleJob.outputs[0].file, VirtualPath.relative(RelativePath("Test.swiftmodule")))
     XCTAssertEqual(emitModuleJob.outputs[1].file, VirtualPath.relative(RelativePath("Test.swiftdoc")))
@@ -2976,7 +2976,7 @@ final class SwiftDriverTests: XCTestCase {
         XCTAssertTrue(matchTemporary(plannedJobs[0].outputs[2].file, "wibble.o"))
         XCTAssert(!plannedJobs[0].commandLine.contains(.flag("-primary-file")))
 
-        let emitModuleJob = plannedJobs.first(where: {$0.kind == .emitModule})!
+        let emitModuleJob = try plannedJobs.findJob(.emitModule)
         XCTAssertEqual(emitModuleJob.outputs[3].file, VirtualPath.absolute(AbsolutePath("/tmp/salty/Test.swiftinterface")))
         XCTAssert(!emitModuleJob.commandLine.contains(.flag("-primary-file")))
 
@@ -3002,7 +3002,7 @@ final class SwiftDriverTests: XCTestCase {
 
     let plannedJobs = try driver.planBuild()
 
-    let moduleJob = plannedJobs.first(where: { $0.kind == .emitModule })!
+    let moduleJob = try plannedJobs.findJob(.emitModule)
     XCTAssertTrue(moduleJob.commandLine.contains("-module-alias"))
     XCTAssertTrue(moduleJob.commandLine.contains("Car=Bar"))
     XCTAssertEqual(moduleJob.outputs[0].file, .absolute(AbsolutePath("/tmp/dir/Foo.swiftmodule")))
@@ -3304,14 +3304,14 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .emitModule, .link]))
 
       // The compile job only produces the object file.
-      let compileJob = plannedJobs.first(where: {$0.kind == .compile})!
+      let compileJob = try plannedJobs.findJob(.compile)
       XCTAssertTrue(compileJob.tool.name.contains("swift"))
       XCTAssertTrue(compileJob.commandLine.contains(.flag("-parse-as-library")))
       XCTAssertEqual(compileJob.outputs.count, 1)
       XCTAssertEqual(1, compileJob.outputs.filter({$0.type == .object}).count)
 
       // The emit module job produces the module files.
-      let emitModuleJob = plannedJobs.first(where: {$0.kind == .emitModule})!
+      let emitModuleJob = try plannedJobs.findJob(.emitModule)
       XCTAssertTrue(emitModuleJob.tool.name.contains("swift"))
       XCTAssertEqual(emitModuleJob.outputs.count, 3 + abiFileCount)
       XCTAssertEqual(1, emitModuleJob.outputs.filter({$0.file == .absolute(AbsolutePath(rebase("Test.swiftmodule", at: root)))}).count)
@@ -3359,7 +3359,7 @@ final class SwiftDriverTests: XCTestCase {
       #endif
 
       // The compile job produces both the object file and the module files.
-      let compileJob = plannedJobs.first(where: {$0.kind == .compile})!
+      let compileJob = try plannedJobs.findJob(.compile)
       XCTAssertEqual(compileJob.outputs.count, 4 + abiFileCount)
       XCTAssertEqual(1, compileJob.outputs.filter({$0.type == .object}).count)
       XCTAssertEqual(1, compileJob.outputs.filter({$0.file == .absolute(AbsolutePath(rebase("Test.swiftmodule", at: root)))}).count)
@@ -3430,10 +3430,10 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 5)
       XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .emitModule, .autolinkExtract, .moduleWrap, .link]))
-      let wrapJob = plannedJobs.filter {$0.kind == .moduleWrap} .first!
+      let wrapJob = try plannedJobs.findJob(.moduleWrap)
       XCTAssertEqual(wrapJob.inputs.count, 1)
       XCTAssertTrue(wrapJob.commandLine.contains(subsequence: ["-target", "x86_64-unknown-linux-gnu"]))
-      let mergeJob = plannedJobs.filter {$0.kind == .emitModule} .first!
+      let mergeJob = try plannedJobs.findJob(.emitModule)
       XCTAssertTrue(mergeJob.outputs.contains(wrapJob.inputs.first!))
       XCTAssertTrue(plannedJobs[4].inputs.contains(wrapJob.outputs.first!))
     }
@@ -3769,21 +3769,17 @@ final class SwiftDriverTests: XCTestCase {
   func testValidDeprecatedTargetiOS() throws {
     var driver = try Driver(args: ["swiftc", "-emit-module", "-target", "armv7-apple-ios13.0", "foo.swift"])
     let plannedJobs = try driver.planBuild()
-    let emitModuleJob = plannedJobs.first(where: {$0.kind == .emitModule})
-    XCTAssertNotNil(emitModuleJob)
-    let currentJob = emitModuleJob!
-    XCTAssert(currentJob.commandLine.contains(.flag("-target")))
-    XCTAssert(currentJob.commandLine.contains(.flag("armv7-apple-ios13.0")))
+    let emitModuleJob = try plannedJobs.findJob(.emitModule)
+    XCTAssert(emitModuleJob.commandLine.contains(.flag("-target")))
+    XCTAssert(emitModuleJob.commandLine.contains(.flag("armv7-apple-ios13.0")))
   }
 
   func testValidDeprecatedTargetWatchOS() throws {
     var driver = try Driver(args: ["swiftc", "-emit-module", "-target", "armv7k-apple-watchos10.0", "foo.swift"])
     let plannedJobs = try driver.planBuild()
-    let emitModuleJob = plannedJobs.first(where: {$0.kind == .emitModule})
-    XCTAssertNotNil(emitModuleJob)
-    let currentJob = emitModuleJob!
-    XCTAssert(currentJob.commandLine.contains(.flag("-target")))
-    XCTAssert(currentJob.commandLine.contains(.flag("armv7k-apple-watchos10.0")))
+    let emitModuleJob = try plannedJobs.findJob(.emitModule)
+    XCTAssert(emitModuleJob.commandLine.contains(.flag("-target")))
+    XCTAssert(emitModuleJob.commandLine.contains(.flag("armv7k-apple-watchos10.0")))
   }
 
   func testClangTargetForExplicitModule() throws {
@@ -4571,7 +4567,7 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
 
       XCTAssertEqual(plannedJobs.count, 3)
-      XCTAssertFalse(plannedJobs.contains { $0.kind == .generateDSYM })
+      XCTAssertFalse(plannedJobs.containsJob(.generateDSYM))
     }
 
     do {
@@ -4580,7 +4576,7 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
 
       XCTAssertEqual(plannedJobs.count, 3)
-      XCTAssertFalse(plannedJobs.contains { $0.kind == .generateDSYM })
+      XCTAssertFalse(plannedJobs.containsJob(.generateDSYM))
     }
 
     do {
@@ -4598,7 +4594,7 @@ final class SwiftDriverTests: XCTestCase {
       let jobs = try driver.planBuild()
 
       XCTAssertEqual(jobs.count, 3)
-      XCTAssertFalse(jobs.contains { $0.kind == .generateDSYM })
+      XCTAssertFalse(jobs.containsJob(.generateDSYM))
     }
 
     do {
@@ -4698,7 +4694,7 @@ final class SwiftDriverTests: XCTestCase {
       verifier.expect(.warning("ignoring '-verify-debug-info'; no debug info is being generated"))
       let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
       XCTAssertEqual(plannedJobs.count, 3)
-      XCTAssertFalse(plannedJobs.contains { $0.kind == .verifyDebugInfo })
+      XCTAssertFalse(plannedJobs.containsJob(.verifyDebugInfo))
     }
 
     // No dSYM generation (-gnone), therefore no verification
@@ -4706,7 +4702,7 @@ final class SwiftDriverTests: XCTestCase {
       verifier.expect(.warning("ignoring '-verify-debug-info'; no debug info is being generated"))
       let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
       XCTAssertEqual(plannedJobs.count, 3)
-      XCTAssertFalse(plannedJobs.contains { $0.kind == .verifyDebugInfo })
+      XCTAssertFalse(plannedJobs.containsJob(.verifyDebugInfo))
     }
 
     do {
@@ -5462,9 +5458,8 @@ final class SwiftDriverTests: XCTestCase {
                                      "-enable-library-evolution"])
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 3)
-      let emitJob = plannedJobs.first(where: { $0.kind == .emitModule })!
-      let verifyJob = plannedJobs.first(where: { $0.kind == .verifyModuleInterface })!
-
+      let emitJob = try plannedJobs.findJob(.emitModule)
+      let verifyJob = try plannedJobs.findJob(.verifyModuleInterface)
       let mergeInterfaceOutputs = emitJob.outputs.filter { $0.type == .swiftInterface }
       XCTAssertTrue(mergeInterfaceOutputs.count == 1,
                     "Merge module job should only have one swiftinterface output")
@@ -5520,8 +5515,8 @@ final class SwiftDriverTests: XCTestCase {
                                      "-experimental-emit-module-separately"], env: envVars)
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 3)
-      let emitJob = plannedJobs.first(where: { $0.kind == .emitModule })!
-      let verifyJob = plannedJobs.first(where: { $0.kind == .verifyModuleInterface })!
+      let emitJob = try plannedJobs.findJob(.emitModule)
+      let verifyJob = try plannedJobs.findJob(.verifyModuleInterface)
       let emitInterfaceOutput = emitJob.outputs.filter { $0.type == .swiftInterface }
       XCTAssertTrue(emitInterfaceOutput.count == 1,
                     "Emit module job should only have one swiftinterface output")
@@ -5559,7 +5554,7 @@ final class SwiftDriverTests: XCTestCase {
                                      "-library-level", "api"])
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 2)
-      XCTAssertTrue(plannedJobs.contains() {$0.kind == .verifyModuleInterface})
+      XCTAssertTrue(plannedJobs.containsJob(.verifyModuleInterface))
     }
 
     // Not enabled by default when the library-level is spi.
@@ -5584,10 +5579,10 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 3)
 
-      let emitJob = plannedJobs.first(where: { $0.kind == .emitModule })!
+      let emitJob = try plannedJobs.findJob(.emitModule)
       XCTAssertTrue(emitJob.commandLine.contains(.flag("-check-api-availability-only")))
 
-      let verifyJob = plannedJobs.first(where: { $0.kind == .verifyModuleInterface })!
+      let verifyJob = try plannedJobs.findJob(.verifyModuleInterface)
       XCTAssertFalse(verifyJob.commandLine.contains(.flag("-check-api-availability-only")))
     }
 
@@ -5983,19 +5978,19 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
       XCTAssertEqual(plannedJobs.count, 3)
 
-      let compileJob = plannedJobs.first(where: {$0.kind == .compile})!
+      let compileJob = try plannedJobs.findJob(.compile)
       XCTAssertEqual(compileJob.inputs.count, 1)
       XCTAssertEqual(compileJob.inputs[0].file, .relative(RelativePath("embed-bitcode.swift")))
       XCTAssertEqual(compileJob.outputs.count, 1)
       XCTAssertTrue(matchTemporary(compileJob.outputs[0].file, "embed-bitcode.bc"))
 
-      let backendJob = plannedJobs.first(where: {$0.kind == .backend})!
+      let backendJob = try plannedJobs.findJob(.backend)
       XCTAssertEqual(backendJob.inputs.count, 1)
       XCTAssertTrue(matchTemporary(backendJob.inputs[0].file, "embed-bitcode.bc"))
       XCTAssertEqual(backendJob.outputs.count, 1)
       XCTAssertEqual(backendJob.outputs[0].file, .relative(RelativePath("embed-bitcode.o")))
 
-      let emitModuleJob = plannedJobs.first(where: {$0.kind == .emitModule})!
+      let emitModuleJob = try plannedJobs.findJob(.emitModule)
       XCTAssertEqual(emitModuleJob.inputs.count, 1)
       XCTAssertEqual(emitModuleJob.inputs[0].file, .relative(RelativePath("embed-bitcode.swift")))
       XCTAssertEqual(emitModuleJob.outputs.count, driver.targetTriple.isDarwin ? 4 : 3)
@@ -6055,7 +6050,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[4].outputs.count, 1)
       XCTAssertEqual(plannedJobs[4].outputs[0].file, .relative(RelativePath("empty.o")))
 
-      let emitModuleJob = plannedJobs.first(where: { $0.kind == .emitModule })!
+      let emitModuleJob = try plannedJobs.findJob(.emitModule)
       XCTAssertEqual(emitModuleJob.inputs.count, 2)
       XCTAssertEqual(emitModuleJob.inputs[0].file, .relative(RelativePath("embed-bitcode.swift")))
       XCTAssertEqual(emitModuleJob.inputs[1].file, .relative(RelativePath("empty.swift")))
@@ -7324,12 +7319,22 @@ extension Array where Element: Equatable {
 }
 
 extension Array where Element == Job {
-  // Utility to drop autolink-extract jobs, which helps avoid introducing
-  // platform-specific conditionals in tests unrelated to autolinking.
+  /// Utility to drop autolink-extract jobs, which helps avoid introducing
+  /// platform-specific conditionals in tests unrelated to autolinking.
   func removingAutolinkExtractJobs() -> Self {
     var filtered = self
     filtered.removeAll(where: { $0.kind == .autolinkExtract })
     return filtered
+  }
+
+  /// Returns true if a job with the given Kind is contained in the array.
+  func containsJob(_ kind: Job.Kind) -> Bool {
+    return contains(where: { $0.kind == kind })
+  }
+
+  /// Finds the first job with the given kind, or throws if one cannot be found.
+  func findJob(_ kind: Job.Kind) throws -> Job {
+    return try XCTUnwrap(first(where: { $0.kind == kind }))
   }
 }
 
