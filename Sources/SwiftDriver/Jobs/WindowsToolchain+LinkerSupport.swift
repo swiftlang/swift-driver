@@ -105,9 +105,9 @@ extension WindowsToolchain {
       commandLine.appendFlag("-fuse-ld=lld")
     }
 
-      if let arg = parsedOptions.getLastArgument(.ldPath)?.asSingle {
-        commandLine.append(.joinedOptionAndPath("--ld-path=", try VirtualPath(path: arg)))
-      }
+    if let arg = parsedOptions.getLastArgument(.ldPath)?.asSingle {
+      commandLine.append(.joinedOptionAndPath("--ld-path=", try VirtualPath(path: arg)))
+    }
 
     switch lto {
     case .some(.llvmThin):
