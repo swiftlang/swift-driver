@@ -41,9 +41,9 @@ public struct Source: Hashable, Comparable {
   public init?(named name: String,
               at relativePath: RelativePath,
               on fileSystem: FileSystem = localFileSystem) throws {
-    guard let absPath = Fixture.fixturePath(at: relativePath,
-                                            for: "\(name).swift",
-                                            on: fileSystem)
+    guard let absPath = try Fixture.fixturePath(at: relativePath,
+                                                for: "\(name).swift",
+                                                on: fileSystem)
     else {
       return nil
     }

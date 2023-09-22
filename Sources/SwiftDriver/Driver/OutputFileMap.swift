@@ -47,7 +47,7 @@ public struct OutputFileMap: Hashable, Codable {
     }
 
     // Form the virtual path.
-    return VirtualPath.createUniqueTemporaryFile(RelativePath(inputFile.basenameWithoutExt.appendingFileTypeExtension(outputType))).intern()
+    return try VirtualPath.createUniqueTemporaryFile(RelativePath(validating: inputFile.basenameWithoutExt.appendingFileTypeExtension(outputType))).intern()
   }
 
   public func existingOutput(inputFile: VirtualPath.Handle, outputType: FileType) throws -> VirtualPath.Handle? {

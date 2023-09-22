@@ -677,8 +677,8 @@ public struct Driver {
     self.shouldUseInputFileList = inputFiles.count > fileListThreshold
     if shouldUseInputFileList {
       let swiftInputs = inputFiles.filter(\.type.isPartOfSwiftCompilation)
-      self.allSourcesFileList = VirtualPath.createUniqueFilelist(RelativePath("sources"),
-                                                                 .list(swiftInputs.map(\.file)))
+      self.allSourcesFileList = try VirtualPath.createUniqueFilelist(RelativePath(validating: "sources"),
+                                                                     .list(swiftInputs.map(\.file)))
     } else {
       self.allSourcesFileList = nil
     }
@@ -2556,7 +2556,7 @@ extension Driver {
         moduleOutputPath = try .init(path: moduleFilename)
       }
     } else {
-      moduleOutputPath = VirtualPath.createUniqueTemporaryFile(RelativePath(moduleName.appendingFileTypeExtension(.swiftModule)))
+      moduleOutputPath = try VirtualPath.createUniqueTemporaryFile(RelativePath(validating: moduleName.appendingFileTypeExtension(.swiftModule)))
     }
 
     // Use working directory if specified
@@ -2759,7 +2759,7 @@ extension Driver {
     if let outputDirectory = parsedOptions.getLastArgument(.pchOutputDir)?.asSingle {
       return try VirtualPath(path: outputDirectory).appending(component: pchFileName).intern()
     } else {
-      return VirtualPath.createUniqueTemporaryFile(RelativePath(pchFileName)).intern()
+      return try VirtualPath.createUniqueTemporaryFile(RelativePath(validating: pchFileName)).intern()
     }
   }
 }

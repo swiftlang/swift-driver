@@ -464,7 +464,7 @@ extension Driver {
           // Alongside primary output
           outputPath = try output.file.replacingExtension(with: outputType).intern()
         } else {
-          outputPath = VirtualPath.createUniqueTemporaryFile(RelativePath(input.file.basenameWithoutExt.appendingFileTypeExtension(outputType))).intern()
+          outputPath = try VirtualPath.createUniqueTemporaryFile(RelativePath(validating: input.file.basenameWithoutExt.appendingFileTypeExtension(outputType))).intern()
         }
 
         // Update the input-output file map.
@@ -591,7 +591,7 @@ extension Driver {
         remapOutputPath = try output.file.replacingExtension(with: .remap)
       } else {
         remapOutputPath =
-          VirtualPath.createUniqueTemporaryFile(RelativePath(input.file.basenameWithoutExt.appendingFileTypeExtension(.remap)))
+          try VirtualPath.createUniqueTemporaryFile(RelativePath(validating: input.file.basenameWithoutExt.appendingFileTypeExtension(.remap)))
       }
 
       flaggedInputOutputPairs.append((flag: "-emit-remap-file-path",
@@ -636,8 +636,8 @@ extension Driver {
         entries[indexFilePath.fileHandle] = [.indexData: idxOutput.fileHandle]
       }
       let outputFileMap = OutputFileMap(entries: entries)
-      let fileList = VirtualPath.createUniqueFilelist(RelativePath("supplementaryOutputs"),
-                                                      .outputFileMap(outputFileMap))
+      let fileList = try VirtualPath.createUniqueFilelist(RelativePath(validating: "supplementaryOutputs"),
+                                                          .outputFileMap(outputFileMap))
       commandLine.appendFlag(.supplementaryOutputFileMap)
       commandLine.appendPath(fileList)
     } else {

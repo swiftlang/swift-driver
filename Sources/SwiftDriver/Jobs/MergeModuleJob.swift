@@ -26,8 +26,8 @@ extension Driver {
     // Input file list.
     if shouldUseInputFileList {
       commandLine.appendFlag(.filelist)
-      let fileList = VirtualPath.createUniqueFilelist(RelativePath("inputs"),
-                                                      .list(inputsFromOutputs.map { $0.file }))
+      let fileList = try VirtualPath.createUniqueFilelist(RelativePath(validating: "inputs"),
+                                                          .list(inputsFromOutputs.map { $0.file }))
       commandLine.appendPath(fileList)
       inputs.append(contentsOf: inputsFromOutputs)
 
