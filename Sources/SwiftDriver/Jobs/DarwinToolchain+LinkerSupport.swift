@@ -68,10 +68,10 @@ extension DarwinToolchain {
       // Same as an executable, but with the -dylib flag
       linkerTool = .dynamicLinker
       commandLine.appendFlag("-dynamiclib")
-      addLinkInputs(shouldUseInputFileList: shouldUseInputFileList,
-                    commandLine: &commandLine,
-                    inputs: inputs,
-                    linkerOutputType: linkerOutputType)
+      try addLinkInputs(shouldUseInputFileList: shouldUseInputFileList,
+                        commandLine: &commandLine,
+                        inputs: inputs,
+                        linkerOutputType: linkerOutputType)
       try addDynamicLinkerFlags(targetInfo: targetInfo,
                                 parsedOptions: &parsedOptions,
                                 commandLine: &commandLine,
@@ -81,10 +81,10 @@ extension DarwinToolchain {
 
     case .executable:
       linkerTool = .dynamicLinker
-      addLinkInputs(shouldUseInputFileList: shouldUseInputFileList,
-                    commandLine: &commandLine,
-                    inputs: inputs,
-                    linkerOutputType: linkerOutputType)
+      try addLinkInputs(shouldUseInputFileList: shouldUseInputFileList,
+                        commandLine: &commandLine,
+                        inputs: inputs,
+                        linkerOutputType: linkerOutputType)
       try addDynamicLinkerFlags(targetInfo: targetInfo,
                                 parsedOptions: &parsedOptions,
                                 commandLine: &commandLine,
@@ -95,10 +95,10 @@ extension DarwinToolchain {
     case .staticLibrary:
       linkerTool = .staticLinker(lto)
       commandLine.appendFlag(.static)
-      addLinkInputs(shouldUseInputFileList: shouldUseInputFileList,
-                    commandLine: &commandLine,
-                    inputs: inputs,
-                    linkerOutputType: linkerOutputType)
+      try addLinkInputs(shouldUseInputFileList: shouldUseInputFileList,
+                        commandLine: &commandLine,
+                        inputs: inputs,
+                        linkerOutputType: linkerOutputType)
     }
 
     // Add the output
@@ -111,7 +111,7 @@ extension DarwinToolchain {
   private func addLinkInputs(shouldUseInputFileList: Bool,
                              commandLine: inout [Job.ArgTemplate],
                              inputs: [TypedVirtualPath],
-                             linkerOutputType: LinkOutputType) {
+                             linkerOutputType: LinkOutputType) throws {
     // inputs LinkFileList
     if shouldUseInputFileList {
       commandLine.appendFlag(.filelist)
@@ -129,7 +129,7 @@ extension DarwinToolchain {
           inputPaths.append(input.file)
         }
       }
-      let fileList = VirtualPath.createUniqueFilelist(RelativePath("inputs.LinkFileList"),
+      let fileList = VirtualPath.createUniqueFilelist(try RelativePath(validating: "inputs.LinkFileList"),
                                                       .list(inputPaths))
       commandLine.appendPath(fileList)
       if linkerOutputType != .staticLibrary {

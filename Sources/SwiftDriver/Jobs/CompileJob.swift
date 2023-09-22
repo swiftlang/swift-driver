@@ -66,10 +66,10 @@ extension Driver {
     }
 
     if !isTopLevel {
-      return TypedVirtualPath(file: VirtualPath.createUniqueTemporaryFile(.init(baseName.appendingFileTypeExtension(outputType))).intern(),
+      return TypedVirtualPath(file: VirtualPath.createUniqueTemporaryFile(try .init(validating: baseName.appendingFileTypeExtension(outputType))).intern(),
                               type: outputType)
     }
-    return TypedVirtualPath(file: try useWorkingDirectory(.init(baseName.appendingFileTypeExtension(outputType))).intern(), type: outputType)
+    return TypedVirtualPath(file: try useWorkingDirectory(try .init(validating: baseName.appendingFileTypeExtension(outputType))).intern(), type: outputType)
   }
 
   /// Is this compile job top-level

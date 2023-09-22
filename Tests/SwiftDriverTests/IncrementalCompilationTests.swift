@@ -20,8 +20,8 @@ import TestUtilities
 // MARK: - Instance variables and initialization
 final class IncrementalCompilationTests: XCTestCase {
 
-  var tempDir: AbsolutePath = AbsolutePath("/tmp")
-  var explicitModuleCacheDir: AbsolutePath = AbsolutePath("/tmp/ModuleCache")
+  var tempDir: AbsolutePath = try! AbsolutePath(validating: "/tmp")
+  var explicitModuleCacheDir: AbsolutePath = try! AbsolutePath(validating: "/tmp/ModuleCache")
 
   var derivedDataDir: AbsolutePath {
     tempDir.appending(component: "derivedData")
