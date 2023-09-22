@@ -11,12 +11,19 @@
 //===----------------------------------------------------------------------===//
 
 import SwiftOptions
+import DriverDefaults
 
 import func TSCBasic.lookupExecutablePath
 import struct TSCBasic.AbsolutePath
 
 extension GenericUnixToolchain {
   private func defaultLinker(for targetTriple: Triple) -> String? {
+    let constantDefaultLinker = String(cString: DriverDefaults.defaultLinker)
+    if !constantDefaultLinker.isEmpty {
+      print("Using linker: \(constantDefaultLinker)")
+      return constantDefaultLinker
+    }
+
     if targetTriple.os == .openbsd || targetTriple.os == .freeBSD ||
         targetTriple.environment == .android {
       return "lld"

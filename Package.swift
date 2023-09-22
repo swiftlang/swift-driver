@@ -46,6 +46,10 @@ let package = Package(
     .target(name: "CSwiftScan",
             exclude: [ "CMakeLists.txt" ]),
 
+    /// Header containing distribution-configurable defaults.
+    .target(name: "DriverDefaults",
+            exclude: [ "CMakeLists.txt" ]),
+
     /// The driver library.
     .target(
       name: "SwiftDriver",
@@ -53,6 +57,7 @@ let package = Package(
         "SwiftOptions",
         .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
         "CSwiftScan",
+        "DriverDefaults",
         .product(name: "Yams", package: "yams"),
       ],
       exclude: ["CMakeLists.txt"]),
