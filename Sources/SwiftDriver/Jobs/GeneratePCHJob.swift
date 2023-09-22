@@ -49,8 +49,8 @@ extension Driver {
         path = try VirtualPath(path: outputDirectory).appending(component: outputName.appendingFileTypeExtension(.diagnostics))
       } else {
         path =
-          VirtualPath.createUniqueTemporaryFile(
-            RelativePath(input.file.basenameWithoutExt.appendingFileTypeExtension(.diagnostics)))
+          try VirtualPath.createUniqueTemporaryFile(
+            RelativePath(validating: input.file.basenameWithoutExt.appendingFileTypeExtension(.diagnostics)))
       }
       commandLine.appendPath(path)
       outputs.append(.init(file: path.intern(), type: .diagnostics))

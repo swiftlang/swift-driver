@@ -66,10 +66,10 @@ extension Driver {
     }
 
     if !isTopLevel {
-      return TypedVirtualPath(file: VirtualPath.createUniqueTemporaryFile(.init(baseName.appendingFileTypeExtension(outputType))).intern(),
+      return TypedVirtualPath(file: try VirtualPath.createUniqueTemporaryFile(.init(validating: baseName.appendingFileTypeExtension(outputType))).intern(),
                               type: outputType)
     }
-    return TypedVirtualPath(file: try useWorkingDirectory(.init(baseName.appendingFileTypeExtension(outputType))).intern(), type: outputType)
+    return TypedVirtualPath(file: try useWorkingDirectory(try .init(validating: baseName.appendingFileTypeExtension(outputType))).intern(), type: outputType)
   }
 
   /// Is this compile job top-level
@@ -125,8 +125,8 @@ extension Driver {
     if usePrimaryInputFileList {
       // primary file list
       commandLine.appendFlag(.primaryFilelist)
-      let fileList = VirtualPath.createUniqueFilelist(RelativePath("primaryInputs"),
-                                                      .list(primaryInputs.map(\.file)))
+      let fileList = try VirtualPath.createUniqueFilelist(RelativePath(validating: "primaryInputs"),
+                                                          .list(primaryInputs.map(\.file)))
       commandLine.appendPath(fileList)
     }
 
@@ -311,8 +311,8 @@ extension Driver {
     // Add primary outputs.
     if primaryOutputs.count > fileListThreshold {
       commandLine.appendFlag(.outputFilelist)
-      let fileList = VirtualPath.createUniqueFilelist(RelativePath("outputs"),
-                                                      .list(primaryOutputs.map { $0.file }))
+      let fileList = try VirtualPath.createUniqueFilelist(RelativePath(validating: "outputs"),
+                                                          .list(primaryOutputs.map { $0.file }))
       commandLine.appendPath(fileList)
     } else {
       for primaryOutput in primaryOutputs {
@@ -325,8 +325,8 @@ extension Driver {
     if !primaryIndexUnitOutputs.isEmpty {
       if primaryIndexUnitOutputs.count > fileListThreshold {
         commandLine.appendFlag(.indexUnitOutputPathFilelist)
-        let fileList = VirtualPath.createUniqueFilelist(RelativePath("index-unit-outputs"),
-                                                        .list(primaryIndexUnitOutputs.map { $0.file }))
+        let fileList = try VirtualPath.createUniqueFilelist(RelativePath(validating: "index-unit-outputs"),
+                                                            .list(primaryIndexUnitOutputs.map { $0.file }))
         commandLine.appendPath(fileList)
       } else {
         for primaryIndexUnitOutput in primaryIndexUnitOutputs {

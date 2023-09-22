@@ -21,7 +21,7 @@ import TestUtilities
 final class IncrementalCompilationTests: XCTestCase {
 
   var tempDir: AbsolutePath = try! AbsolutePath(validating: "/tmp")
-  var explicitModuleCacheDir: AbsolutePath = try! AbsolutePath(validating: "/tmp/ModuleCache")  
+  var explicitModuleCacheDir: AbsolutePath = try! AbsolutePath(validating: "/tmp/ModuleCache")
 
   var derivedDataDir: AbsolutePath {
     tempDir.appending(component: "derivedData")
@@ -163,7 +163,7 @@ extension IncrementalCompilationTests {
     let autoOuts = autolinkExtractJob.outputs.filter {$0.type == .autolink}
     XCTAssertEqual(autoOuts.count, 1)
     let autoOut = autoOuts[0]
-    let expected = AbsolutePath(derivedDataPath, "\(module).autolink")
+    let expected = try AbsolutePath(validating: "\(module).autolink", relativeTo: derivedDataPath)
     XCTAssertEqual(autoOut.file.absolutePath, expected)
   }
 }

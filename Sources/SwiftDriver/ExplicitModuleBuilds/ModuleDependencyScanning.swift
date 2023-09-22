@@ -143,8 +143,8 @@ public extension Driver {
      let encoder = JSONEncoder()
      encoder.outputFormatting = [.prettyPrinted]
      let contents = try encoder.encode(placeholderArtifacts)
-     return VirtualPath.createUniqueTemporaryFileWithKnownContents(.init("\(moduleOutputInfo.name)-external-modules.json"),
-                                                                   contents)
+     return try VirtualPath.createUniqueTemporaryFileWithKnownContents(.init(validating: "\(moduleOutputInfo.name)-external-modules.json"),
+                                                                       contents)
   }
 
   /// Returns false if the lib is available and ready to use
@@ -418,8 +418,8 @@ public extension Driver {
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.prettyPrinted]
     let contents = try encoder.encode(moduleInfos)
-    return VirtualPath.createUniqueTemporaryFileWithKnownContents(.init("\(moduleOutputInfo.name)-batch-module-scan.json"),
-                                                                  contents)
+    return try VirtualPath.createUniqueTemporaryFileWithKnownContents(.init(validating: "\(moduleOutputInfo.name)-batch-module-scan.json"),
+                                                                      contents)
   }
 
   static func itemizedJobCommand(of job: Job, useResponseFiles: ResponseFileHandling,

@@ -33,8 +33,8 @@ extension Driver {
     let dir = firstInput.file.parentDirectory
     // Go through a bit of extra rigmarole to keep the "./" out of the name for
     // the sake of the tests.
-    let output: VirtualPath = dir == .temporary(RelativePath("."))
-      ? VirtualPath.createUniqueTemporaryFile(RelativePath(outputBasename))
+    let output: VirtualPath = dir == .temporary(try RelativePath(validating: "."))
+      ? try VirtualPath.createUniqueTemporaryFile(RelativePath(validating: outputBasename))
       : dir.appending(component: outputBasename)
 
     commandLine.append(contentsOf: inputs.map { .path($0.file) })

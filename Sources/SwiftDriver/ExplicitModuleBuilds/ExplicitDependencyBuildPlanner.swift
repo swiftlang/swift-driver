@@ -285,8 +285,8 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
     } else {
       // Write JSON to a file and add the JSON artifacts to command-line and inputs.
       let dependencyFile =
-        VirtualPath.createUniqueTemporaryFileWithKnownContents(.init("\(moduleId.moduleName)-dependencies.json"),
-                                                               dependencyFileContent)
+        try VirtualPath.createUniqueTemporaryFileWithKnownContents(.init(validating: "\(moduleId.moduleName)-dependencies.json"),
+                                                                   dependencyFileContent)
       commandLine.appendFlag("-explicit-swift-module-map-file")
       commandLine.appendPath(dependencyFile)
       inputs.append(TypedVirtualPath(file: dependencyFile.intern(),
@@ -457,8 +457,8 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
                                       clangDependencyArtifacts: clangDependencyArtifacts)
 
     let dependencyFile =
-      VirtualPath.createUniqueTemporaryFileWithKnownContents(.init("\(mainModuleId.moduleName)-dependencies.json"),
-                                                             dependencyFileContent)
+      try VirtualPath.createUniqueTemporaryFileWithKnownContents(.init(validating: "\(mainModuleId.moduleName)-dependencies.json"),
+                                                                 dependencyFileContent)
     commandLine.appendFlag("-explicit-swift-module-map-file")
     commandLine.appendPath(dependencyFile)
     inputs.append(TypedVirtualPath(file: dependencyFile.intern(),

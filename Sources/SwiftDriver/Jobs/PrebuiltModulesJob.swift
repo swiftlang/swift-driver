@@ -392,12 +392,21 @@ typealias PrebuiltModuleOutput = PrebuiltModuleInput
 
 public struct SDKPrebuiltModuleInputsCollector {
   let sdkPath: AbsolutePath
-  let nonFrameworkDirs = [RelativePath("usr/lib/swift"),
-                          RelativePath("System/iOSSupport/usr/lib/swift")]
-  let frameworkDirs = [RelativePath("System/Library/Frameworks"),
-                       RelativePath("System/Library/PrivateFrameworks"),
-                       RelativePath("System/iOSSupport/System/Library/Frameworks"),
-                       RelativePath("System/iOSSupport/System/Library/PrivateFrameworks")]
+  var nonFrameworkDirs: [RelativePath] {
+    get throws {
+      try [RelativePath(validating: "usr/lib/swift"),
+           RelativePath(validating: "System/iOSSupport/usr/lib/swift")]
+    }
+  }
+  var frameworkDirs: [RelativePath] {
+    get throws {
+      try [RelativePath(validating: "System/Library/Frameworks"),
+           RelativePath(validating: "System/Library/PrivateFrameworks"),
+           RelativePath(validating: "System/iOSSupport/System/Library/Frameworks"),
+           RelativePath(validating: "System/iOSSupport/System/Library/PrivateFrameworks")]
+    }
+  }
+
   let sdkInfo: DarwinToolchain.DarwinSDKInfo
   let diagEngine: DiagnosticsEngine
   public init(_ sdkPath: AbsolutePath, _ diagEngine: DiagnosticsEngine) {
@@ -482,7 +491,7 @@ public struct SDKPrebuiltModuleInputsCollector {
       allSwiftAdopters.append(try! SwiftAdopter(moduleName, dir, hasInterface, hasModule))
     }
     // Search inside framework dirs in an SDK to find .swiftmodule directories.
-    for dir in frameworkDirs {
+    for dir in try frameworkDirs {
       let frameDir = AbsolutePath(sdkPath, dir)
       if !localFileSystem.exists(frameDir) {
         continue
@@ -500,14 +509,14 @@ public struct SDKPrebuiltModuleInputsCollector {
       }
     }
     // Search inside lib dirs in an SDK to find .swiftmodule directories.
-    for dir in nonFrameworkDirs {
+    for dir in try nonFrameworkDirs {
       let swiftModuleDir = AbsolutePath(sdkPath, dir)
       if !localFileSystem.exists(swiftModuleDir) {
         continue
       }
       try localFileSystem.getDirectoryContents(swiftModuleDir).forEach {
         if $0.hasSuffix(".swiftmodule") {
-          try updateResults(AbsolutePath(swiftModuleDir, $0))
+          try updateResults(try AbsolutePath(validating: $0, relativeTo: swiftModuleDir))
         }
       }
     }
