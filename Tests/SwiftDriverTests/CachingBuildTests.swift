@@ -471,12 +471,9 @@ final class CachingBuildTests: XCTestCase {
       let foo = path.appending(component: "foo.swift")
       let casPath = path.appending(component: "cas")
       try localFileSystem.writeFileContents(foo) {
-        $0.send("""
-          extension Profiler {
-              public static let count: Int = 42"
-          }
-          """
-        )
+        $0.send("extension Profiler {")
+        $0.send("    public static let count: Int = 42")
+        $0.send("}")
       }
       let fooHeader = path.appending(component: "foo.h")
       try localFileSystem.writeFileContents(fooHeader) {

@@ -1027,12 +1027,9 @@ final class ExplicitModuleBuildTests: XCTestCase {
       try localFileSystem.createDirectory(FooInstallPath)
       let foo = path.appending(component: "foo.swift")
       try localFileSystem.writeFileContents(foo) {
-          $0.send("""
-            extension Profiler {\
-                public static let count: Int = 42"\
-            }
-            """
-          )
+        $0.send("extension Profiler {")
+        $0.send("    public static let count: Int = 42")
+        $0.send("}")
       }
       let fooHeader = path.appending(component: "foo.h")
       try localFileSystem.writeFileContents(fooHeader) {
