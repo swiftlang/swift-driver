@@ -1028,8 +1028,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let foo = path.appending(component: "foo.swift")
       try localFileSystem.writeFileContents(foo) {
           $0.send("""
-            extension Profiler {
-                public static let count: Int = 42"
+            extension Profiler {\
+                public static let count: Int = 42"\
             }
             """
           )
