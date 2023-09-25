@@ -2043,8 +2043,7 @@ final class SwiftDriverTests: XCTestCase {
     do {
       // Linux shared objects (.so) are not offered to autolink-extract
       try withTemporaryDirectory { path in
-        try localFileSystem.writeFileContents(
-          path.appending(components: "libEmpty.so")) { $0 <<< "/* empty */" }
+        try localFileSystem.writeFileContents(path.appending(components: "libEmpty.so")) { $0.send("/* empty */") }
 
         var driver = try Driver(args: commonArgs + ["-emit-executable", "-target", "x86_64-unknown-linux", "libEmpty.so"], env: env)
         let plannedJobs = try driver.planBuild()
@@ -2197,8 +2196,9 @@ final class SwiftDriverTests: XCTestCase {
 
     do {
       try withTemporaryDirectory { path in
-        try localFileSystem.writeFileContents(
-          path.appending(components: "wasi", "static-executable-args.lnk")) { $0 <<< "garbage" }
+        try localFileSystem.writeFileContents(path.appending(components: "wasi", "static-executable-args.lnk")) {
+          $0.send("garbage")
+        }
         // Wasm executable linking
         var driver = try Driver(args: commonArgs + ["-emit-executable", "-Ounchecked",
                                                     "-target", "wasm32-unknown-wasi",
@@ -3811,7 +3811,7 @@ final class SwiftDriverTests: XCTestCase {
     try withTemporaryDirectory { path in
       let main = path.appending(component: "Foo.swift")
       try localFileSystem.writeFileContents(main) {
-        $0 <<< "import Swift"
+        $0.send("import Swift")
       }
       var driver = try Driver(args: ["swiftc", "-explicit-module-build",
                                      "-target", "arm64e-apple-ios13.0-macabi",

@@ -362,9 +362,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
     try withTemporaryDirectory { path in
       let main = path.appending(component: "testExplicitModuleVerifyInterfaceJobs.swift")
       try localFileSystem.writeFileContents(main) {
-        $0 <<< "import C;"
-        $0 <<< "import E;"
-        $0 <<< "import G;"
+        $0.send("import C;import E;import G;")
       }
 
       let swiftModuleInterfacesPath: AbsolutePath =
@@ -1029,17 +1027,20 @@ final class ExplicitModuleBuildTests: XCTestCase {
       try localFileSystem.createDirectory(FooInstallPath)
       let foo = path.appending(component: "foo.swift")
       try localFileSystem.writeFileContents(foo) {
-        $0 <<< "extension Profiler {"
-        $0 <<< "    public static let count: Int = 42"
-        $0 <<< "}"
+          $0.send("""
+            extension Profiler {
+                public static let count: Int = 42"
+            }
+            """
+          )
       }
       let fooHeader = path.appending(component: "foo.h")
       try localFileSystem.writeFileContents(fooHeader) {
-        $0 <<< "struct Profiler { void* ptr; };"
+        $0.send("struct Profiler { void* ptr; };")
       }
       let main = path.appending(component: "main.swift")
       try localFileSystem.writeFileContents(main) {
-        $0 <<< "import Foo"
+        $0.send("import Foo")
       }
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
 
