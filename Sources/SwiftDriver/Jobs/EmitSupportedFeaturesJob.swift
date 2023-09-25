@@ -37,8 +37,8 @@ extension Toolchain {
     // at least one so we fake it.
     // FIXME: Teach -emit-supported-features to not expect any inputs, like -print-target-info does.
     let dummyInputPath =
-      VirtualPath.createUniqueTemporaryFileWithKnownContents(.init("dummyInput.swift"),
-                                                             "".data(using: .utf8)!)
+      try VirtualPath.createUniqueTemporaryFileWithKnownContents(.init(validating: "dummyInput.swift"),
+                                                                 "".data(using: .utf8)!)
     commandLine.appendPath(dummyInputPath)
     inputs.append(TypedVirtualPath(file: dummyInputPath.intern(), type: .swift))
 

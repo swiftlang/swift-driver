@@ -146,11 +146,11 @@ public enum VirtualPath: Hashable {
     case .absolute(let path):
       return .absolute(path.parentDirectory)
     case .relative(let path):
-      return .relative(RelativePath(path.dirname))
+      return .relative(try! RelativePath(validating: path.dirname))
     case .temporary(let path), .temporaryWithKnownContents(let path, _):
-      return .temporary(RelativePath(path.dirname))
+      return .temporary(try! RelativePath(validating: path.dirname))
     case .fileList(let path, _):
-      return .temporary(RelativePath(path.dirname))
+      return .temporary(try! RelativePath(validating: path.dirname))
     case .standardInput, .standardOutput:
       assertionFailure("Can't get directory of stdin/stdout")
       return self
@@ -204,13 +204,13 @@ public enum VirtualPath: Hashable {
     case let .absolute(path):
       return .absolute(try AbsolutePath(validating: path.pathString + suffix))
     case let .relative(path):
-      return .relative(RelativePath(path.pathString + suffix))
+      return .relative(try RelativePath(validating: path.pathString + suffix))
     case let .temporary(path):
-      return .temporary(RelativePath(path.pathString + suffix))
+      return .temporary(try RelativePath(validating: path.pathString + suffix))
     case let .temporaryWithKnownContents(path, contents):
-      return .temporaryWithKnownContents(RelativePath(path.pathString + suffix), contents)
+      return .temporaryWithKnownContents(try RelativePath(validating: path.pathString + suffix), contents)
     case let .fileList(path, content):
-      return .fileList(RelativePath(path.pathString + suffix), content)
+      return .fileList(try RelativePath(validating: path.pathString + suffix), content)
     case .standardInput, .standardOutput:
       assertionFailure("Can't append path component to standard in/out")
       return self
@@ -431,29 +431,29 @@ extension VirtualPath {
 /// Clients are still allowed to instantiate `.temporary` `VirtualPath` values directly because of our inability to specify
 /// enum case access control, but are discouraged from doing so.
 extension VirtualPath {
-  public static func createUniqueTemporaryFile(_ path: RelativePath) -> VirtualPath {
-    let uniquedRelativePath = getUniqueTemporaryPath(for: path)
+  public static func createUniqueTemporaryFile(_ path: RelativePath) throws -> VirtualPath {
+    let uniquedRelativePath = try getUniqueTemporaryPath(for: path)
     return .temporary(uniquedRelativePath)
   }
 
   public static func createUniqueTemporaryFileWithKnownContents(_ path: RelativePath, _ data: Data)
-  -> VirtualPath {
-    let uniquedRelativePath = getUniqueTemporaryPath(for: path)
+  throws -> VirtualPath {
+    let uniquedRelativePath = try getUniqueTemporaryPath(for: path)
     return .temporaryWithKnownContents(uniquedRelativePath, data)
   }
 
   public static func createUniqueFilelist(_ path: RelativePath, _ fileList: FileList)
-  -> VirtualPath {
-    let uniquedRelativePath = getUniqueTemporaryPath(for: path)
+  throws -> VirtualPath {
+    let uniquedRelativePath = try getUniqueTemporaryPath(for: path)
     return .fileList(uniquedRelativePath, fileList)
   }
 
-  private static func getUniqueTemporaryPath(for path: RelativePath) -> RelativePath {
+  private static func getUniqueTemporaryPath(for path: RelativePath) throws -> RelativePath {
     let uniquedBaseName = Self.temporaryFileStore.getUniqueFilename(for: path.basenameWithoutExt)
     // Avoid introducing the the leading dot
     let dirName = path.dirname == "." ? "" : path.dirname
     let fileExtension = path.extension.map { ".\($0)" } ?? ""
-    return RelativePath(dirName + uniquedBaseName + fileExtension)
+    return try RelativePath(validating: dirName + uniquedBaseName + fileExtension)
   }
 
   /// A cache of created temporary files
@@ -649,13 +649,13 @@ extension VirtualPath {
     case let .absolute(path):
       return .absolute(try AbsolutePath(validating: path.pathString.withoutExt(path.extension).appendingFileTypeExtension(fileType)))
     case let .relative(path):
-      return .relative(RelativePath(path.pathString.withoutExt(path.extension).appendingFileTypeExtension(fileType)))
+      return .relative(try RelativePath(validating: path.pathString.withoutExt(path.extension).appendingFileTypeExtension(fileType)))
     case let .temporary(path):
-      return .temporary(RelativePath(path.pathString.withoutExt(path.extension).appendingFileTypeExtension(fileType)))
+      return .temporary(try RelativePath(validating: path.pathString.withoutExt(path.extension).appendingFileTypeExtension(fileType)))
     case let .temporaryWithKnownContents(path, contents):
-      return .temporaryWithKnownContents(RelativePath(path.pathString.withoutExt(path.extension).appendingFileTypeExtension(fileType)), contents)
+      return .temporaryWithKnownContents(try RelativePath(validating: path.pathString.withoutExt(path.extension).appendingFileTypeExtension(fileType)), contents)
     case let .fileList(path, content):
-      return .fileList(RelativePath(path.pathString.withoutExt(path.extension).appendingFileTypeExtension(fileType)), content)
+      return .fileList(try RelativePath(validating: path.pathString.withoutExt(path.extension).appendingFileTypeExtension(fileType)), content)
     case .standardInput, .standardOutput:
       return self
     }

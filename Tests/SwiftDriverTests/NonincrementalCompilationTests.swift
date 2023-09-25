@@ -44,7 +44,7 @@ final class NonincrementalCompilationTests: XCTestCase {
   }
 
   func testReadBinarySourceFileDependencyGraph() throws {
-    let absolutePath = try XCTUnwrap(Fixture.fixturePath(at: RelativePath("Incremental"),
+    let absolutePath = try XCTUnwrap(Fixture.fixturePath(at: try RelativePath(validating: "Incremental"),
                                                          for: "main.swiftdeps"))
     let typedFile = TypedVirtualPath(file: VirtualPath.absolute(absolutePath).intern(), type: .swiftDeps)
     try MockIncrementalCompilationSynchronizer.withInternedStringTable { internedStringTable in
@@ -94,7 +94,7 @@ final class NonincrementalCompilationTests: XCTestCase {
   }
 
   func testReadComplexSourceFileDependencyGraph() throws {
-    let absolutePath = try XCTUnwrap(Fixture.fixturePath(at: RelativePath("Incremental"),
+    let absolutePath = try XCTUnwrap(Fixture.fixturePath(at: try RelativePath(validating: "Incremental"),
                                                          for: "hello.swiftdeps"))
     try MockIncrementalCompilationSynchronizer.withInternedStringTable{ internedStringTable in
       let graph = try XCTUnwrap(
@@ -150,7 +150,7 @@ final class NonincrementalCompilationTests: XCTestCase {
   }
 
   func testExtractSourceFileDependencyGraphFromSwiftModule() throws {
-    let absolutePath = try XCTUnwrap(Fixture.fixturePath(at: RelativePath("Incremental"),
+    let absolutePath = try XCTUnwrap(Fixture.fixturePath(at: try RelativePath(validating: "Incremental"),
                                                          for: "hello.swiftmodule"))
     let data = try localFileSystem.readFileContents(absolutePath)
     try MockIncrementalCompilationSynchronizer.withInternedStringTable { internedStringTable in

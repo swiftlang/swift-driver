@@ -145,27 +145,27 @@ final class ExplicitModuleBuildTests: XCTestCase {
         XCTAssertFalse(driver.isExplicitMainModuleJob(job: job))
 
         switch (job.outputs[0].file) {
-          case .relative(RelativePath("SwiftShims.pcm")):
-          try checkExplicitModuleBuildJob(job: job,
-                                          moduleId: .clang("SwiftShims"),
-                                          dependencyGraph: moduleDependencyGraph)
-          case .relative(RelativePath("c_simd.pcm")):
+          case .relative(try .init(validating: "SwiftShims.pcm")):
+            try checkExplicitModuleBuildJob(job: job,
+                                            moduleId: .clang("SwiftShims"),
+                                            dependencyGraph: moduleDependencyGraph)
+          case .relative(try .init(validating: "c_simd.pcm")):
             try checkExplicitModuleBuildJob(job: job,
                                             moduleId: .clang("c_simd"),
                                             dependencyGraph: moduleDependencyGraph)
-          case .relative(RelativePath("Swift.swiftmodule")):
+          case .relative(try .init(validating: "Swift.swiftmodule")):
             try checkExplicitModuleBuildJob(job: job,
                                             moduleId: .swift("Swift"),
                                             dependencyGraph: moduleDependencyGraph)
-          case .relative(RelativePath("_Concurrency.swiftmodule")):
+          case .relative(try .init(validating: "_Concurrency.swiftmodule")):
             try checkExplicitModuleBuildJob(job: job,
                                             moduleId: .swift("_Concurrency"),
                                             dependencyGraph: moduleDependencyGraph)
-          case .relative(RelativePath("_StringProcessing.swiftmodule")):
+          case .relative(try .init(validating: "_StringProcessing.swiftmodule")):
             try checkExplicitModuleBuildJob(job: job,
                                             moduleId: .swift("_StringProcessing"),
                                             dependencyGraph: moduleDependencyGraph)
-          case .relative(RelativePath("SwiftOnoneSupport.swiftmodule")):
+          case .relative(try .init(validating: "SwiftOnoneSupport.swiftmodule")):
             try checkExplicitModuleBuildJob(job: job,
                                             moduleId: .swift("SwiftOnoneSupport"),
                                             dependencyGraph: moduleDependencyGraph)
@@ -179,11 +179,11 @@ final class ExplicitModuleBuildTests: XCTestCase {
   func testModuleDependencyBuildCommandGenerationWithExternalFramework() throws {
     do {
       let externalDetails: ExternalTargetModuleDetailsMap =
-        try [.swiftPrebuiltExternal("A"): ExternalTargetModuleDetails(path: AbsolutePath(validating: "/tmp/A.swiftmodule"),
+            [.swiftPrebuiltExternal("A"): ExternalTargetModuleDetails(path: try AbsolutePath(validating: "/tmp/A.swiftmodule"),
                                                                       isFramework: true),
-             .swiftPrebuiltExternal("K"): ExternalTargetModuleDetails(path: AbsolutePath(validating: "/tmp/K.swiftmodule"),
+             .swiftPrebuiltExternal("K"): ExternalTargetModuleDetails(path: try AbsolutePath(validating: "/tmp/K.swiftmodule"),
                                                                        isFramework: true),
-             .swiftPrebuiltExternal("simpleTestModule"): ExternalTargetModuleDetails(path: AbsolutePath(validating: "/tmp/simpleTestModule.swiftmodule"),
+             .swiftPrebuiltExternal("simpleTestModule"): ExternalTargetModuleDetails(path: try AbsolutePath(validating: "/tmp/simpleTestModule.swiftmodule"),
                                                                                      isFramework: true)]
       var driver = try Driver(args: ["swiftc", "-explicit-module-build",
                                      "-module-name", "simpleTestModule",
@@ -340,7 +340,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
           }
         } else {
           switch (outputFilePath) {
-            case .relative(RelativePath("testExplicitModuleBuildJobs")):
+            case .relative(try .init(validating: "testExplicitModuleBuildJobs")):
               XCTAssertTrue(driver.isExplicitMainModuleJob(job: job))
               XCTAssertEqual(job.kind, .link)
             case .temporary(_):
@@ -470,7 +470,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
           }
         } else {
           switch (outputFilePath) {
-            case .relative(RelativePath("testExplicitModuleVerifyInterfaceJobs")):
+            case .relative(try .init(validating: "testExplicitModuleVerifyInterfaceJobs")):
               XCTAssertTrue(driver.isExplicitMainModuleJob(job: job))
               XCTAssertEqual(job.kind, .link)
             case .temporary(_):
@@ -604,7 +604,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
           // Check we don't use `-pch-output-dir` anymore during main module job.
           XCTAssertFalse(job.commandLine.contains("-pch-output-dir"))
           switch (outputFilePath) {
-            case .relative(RelativePath("testExplicitModuleBuildPCHOutputJobs")):
+            case .relative(try .init(validating: "testExplicitModuleBuildPCHOutputJobs")):
               XCTAssertTrue(driver.isExplicitMainModuleJob(job: job))
               XCTAssertEqual(job.kind, .link)
             case .temporary(_):
@@ -708,7 +708,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
           }
         } else {
           switch (outputFilePath) {
-            case .relative(RelativePath("testExplicitModuleBuildJobs")):
+            case .relative(try .init(validating: "testExplicitModuleBuildJobs")):
               XCTAssertTrue(driver.isExplicitMainModuleJob(job: job))
               XCTAssertEqual(job.kind, .link)
             case .temporary(_):
@@ -1392,11 +1392,11 @@ final class ExplicitModuleBuildTests: XCTestCase {
       try localFileSystem.writeFileContents(main, bytes: "import S;")
 
       let cHeadersPath: AbsolutePath =
-        try testInputsPath.appending(component: "ExplicitModuleBuilds")
-                          .appending(component: "CHeaders")
+      try testInputsPath.appending(component: "ExplicitModuleBuilds")
+                        .appending(component: "CHeaders")
       let swiftModuleInterfacesPath: AbsolutePath =
-        try testInputsPath.appending(component: "ExplicitModuleBuilds")
-                          .appending(component: "Swift")
+      try testInputsPath.appending(component: "ExplicitModuleBuilds")
+                        .appending(component: "Swift")
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       var driver = try Driver(args: ["swiftc",
                                      "-I", cHeadersPath.nativePathString(escaped: true),

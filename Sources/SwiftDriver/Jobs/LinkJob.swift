@@ -15,14 +15,16 @@ import struct TSCBasic.RelativePath
 
 extension Driver {
   internal var relativeOutputFileForImage: RelativePath {
-    if inputFiles.count == 1 && moduleOutputInfo.nameIsFallback && inputFiles[0].file != .standardInput {
-      return RelativePath(inputFiles[0].file.basenameWithoutExt)
-    }
+    get throws {
+      if inputFiles.count == 1 && moduleOutputInfo.nameIsFallback && inputFiles[0].file != .standardInput {
+        return try RelativePath(validating: inputFiles[0].file.basenameWithoutExt)
+      }
 
-    let outputName =
+      let outputName =
       toolchain.makeLinkerOutputFilename(moduleName: moduleOutputInfo.name,
                                          type: linkerOutputType!)
-    return RelativePath(outputName)
+      return try RelativePath(validating: outputName)
+    }
   }
 
   /// Compute the output file for an image output.
