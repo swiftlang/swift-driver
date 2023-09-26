@@ -166,4 +166,16 @@ extension Diagnostic.Message {
   static func error_expected_frontend_command() -> Diagnostic.Message {
     .error("expected a swift frontend command")
   }
+
+  static var error_no_library_evolution_embedded: Diagnostic.Message {
+    .error("Library evolution cannot be enabled with embedded Swift.")
+  }
+
+  static var error_need_wmo_embedded: Diagnostic.Message {
+    .error("Whole module optimization (wmo) must be enabled with embedded Swift.")
+  }
+
+  static var error_no_objc_interop_embedded: Diagnostic.Message {
+    .error("Objective-C interop cannot be enabled with embedded Swift.")
+  }
 }

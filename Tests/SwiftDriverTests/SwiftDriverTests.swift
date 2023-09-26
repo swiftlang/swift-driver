@@ -6288,6 +6288,36 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testEmbeddedSwiftOptions() throws {
+    do {
+      var driver = try Driver(args: ["swiftc", "-target", "arm64-apple-macosx10.13",  "test.swift", "-enable-experimental-feature", "Embedded", "-parse-as-library", "-wmo", "-o", "a.out", "-module-name", "main"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 2)
+      let compileJob = plannedJobs[0]
+      let linkJob = plannedJobs[1]
+      XCTAssertTrue(compileJob.commandLine.contains(.flag("-disable-objc-interop")))
+      XCTAssertFalse(linkJob.commandLine.contains(.flag("-force_load")))
+    }
+    do {
+      let diags = DiagnosticsEngine()
+      var driver = try Driver(args: ["swiftc", "-target", "arm64-apple-macosx10.13",  "test.swift", "-enable-experimental-feature", "Embedded", "-parse-as-library", "-wmo", "-o", "a.out", "-module-name", "main", "-enable-library-evolution"], diagnosticsEngine: diags)
+      _ = try driver.planBuild()
+      XCTAssertTrue(diags.diagnostics.first!.message.text == "Library evolution cannot be enabled with embedded Swift.")
+    } catch _ { }
+    do {
+      let diags = DiagnosticsEngine()
+      var driver = try Driver(args: ["swiftc", "-target", "arm64-apple-macosx10.13",  "test.swift", "-enable-experimental-feature", "Embedded", "-parse-as-library", "-o", "a.out", "-module-name", "main"], diagnosticsEngine: diags)
+      _ = try driver.planBuild()
+      XCTAssertTrue(diags.diagnostics.first!.message.text == "Whole module optimization (wmo) must be enabled with embedded Swift.")
+    } catch _ { }
+    do {
+      let diags = DiagnosticsEngine()
+      var driver = try Driver(args: ["swiftc", "-target", "arm64-apple-macosx10.13",  "test.swift", "-enable-experimental-feature", "Embedded", "-parse-as-library", "-wmo", "-o", "a.out", "-module-name", "main", "-enable-objc-interop"], diagnosticsEngine: diags)
+      _ = try driver.planBuild()
+      XCTAssertTrue(diags.diagnostics.first!.message.text == "Objective-C interop cannot be enabled with embedded Swift.")
+    } catch _ { }
+  }
+
   func testVFSOverlay() throws {
     do {
       var driver = try Driver(args: ["swiftc", "-c", "-vfsoverlay", "overlay.yaml", "foo.swift"])

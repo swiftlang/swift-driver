@@ -107,8 +107,11 @@ extension Driver {
       commandLine.appendFlag("-aarch64-use-tbi")
     }
 
+    let expirementalFeatures = parsedOptions.arguments(for: .enableExperimentalFeature)
+    let embeddedEnabled = expirementalFeatures.map(\.argument).map(\.asSingle).contains("Embedded")
+
     // Enable or disable ObjC interop appropriately for the platform
-    if targetTriple.isDarwin {
+    if targetTriple.isDarwin && !embeddedEnabled {
       commandLine.appendFlag(.enableObjcInterop)
     } else {
       commandLine.appendFlag(.disableObjcInterop)
@@ -120,6 +123,22 @@ extension Driver {
     if let stdlibVariant = parsedOptions.getLastArgument(.experimentalCxxStdlib)?.asSingle {
       commandLine.appendFlag("-Xcc")
       commandLine.appendFlag("-stdlib=\(stdlibVariant)")
+    }
+
+    if embeddedEnabled && parsedOptions.hasArgument(.enableLibraryEvolution) {
+      diagnosticEngine.emit(.error_no_library_evolution_embedded)
+      throw ErrorDiagnostics.emitted
+    }
+
+    if embeddedEnabled &&
+       (!parsedOptions.hasArgument(.wmo) || !parsedOptions.hasArgument(.wholeModuleOptimization)) {
+      diagnosticEngine.emit(.error_need_wmo_embedded)
+      throw ErrorDiagnostics.emitted
+    }
+
+    if embeddedEnabled && parsedOptions.hasArgument(.enableObjcInterop) {
+      diagnosticEngine.emit(.error_no_objc_interop_embedded)
+      throw ErrorDiagnostics.emitted
     }
 
     // Handle the CPU and its preferences.
