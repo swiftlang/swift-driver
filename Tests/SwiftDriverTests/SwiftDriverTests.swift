@@ -2200,8 +2200,9 @@ final class SwiftDriverTests: XCTestCase {
 
     do {
       try withTemporaryDirectory { path in
-        try localFileSystem.writeFileContents(
-          path.appending(components: "wasi", "static-executable-args.lnk")) { $0 <<< "garbage" }
+        try localFileSystem.writeFileContents(path.appending(components: "wasi", "static-executable-args.lnk")) {
+          $0.send("garbage")
+        }
         // Wasm executable linking
         var driver = try Driver(args: commonArgs + ["-emit-executable", "-Ounchecked",
                                                     "-target", "wasm32-unknown-wasi",
