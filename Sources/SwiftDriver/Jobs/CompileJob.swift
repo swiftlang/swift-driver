@@ -370,16 +370,10 @@ extension Driver {
     try commandLine.appendLast(.CrossModuleOptimization, from: &parsedOptions)
     try commandLine.appendLast(.ExperimentalPerformanceAnnotations, from: &parsedOptions)
 
-    if !embeddedEnabled {
-      try commandLine.appendLast(.disableAutolinkingRuntimeCompatibility, from: &parsedOptions)
-      try commandLine.appendLast(.runtimeCompatibilityVersion, from: &parsedOptions)
-      try commandLine.appendLast(.disableAutolinkingRuntimeCompatibilityDynamicReplacements, from: &parsedOptions)
-      try commandLine.appendLast(.disableAutolinkingRuntimeCompatibilityConcurrency, from: &parsedOptions)
-    } else {
-      try commandLine.appendFlag(.disableAutolinkingRuntimeCompatibility)
-      try commandLine.appendFlag(.disableAutolinkingRuntimeCompatibilityDynamicReplacements)
-      try commandLine.appendFlag(.disableAutolinkingRuntimeCompatibilityConcurrency)
-    }
+    try commandLine.appendLast(.runtimeCompatibilityVersion, from: &parsedOptions)
+    try commandLine.appendLast(.disableAutolinkingRuntimeCompatibility, from: &parsedOptions)
+    try commandLine.appendLast(.disableAutolinkingRuntimeCompatibilityDynamicReplacements, from: &parsedOptions)
+    try commandLine.appendLast(.disableAutolinkingRuntimeCompatibilityConcurrency, from: &parsedOptions)
 
     try commandLine.appendLast(.checkApiAvailabilityOnly, from: &parsedOptions)
 

@@ -6302,19 +6302,19 @@ final class SwiftDriverTests: XCTestCase {
       let diags = DiagnosticsEngine()
       var driver = try Driver(args: ["swiftc", "-target", "arm64-apple-macosx10.13",  "test.swift", "-enable-experimental-feature", "Embedded", "-parse-as-library", "-wmo", "-o", "a.out", "-module-name", "main", "-enable-library-evolution"], diagnosticsEngine: diags)
       _ = try driver.planBuild()
-      XCTAssertTrue(diags.diagnostics.first!.message.text == "Library evolution cannot be enabled with embedded Swift.")
+      XCTAssertTrue(diags.diagnostics.first!.message.text == error_no_library_evolution_embedded.message.text)
     } catch _ { }
     do {
       let diags = DiagnosticsEngine()
       var driver = try Driver(args: ["swiftc", "-target", "arm64-apple-macosx10.13",  "test.swift", "-enable-experimental-feature", "Embedded", "-parse-as-library", "-o", "a.out", "-module-name", "main"], diagnosticsEngine: diags)
       _ = try driver.planBuild()
-      XCTAssertTrue(diags.diagnostics.first!.message.text == "Whole module optimization (wmo) must be enabled with embedded Swift.")
+      XCTAssertTrue(diags.diagnostics.first!.message.text == error_need_wmo_embedded.message.text)
     } catch _ { }
     do {
       let diags = DiagnosticsEngine()
       var driver = try Driver(args: ["swiftc", "-target", "arm64-apple-macosx10.13",  "test.swift", "-enable-experimental-feature", "Embedded", "-parse-as-library", "-wmo", "-o", "a.out", "-module-name", "main", "-enable-objc-interop"], diagnosticsEngine: diags)
       _ = try driver.planBuild()
-      XCTAssertTrue(diags.diagnostics.first!.message.text == "Objective-C interop cannot be enabled with embedded Swift.")
+      XCTAssertTrue(diags.diagnostics.first!.message.text == error_no_objc_interop_embedded.message.text)
     } catch _ { }
   }
 
