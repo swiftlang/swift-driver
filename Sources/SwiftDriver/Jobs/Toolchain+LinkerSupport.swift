@@ -117,21 +117,26 @@ extension DarwinToolchain {
       }
     }
 
-    for compatibilityLib in targetInfo.target.compatibilityLibraries {
-      let shouldLink: Bool
-      switch compatibilityLib.filter {
-      case .all:
-        shouldLink = true
-        break
+    let expirementalFeatures = parsedOptions.arguments(for: .enableExperimentalFeature)
+    let embeddedEnabled = expirementalFeatures.map(\.argument).map(\.asSingle).contains("Embedded")
 
-      case .executable:
-        shouldLink = linkerOutputType == .executable
-      }
+    if !embeddedEnabled {
+      for compatibilityLib in targetInfo.target.compatibilityLibraries {
+        let shouldLink: Bool
+        switch compatibilityLib.filter {
+        case .all:
+          shouldLink = true
+          break
 
-      if shouldLink {
-        // Old frontends don't set forceLoad at all; assume it's true in that case
-        try addArgsForBackDeployLib("lib" + compatibilityLib.libraryName + ".a",
-                                    forceLoad: compatibilityLib.forceLoad ?? true)
+        case .executable:
+          shouldLink = linkerOutputType == .executable
+        }
+
+        if shouldLink {
+          // Old frontends don't set forceLoad at all; assume it's true in that case
+          try addArgsForBackDeployLib("lib" + compatibilityLib.libraryName + ".a",
+                                      forceLoad: compatibilityLib.forceLoad ?? true)
+        }
       }
     }
 

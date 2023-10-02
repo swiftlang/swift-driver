@@ -363,13 +363,18 @@ extension Driver {
       commandLine.appendFlag(map)
     }
 
+    let expirementalFeatures = parsedOptions.arguments(for: .enableExperimentalFeature)
+    let embeddedEnabled = expirementalFeatures.map(\.argument).map(\.asSingle).contains("Embedded")
+
     try commandLine.appendLast(.trackSystemDependencies, from: &parsedOptions)
     try commandLine.appendLast(.CrossModuleOptimization, from: &parsedOptions)
     try commandLine.appendLast(.ExperimentalPerformanceAnnotations, from: &parsedOptions)
-    try commandLine.appendLast(.disableAutolinkingRuntimeCompatibility, from: &parsedOptions)
+
     try commandLine.appendLast(.runtimeCompatibilityVersion, from: &parsedOptions)
+    try commandLine.appendLast(.disableAutolinkingRuntimeCompatibility, from: &parsedOptions)
     try commandLine.appendLast(.disableAutolinkingRuntimeCompatibilityDynamicReplacements, from: &parsedOptions)
     try commandLine.appendLast(.disableAutolinkingRuntimeCompatibilityConcurrency, from: &parsedOptions)
+
     try commandLine.appendLast(.checkApiAvailabilityOnly, from: &parsedOptions)
 
     try addCommonSymbolGraphOptions(commandLine: &commandLine,

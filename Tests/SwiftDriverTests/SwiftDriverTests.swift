@@ -9,7 +9,7 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-@_spi(Testing) import SwiftDriver
+@testable @_spi(Testing) import SwiftDriver
 import SwiftDriverExecution
 import SwiftOptions
 import TSCBasic
@@ -6288,6 +6288,36 @@ final class SwiftDriverTests: XCTestCase {
         XCTAssertTrue(linkJob.commandLine.contains(.flag("-lc++")))
       }
     }
+  }
+
+  func testEmbeddedSwiftOptions() throws {
+    do {
+      var driver = try Driver(args: ["swiftc", "-target", "arm64-apple-macosx10.13",  "test.swift", "-enable-experimental-feature", "Embedded", "-parse-as-library", "-wmo", "-o", "a.out", "-module-name", "main"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 2)
+      let compileJob = plannedJobs[0]
+      let linkJob = plannedJobs[1]
+      XCTAssertTrue(compileJob.commandLine.contains(.flag("-disable-objc-interop")))
+      XCTAssertFalse(linkJob.commandLine.contains(.flag("-force_load")))
+    }
+    do {
+      let diags = DiagnosticsEngine()
+      var driver = try Driver(args: ["swiftc", "-target", "arm64-apple-macosx10.13",  "test.swift", "-enable-experimental-feature", "Embedded", "-parse-as-library", "-wmo", "-o", "a.out", "-module-name", "main", "-enable-library-evolution"], diagnosticsEngine: diags)
+      _ = try driver.planBuild()
+      XCTAssertTrue(diags.diagnostics.first!.message.text == Diagnostic.Message.error_no_library_evolution_embedded.text)
+    } catch _ { }
+    do {
+      let diags = DiagnosticsEngine()
+      var driver = try Driver(args: ["swiftc", "-target", "arm64-apple-macosx10.13",  "test.swift", "-enable-experimental-feature", "Embedded", "-parse-as-library", "-o", "a.out", "-module-name", "main"], diagnosticsEngine: diags)
+      _ = try driver.planBuild()
+      XCTAssertTrue(diags.diagnostics.first!.message.text == Diagnostic.Message.error_need_wmo_embedded.text)
+    } catch _ { }
+    do {
+      let diags = DiagnosticsEngine()
+      var driver = try Driver(args: ["swiftc", "-target", "arm64-apple-macosx10.13",  "test.swift", "-enable-experimental-feature", "Embedded", "-parse-as-library", "-wmo", "-o", "a.out", "-module-name", "main", "-enable-objc-interop"], diagnosticsEngine: diags)
+      _ = try driver.planBuild()
+      XCTAssertTrue(diags.diagnostics.first!.message.text == Diagnostic.Message.error_no_objc_interop_embedded.text)
+    } catch _ { }
   }
 
   func testVFSOverlay() throws {
