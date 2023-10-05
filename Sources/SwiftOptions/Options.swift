@@ -273,6 +273,7 @@ extension Option {
   public static let embedBitcode: Option = Option("-embed-bitcode", .flag, attributes: [.frontend, .noInteractive], helpText: "Embed LLVM IR bitcode as data")
   public static let embedTbdForModule: Option = Option("-embed-tbd-for-module", .separate, attributes: [.frontend], helpText: "Embed symbols from the module in the emitted tbd file")
   public static let emitAbiDescriptorPath: Option = Option("-emit-abi-descriptor-path", .separate, attributes: [.frontend, .noDriver, .cacheInvariant], metaVar: "<path>", helpText: "Output the ABI descriptor of current module to <path>")
+  public static let emitApiDescriptorPath: Option = Option("-emit-api-descriptor-path", .separate, attributes: [.frontend, .noInteractive, .argumentIsPath, .supplementaryOutput, .cacheInvariant], metaVar: "<path>", helpText: "Output the API descriptor of current module to <path>")
   public static let emitAssembly: Option = Option("-emit-assembly", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild, .cacheInvariant], helpText: "Emit assembly file(s) (-S)", group: .modes)
   public static let emitAst: Option = Option("-emit-ast", .flag, alias: Option.dumpAst, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild])
   public static let emitBc: Option = Option("-emit-bc", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild, .cacheInvariant], helpText: "Emit LLVM BC file(s)", group: .modes)
@@ -1070,6 +1071,7 @@ extension Option {
       Option.embedBitcode,
       Option.embedTbdForModule,
       Option.emitAbiDescriptorPath,
+      Option.emitApiDescriptorPath,
       Option.emitAssembly,
       Option.emitAst,
       Option.emitBc,

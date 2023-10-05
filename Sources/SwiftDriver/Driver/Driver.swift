@@ -347,6 +347,9 @@ public struct Driver {
   /// Path to the module's digester baseline file.
   let digesterBaselinePath: VirtualPath.Handle?
 
+  /// Path to the emitted API descriptor file.
+  let apiDescriptorFilePath: VirtualPath.Handle?
+
   /// The mode the API digester should run in.
   let digesterMode: DigesterMode
 
@@ -948,6 +951,15 @@ public struct Driver {
         &parsedOptions, type: optimizationRecordFileType,
         isOutputOptions: [.saveOptimizationRecord, .saveOptimizationRecordEQ],
         outputPath: .saveOptimizationRecordPath,
+        compilerOutputType: compilerOutputType,
+        compilerMode: compilerMode,
+        emitModuleSeparately: emitModuleSeparately,
+        outputFileMap: self.outputFileMap,
+        moduleName: moduleOutputInfo.name)
+
+    self.apiDescriptorFilePath = try Self.computeSupplementaryOutputPath(
+        &parsedOptions, type: .jsonAPIDescriptor, isOutputOptions: [],
+        outputPath: .emitApiDescriptorPath,
         compilerOutputType: compilerOutputType,
         compilerMode: compilerMode,
         emitModuleSeparately: emitModuleSeparately,

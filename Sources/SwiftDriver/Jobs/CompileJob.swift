@@ -97,7 +97,7 @@ extension Driver {
          .moduleTrace, .yamlOptimizationRecord, .bitstreamOptimizationRecord, .pcm, .pch,
          .clangModuleMap, .jsonCompilerFeatures, .jsonTargetInfo, .jsonSwiftArtifacts,
          .indexUnitOutputPath, .modDepCache, .jsonAPIBaseline, .jsonABIBaseline,
-         .swiftConstValues, nil:
+         .swiftConstValues, .jsonAPIDescriptor, nil:
       return false
     }
   }
@@ -364,7 +364,6 @@ extension Driver {
     }
 
     let expirementalFeatures = parsedOptions.arguments(for: .enableExperimentalFeature)
-    let embeddedEnabled = expirementalFeatures.map(\.argument).map(\.asSingle).contains("Embedded")
 
     try commandLine.appendLast(.trackSystemDependencies, from: &parsedOptions)
     try commandLine.appendLast(.CrossModuleOptimization, from: &parsedOptions)
@@ -467,7 +466,7 @@ extension FileType {
          .bitstreamOptimizationRecord, .swiftInterface, .privateSwiftInterface,
          .swiftSourceInfoFile, .clangModuleMap, .jsonSwiftArtifacts,
          .indexUnitOutputPath, .modDepCache, .jsonAPIBaseline, .jsonABIBaseline,
-         .swiftConstValues:
+         .swiftConstValues, .jsonAPIDescriptor:
       fatalError("Output type can never be a primary output")
     }
   }

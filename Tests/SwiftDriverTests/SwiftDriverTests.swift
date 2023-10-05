@@ -7325,6 +7325,35 @@ final class SwiftDriverTests: XCTestCase {
     let emitModuleJob = try XCTUnwrap(jobs.first(where: {$0.kind == .emitModule}))
     XCTAssertTrue(emitModuleJob.commandLine.contains(.flag("-experimental-lazy-typecheck")))
   }
+  
+  func testEmitAPIDescriptorEmitModule() throws {
+    try withTemporaryDirectory { path in
+      let apiDescriptorPath = path.appending(component: "api.json").nativePathString(escaped: true)
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "baz.swift",
+                                     "-emit-module", "-module-name", "Test",
+                                     "-emit-api-descriptor-path", apiDescriptorPath])
+
+      let jobs = try driver.planBuild().removingAutolinkExtractJobs()
+      let emitModuleJob = try jobs.findJob(.emitModule)
+      XCTAssert(emitModuleJob.commandLine.contains(.flag("-emit-api-descriptor-path")))
+    }
+  }
+
+  func testEmitAPIDescriptorWholeModuleOptimization() throws {
+    try withTemporaryDirectory { path in
+      let apiDescriptorPath = path.appending(component: "api.json").nativePathString(escaped: true)
+      var driver = try Driver(args: ["swiftc", "-whole-module-optimization",
+                                     "-driver-filelist-threshold=0",
+                                     "foo.swift", "bar.swift", "baz.swift",
+                                     "-module-name", "Test", "-emit-module",
+                                     "-emit-api-descriptor-path", apiDescriptorPath])
+
+      let jobs = try driver.planBuild().removingAutolinkExtractJobs()
+      let compileJob = try jobs.findJob(.compile)
+      let supplementaryOutputs = try XCTUnwrap(compileJob.commandLine.supplementaryOutputFilemap)
+      XCTAssertNotNil(supplementaryOutputs.entries.values.first?[.jsonAPIDescriptor])
+    }
+  }
 }
 
 func assertString(
@@ -7392,6 +7421,21 @@ private extension Array where Element == Job.ArgTemplate {
       case .flag, .responseFilePath, .joinedOptionAndPath, .squashedArgumentList:
         return false
       }
+    }
+  }
+
+  var supplementaryOutputFilemap: OutputFileMap? {
+    get throws {
+      guard let argIdx = firstIndex(where: { $0 == .flag("-supplementary-output-file-map") }) else {
+        return nil
+      }
+      let supplementaryOutputs = self[argIdx + 1]
+      guard case let .path(path) = supplementaryOutputs,
+            case let .fileList(_, fileList) = path,
+            case let .outputFileMap(outputFileMap) = fileList else {
+        throw StringError("Unexpected argument for output file map")
+      }
+      return outputFileMap
     }
   }
 }

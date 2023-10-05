@@ -34,6 +34,7 @@ extension Driver {
     addSupplementalOutput(path: swiftPrivateInterfacePath, flag: "-emit-private-module-interface-path", type: .privateSwiftInterface)
     addSupplementalOutput(path: objcGeneratedHeaderPath, flag: "-emit-objc-header-path", type: .objcHeader)
     addSupplementalOutput(path: tbdPath, flag: "-emit-tbd-path", type: .tbd)
+    addSupplementalOutput(path: apiDescriptorFilePath, flag: "-emit-api-descriptor-path", type: .jsonAPIDescriptor)
 
     if isMergeModule {
       return
