@@ -2906,6 +2906,30 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertEqual(firstKey, "foo.swift")
   }
 
+  func testWMOWithNonSourceInputFirstAndModuleOutput() throws {
+    var driver1 = try Driver(args: [
+      "swiftc", "-wmo", "danger.o", "foo.swift", "bar.swift", "wibble.swift", "-module-name", "Test",
+      "-driver-filelist-threshold=0", "-emit-module", "-emit-library"
+    ])
+    let plannedJobs = try driver1.planBuild().removingAutolinkExtractJobs()
+    XCTAssertEqual(plannedJobs.count, 2)
+    let compileJob = plannedJobs[0]
+    XCTAssertEqual(compileJob.kind, .compile)
+    XCTAssert(compileJob.commandLine.contains(.flag("-supplementary-output-file-map")))
+    let argIdx = try XCTUnwrap(compileJob.commandLine.firstIndex(where: { $0 == .flag("-supplementary-output-file-map") }))
+    let supplOutputs = compileJob.commandLine[argIdx+1]
+    guard case let .path(path) = supplOutputs,
+          case let .fileList(_, fileList) = path,
+          case let .outputFileMap(outFileMap) = fileList else {
+      throw StringError("Unexpected argument for output file map")
+    }
+    let firstKeyHandle = try XCTUnwrap(outFileMap.entries.keys.first)
+    let firstKey = try VirtualPath.lookup(firstKeyHandle).description
+    XCTAssertEqual(firstKey, "foo.swift")
+    let firstKeyOutputs = try XCTUnwrap(outFileMap.entries[firstKeyHandle])
+    XCTAssertTrue(firstKeyOutputs.keys.contains(where: { $0 == .swiftModule }))
+  }
+
   func testDashDashPassingDownInput() throws {
     do {
       var driver = try Driver(args: ["swiftc", "-module-name=ThisModule", "-wmo", "-num-threads", "4", "-emit-module", "-o", "test.swiftmodule", "--", "main.swift", "multi-threaded.swift"])

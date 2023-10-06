@@ -693,7 +693,10 @@ extension Driver {
     if let input = input?.fileHandle, input != OutputFileMap.singleInputKey {
       entryInput = input
     } else {
-      entryInput = inputFiles[0].fileHandle
+      guard let firstSourceInputHandle = inputFiles.first(where:{ $0.type == .swift })?.fileHandle else {
+        fatalError("Formulating swift-frontend invocation without any input .swift files")
+      }
+      entryInput = firstSourceInputHandle
     }
     entries[entryInput, default: [:]][output.type] = output.fileHandle
   }
