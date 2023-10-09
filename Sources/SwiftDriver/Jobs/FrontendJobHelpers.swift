@@ -592,6 +592,12 @@ extension Driver {
                           input: nil,
                           flag: "-emit-abi-descriptor-path")
         }
+
+        try addOutputOfType(
+          outputType: .jsonAPIDescriptor,
+          finalOutputPath: apiDescriptorFilePath,
+          input: nil,
+          flag: "-emit-api-descriptor-path")
       }
     }
 

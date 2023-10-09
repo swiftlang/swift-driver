@@ -151,6 +151,9 @@ public enum FileType: String, Hashable, CaseIterable, Codable {
 
   /// ABI baseline JSON
   case jsonABIBaseline = "abi.json"
+
+  /// API descriptor JSON
+  case jsonAPIDescriptor
 }
 
 extension FileType: CustomStringConvertible {
@@ -235,6 +238,9 @@ extension FileType: CustomStringConvertible {
 
     case .swiftConstValues:
       return "const-values"
+
+    case .jsonAPIDescriptor:
+      return "api-descriptor-json"
     }
   }
 }
@@ -254,7 +260,7 @@ extension FileType {
          .swiftInterface, .privateSwiftInterface, .swiftSourceInfoFile,
          .jsonDependencies, .clangModuleMap, .jsonTargetInfo, .jsonCompilerFeatures,
          .jsonSwiftArtifacts, .indexUnitOutputPath, .modDepCache, .jsonAPIBaseline,
-         .jsonABIBaseline, .swiftConstValues:
+         .jsonABIBaseline, .swiftConstValues, .jsonAPIDescriptor:
       return false
     }
   }
@@ -359,6 +365,8 @@ extension FileType {
       return "abi-baseline-json"
     case .swiftConstValues:
       return "const-values"
+    case .jsonAPIDescriptor:
+      return "api-descriptor-json"
     }
   }
 }
@@ -370,7 +378,8 @@ extension FileType {
          .raw_sil, .llvmIR,.objcHeader, .autolink, .importedModules, .tbd,
          .moduleTrace, .yamlOptimizationRecord, .swiftInterface, .privateSwiftInterface,
          .jsonDependencies, .clangModuleMap, .jsonCompilerFeatures, .jsonTargetInfo,
-         .jsonSwiftArtifacts, .jsonAPIBaseline, .jsonABIBaseline, .swiftConstValues:
+         .jsonSwiftArtifacts, .jsonAPIBaseline, .jsonABIBaseline, .swiftConstValues,
+         .jsonAPIDescriptor:
       return true
     case .image, .object, .dSYM, .pch, .sib, .raw_sib, .swiftModule,
          .swiftDocumentation, .swiftSourceInfoFile, .llvmBitcode, .diagnostics,
@@ -393,7 +402,8 @@ extension FileType {
          .importedModules, .tbd, .moduleTrace, .indexData, .yamlOptimizationRecord,
          .modDepCache, .bitstreamOptimizationRecord, .pcm, .pch, .jsonDependencies,
          .clangModuleMap, .jsonCompilerFeatures, .jsonTargetInfo, .jsonSwiftArtifacts,
-         .indexUnitOutputPath, .jsonAPIBaseline, .jsonABIBaseline, .swiftConstValues:
+         .indexUnitOutputPath, .jsonAPIBaseline, .jsonABIBaseline, .swiftConstValues,
+         .jsonAPIDescriptor:
       return false
     }
   }

@@ -2811,41 +2811,12 @@ final class SwiftDriverTests: XCTestCase {
     ])
     let plannedJobs = try driver1.planBuild().removingAutolinkExtractJobs()
     XCTAssertEqual(plannedJobs.count, 1)
-    let suppleArg = "-supplementary-output-file-map"
-    // Make sure we are using supplementary file map
-    XCTAssert(plannedJobs[0].commandLine.contains(.flag(suppleArg)))
-    let args = plannedJobs[0].commandLine
-    var fileMapPath: VirtualPath?
-    for pair in args.enumerated() {
-      if pair.element == .flag(suppleArg) {
-        let filemap = args[pair.offset + 1]
-        switch filemap {
-        case .path(let p):
-          fileMapPath = p
-        default:
-          break
-        }
-      }
-    }
-    XCTAssert(fileMapPath != nil)
-    switch fileMapPath! {
-    case .fileList(_, let list):
-      switch list {
-      case .outputFileMap(let map):
-        // This is to match the legacy driver behavior
-        // Make sure the supplementary output map has an entry for the Swift file
-        // under indexing and its indexData entry is the primary output file
-          let entry = map.entries[VirtualPath.relative(try RelativePath(validating: "foo5.swift")).intern()]!
-        XCTAssert(VirtualPath.lookup(entry[.indexData]!) == .absolute(try .init(validating: "/tmp/t.o")))
-        return
-      default:
-        break
-      }
-      break
-    default:
-      break
-    }
-    XCTAssert(false)
+    let map = try XCTUnwrap(plannedJobs[0].commandLine.supplementaryOutputFilemap)
+    // This is to match the legacy driver behavior
+    // Make sure the supplementary output map has an entry for the Swift file
+    // under indexing and its indexData entry is the primary output file
+    let entry = map.entries[VirtualPath.relative(try RelativePath(validating: "foo5.swift")).intern()]!
+    XCTAssert(VirtualPath.lookup(entry[.indexData]!) == .absolute(try .init(validating: "/tmp/t.o")))
   }
 
   func testMultiThreadedWholeModuleOptimizationCompiles() throws {
@@ -2917,14 +2888,7 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertEqual(plannedJobs.count, 2)
     let compileJob = plannedJobs[0]
     XCTAssertEqual(compileJob.kind, .compile)
-    XCTAssert(compileJob.commandLine.contains(.flag("-supplementary-output-file-map")))
-    let argIdx = try XCTUnwrap(compileJob.commandLine.firstIndex(where: { $0 == .flag("-supplementary-output-file-map") }))
-    let supplOutputs = compileJob.commandLine[argIdx+1]
-    guard case let .path(path) = supplOutputs,
-          case let .fileList(_, fileList) = path,
-          case let .outputFileMap(outFileMap) = fileList else {
-      throw StringError("Unexpected argument for output file map")
-    }
+    let outFileMap = try XCTUnwrap(compileJob.commandLine.supplementaryOutputFilemap)
     let firstKey: String = try VirtualPath.lookup(XCTUnwrap(outFileMap.entries.keys.first)).description
     XCTAssertEqual(firstKey, "foo.swift")
   }
@@ -3073,14 +3037,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs.count, 2)
       XCTAssertEqual(plannedJobs[0].kind, .compile)
       print(plannedJobs[0].commandLine.joinedUnresolvedArguments)
-      XCTAssert(plannedJobs[0].commandLine.contains(.flag("-supplementary-output-file-map")))
-      let argIdx = try XCTUnwrap(plannedJobs[0].commandLine.firstIndex(where: { $0 == .flag("-supplementary-output-file-map") }))
-      let supplOutputs = plannedJobs[0].commandLine[argIdx+1]
-      guard case let .path(path) = supplOutputs,
-            case let .fileList(_, fileList) = path,
-            case let .outputFileMap(outFileMap) = fileList else {
-        throw StringError("Unexpected argument for output file map")
-      }
+      let outFileMap = try XCTUnwrap(plannedJobs[0].commandLine.supplementaryOutputFilemap)
       XCTAssertEqual(outFileMap.entries.values.first?.keys.first, fileType)
     }
 
@@ -6636,48 +6593,21 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
 
       let jobA = plannedJobs[0]
-      let flagA = jobA.commandLine.firstIndex(of: .flag("-supplementary-output-file-map"))!
-      let fileListArgumentA = jobA.commandLine[jobA.commandLine.index(after: flagA)]
-      guard case let .path(.fileList(_, fileListA)) = fileListArgumentA else {
-        XCTFail("Argument wasn't a filelist")
-        return
-      }
-      guard case let .outputFileMap(mapA) = fileListA else {
-        XCTFail("FileList wasn't OutputFileMap")
-        return
-      }
+      let mapA = try XCTUnwrap(jobA.commandLine.supplementaryOutputFilemap)
       let filesA = try XCTUnwrap(mapA.entries[VirtualPath.relative(try RelativePath(validating: "a.swift")).intern()])
       XCTAssertTrue(filesA.keys.contains(.swiftModule))
       XCTAssertTrue(filesA.keys.contains(.swiftDocumentation))
       XCTAssertTrue(filesA.keys.contains(.swiftSourceInfoFile))
 
       let jobB = plannedJobs[1]
-      let flagB = jobB.commandLine.firstIndex(of: .flag("-supplementary-output-file-map"))!
-      let fileListArgumentB = jobB.commandLine[jobB.commandLine.index(after: flagB)]
-      guard case let .path(.fileList(_, fileListB)) = fileListArgumentB else {
-        XCTFail("Argument wasn't a filelist")
-        return
-      }
-      guard case let .outputFileMap(mapB) = fileListB else {
-        XCTFail("FileList wasn't OutputFileMap")
-        return
-      }
+      let mapB = try XCTUnwrap(jobB.commandLine.supplementaryOutputFilemap)
       let filesB = try XCTUnwrap(mapB.entries[VirtualPath.relative(try RelativePath(validating: "b.swift")).intern()])
       XCTAssertTrue(filesB.keys.contains(.swiftModule))
       XCTAssertTrue(filesB.keys.contains(.swiftDocumentation))
       XCTAssertTrue(filesB.keys.contains(.swiftSourceInfoFile))
 
       let jobC = plannedJobs[2]
-      let flagC = jobC.commandLine.firstIndex(of: .flag("-supplementary-output-file-map"))!
-      let fileListArgumentC = jobC.commandLine[jobC.commandLine.index(after: flagC)]
-      guard case let .path(.fileList(_, fileListC)) = fileListArgumentC else {
-        XCTFail("Argument wasn't a filelist")
-        return
-      }
-      guard case let .outputFileMap(mapC) = fileListC else {
-        XCTFail("FileList wasn't OutputFileMap")
-        return
-      }
+      let mapC = try XCTUnwrap(jobC.commandLine.supplementaryOutputFilemap)
       let filesC = try XCTUnwrap(mapC.entries[VirtualPath.relative(try RelativePath(validating: "c.swift")).intern()])
       XCTAssertTrue(filesC.keys.contains(.swiftModule))
       XCTAssertTrue(filesC.keys.contains(.swiftDocumentation))
@@ -6800,29 +6730,11 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
 
       let jobA = plannedJobs[0]
-      let flagA = jobA.commandLine.firstIndex(of: .flag("-supplementary-output-file-map"))!
-      let fileListArgumentA = jobA.commandLine[jobA.commandLine.index(after: flagA)]
-      guard case let .path(.fileList(_, fileListA)) = fileListArgumentA else {
-        XCTFail("Argument wasn't a filelist")
-        return
-      }
-      guard case let .outputFileMap(mapA) = fileListA else {
-        XCTFail("FileList wasn't OutputFileMap")
-        return
-      }
+      let mapA = try XCTUnwrap(jobA.commandLine.supplementaryOutputFilemap)
       XCTAssertEqual(mapA.entries, [VirtualPath.relative(try .init(validating: "a.swift")).intern(): [:]])
 
       let jobB = plannedJobs[1]
-      let flagB = jobB.commandLine.firstIndex(of: .flag("-supplementary-output-file-map"))!
-      let fileListArgumentB = jobB.commandLine[jobB.commandLine.index(after: flagB)]
-      guard case let .path(.fileList(_, fileListB)) = fileListArgumentB else {
-        XCTFail("Argument wasn't a filelist")
-        return
-      }
-      guard case let .outputFileMap(mapB) = fileListB else {
-        XCTFail("FileList wasn't OutputFileMap")
-        return
-      }
+      let mapB = try XCTUnwrap(jobB.commandLine.supplementaryOutputFilemap)
       XCTAssertEqual(mapB.entries, [VirtualPath.relative(try .init(validating: "b.swift")).intern(): [:]])
     }
 
@@ -6831,16 +6743,7 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
 
       let jobA = plannedJobs[0]
-      let flagA = jobA.commandLine.firstIndex(of: .flag("-supplementary-output-file-map"))!
-      let fileListArgumentA = jobA.commandLine[jobA.commandLine.index(after: flagA)]
-      guard case let .path(.fileList(_, fileListA)) = fileListArgumentA else {
-        XCTFail("Argument wasn't a filelist")
-        return
-      }
-      guard case let .outputFileMap(mapA) = fileListA else {
-        XCTFail("FileList wasn't OutputFileMap")
-        return
-      }
+      let mapA = try XCTUnwrap(jobA.commandLine.supplementaryOutputFilemap)
       XCTAssertEqual(mapA.entries, [VirtualPath.relative(try .init(validating: "a.swift")).intern(): [:]])
     }
   }
@@ -7325,6 +7228,35 @@ final class SwiftDriverTests: XCTestCase {
     let emitModuleJob = try XCTUnwrap(jobs.first(where: {$0.kind == .emitModule}))
     XCTAssertTrue(emitModuleJob.commandLine.contains(.flag("-experimental-lazy-typecheck")))
   }
+  
+  func testEmitAPIDescriptorEmitModule() throws {
+    try withTemporaryDirectory { path in
+      let apiDescriptorPath = path.appending(component: "api.json").nativePathString(escaped: true)
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "baz.swift",
+                                     "-emit-module", "-module-name", "Test",
+                                     "-emit-api-descriptor-path", apiDescriptorPath])
+
+      let jobs = try driver.planBuild().removingAutolinkExtractJobs()
+      let emitModuleJob = try jobs.findJob(.emitModule)
+      XCTAssert(emitModuleJob.commandLine.contains(.flag("-emit-api-descriptor-path")))
+    }
+  }
+
+  func testEmitAPIDescriptorWholeModuleOptimization() throws {
+    try withTemporaryDirectory { path in
+      let apiDescriptorPath = path.appending(component: "api.json").nativePathString(escaped: true)
+      var driver = try Driver(args: ["swiftc", "-whole-module-optimization",
+                                     "-driver-filelist-threshold=0",
+                                     "foo.swift", "bar.swift", "baz.swift",
+                                     "-module-name", "Test", "-emit-module",
+                                     "-emit-api-descriptor-path", apiDescriptorPath])
+
+      let jobs = try driver.planBuild().removingAutolinkExtractJobs()
+      let compileJob = try jobs.findJob(.compile)
+      let supplementaryOutputs = try XCTUnwrap(compileJob.commandLine.supplementaryOutputFilemap)
+      XCTAssertNotNil(supplementaryOutputs.entries.values.first?[.jsonAPIDescriptor])
+    }
+  }
 }
 
 func assertString(
@@ -7392,6 +7324,21 @@ private extension Array where Element == Job.ArgTemplate {
       case .flag, .responseFilePath, .joinedOptionAndPath, .squashedArgumentList:
         return false
       }
+    }
+  }
+
+  var supplementaryOutputFilemap: OutputFileMap? {
+    get throws {
+      guard let argIdx = firstIndex(where: { $0 == .flag("-supplementary-output-file-map") }) else {
+        return nil
+      }
+      let supplementaryOutputs = self[argIdx + 1]
+      guard case let .path(path) = supplementaryOutputs,
+            case let .fileList(_, fileList) = path,
+            case let .outputFileMap(outputFileMap) = fileList else {
+        throw StringError("Unexpected argument for output file map")
+      }
+      return outputFileMap
     }
   }
 }
