@@ -254,7 +254,7 @@ final class CachingBuildTests: XCTestCase {
           }
         } else {
           switch (outputFilePath) {
-            case .relative(RelativePath("testCachingBuildJobs")):
+            case .relative(try RelativePath(validating: "testCachingBuildJobs")):
               XCTAssertTrue(driver.isExplicitMainModuleJob(job: job))
               XCTAssertEqual(job.kind, .link)
             case .temporary(_):
@@ -399,7 +399,7 @@ final class CachingBuildTests: XCTestCase {
           }
         } else {
           switch (outputFilePath) {
-            case .relative(RelativePath("testExplicitModuleVerifyInterfaceJobs")):
+            case .relative(try RelativePath(validating: "testExplicitModuleVerifyInterfaceJobs")):
               XCTAssertTrue(driver.isExplicitMainModuleJob(job: job))
               XCTAssertEqual(job.kind, .link)
             case .temporary(_):

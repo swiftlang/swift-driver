@@ -107,8 +107,8 @@ extension Driver {
       commandLine.appendFlag("-aarch64-use-tbi")
     }
 
-    let expirementalFeatures = parsedOptions.arguments(for: .enableExperimentalFeature)
-    let embeddedEnabled = expirementalFeatures.map(\.argument).map(\.asSingle).contains("Embedded")
+    let experimentalFeatures = parsedOptions.arguments(for: .enableExperimentalFeature)
+    let embeddedEnabled = experimentalFeatures.map(\.argument).map(\.asSingle).contains("Embedded")
 
     // Enable or disable ObjC interop appropriately for the platform
     if targetTriple.isDarwin && !embeddedEnabled {

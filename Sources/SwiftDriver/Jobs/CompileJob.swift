@@ -363,8 +363,6 @@ extension Driver {
       commandLine.appendFlag(map)
     }
 
-    let expirementalFeatures = parsedOptions.arguments(for: .enableExperimentalFeature)
-
     try commandLine.appendLast(.trackSystemDependencies, from: &parsedOptions)
     try commandLine.appendLast(.CrossModuleOptimization, from: &parsedOptions)
     try commandLine.appendLast(.ExperimentalPerformanceAnnotations, from: &parsedOptions)
