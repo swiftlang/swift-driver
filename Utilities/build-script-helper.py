@@ -98,6 +98,9 @@ def get_swiftpm_options(args):
     if args.cross_compile_hosts:
       swiftpm_args += ['--destination', args.cross_compile_config]
 
+    if args.action == 'install':
+      swiftpm_args += ['--disable-local-rpath']
+
     if '-android' in args.build_target:
       swiftpm_args += [
         '-Xlinker', '-rpath', '-Xlinker', '$ORIGIN/../lib/swift/android',
