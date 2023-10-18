@@ -109,6 +109,7 @@ extension Option {
   public static let debugForbidTypecheckPrefix: Option = Option("-debug-forbid-typecheck-prefix", .separate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Triggers llvm fatal_error if typechecker tries to typecheck a decl with the provided prefix name")
   public static let debugGenericSignatures: Option = Option("-debug-generic-signatures", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Debug generic signatures")
   public static let debugInfoFormat: Option = Option("-debug-info-format=", .joined, attributes: [.frontend], helpText: "Specify the debug info format type to either 'dwarf' or 'codeview'")
+  public static let dwarfVersion: Option = Option("-dwarf-version=", .joined, attributes: [.frontend], helpText: "DWARF debug info version to produce if requested")
   public static let debugInfoStoreInvocation: Option = Option("-debug-info-store-invocation", .flag, attributes: [.frontend], helpText: "Emit the compiler invocation in the debug info.")
   public static let debugMapping: Option = Option("-debug-mapping", .flag, attributes: [.noDriver], helpText: "Dumping information for debug purposes")
   public static let debugMapping_: Option = Option("--debug-mapping", .flag, alias: Option.debugMapping, attributes: [.noDriver], helpText: "Dumping information for debug purposes")
@@ -907,6 +908,7 @@ extension Option {
       Option.debugForbidTypecheckPrefix,
       Option.debugGenericSignatures,
       Option.debugInfoFormat,
+      Option.dwarfVersion,
       Option.debugInfoStoreInvocation,
       Option.debugMapping,
       Option.debugMapping_,

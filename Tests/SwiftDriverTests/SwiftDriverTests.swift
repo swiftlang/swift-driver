@@ -574,6 +574,19 @@ final class SwiftDriverTests: XCTestCase {
       $1.expect(.error("argument '-debug-info-format=codeview' is not allowed with '-gdwarf-types'"))
     }
 
+    try assertDriverDiagnostics(args: "swiftc", "foo.swift", "-emit-module", "-dwarf-version=0") {
+      $1.expect(.error("invalid value '0' in '-dwarf-version="))
+    }
+
+    try assertDriverDiagnostics(args: "swiftc", "foo.swift", "-emit-module", "-dwarf-version=6") {
+      $1.expect(.error("invalid value '6' in '-dwarf-version="))
+    }
+
+    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-emit-module", "-g", "-debug-info-format=dwarf", "-dwarf-version=4") { driver in
+        let jobs = try driver.planBuild()
+        XCTAssertTrue(jobs[0].commandLine.contains(.flag("-dwarf-version=4")))
+    }
+
     try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-g", "-c", "-file-compilation-dir", ".") { driver in
       let jobs = try driver.planBuild()
       XCTAssertTrue(jobs[0].commandLine.contains(.flag("-file-compilation-dir")))

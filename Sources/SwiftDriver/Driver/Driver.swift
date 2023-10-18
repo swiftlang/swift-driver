@@ -2308,7 +2308,17 @@ extension Driver {
       diagnosticsEngine.emit(.error_argument_not_allowed_with(arg: fullNotAllowedOption, other: levelOption.spelling))
     }
 
-    return DebugInfo(format: format, level: level, shouldVerify: shouldVerify)
+    // Determine the DWARF version.
+    var dwarfVersion: UInt8 = 4
+    if let versionArg = parsedOptions.getLastArgument(.dwarfVersion) {
+      if let parsedVersion = UInt8(versionArg.asSingle), parsedVersion >= 2 && parsedVersion <= 5 {
+        dwarfVersion = parsedVersion
+      } else {
+        diagnosticsEngine.emit(.error_invalid_arg_value(arg: .dwarfVersion, value: versionArg.asSingle))
+      }
+    }
+
+    return DebugInfo(format: format, dwarfVersion: dwarfVersion, level: level, shouldVerify: shouldVerify)
   }
 
   /// Parses the set of `-sanitize={sanitizer}` arguments and returns all the
