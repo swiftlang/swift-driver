@@ -2096,7 +2096,7 @@ extension Driver {
       case .indexFile:
         compilerOutputType = .indexData
 
-      case .parse, .resolveImports, .typecheck, .experimentalLazyTypecheck,
+      case .parse, .resolveImports, .typecheck,
            .dumpParse, .printAst, .dumpTypeRefinementContexts, .dumpScopeMaps,
            .dumpInterfaceHash, .dumpTypeInfo, .verifyDebugInfo:
         compilerOutputType = nil

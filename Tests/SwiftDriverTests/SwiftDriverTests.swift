@@ -7216,16 +7216,6 @@ final class SwiftDriverTests: XCTestCase {
       ]))
     }
   }
-
-  func testEmitModuleExperimentalLazyTypecheck() throws {
-    var driver = try Driver(args: [
-      "swiftc", "test.swift", "-module-name", "Test", "-experimental-lazy-typecheck", "-emit-module-interface"
-    ])
-    let jobs = try driver.planBuild().removingAutolinkExtractJobs()
-    let emitModuleJob = try XCTUnwrap(jobs.first(where: {$0.kind == .emitModule}))
-    XCTAssertTrue(emitModuleJob.commandLine.contains(.flag("-experimental-lazy-typecheck")))
-    XCTAssertTrue(emitModuleJob.commandLine.contains(.flag("-experimental-skip-non-exportable-decls")))
-  }
   
   func testEmitAPIDescriptorEmitModule() throws {
     try withTemporaryDirectory { path in
