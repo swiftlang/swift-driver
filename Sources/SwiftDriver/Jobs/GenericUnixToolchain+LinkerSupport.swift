@@ -101,7 +101,9 @@ extension GenericUnixToolchain {
         }
       }
 
-      try commandLine.appendLast(.ldPath, from: &parsedOptions)
+      if let arg = parsedOptions.getLastArgument(.ldPath)?.asSingle {
+        commandLine.append(.joinedOptionAndPath("--ld-path=", try VirtualPath(path: arg)))
+      }
 
       // Configure the toolchain.
       //

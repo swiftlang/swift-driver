@@ -1691,7 +1691,7 @@ final class SwiftDriverTests: XCTestCase {
       let cmd = linkJob.commandLine
       XCTAssertTrue(cmd.contains(.flag("-dynamiclib")))
       XCTAssertTrue(cmd.contains(.flag("-fuse-ld=foo")))
-      XCTAssertTrue(cmd.contains(.joinedOptionAndPath("-ld-path=", try VirtualPath(path: "/bar/baz"))))
+      XCTAssertTrue(cmd.contains(.joinedOptionAndPath("--ld-path=", try VirtualPath(path: "/bar/baz"))))
       XCTAssertTrue(cmd.contains(.flag("--target=x86_64-apple-macosx10.15")))
       XCTAssertEqual(linkJob.outputs[0].file, try VirtualPath(path: "libTest.dylib"))
 
