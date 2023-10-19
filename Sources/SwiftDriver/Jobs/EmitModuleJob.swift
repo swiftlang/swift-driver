@@ -85,11 +85,6 @@ extension Driver {
 
     commandLine.appendFlags("-frontend", "-emit-module", "-experimental-skip-non-inlinable-function-bodies-without-types")
 
-    if parsedOptions.hasArgument(.experimentalLazyTypecheck) {
-      commandLine.appendFlag("-experimental-lazy-typecheck")
-      commandLine.appendFlag("-experimental-skip-non-exportable-decls")
-    }
-
     // Add the inputs.
     for input in self.inputFiles where input.type.isPartOfSwiftCompilation {
       commandLine.append(.path(input.file))
