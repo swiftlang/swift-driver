@@ -183,6 +183,9 @@ extension GenericUnixToolchain {
         }
       }
 
+      let expirementalFeatures = parsedOptions.arguments(for: .enableExperimentalFeature)
+      let embeddedEnabled = expirementalFeatures.map(\.argument).map(\.asSingle).contains("Embedded")
+
       if !parsedOptions.hasArgument(.nostartfiles) {
         let swiftrtPath = VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
           .appending(
@@ -251,6 +254,8 @@ extension GenericUnixToolchain {
         linkFilePath = linkFilePath?.appending(component: "static-executable-args.lnk")
       } else if staticStdlib {
         linkFilePath = linkFilePath?.appending(component: "static-stdlib-args.lnk")
+      } else if embeddedEnabled {
+        linkFilePath = nil
       } else {
         linkFilePath = nil
         commandLine.appendFlag("-lswiftCore")
