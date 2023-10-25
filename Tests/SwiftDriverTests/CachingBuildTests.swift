@@ -75,6 +75,63 @@ throws {
                                        dependencyGraph: dependencyGraph)
 }
 
+/// Checks that the output keys are in the action cache and also the output
+/// can be replayed from CAS and identicial to the original output.
+private func checkCASForResults(jobs: [Job], oracle: InterModuleDependencyOracle, cas: SwiftScanCAS, fs: FileSystem) throws {
+  let expectation = XCTestExpectation(description: "Check CAS for output")
+  @Sendable
+  func replayAndVerifyOutput(_ job: Job, _ compilations: [CachedCompilation]) async throws {
+    func hashFile(_ file: VirtualPath) throws -> String {
+      // store the content in the CAS as a hashing function.
+      return try fs.readFileContents(file).withData {
+        try cas.store(data: $0)
+      }
+    }
+    let outputHashes = try job.outputs.map {
+      let hash = try hashFile($0.file)
+      // remove the original output after hashing the file.
+      try fs.removeFileTree($0.file)
+      return hash
+    }
+    let resolver = try ArgsResolver(fileSystem: fs)
+    let arguments: [String] = try resolver.resolveArgumentList(for: job.commandLine)
+    let instance = try cas.createReplayInstance(commandLine: arguments)
+    for compilation in compilations {
+      let _ = try cas.replayCompilation(instance: instance, compilation: compilation)
+    }
+    let replayHashes = try job.outputs.map {
+      try hashFile($0.file)
+    }
+    XCTAssertEqual(outputHashes, replayHashes, "replayed output is not identical to original")
+  }
+  Task {
+    defer {
+      expectation.fulfill()
+    }
+    for job in jobs {
+      if !job.kind.supportCaching {
+        continue
+      }
+      var compilations = [CachedCompilation]()
+      for (_, key) in job.outputCacheKeys {
+        if let compilation = try await cas.queryCacheKey(key, globally: false) {
+          for output in compilation {
+            XCTAssertTrue(output.isMaterialized, "Cached output not founded in CAS")
+            let success = try await output.load()
+            XCTAssertTrue(success, "Cached output not founded in CAS")
+          }
+          compilations.append(compilation)
+        } else {
+          XCTFail("Cached entry not found")
+        }
+      }
+      try await replayAndVerifyOutput(job, compilations)
+    }
+  }
+  let result = XCTWaiter.wait(for: [expectation], timeout: 10.0)
+  XCTAssertEqual(result, .completed)
+}
+
 /// Checks that the build job for the specified module contains the required options and inputs
 /// to build all of its dependencies explicitly
 private func checkCachingBuildJobDependencies(job: Job,
@@ -456,6 +513,10 @@ final class CachingBuildTests: XCTestCase {
       let jobs = try driver.planBuild()
       try driver.run(jobs: jobs)
       XCTAssertFalse(driver.diagnosticEngine.hasErrors)
+      guard try dependencyOracle.supportsCacheReplay() else {
+        return // skip replay tests.
+      }
+      try checkCASForResults(jobs: jobs, oracle: dependencyOracle, cas: try driver.getCAS(), fs: driver.fileSystem)
     }
   }
 

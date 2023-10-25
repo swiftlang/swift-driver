@@ -51,6 +51,7 @@ extension Driver {
       commandLine: &commandLine, inputs: &inputs, kind: .generatePCM, bridgingHeaderHandling: .ignored)
 
     try commandLine.appendLast(.indexStorePath, from: &parsedOptions)
+    let cacheKeys = try computeOutputCacheKeyForJob(commandLine: commandLine, inputs: [input])
 
     return Job(
       moduleName: moduleOutputInfo.name,
@@ -60,7 +61,8 @@ extension Driver {
       displayInputs: [],
       inputs: inputs,
       primaryInputs: [],
-      outputs: outputs
+      outputs: outputs,
+      outputCacheKeys: cacheKeys
     )
   }
 

@@ -274,6 +274,8 @@ public struct Driver {
   let enableCaching: Bool
   let useClangIncludeTree: Bool
 
+  var cas: SwiftScanCAS?
+
   /// Scanner prefix mapping.
   let scannerPrefixMap: [AbsolutePath: AbsolutePath]
   let scannerPrefixMapSDK: AbsolutePath?
@@ -473,6 +475,14 @@ public struct Driver {
   @_spi(Testing)
   public func isFeatureSupported(_ feature: KnownCompilerFeature) -> Bool {
     return supportedFrontendFeatures.contains(feature.rawValue)
+  }
+
+  @_spi(Testing)
+  public func getCAS() throws -> SwiftScanCAS {
+    guard let cas = self.cas else {
+      throw DependencyScanningError.casError("CAS is not initialized but requested")
+    }
+    return cas
   }
 
   @_spi(Testing)

@@ -11,18 +11,17 @@
 //===----------------------------------------------------------------------===//
 
 extension Driver {
-  func computeCacheKeyForInterface(emitModuleJob: Job,
-                                   interfaceKind: FileType) throws -> String? {
+  mutating func computeCacheKeyForInterface(emitModuleJob: Job,
+                                            interfaceKind: FileType) throws -> String? {
     assert(interfaceKind == .swiftInterface || interfaceKind == .privateSwiftInterface,
            "only expect interface output kind")
     let isNeeded = emitModuleJob.outputs.contains { $0.type == interfaceKind }
     guard enableCaching && isNeeded else { return nil }
 
     // Assume swiftinterface file is always the supplementary output for first input file.
-    let mainInput = emitModuleJob.inputs[0]
-    return try interModuleDependencyOracle.computeCacheKeyForOutput(kind: interfaceKind,
-                                                                    commandLine: emitModuleJob.commandLine,
-                                                                    input: mainInput.fileHandle)
+    let key =  try computeOutputCacheKey(commandLine: emitModuleJob.commandLine,
+                                         input: emitModuleJob.inputs[0])
+    return key
   }
 
   @_spi(Testing)
@@ -58,6 +57,8 @@ extension Driver {
     if !optIn && isFrontendArgSupported(.downgradeTypecheckInterfaceError) {
       commandLine.appendFlag(.downgradeTypecheckInterfaceError)
     }
+
+    let cacheKeys = try computeOutputCacheKeyForJob(commandLine: commandLine, inputs: [interfaceInput]) 
     return Job(
       moduleName: moduleOutputInfo.name,
       kind: .verifyModuleInterface,
@@ -66,7 +67,8 @@ extension Driver {
       displayInputs: [interfaceInput],
       inputs: inputs,
       primaryInputs: [],
-      outputs: outputs
+      outputs: outputs,
+      outputCacheKeys: cacheKeys
     )
   }
 }

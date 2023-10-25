@@ -451,12 +451,11 @@ extension Driver {
     // The pch input file (the bridging header) is added as last inputs to the job.
     guard let inputFile = pchJob.inputs.last else { assertionFailure("no input files from pch job"); return }
     assert(inputFile.type == .objcHeader, "Expect objc header input type")
-    let mappedInput = remapPath(inputFile.file).intern()
-    let bridgingHeaderCacheKey = try interModuleDependencyOracle.computeCacheKeyForOutput(kind: .pch,
-                                                                                          commandLine: pchJob.commandLine,
-                                                                                          input: mappedInput)
+    let bridgingHeaderCacheKey = try computeOutputCacheKey(commandLine: pchJob.commandLine,
+                                                           input: inputFile)
+    guard let key = bridgingHeaderCacheKey else { return }
     commandLine.appendFlag("-bridging-header-pch-key")
-    commandLine.appendFlag(bridgingHeaderCacheKey)
+    commandLine.appendFlag(key)
   }
 
   mutating func addFrontendSupplementaryOutputArguments(commandLine: inout [Job.ArgTemplate],
@@ -820,5 +819,36 @@ extension Driver {
         commandLine.appendFlag(value.pathString + "=" + key.pathString)
       }
     }
+  }
+}
+
+extension Driver {
+  public mutating func computeOutputCacheKeyForJob(commandLine: [Job.ArgTemplate],
+                                          inputs: [TypedVirtualPath]) throws -> [TypedVirtualPath: String] {
+    // No caching setup, return empty dictionary.
+    guard let cas = self.cas else {
+      return [:]
+    }
+    // Resolve command-line first.
+    let resolver = try ArgsResolver(fileSystem: fileSystem)
+    let arguments: [String] = try resolver.resolveArgumentList(for: commandLine)
+
+    return try inputs.reduce(into: [:]) { keys, input in
+      let remappedPath = remapPath(input.file)
+      keys[input] = try cas.computeCacheKey(commandLine: arguments, input: remappedPath.name)
+    }
+  }
+
+  public mutating func computeOutputCacheKey(commandLine: [Job.ArgTemplate],
+                                    input: TypedVirtualPath) throws -> String? {
+    // No caching setup, return empty dictionary.
+    guard let cas = self.cas else {
+      return nil
+    }
+    // Resolve command-line first.
+    let resolver = try ArgsResolver(fileSystem: fileSystem)
+    let arguments: [String] = try resolver.resolveArgumentList(for: commandLine)
+    let remappedPath = remapPath(input.file)
+    return try cas.computeCacheKey(commandLine: arguments, input: remappedPath.name)
   }
 }
