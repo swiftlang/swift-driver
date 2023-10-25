@@ -41,8 +41,11 @@
     }
   }
 
-  // The format of debug information.
+  /// The format of debug information.
   public let format: Format
+
+  /// The DWARF standard version to be produced.
+  public let dwarfVersion: UInt8
 
   /// The level of debug information.
   public let level: Level?
