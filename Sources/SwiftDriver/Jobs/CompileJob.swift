@@ -97,7 +97,8 @@ extension Driver {
          .moduleTrace, .yamlOptimizationRecord, .bitstreamOptimizationRecord, .pcm, .pch,
          .clangModuleMap, .jsonCompilerFeatures, .jsonTargetInfo, .jsonSwiftArtifacts,
          .indexUnitOutputPath, .modDepCache, .jsonAPIBaseline, .jsonABIBaseline,
-         .swiftConstValues, .jsonAPIDescriptor, nil:
+         .swiftConstValues, .jsonAPIDescriptor, .moduleSummary, .moduleSemanticInfo,
+         .cachedDiagnostics, nil:
       return false
     }
   }
@@ -396,6 +397,9 @@ extension Driver {
     } else {
       displayInputs = primaryInputs
     }
+    // Only swift input files are contributing to the cache keys.
+    let cacheContributingInputs = displayInputs.filter() { $0.type == .swift }
+    let cacheKeys = try computeOutputCacheKeyForJob(commandLine: commandLine, inputs: cacheContributingInputs)
 
     return Job(
       moduleName: moduleOutputInfo.name,
@@ -406,6 +410,7 @@ extension Driver {
       inputs: inputs,
       primaryInputs: primaryInputs,
       outputs: outputs,
+      outputCacheKeys: cacheKeys,
       inputOutputMap: inputOutputMap
     )
   }
@@ -468,7 +473,8 @@ extension FileType {
          .bitstreamOptimizationRecord, .swiftInterface, .privateSwiftInterface,
          .swiftSourceInfoFile, .clangModuleMap, .jsonSwiftArtifacts,
          .indexUnitOutputPath, .modDepCache, .jsonAPIBaseline, .jsonABIBaseline,
-         .swiftConstValues, .jsonAPIDescriptor:
+         .swiftConstValues, .jsonAPIDescriptor, .moduleSummary, .moduleSemanticInfo,
+         .cachedDiagnostics:
       fatalError("Output type can never be a primary output")
     }
   }

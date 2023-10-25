@@ -70,6 +70,8 @@ extension Driver {
     inputs.append(input)
     try addPathArgument(input.file, to: &commandLine)
 
+    let cacheKeys = try computeOutputCacheKeyForJob(commandLine: commandLine, inputs: [input])
+
     return Job(
       moduleName: moduleOutputInfo.name,
       kind: .generatePCH,
@@ -78,7 +80,8 @@ extension Driver {
       displayInputs: [],
       inputs: inputs,
       primaryInputs: [],
-      outputs: outputs
+      outputs: outputs,
+      outputCacheKeys: cacheKeys
     )
   }
 }

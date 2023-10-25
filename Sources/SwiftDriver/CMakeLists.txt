@@ -18,6 +18,7 @@ add_library(SwiftDriver
   SwiftScan/DependencyGraphBuilder.swift
   SwiftScan/Loader.swift
   SwiftScan/SwiftScan.swift
+  SwiftScan/SwiftScanCAS.swift
 
   Driver/CompilerMode.swift
   Driver/DebugInfo.swift
