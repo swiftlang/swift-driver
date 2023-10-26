@@ -65,6 +65,9 @@ extension Option {
   public static let cacheDisableReplay: Option = Option("-cache-disable-replay", .flag, attributes: [.frontend, .cacheInvariant], helpText: "Skip loading the compilation result from cache")
   public static let cacheReplayPrefixMap: Option = Option("-cache-replay-prefix-map", .separate, attributes: [.frontend, .noDriver, .cacheInvariant], metaVar: "<prefix=replacement>", helpText: "Remap paths when replaying outputs from cache")
   public static let candidateModuleFile: Option = Option("-candidate-module-file", .separate, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<path>", helpText: "Specify Swift module may be ready to use for an interface")
+  public static let casBackendMode: Option = Option("-cas-backend-mode=", .joined, attributes: [.frontend, .noDriver], metaVar: "native|casid|verify", helpText: "CASBackendMode for output kind")
+  public static let casBackend: Option = Option("-cas-backend", .flag, attributes: [.frontend, .noDriver], helpText: "Enable using CASBackend for object file output")
+  public static let casEmitCasidFile: Option = Option("-cas-emit-casid-file", .flag, attributes: [.frontend, .noDriver], helpText: "Emit .casid file next to object file when CAS Backend is enabled")
   public static let casFs: Option = Option("-cas-fs", .separate, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<cas-id>", helpText: "Root CASID for CAS FileSystem")
   public static let casPath: Option = Option("-cas-path", .separate, attributes: [.frontend, .cacheInvariant], metaVar: "<path>", helpText: "Path to CAS")
   public static let casPluginOption: Option = Option("-cas-plugin-option", .separate, attributes: [.frontend], metaVar: "<name>=<option>", helpText: "Option pass to CAS Plugin")
@@ -883,6 +886,9 @@ extension Option {
       Option.cacheDisableReplay,
       Option.cacheReplayPrefixMap,
       Option.candidateModuleFile,
+      Option.casBackendMode,
+      Option.casBackend,
+      Option.casEmitCasidFile,
       Option.casFs,
       Option.casPath,
       Option.casPluginOption,
