@@ -193,6 +193,7 @@ extension Driver {
     try commandLine.appendLast(.enablePrivateImports, from: &parsedOptions)
     try commandLine.appendLast(in: .g, from: &parsedOptions)
     try commandLine.appendLast(.debugInfoFormat, from: &parsedOptions)
+    try commandLine.appendLast(.dwarfVersion, from: &parsedOptions)
     try commandLine.appendLast(.importUnderlyingModule, from: &parsedOptions)
     try commandLine.appendLast(.moduleCachePath, from: &parsedOptions)
     try commandLine.appendLast(.moduleLinkName, from: &parsedOptions)
