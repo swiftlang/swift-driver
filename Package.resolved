@@ -1,52 +1,50 @@
 {
-  "object": {
-    "pins": [
-      {
-        "package": "swift-argument-parser",
-        "repositoryURL": "https://github.com/apple/swift-argument-parser.git",
-        "state": {
-          "branch": null,
-          "revision": "fee6933f37fde9a5e12a1e4aeaa93fe60116ff2a",
-          "version": "1.2.2"
-        }
-      },
-      {
-        "package": "llbuild",
-        "repositoryURL": "https://github.com/apple/swift-llbuild.git",
-        "state": {
-          "branch": "main",
-          "revision": "efb176d866e3e99855a5b799da224a9f95058f2e",
-          "version": null
-        }
-      },
-      {
-        "package": "swift-system",
-        "repositoryURL": "https://github.com/apple/swift-system.git",
-        "state": {
-          "branch": null,
-          "revision": "836bc4557b74fe6d2660218d56e3ce96aff76574",
-          "version": "1.1.1"
-        }
-      },
-      {
-        "package": "swift-tools-support-core",
-        "repositoryURL": "https://github.com/apple/swift-tools-support-core.git",
-        "state": {
-          "branch": "main",
-          "revision": "ee4cb5e1c2ba6b033a964c77c96bc057be2e2e2a",
-          "version": null
-        }
-      },
-      {
-        "package": "Yams",
-        "repositoryURL": "https://github.com/jpsim/Yams.git",
-        "state": {
-          "branch": null,
-          "revision": "01835dc202670b5bb90d07f3eae41867e9ed29f6",
-          "version": "5.0.1"
-        }
+  "pins" : [
+    {
+      "identity" : "swift-argument-parser",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-argument-parser.git",
+      "state" : {
+        "revision" : "8f4d2753f0e4778c76d5f05ad16c74f707390531",
+        "version" : "1.2.3"
       }
-    ]
-  },
-  "version": 1
+    },
+    {
+      "identity" : "swift-llbuild",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-llbuild.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "a3b8d34be319f1b3ba8de53c434386419dec1f4f"
+      }
+    },
+    {
+      "identity" : "swift-system",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-system.git",
+      "state" : {
+        "revision" : "025bcb1165deab2e20d4eaba79967ce73013f496",
+        "version" : "1.2.1"
+      }
+    },
+    {
+      "identity" : "swift-tools-support-core",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-tools-support-core.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "3b13e439a341bbbfe0f710c7d1be37221745ef1a"
+      }
+    },
+    {
+      "identity" : "yams",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/jpsim/Yams.git",
+      "state" : {
+        "revision" : "0d9ee7ea8c4ebd4a489ad7a73d5c6cad55d6fed3",
+        "version" : "5.0.6"
+      }
+    }
+  ],
+  "version" : 2
 }
