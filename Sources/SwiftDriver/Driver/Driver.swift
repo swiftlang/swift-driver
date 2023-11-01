@@ -3213,7 +3213,7 @@ extension Driver {
     let prefixArgs: [String]
 
     init() {
-      overridePath = nil
+      overridePath = try? AbsolutePath(validating:  "/Users/ellie/srcdev/swift-dev/oss-src/build/Ninja-RelWithDebInfoAssert+swift-DebugAssert/swift-macosx-x86_64/bin/swift-frontend") //nil
       prefixArgs = []
     }
 
