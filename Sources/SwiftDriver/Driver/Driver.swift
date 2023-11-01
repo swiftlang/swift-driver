@@ -957,13 +957,13 @@ public struct Driver {
         outputFileMap: self.outputFileMap,
         moduleName: moduleOutputInfo.name)
 
-    let apiDescriptorDirectory: VirtualPath? = if let apiDescriptorDirectoryEnvVar = env["TAPI_SDKDB_OUTPUT_PATH"] {
-        try VirtualPath(path: apiDescriptorDirectoryEnvVar)
+    var apiDescriptorDirectory: VirtualPath? = nil
+    if let apiDescriptorDirectoryEnvVar = env["TAPI_SDKDB_OUTPUT_PATH"] {
+        apiDescriptorDirectory = try VirtualPath(path: apiDescriptorDirectoryEnvVar)
     } else if let ldTraceFileEnvVar = env["LD_TRACE_FILE"] {
-        try VirtualPath(path: ldTraceFileEnvVar).parentDirectory.appending(component: "SDKDB")
-    } else { nil }
-
-    if let apiDescriptorDirectory {
+        apiDescriptorDirectory = try VirtualPath(path: ldTraceFileEnvVar).parentDirectory.appending(component: "SDKDB")
+    }
+    if let apiDescriptorDirectory = apiDescriptorDirectory {
         self.apiDescriptorFilePath = apiDescriptorDirectory
           .appending(component: "\(moduleOutputInfo.name).\(frontendTargetInfo.target.moduleTriple.triple).swift.sdkdb")
           .intern()
