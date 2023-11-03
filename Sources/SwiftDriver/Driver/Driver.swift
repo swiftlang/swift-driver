@@ -957,14 +957,26 @@ public struct Driver {
         outputFileMap: self.outputFileMap,
         moduleName: moduleOutputInfo.name)
 
-    self.apiDescriptorFilePath = try Self.computeSupplementaryOutputPath(
-        &parsedOptions, type: .jsonAPIDescriptor, isOutputOptions: [],
-        outputPath: .emitApiDescriptorPath,
-        compilerOutputType: compilerOutputType,
-        compilerMode: compilerMode,
-        emitModuleSeparately: emitModuleSeparately,
-        outputFileMap: self.outputFileMap,
-        moduleName: moduleOutputInfo.name)
+    var apiDescriptorDirectory: VirtualPath? = nil
+    if let apiDescriptorDirectoryEnvVar = env["TAPI_SDKDB_OUTPUT_PATH"] {
+        apiDescriptorDirectory = try VirtualPath(path: apiDescriptorDirectoryEnvVar)
+    } else if let ldTraceFileEnvVar = env["LD_TRACE_FILE"] {
+        apiDescriptorDirectory = try VirtualPath(path: ldTraceFileEnvVar).parentDirectory.appending(component: "SDKDB")
+    }
+    if let apiDescriptorDirectory = apiDescriptorDirectory {
+        self.apiDescriptorFilePath = apiDescriptorDirectory
+          .appending(component: "\(moduleOutputInfo.name).\(frontendTargetInfo.target.moduleTriple.triple).swift.sdkdb")
+          .intern()
+    } else {
+        self.apiDescriptorFilePath = try Self.computeSupplementaryOutputPath(
+            &parsedOptions, type: .jsonAPIDescriptor, isOutputOptions: [],
+            outputPath: .emitApiDescriptorPath,
+            compilerOutputType: compilerOutputType,
+            compilerMode: compilerMode,
+            emitModuleSeparately: emitModuleSeparately,
+            outputFileMap: self.outputFileMap,
+            moduleName: moduleOutputInfo.name)
+    }
 
     Self.validateDigesterArgs(&parsedOptions,
                               moduleOutputInfo: moduleOutputInfo,

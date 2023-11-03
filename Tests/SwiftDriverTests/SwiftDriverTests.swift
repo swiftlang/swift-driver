@@ -7232,30 +7232,88 @@ final class SwiftDriverTests: XCTestCase {
   
   func testEmitAPIDescriptorEmitModule() throws {
     try withTemporaryDirectory { path in
-      let apiDescriptorPath = path.appending(component: "api.json").nativePathString(escaped: true)
-      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "baz.swift",
-                                     "-emit-module", "-module-name", "Test",
-                                     "-emit-api-descriptor-path", apiDescriptorPath])
+      do {
+        let apiDescriptorPath = path.appending(component: "api.json").nativePathString(escaped: true)
+        var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "baz.swift",
+                                       "-emit-module", "-module-name", "Test",
+                                       "-emit-api-descriptor-path", apiDescriptorPath])
 
-      let jobs = try driver.planBuild().removingAutolinkExtractJobs()
-      let emitModuleJob = try jobs.findJob(.emitModule)
-      XCTAssert(emitModuleJob.commandLine.contains(.flag("-emit-api-descriptor-path")))
+        let jobs = try driver.planBuild().removingAutolinkExtractJobs()
+        let emitModuleJob = try jobs.findJob(.emitModule)
+        XCTAssert(emitModuleJob.commandLine.contains(.flag("-emit-api-descriptor-path")))
+      }
+
+      do {
+        var env = ProcessEnv.vars
+        env["TAPI_SDKDB_OUTPUT_PATH"] = path.appending(component: "SDKDB").nativePathString(escaped: false)
+        var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "baz.swift",
+                                       "-emit-module", "-module-name", "Test"], env: env)
+        let jobs = try driver.planBuild().removingAutolinkExtractJobs()
+        let emitModuleJob = try jobs.findJob(.emitModule)
+        XCTAssert(emitModuleJob.commandLine.contains(subsequence: [
+          .flag("-emit-api-descriptor-path"),
+          .path(.absolute(path.appending(components: "SDKDB", "Test.\(driver.frontendTargetInfo.target.moduleTriple.triple).swift.sdkdb"))),
+        ]))
+      }
+
+      do {
+        var env = ProcessEnv.vars
+        env["LD_TRACE_FILE"] = path.appending(component: ".LD_TRACE").nativePathString(escaped: false)
+        var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "baz.swift",
+                                       "-emit-module", "-module-name", "Test"], env: env)
+        let jobs = try driver.planBuild().removingAutolinkExtractJobs()
+        let emitModuleJob = try jobs.findJob(.emitModule)
+        XCTAssert(emitModuleJob.commandLine.contains(subsequence: [
+          .flag("-emit-api-descriptor-path"),
+          .path(.absolute(path.appending(components: "SDKDB", "Test.\(driver.frontendTargetInfo.target.moduleTriple.triple).swift.sdkdb"))),
+        ]))
+      }
     }
   }
 
   func testEmitAPIDescriptorWholeModuleOptimization() throws {
     try withTemporaryDirectory { path in
-      let apiDescriptorPath = path.appending(component: "api.json").nativePathString(escaped: true)
-      var driver = try Driver(args: ["swiftc", "-whole-module-optimization",
-                                     "-driver-filelist-threshold=0",
-                                     "foo.swift", "bar.swift", "baz.swift",
-                                     "-module-name", "Test", "-emit-module",
-                                     "-emit-api-descriptor-path", apiDescriptorPath])
+      do {
+        let apiDescriptorPath = path.appending(component: "api.json").nativePathString(escaped: true)
+        var driver = try Driver(args: ["swiftc", "-whole-module-optimization",
+                                       "-driver-filelist-threshold=0",
+                                       "foo.swift", "bar.swift", "baz.swift",
+                                       "-module-name", "Test", "-emit-module",
+                                       "-emit-api-descriptor-path", apiDescriptorPath])
 
-      let jobs = try driver.planBuild().removingAutolinkExtractJobs()
-      let compileJob = try jobs.findJob(.compile)
-      let supplementaryOutputs = try XCTUnwrap(compileJob.commandLine.supplementaryOutputFilemap)
-      XCTAssertNotNil(supplementaryOutputs.entries.values.first?[.jsonAPIDescriptor])
+        let jobs = try driver.planBuild().removingAutolinkExtractJobs()
+        let compileJob = try jobs.findJob(.compile)
+        let supplementaryOutputs = try XCTUnwrap(compileJob.commandLine.supplementaryOutputFilemap)
+        XCTAssertNotNil(supplementaryOutputs.entries.values.first?[.jsonAPIDescriptor])
+      }
+
+      do {
+        var env = ProcessEnv.vars
+        env["TAPI_SDKDB_OUTPUT_PATH"] = path.appending(component: "SDKDB").nativePathString(escaped: false)
+        var driver = try Driver(args: ["swiftc", "-whole-module-optimization",
+                                       "-driver-filelist-threshold=0",
+                                       "foo.swift", "bar.swift", "baz.swift",
+                                       "-module-name", "Test", "-emit-module"], env: env)
+
+        let jobs = try driver.planBuild().removingAutolinkExtractJobs()
+        let compileJob = try jobs.findJob(.compile)
+        let supplementaryOutputs = try XCTUnwrap(compileJob.commandLine.supplementaryOutputFilemap)
+        XCTAssertNotNil(supplementaryOutputs.entries.values.first?[.jsonAPIDescriptor])
+      }
+
+      do {
+        var env = ProcessEnv.vars
+        env["LD_TRACE_FILE"] = path.appending(component: ".LD_TRACE").nativePathString(escaped: false)
+        var driver = try Driver(args: ["swiftc", "-whole-module-optimization",
+                                       "-driver-filelist-threshold=0",
+                                       "foo.swift", "bar.swift", "baz.swift",
+                                       "-module-name", "Test", "-emit-module"], env: env)
+
+        let jobs = try driver.planBuild().removingAutolinkExtractJobs()
+        let compileJob = try jobs.findJob(.compile)
+        let supplementaryOutputs = try XCTUnwrap(compileJob.commandLine.supplementaryOutputFilemap)
+        XCTAssertNotNil(supplementaryOutputs.entries.values.first?[.jsonAPIDescriptor])
+      }
     }
   }
 }
