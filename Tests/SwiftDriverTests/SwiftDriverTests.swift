@@ -2245,6 +2245,14 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(cmd.contains(.flag("-lsomelib")))
       XCTAssertTrue(cmd.contains(.flag("-lotherlib")))
     }
+    
+    do {
+      // Linker flags when embedded is enabled should not contain `-lswiftCore`
+      var driver = try Driver(args: commonArgs + ["-target", "armv6-none-none-eabi", "-emit-executable", "-whole-module-optimization", "-enable-experimental-feature", "Embedded"], env: env)
+      let plannedJobs = try driver.planBuild()
+      let cmd = plannedJobs.last!.commandLine
+      XCTAssertFalse(cmd.contains(.flag("-lswiftCore")))
+    }
 
     do {
       // The Android NDK only uses the lld linker now
