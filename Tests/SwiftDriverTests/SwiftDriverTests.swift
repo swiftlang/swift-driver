@@ -3347,17 +3347,11 @@ final class SwiftDriverTests: XCTestCase {
       }
     }
 
-    #if os(Linux) || os(Android)
-    let autoLinkExtractJob = 1
-    #else
-    let autoLinkExtractJob = 0
-    #endif
-
     do {
       // non library-evolution builds require a single job, because cross-module-optimization is enabled by default.
       var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-c", "-o", rebase("test.o", at: root), "-wmo", "-O" ])
       let plannedJobs = try driver.planBuild()
-      XCTAssertEqual(plannedJobs.count, 1 + autoLinkExtractJob)
+      XCTAssertEqual(plannedJobs.count, 1)
       XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-enable-default-cmo")))
     }
 
@@ -3365,7 +3359,7 @@ final class SwiftDriverTests: XCTestCase {
       // library-evolution builds can emit the module in a separate job.
       var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-c", "-o", rebase("test.o", at: root), "-wmo", "-O", "-enable-library-evolution" ])
       let plannedJobs = try driver.planBuild()
-      XCTAssertEqual(plannedJobs.count, 2 + autoLinkExtractJob)
+      XCTAssertEqual(plannedJobs.count, 2)
       XCTAssertFalse(plannedJobs[0].commandLine.contains(.flag("-enable-default-cmo")))
       XCTAssertFalse(plannedJobs[1].commandLine.contains(.flag("-enable-default-cmo")))
     }
@@ -3374,7 +3368,7 @@ final class SwiftDriverTests: XCTestCase {
       // When disabling cross-module-optimization, the module can be emitted in a separate job.
       var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-c", "-o", rebase("test.o", at: root), "-wmo", "-O", "-disable-cmo" ])
       let plannedJobs = try driver.planBuild()
-      XCTAssertEqual(plannedJobs.count, 2 + autoLinkExtractJob)
+      XCTAssertEqual(plannedJobs.count, 2)
       XCTAssertFalse(plannedJobs[0].commandLine.contains(.flag("-enable-default-cmo")))
       XCTAssertFalse(plannedJobs[1].commandLine.contains(.flag("-enable-default-cmo")))
     }
@@ -3383,7 +3377,7 @@ final class SwiftDriverTests: XCTestCase {
       // non optimized builds can emit the module in a separate job.
       var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-c", "-o", rebase("test.o", at: root), "-wmo" ])
       let plannedJobs = try driver.planBuild()
-      XCTAssertEqual(plannedJobs.count, 2 + autoLinkExtractJob)
+      XCTAssertEqual(plannedJobs.count, 2)
       XCTAssertFalse(plannedJobs[0].commandLine.contains(.flag("-enable-default-cmo")))
       XCTAssertFalse(plannedJobs[1].commandLine.contains(.flag("-enable-default-cmo")))
     }
