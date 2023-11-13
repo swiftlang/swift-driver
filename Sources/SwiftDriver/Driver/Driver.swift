@@ -274,7 +274,13 @@ public struct Driver {
   let enableCaching: Bool
   let useClangIncludeTree: Bool
 
-  var cas: SwiftScanCAS?
+  /// CAS instance used for compilation.
+  public var cas: SwiftScanCAS? = nil
+
+  /// Is swift caching enabled.
+  lazy var isCachingEnabled: Bool = {
+    return enableCaching && isFeatureSupported(.cache_compile_job)
+  }()
 
   /// Scanner prefix mapping.
   let scannerPrefixMap: [AbsolutePath: AbsolutePath]
@@ -418,6 +424,7 @@ public struct Driver {
   @_spi(Testing)
   public enum KnownCompilerFeature: String {
     case emit_abi_descriptor = "emit-abi-descriptor"
+    case cache_compile_job = "cache-compile-job"
   }
 
   lazy var sdkPath: VirtualPath? = {
@@ -475,14 +482,6 @@ public struct Driver {
   @_spi(Testing)
   public func isFeatureSupported(_ feature: KnownCompilerFeature) -> Bool {
     return supportedFrontendFeatures.contains(feature.rawValue)
-  }
-
-  @_spi(Testing)
-  public func getCAS() throws -> SwiftScanCAS {
-    guard let cas = self.cas else {
-      throw DependencyScanningError.casError("CAS is not initialized but requested")
-    }
-    return cas
   }
 
   @_spi(Testing)
@@ -638,7 +637,7 @@ public struct Driver {
 
     let cachingEnableOverride = parsedOptions.hasArgument(.driverExplicitModuleBuild) && env.keys.contains("SWIFT_ENABLE_CACHING")
     self.enableCaching = parsedOptions.hasArgument(.cacheCompileJob) || cachingEnableOverride
-    self.useClangIncludeTree = enableCaching && env.keys.contains("SWIFT_CACHING_USE_INCLUDE_TREE")
+    self.useClangIncludeTree = !parsedOptions.hasArgument(.noClangIncludeTree) && !env.keys.contains("SWIFT_CACHING_USE_CLANG_CAS_FS")
     self.scannerPrefixMap = try Self.computeScanningPrefixMapper(&parsedOptions)
     if let sdkMapping =  parsedOptions.getLastArgument(.scannerPrefixMapSdk)?.asSingle {
       self.scannerPrefixMapSDK = try AbsolutePath(validating: sdkMapping)

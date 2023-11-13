@@ -16,7 +16,7 @@ extension Driver {
     assert(interfaceKind == .swiftInterface || interfaceKind == .privateSwiftInterface,
            "only expect interface output kind")
     let isNeeded = emitModuleJob.outputs.contains { $0.type == interfaceKind }
-    guard enableCaching && isNeeded else { return nil }
+    guard isCachingEnabled && isNeeded else { return nil }
 
     // Assume swiftinterface file is always the supplementary output for first input file.
     let key =  try computeOutputCacheKey(commandLine: emitModuleJob.commandLine,

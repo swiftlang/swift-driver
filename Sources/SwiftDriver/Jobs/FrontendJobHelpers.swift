@@ -318,7 +318,7 @@ extension Driver {
       try commandLine.appendLast(.enableBuiltinModule, from: &parsedOptions)
     }
 
-    if !useClangIncludeTree, let workingDirectory = workingDirectory {
+    if !(isCachingEnabled && useClangIncludeTree), let workingDirectory = workingDirectory {
       // Add -Xcc -working-directory before any other -Xcc options to ensure it is
       // overridden by an explicit -Xcc -working-directory, although having a
       // different working directory is probably incorrect.
@@ -359,7 +359,7 @@ extension Driver {
     }
 
     // CAS related options.
-    if enableCaching {
+    if isCachingEnabled {
       commandLine.appendFlag(.cacheCompileJob)
       if let casPath = try getOnDiskCASPath() {
         commandLine.appendFlag(.casPath)
@@ -371,16 +371,16 @@ extension Driver {
       }
       try commandLine.appendAll(.casPluginOption, from: &parsedOptions)
       try commandLine.appendLast(.cacheRemarks, from: &parsedOptions)
+      if !useClangIncludeTree {
+        commandLine.appendFlag(.noClangIncludeTree)
+      }
     }
     addCacheReplayMapping(to: &commandLine)
-    if useClangIncludeTree {
-      commandLine.appendFlag(.clangIncludeTree)
-    }
 
     // Pass through any subsystem flags.
     try commandLine.appendAll(.Xllvm, from: &parsedOptions)
 
-    if !useClangIncludeTree {
+    if !(isCachingEnabled && useClangIncludeTree) {
       try commandLine.appendAll(.Xcc, from: &parsedOptions)
     }
 
@@ -446,7 +446,7 @@ extension Driver {
 
   mutating func addBridgingHeaderPCHCacheKeyArguments(commandLine: inout [Job.ArgTemplate],
                                                       pchCompileJob: Job?) throws {
-    guard let pchJob = pchCompileJob, enableCaching else { return }
+    guard let pchJob = pchCompileJob, isCachingEnabled else { return }
 
     // The pch input file (the bridging header) is added as last inputs to the job.
     guard let inputFile = pchJob.inputs.last else { assertionFailure("no input files from pch job"); return }
@@ -704,7 +704,7 @@ extension Driver {
       }
       entryInput = firstSourceInputHandle
     }
-    let inputEntry = enableCaching ? remapPath(VirtualPath.lookup(entryInput)).intern() : entryInput
+    let inputEntry = isCachingEnabled ? remapPath(VirtualPath.lookup(entryInput)).intern() : entryInput
     entries[inputEntry, default: [:]][output.type] = output.fileHandle
   }
 
@@ -774,7 +774,7 @@ extension Driver {
 
   /// Helper function to add path to commandLine. Function will validate the path, and remap the path if needed.
   public mutating func addPathArgument(_ path: VirtualPath, to commandLine: inout [Job.ArgTemplate], remap: Bool = true) throws {
-    guard remap && enableCaching else {
+    guard remap && isCachingEnabled else {
       commandLine.appendPath(path)
       return
     }
@@ -816,7 +816,7 @@ extension Driver {
   }
 
   public mutating func addCacheReplayMapping(to commandLine: inout [Job.ArgTemplate]) {
-    if enableCaching && isFrontendArgSupported(.scannerPrefixMap) {
+    if isCachingEnabled && isFrontendArgSupported(.scannerPrefixMap) {
       for (key, value) in prefixMapping {
         commandLine.appendFlag("-cache-replay-prefix-map")
         commandLine.appendFlag(value.pathString + "=" + key.pathString)
