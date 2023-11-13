@@ -119,7 +119,6 @@ public extension Driver {
       commandLine.appendPath(dependencyPlaceholderMapFile)
     }
 
-    try commandLine.appendLast(.clangIncludeTree, from: &parsedOptions)
     if isFrontendArgSupported(.clangScannerModuleCachePath) {
       try commandLine.appendLast(.clangScannerModuleCachePath, from: &parsedOptions)
     }
@@ -173,7 +172,7 @@ public extension Driver {
         diagnosticEngine.emit(.warn_scanner_frontend_fallback())
       }
     }
-    if !fallbackToFrontend && enableCaching {
+    if !fallbackToFrontend && isCachingEnabled {
       self.cas = try interModuleDependencyOracle.createCAS(pluginPath: try getCASPluginPath(),
                                                            onDiskPath: try getOnDiskCASPath(),
                                                            pluginOptions: try getCASPluginOptions())

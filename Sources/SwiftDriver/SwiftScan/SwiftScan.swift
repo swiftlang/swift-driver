@@ -294,36 +294,6 @@ internal extension swiftscan_diagnostic_severity_t {
 #endif
   }
 
-  @_spi(Testing) public var supportsCacheReplay : Bool {
-#if os(Windows)
-    // Caching is currently not supported on Windows hosts.
-    return false
-#else
-    return supportsCaching &&
-           api.swiftscan_cache_query != nil &&
-           api.swiftscan_cache_query_async != nil &&
-           api.swiftscan_cache_action_cancel != nil &&
-           api.swiftscan_cache_cancellation_token_dispose != nil &&
-           api.swiftscan_cached_compilation_get_num_outputs != nil &&
-           api.swiftscan_cached_compilation_get_output != nil &&
-           api.swiftscan_cached_compilation_make_global_async != nil &&
-           api.swiftscan_cached_compilation_is_uncacheable != nil &&
-           api.swiftscan_cached_compilation_dispose != nil &&
-           api.swiftscan_cached_output_load != nil &&
-           api.swiftscan_cached_output_load_async != nil &&
-           api.swiftscan_cached_output_is_materialized != nil &&
-           api.swiftscan_cached_output_get_casid != nil &&
-           api.swiftscan_cached_output_get_name != nil &&
-           api.swiftscan_cached_output_dispose != nil &&
-           api.swiftscan_cache_replay_instance_create != nil &&
-           api.swiftscan_cache_replay_instance_dispose != nil &&
-           api.swiftscan_cache_replay_result_get_stdout != nil &&
-           api.swiftscan_cache_replay_result_get_stderr != nil &&
-           api.swiftscan_cache_replay_result_dispose != nil &&
-           api.swiftscan_cache_replay_compilation != nil
-#endif
-  }
-
   @_spi(Testing) public var supportsBridgingHeaderPCHCommand : Bool {
     return api.swiftscan_swift_textual_detail_get_bridging_pch_command_line != nil
   }

@@ -146,20 +146,6 @@ public class InterModuleDependencyOracle {
     return swiftScan.supportsBinaryModuleHeaderDependencies
   }
 
-  @_spi(Testing) public func supportsCaching() throws -> Bool {
-    guard let swiftScan = swiftScanLibInstance else {
-      fatalError("Attempting to query supported scanner API with no scanner instance.")
-    }
-    return swiftScan.supportsCaching
-  }
-
-  @_spi(Testing) public func supportsCacheReplay() throws -> Bool {
-    guard let swiftScan = swiftScanLibInstance else {
-      fatalError("Attempting to query supported scanner API with no scanner instance.")
-    }
-    return swiftScan.supportsCacheReplay
-  }
-
   @_spi(Testing) public func supportsBridgingHeaderPCHCommand() throws -> Bool {
     guard let swiftScan = swiftScanLibInstance else {
       fatalError("Attempting to query supported scanner API with no scanner instance.")
