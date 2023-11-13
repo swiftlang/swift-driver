@@ -420,6 +420,10 @@ def build_using_cmake(args, toolchain_bin, build_dir, targets):
 
   if args.enable_asan:
     base_swift_flags.append('-sanitize=address')
+    # This is currently needed to work around a swift-driver
+    # bug when building with a 5.8 host toolchain.
+    base_swift_flags.append('-Xclang-linker')
+    base_swift_flags.append('-fsanitize=address')
 
   # Ensure we are not sharing the module cache with concurrent builds in CI
   base_swift_flags.append('-module-cache-path "{}"'.format(os.path.join(build_dir, 'module-cache')))
