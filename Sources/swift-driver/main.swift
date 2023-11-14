@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 import SwiftDriverExecution
 import SwiftDriver
+import SwiftOptions
 #if os(Windows)
 import CRT
 #elseif os(iOS) || os(macOS) || os(tvOS) || os(watchOS)
@@ -64,6 +65,19 @@ do {
     driverInterrupted = true
   }
   interruptSignalSource.resume()
+
+  // Fallback to legacy driver if forced to
+  if CommandLine.arguments.contains(Option.disallowForwardingDriver.spelling) ||
+     ProcessEnv.vars["SWIFT_USE_OLD_DRIVER"] != nil {
+    if let legacyExecutablePath = Process.findExecutable(CommandLine.arguments[0] + "-legacy-driver"),
+       localFileSystem.exists(legacyExecutablePath) {
+      let legacyDriverCommand = [legacyExecutablePath.pathString] +
+                                  CommandLine.arguments[1...]
+      try exec(path: legacyExecutablePath.pathString, args: legacyDriverCommand)
+    } else {
+      throw Driver.Error.unknownOrMissingSubcommand(CommandLine.arguments[0] + "-legacy-driver")
+    }
+  }
 
   if ProcessEnv.vars["SWIFT_ENABLE_EXPLICIT_MODULE"] != nil {
     CommandLine.arguments.append("-explicit-module-build")
