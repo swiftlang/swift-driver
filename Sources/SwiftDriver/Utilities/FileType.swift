@@ -154,6 +154,15 @@ public enum FileType: String, Hashable, CaseIterable, Codable {
 
   /// API descriptor JSON
   case jsonAPIDescriptor
+
+  /// Swift Module Summary
+  case moduleSummary = "swiftmodulesummary"
+
+  /// Swift Module Semantic Info
+  case moduleSemanticInfo
+
+  /// Cached Diagnostics
+  case cachedDiagnostics
 }
 
 extension FileType: CustomStringConvertible {
@@ -241,6 +250,15 @@ extension FileType: CustomStringConvertible {
 
     case .jsonAPIDescriptor:
       return "api-descriptor-json"
+
+    case .moduleSummary:
+      return "swift-module-summary"
+
+    case .moduleSemanticInfo:
+      return "module-semantic-info"
+
+    case .cachedDiagnostics:
+      return "cached-diagnostics"
     }
   }
 }
@@ -260,7 +278,8 @@ extension FileType {
          .swiftInterface, .privateSwiftInterface, .swiftSourceInfoFile,
          .jsonDependencies, .clangModuleMap, .jsonTargetInfo, .jsonCompilerFeatures,
          .jsonSwiftArtifacts, .indexUnitOutputPath, .modDepCache, .jsonAPIBaseline,
-         .jsonABIBaseline, .swiftConstValues, .jsonAPIDescriptor:
+         .jsonABIBaseline, .swiftConstValues, .jsonAPIDescriptor,
+         .moduleSummary, .moduleSemanticInfo, .cachedDiagnostics:
       return false
     }
   }
@@ -367,6 +386,12 @@ extension FileType {
       return "const-values"
     case .jsonAPIDescriptor:
       return "api-descriptor-json"
+    case .moduleSummary:
+      return "swiftmodulesummary"
+    case .moduleSemanticInfo:
+      return "module-semantic-info"
+    case .cachedDiagnostics:
+      return "cached-diagnostics"
     }
   }
 }
@@ -379,7 +404,7 @@ extension FileType {
          .moduleTrace, .yamlOptimizationRecord, .swiftInterface, .privateSwiftInterface,
          .jsonDependencies, .clangModuleMap, .jsonCompilerFeatures, .jsonTargetInfo,
          .jsonSwiftArtifacts, .jsonAPIBaseline, .jsonABIBaseline, .swiftConstValues,
-         .jsonAPIDescriptor:
+         .jsonAPIDescriptor, .moduleSummary, .moduleSemanticInfo, .cachedDiagnostics:
       return true
     case .image, .object, .dSYM, .pch, .sib, .raw_sib, .swiftModule,
          .swiftDocumentation, .swiftSourceInfoFile, .llvmBitcode, .diagnostics,
@@ -403,8 +428,30 @@ extension FileType {
          .modDepCache, .bitstreamOptimizationRecord, .pcm, .pch, .jsonDependencies,
          .clangModuleMap, .jsonCompilerFeatures, .jsonTargetInfo, .jsonSwiftArtifacts,
          .indexUnitOutputPath, .jsonAPIBaseline, .jsonABIBaseline, .swiftConstValues,
-         .jsonAPIDescriptor:
+         .jsonAPIDescriptor, .moduleSummary, .moduleSemanticInfo, .cachedDiagnostics:
       return false
+    }
+  }
+
+  /// Returns true if the type can be cached as output.
+  var supportCaching: Bool {
+    switch self {
+    case .diagnostics, .emitModuleDiagnostics, // diagnostics are cached using cached diagnostics.
+         // Those are by-product from swift-driver and not considered outputs need caching.
+         .jsonSwiftArtifacts, .remap, .indexUnitOutputPath, .modDepCache,
+         // the remaining should not be an output from a caching swift job.
+         .swift, .image, .dSYM, .importedModules, .clangModuleMap,
+         .jsonCompilerFeatures, .jsonTargetInfo, .autolink:
+      return false
+    case .assembly, .llvmIR, .llvmBitcode, .object, .sil, .sib, .ast,
+         .dependencies, .emitModuleDependencies, .swiftModule,
+         .swiftDocumentation, .swiftInterface, .privateSwiftInterface,
+         .swiftSourceInfoFile, .raw_sil, .raw_sib, .objcHeader, .swiftDeps, .tbd,
+         .moduleTrace, .indexData, .yamlOptimizationRecord,
+         .bitstreamOptimizationRecord, .pcm, .pch, .jsonDependencies,
+         .jsonAPIBaseline, .jsonABIBaseline, .swiftConstValues, .jsonAPIDescriptor,
+         .moduleSummary, .moduleSemanticInfo, .cachedDiagnostics:
+      return true
     }
   }
 }

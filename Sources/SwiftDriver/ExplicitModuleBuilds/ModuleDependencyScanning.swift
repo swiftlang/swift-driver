@@ -119,9 +119,16 @@ public extension Driver {
       commandLine.appendPath(dependencyPlaceholderMapFile)
     }
 
-    try commandLine.appendLast(.clangIncludeTree, from: &parsedOptions)
     if isFrontendArgSupported(.clangScannerModuleCachePath) {
       try commandLine.appendLast(.clangScannerModuleCachePath, from: &parsedOptions)
+    }
+
+    if isFrontendArgSupported(.scannerPrefixMap) {
+      // construct `-scanner-prefix-mapper` for scanner.
+      for (key, value) in prefixMapping {
+        commandLine.appendFlag(.scannerPrefixMap)
+        commandLine.appendFlag(key.pathString + "=" + value.pathString)
+      }
     }
 
     // Pass on the input files
@@ -165,10 +172,10 @@ public extension Driver {
         diagnosticEngine.emit(.warn_scanner_frontend_fallback())
       }
     }
-    if !fallbackToFrontend && enableCaching {
-      try interModuleDependencyOracle.createCAS(pluginPath: try getCASPluginPath(),
-                                                onDiskPath: try getOnDiskCASPath(),
-                                                pluginOptions: try getCASPluginOptions())
+    if !fallbackToFrontend && isCachingEnabled {
+      self.cas = try interModuleDependencyOracle.createCAS(pluginPath: try getCASPluginPath(),
+                                                           onDiskPath: try getOnDiskCASPath(),
+                                                           pluginOptions: try getCASPluginOptions())
     }
     return fallbackToFrontend
   }
