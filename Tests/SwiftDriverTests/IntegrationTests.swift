@@ -224,6 +224,7 @@ final class IntegrationTests: IntegrationTestCase {
       let extraEnv = [
         "SWIFT": swift.pathString,
         "SWIFTC": swiftc.pathString,
+        "SWIFT_FORCE_TEST_NEW_DRIVER": "1",
         "SWIFT_DRIVER_SWIFT_EXEC": swiftFile.pathString,
         "SWIFT_DRIVER_SWIFT_FRONTEND_EXEC": frontendFile.pathString,
         "LC_ALL": "en_US.UTF-8"
