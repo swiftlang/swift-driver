@@ -13,6 +13,13 @@
 @_implementationOnly import CSwiftScan
 import struct Foundation.Data
 
+// Swift Package Manager is building with `-disable-implicit-concurrency-module-import`
+// to avoid warnings on old SDKs. Explicity importing concurrency if available
+// and only adds async APIs when concurrency is available.
+#if canImport(_Concurrency)
+import _Concurrency
+#endif
+
 public final class CachedCompilation {
   let ptr: swiftscan_cached_compilation_t
   private let lib: SwiftScan
@@ -28,38 +35,6 @@ public final class CachedCompilation {
 
   public var isUncacheable: Bool {
     lib.api.swiftscan_cached_compilation_is_uncacheable(ptr)
-  }
-
-  public func makeGlobal() async throws -> Bool {
-    class CallbackContext {
-      func retain() -> UnsafeMutableRawPointer {
-        return Unmanaged.passRetained(self).toOpaque()
-      }
-
-      let continuation: CheckedContinuation<Bool, Swift.Error>
-      let comp: CachedCompilation
-      init(_ continuation: CheckedContinuation<Bool, Swift.Error>, compilation: CachedCompilation) {
-        self.continuation = continuation
-        self.comp = compilation
-      }
-    }
-
-    func callbackFunc(_ context: UnsafeMutableRawPointer?, _ error: swiftscan_string_ref_t) {
-      let obj = Unmanaged<CallbackContext>.fromOpaque(context!).takeRetainedValue()
-      if error.length != 0 {
-        if let err = try? obj.comp.lib.toSwiftString(error) {
-          obj.continuation.resume(throwing: DependencyScanningError.casError(err))
-        } else {
-          obj.continuation.resume(throwing: DependencyScanningError.casError("unknown makeGlobal error"))
-        }
-      }
-      obj.continuation.resume(returning: true)
-    }
-
-    return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Bool, Swift.Error>) in
-      let context = CallbackContext(continuation, compilation: self)
-      lib.api.swiftscan_cached_compilation_make_global_async(ptr, context.retain(), callbackFunc, nil)
-    }
   }
 
   deinit {
@@ -100,38 +75,6 @@ public final class CachedOutput {
   public func load() throws -> Bool {
     try lib.handleCASError { err_msg in
       lib.api.swiftscan_cached_output_load(ptr, &err_msg)
-    }
-  }
-
-  public func load() async throws -> Bool {
-    class CallbackContext {
-      func retain() -> UnsafeMutableRawPointer {
-        return Unmanaged.passRetained(self).toOpaque()
-      }
-
-      let continuation: CheckedContinuation<Bool, Swift.Error>
-      let output: CachedOutput
-      init(_ continuation: CheckedContinuation<Bool, Swift.Error>, output: CachedOutput) {
-        self.continuation = continuation
-        self.output = output
-      }
-    }
-
-    func callbackFunc(_ context: UnsafeMutableRawPointer?, _ success: Bool, _ error: swiftscan_string_ref_t) {
-      let obj = Unmanaged<CallbackContext>.fromOpaque(context!).takeRetainedValue()
-      if error.length != 0 {
-        if let err = try? obj.output.lib.toSwiftString(error) {
-          obj.continuation.resume(throwing: DependencyScanningError.casError(err))
-        } else {
-          obj.continuation.resume(throwing: DependencyScanningError.casError("unknown output loading error"))
-        }
-      }
-      obj.continuation.resume(returning: success)
-    }
-
-    return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Bool, Swift.Error>) in
-      let context = CallbackContext(continuation, output: self)
-      lib.api.swiftscan_cached_output_load_async(ptr, context.retain(), callbackFunc, nil)
     }
   }
 
@@ -260,6 +203,106 @@ public final class SwiftScanCAS {
     return convert(compilation: result)
   }
 
+  public func replayCompilation(instance: CacheReplayInstance, compilation: CachedCompilation) throws -> CacheReplayResult {
+    let result = try scanner.handleCASError { err_msg in
+      scanner.api.swiftscan_cache_replay_compilation(instance.ptr, compilation.ptr, &err_msg)
+    }
+    guard let res = convert(result: result) else {
+      throw DependencyScanningError.casError("unexpected nil for cache_replay_result")
+    }
+    return res
+  }
+}
+
+extension swiftscan_cached_compilation_t {
+  func convert(_ lib: SwiftScan) -> CachedCompilation {
+    return CachedCompilation(self, lib: lib)
+  }
+}
+
+extension swiftscan_cache_replay_instance_t {
+  func convert(_ lib: SwiftScan) -> CacheReplayInstance {
+    return CacheReplayInstance(self, lib: lib)
+  }
+}
+
+extension swiftscan_cache_replay_result_t {
+  func convert(_ lib: SwiftScan) -> CacheReplayResult {
+    return CacheReplayResult(self, lib: lib)
+  }
+}
+
+#if canImport(_Concurrency)
+// Async API Vendor
+extension CachedCompilation {
+  public func makeGlobal() async throws -> Bool {
+    class CallbackContext {
+      func retain() -> UnsafeMutableRawPointer {
+        return Unmanaged.passRetained(self).toOpaque()
+      }
+
+      let continuation: CheckedContinuation<Bool, Swift.Error>
+      let comp: CachedCompilation
+      init(_ continuation: CheckedContinuation<Bool, Swift.Error>, compilation: CachedCompilation) {
+        self.continuation = continuation
+        self.comp = compilation
+      }
+    }
+
+    func callbackFunc(_ context: UnsafeMutableRawPointer?, _ error: swiftscan_string_ref_t) {
+      let obj = Unmanaged<CallbackContext>.fromOpaque(context!).takeRetainedValue()
+      if error.length != 0 {
+        if let err = try? obj.comp.lib.toSwiftString(error) {
+          obj.continuation.resume(throwing: DependencyScanningError.casError(err))
+        } else {
+          obj.continuation.resume(throwing: DependencyScanningError.casError("unknown makeGlobal error"))
+        }
+      }
+      obj.continuation.resume(returning: true)
+    }
+
+    return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Bool, Swift.Error>) in
+      let context = CallbackContext(continuation, compilation: self)
+      lib.api.swiftscan_cached_compilation_make_global_async(ptr, context.retain(), callbackFunc, nil)
+    }
+  }
+}
+
+extension CachedOutput {
+  public func load() async throws -> Bool {
+    class CallbackContext {
+      func retain() -> UnsafeMutableRawPointer {
+        return Unmanaged.passRetained(self).toOpaque()
+      }
+
+      let continuation: CheckedContinuation<Bool, Swift.Error>
+      let output: CachedOutput
+      init(_ continuation: CheckedContinuation<Bool, Swift.Error>, output: CachedOutput) {
+        self.continuation = continuation
+        self.output = output
+      }
+    }
+
+    func callbackFunc(_ context: UnsafeMutableRawPointer?, _ success: Bool, _ error: swiftscan_string_ref_t) {
+      let obj = Unmanaged<CallbackContext>.fromOpaque(context!).takeRetainedValue()
+      if error.length != 0 {
+        if let err = try? obj.output.lib.toSwiftString(error) {
+          obj.continuation.resume(throwing: DependencyScanningError.casError(err))
+        } else {
+          obj.continuation.resume(throwing: DependencyScanningError.casError("unknown output loading error"))
+        }
+      }
+      obj.continuation.resume(returning: success)
+    }
+
+    return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Bool, Swift.Error>) in
+      let context = CallbackContext(continuation, output: self)
+      lib.api.swiftscan_cached_output_load_async(ptr, context.retain(), callbackFunc, nil)
+    }
+  }
+}
+
+extension SwiftScanCAS {
   public func queryCacheKey(_ key: String, globally: Bool) async throws -> CachedCompilation? {
     class CallbackContext {
       func retain() -> UnsafeMutableRawPointer {
@@ -291,32 +334,5 @@ public final class SwiftScanCAS {
       scanner.api.swiftscan_cache_query_async(cas, key.cString(using: .utf8), globally, context.retain(), callbackFunc, nil)
     }
   }
-
-  public func replayCompilation(instance: CacheReplayInstance, compilation: CachedCompilation) throws -> CacheReplayResult {
-    let result = try scanner.handleCASError { err_msg in
-      scanner.api.swiftscan_cache_replay_compilation(instance.ptr, compilation.ptr, &err_msg)
-    }
-    guard let res = convert(result: result) else {
-      throw DependencyScanningError.casError("unexpected nil for cache_replay_result")
-    }
-    return res
-  }
 }
-
-extension swiftscan_cached_compilation_t {
-  func convert(_ lib: SwiftScan) -> CachedCompilation {
-    return CachedCompilation(self, lib: lib)
-  }
-}
-
-extension swiftscan_cache_replay_instance_t {
-  func convert(_ lib: SwiftScan) -> CacheReplayInstance {
-    return CacheReplayInstance(self, lib: lib)
-  }
-}
-
-extension swiftscan_cache_replay_result_t {
-  func convert(_ lib: SwiftScan) -> CacheReplayResult {
-    return CacheReplayResult(self, lib: lib)
-  }
-}
+#endif
