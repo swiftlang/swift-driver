@@ -13,7 +13,6 @@
 import protocol TSCBasic.FileSystem
 import struct TSCBasic.AbsolutePath
 import struct Foundation.Data
-import var TSCBasic.localFileSystem
 
 import Dispatch
 
@@ -146,6 +145,13 @@ public class InterModuleDependencyOracle {
     return swiftScan.supportsBinaryModuleHeaderDependencies
   }
 
+  @_spi(Testing) public func supportsCaching() throws -> Bool {
+    guard let swiftScan = swiftScanLibInstance else {
+      fatalError("Attempting to query supported scanner API with no scanner instance.")
+    }
+    return swiftScan.supportsCaching
+  }
+
   @_spi(Testing) public func supportsBridgingHeaderPCHCommand() throws -> Bool {
     guard let swiftScan = swiftScanLibInstance else {
       fatalError("Attempting to query supported scanner API with no scanner instance.")
@@ -165,11 +171,26 @@ public class InterModuleDependencyOracle {
     return diags.isEmpty ? nil : diags
   }
 
-  @_spi(Testing) public func createCAS(pluginPath: AbsolutePath?, onDiskPath: AbsolutePath?, pluginOptions: [(String, String)]) throws -> SwiftScanCAS {
+  public func createCAS(pluginPath: AbsolutePath?, onDiskPath: AbsolutePath?, pluginOptions: [(String, String)]) throws {
     guard let swiftScan = swiftScanLibInstance else {
       fatalError("Attempting to reset scanner cache with no scanner instance.")
     }
-    return try swiftScan.createCAS(pluginPath: pluginPath?.pathString, onDiskPath: onDiskPath?.pathString, pluginOptions: pluginOptions)
+    try swiftScan.createCAS(pluginPath: pluginPath?.pathString, onDiskPath: onDiskPath?.pathString, pluginOptions: pluginOptions)
+  }
+
+  public func store(data: Data) throws -> String {
+    guard let swiftScan = swiftScanLibInstance else {
+      fatalError("Attempting to reset scanner cache with no scanner instance.")
+    }
+    return try swiftScan.store(data:data)
+  }
+
+  public func computeCacheKeyForOutput(kind: FileType, commandLine: [Job.ArgTemplate], input: VirtualPath.Handle?) throws -> String {
+    guard let swiftScan = swiftScanLibInstance else {
+      fatalError("Attempting to reset scanner cache with no scanner instance.")
+    }
+    let inputPath = input?.description ?? ""
+    return try swiftScan.computeCacheKeyForOutput(kind: kind, commandLine: commandLine.stringArray, input: inputPath)
   }
 
   private var hasScannerInstance: Bool { self.swiftScanLibInstance != nil }

@@ -98,6 +98,9 @@ internal extension swiftscan_diagnostic_severity_t {
   /// Instance of a scanner, which maintains shared state across scan queries.
   let scanner: swiftscan_scanner_t;
 
+  /// Optional CAS instance.
+  var cas: swiftscan_cas_t? = nil
+
   @_spi(Testing) public init(dylib path: AbsolutePath) throws {
     self.path = path
     #if os(Windows)
@@ -114,6 +117,9 @@ internal extension swiftscan_diagnostic_severity_t {
 
   deinit {
     api.swiftscan_scanner_dispose(self.scanner)
+    if let scan_cas = cas {
+      api.swiftscan_cas_dispose(scan_cas)
+    }
     // FIXME: is it safe to dlclose() swiftscan? If so, do that here.
     // For now, let the handle leak.
     dylib.leak()
@@ -283,10 +289,10 @@ internal extension swiftscan_diagnostic_severity_t {
            api.swiftscan_cas_options_dispose != nil &&
            api.swiftscan_cas_options_set_ondisk_path != nil &&
            api.swiftscan_cas_options_set_plugin_path != nil &&
-           api.swiftscan_cas_options_set_plugin_option != nil &&
+           api.swiftscan_cas_options_set_option != nil &&
            api.swiftscan_cas_create_from_options != nil &&
            api.swiftscan_cas_dispose != nil &&
-           api.swiftscan_cache_compute_key != nil &&
+           api.swiftscan_compute_cache_key != nil &&
            api.swiftscan_cas_store != nil &&
            api.swiftscan_swift_textual_detail_get_module_cache_key != nil &&
            api.swiftscan_swift_binary_detail_get_module_cache_key != nil &&
@@ -386,18 +392,16 @@ internal extension swiftscan_diagnostic_severity_t {
     }
   }
 
-  func handleCASError<T>(_ closure: (inout swiftscan_string_ref_t) -> T) throws -> T{
+  private func handleCASError(_ closure: (inout swiftscan_string_ref_t) -> Bool) throws {
     var err_msg : swiftscan_string_ref_t = swiftscan_string_ref_t()
-    let ret = closure(&err_msg)
-    if err_msg.length != 0 {
+    guard !closure(&err_msg) else {
       let err_str = try toSwiftString(err_msg)
       api.swiftscan_string_dispose(err_msg)
       throw DependencyScanningError.casError(err_str)
     }
-    return ret
   }
 
-  func createCAS(pluginPath: String?, onDiskPath: String?, pluginOptions: [(String, String)]) throws -> SwiftScanCAS {
+  func createCAS(pluginPath: String?, onDiskPath: String?, pluginOptions: [(String, String)]) throws {
     let casOpts = api.swiftscan_cas_options_create()
     defer {
       api.swiftscan_cas_options_dispose(casOpts)
@@ -410,13 +414,65 @@ internal extension swiftscan_diagnostic_severity_t {
     }
     for (name, value) in pluginOptions {
       try handleCASError { err_msg in
-        _ = api.swiftscan_cas_options_set_plugin_option(casOpts, name, value, &err_msg)
+        return api.swiftscan_cas_options_set_option(casOpts, name, value, &err_msg)
       }
     }
-    let cas = try handleCASError { err_msg in
-      api.swiftscan_cas_create_from_options(casOpts, &err_msg)
+    try handleCASError { err_msg in
+      self.cas = api.swiftscan_cas_create_from_options(casOpts, &err_msg)
+      return self.cas == nil
     }
-    return SwiftScanCAS(cas: cas!, scanner: self)
+  }
+
+  func store(data: Data) throws -> String {
+    guard let scan_cas = self.cas else {
+      throw DependencyScanningError.casError("cannot store into CAS because CAS is not yet created")
+    }
+    let bytes = UnsafeMutablePointer<UInt8>.allocate(capacity: data.count)
+    data.copyBytes(to: bytes, count: data.count)
+    var casid: swiftscan_string_ref_t = swiftscan_string_ref_t()
+    try handleCASError { err_msg in
+      casid = api.swiftscan_cas_store(scan_cas, bytes, UInt32(data.count), &err_msg)
+      return casid.data == nil
+    }
+    return try toSwiftString(casid)
+  }
+
+  private func getSwiftScanOutputKind(kind: FileType) -> swiftscan_output_kind_t {
+    switch (kind) {
+      case .object:
+        return SWIFTSCAN_OUTPUT_TYPE_OBJECT
+      case .swiftModule:
+        return SWIFTSCAN_OUTPUT_TYPE_SWIFTMODULE
+      case .swiftInterface:
+        return SWIFTSCAN_OUTPUT_TYPE_SWIFTINTERFACE
+      case .privateSwiftInterface:
+        return SWIFTSCAN_OUTPUT_TYPE_SWIFTPRIVATEINTERFACE
+      case .pcm:
+        return SWIFTSCAN_OUTPUT_TYPE_CLANG_MODULE
+      case .pch:
+        return SWIFTSCAN_OUTPUT_TYPE_CLANG_PCH
+      default:
+        fatalError("Unsupported")
+    }
+  }
+
+  func computeCacheKeyForOutput(kind: FileType, commandLine: [String], input: String) throws -> String {
+    guard let scan_cas = self.cas else {
+      throw DependencyScanningError.casError("cannot compute CacheKey for compilation because CAS is not yet created")
+    }
+    var casid: swiftscan_string_ref_t = swiftscan_string_ref_t()
+    try handleCASError { err_msg in
+      withArrayOfCStrings(commandLine) { commandArray in
+        casid = api.swiftscan_compute_cache_key(scan_cas,
+                                                Int32(commandLine.count),
+                                                commandArray,
+                                                input.cString(using: String.Encoding.utf8),
+                                                getSwiftScanOutputKind(kind: kind),
+                                                &err_msg)
+      }
+      return casid.data == nil
+    }
+    return try toSwiftString(casid)
   }
 }
 
@@ -502,39 +558,14 @@ private extension swiftscan_functions_t {
     self.swiftscan_cas_options_create = try loadOptional("swiftscan_cas_options_create")
     self.swiftscan_cas_options_set_plugin_path = try loadOptional("swiftscan_cas_options_set_plugin_path")
     self.swiftscan_cas_options_set_ondisk_path = try loadOptional("swiftscan_cas_options_set_ondisk_path")
-    self.swiftscan_cas_options_set_plugin_option = try loadOptional("swiftscan_cas_options_set_plugin_option")
+    self.swiftscan_cas_options_set_option = try loadOptional("swiftscan_cas_options_set_option")
     self.swiftscan_cas_options_dispose = try loadOptional("swiftscan_cas_options_dispose")
     self.swiftscan_cas_create_from_options = try loadOptional("swiftscan_cas_create_from_options")
     self.swiftscan_cas_dispose = try loadOptional("swiftscan_cas_dispose")
-    self.swiftscan_cache_compute_key = try loadOptional("swiftscan_cache_compute_key")
+    self.swiftscan_compute_cache_key =
+      try loadOptional("swiftscan_compute_cache_key")
     self.swiftscan_cas_store = try loadOptional("swiftscan_cas_store")
 
-    self.swiftscan_cache_query = try loadOptional("swiftscan_cache_query")
-    self.swiftscan_cache_query_async = try loadOptional("swiftscan_cache_query_async")
-
-    self.swiftscan_cached_compilation_get_num_outputs = try loadOptional("swiftscan_cached_compilation_get_num_outputs")
-    self.swiftscan_cached_compilation_get_output = try loadOptional("swiftscan_cached_compilation_get_output")
-    self.swiftscan_cached_compilation_make_global_async = try loadOptional("swiftscan_cached_compilation_make_global_async")
-    self.swiftscan_cached_compilation_is_uncacheable = try loadOptional("swiftscan_cached_compilation_is_uncacheable")
-    self.swiftscan_cached_compilation_dispose = try loadOptional("swiftscan_cached_compilation_dispose")
-
-    self.swiftscan_cached_output_load = try loadOptional("swiftscan_cached_output_load")
-    self.swiftscan_cached_output_load_async = try loadOptional("swiftscan_cached_output_load_async")
-    self.swiftscan_cached_output_is_materialized = try loadOptional("swiftscan_cached_output_is_materialized")
-    self.swiftscan_cached_output_get_casid = try loadOptional("swiftscan_cached_output_get_casid")
-    self.swiftscan_cached_output_get_name = try loadOptional("swiftscan_cached_output_get_name")
-    self.swiftscan_cached_output_dispose = try loadOptional("swiftscan_cached_output_dispose")
-
-    self.swiftscan_cache_action_cancel = try loadOptional("swiftscan_cache_action_cancel")
-    self.swiftscan_cache_cancellation_token_dispose = try loadOptional("swiftscan_cache_cancellation_token_dispose")
-
-    self.swiftscan_cache_replay_instance_create = try loadOptional("swiftscan_cache_replay_instance_create")
-    self.swiftscan_cache_replay_instance_dispose = try loadOptional("swiftscan_cache_replay_instance_dispose")
-    self.swiftscan_cache_replay_compilation = try loadOptional("swiftscan_cache_replay_compilation")
-
-    self.swiftscan_cache_replay_result_get_stdout = try loadOptional("swiftscan_cache_replay_result_get_stdout")
-    self.swiftscan_cache_replay_result_get_stderr = try loadOptional("swiftscan_cache_replay_result_get_stderr")
-    self.swiftscan_cache_replay_result_dispose = try loadOptional("swiftscan_cache_replay_result_dispose")
 
     // Swift Overlay Dependencies
     self.swiftscan_swift_textual_detail_get_swift_overlay_dependencies =
@@ -663,14 +694,13 @@ private extension swiftscan_functions_t {
 
 // TODO: Move to TSC?
 /// Perform an  `action` passing it a `const char **` constructed out of `[String]`
-func withArrayOfCStrings<T>(_ strings: [String],
-                            _ action:  (UnsafeMutablePointer<UnsafePointer<Int8>?>?) -> T) -> T
+func withArrayOfCStrings(_ strings: [String],
+                         _ action:  (UnsafeMutablePointer<UnsafePointer<Int8>?>?) -> Void)
 {
   let cstrings = strings.map { strdup($0) } + [nil]
   let unsafeCStrings = cstrings.map { UnsafePointer($0) }
-  let result = unsafeCStrings.withUnsafeBufferPointer {
+  let _ = unsafeCStrings.withUnsafeBufferPointer {
     action(UnsafeMutablePointer(mutating: $0.baseAddress))
   }
   for ptr in cstrings { if let ptr = ptr { free(ptr) } }
-  return result
 }

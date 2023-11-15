@@ -65,14 +65,10 @@ public final class ArgsResolver {
   public func resolveArgumentList(for job: Job, useResponseFiles: ResponseFileHandling = .heuristic)
   throws -> ([String], usingResponseFile: Bool) {
     let tool = try resolve(.path(job.tool))
-    var arguments = [tool] + (try resolveArgumentList(for: job.commandLine))
+    var arguments = [tool] + (try job.commandLine.map { try resolve($0) })
     let usingResponseFile = try createResponseFileIfNeeded(for: job, resolvedArguments: &arguments,
                                                            useResponseFiles: useResponseFiles)
     return (arguments, usingResponseFile)
-  }
-
-  public func resolveArgumentList(for commandLine: [Job.ArgTemplate]) throws -> [String] {
-    return try commandLine.map { try resolve($0) }
   }
 
   @available(*, deprecated, message: "use resolveArgumentList(for:,useResponseFiles:,quotePaths:)")

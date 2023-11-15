@@ -11,17 +11,18 @@
 //===----------------------------------------------------------------------===//
 
 extension Driver {
-  mutating func computeCacheKeyForInterface(emitModuleJob: Job,
-                                            interfaceKind: FileType) throws -> String? {
+  func computeCacheKeyForInterface(emitModuleJob: Job,
+                                   interfaceKind: FileType) throws -> String? {
     assert(interfaceKind == .swiftInterface || interfaceKind == .privateSwiftInterface,
            "only expect interface output kind")
     let isNeeded = emitModuleJob.outputs.contains { $0.type == interfaceKind }
-    guard isCachingEnabled && isNeeded else { return nil }
+    guard enableCaching && isNeeded else { return nil }
 
     // Assume swiftinterface file is always the supplementary output for first input file.
-    let key =  try computeOutputCacheKey(commandLine: emitModuleJob.commandLine,
-                                         input: emitModuleJob.inputs[0])
-    return key
+    let mainInput = emitModuleJob.inputs[0]
+    return try interModuleDependencyOracle.computeCacheKeyForOutput(kind: interfaceKind,
+                                                                    commandLine: emitModuleJob.commandLine,
+                                                                    input: mainInput.fileHandle)
   }
 
   @_spi(Testing)
@@ -34,7 +35,7 @@ extension Driver {
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
     var inputs: [TypedVirtualPath] = [interfaceInput]
     commandLine.appendFlags("-frontend", "-typecheck-module-from-interface")
-    try addPathArgument(interfaceInput.file, to: &commandLine)
+    commandLine.appendPath(interfaceInput.file)
     try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs, kind: .verifyModuleInterface)
     // FIXME: MSVC runtime flags
 
@@ -57,8 +58,6 @@ extension Driver {
     if !optIn && isFrontendArgSupported(.downgradeTypecheckInterfaceError) {
       commandLine.appendFlag(.downgradeTypecheckInterfaceError)
     }
-
-    let cacheKeys = try computeOutputCacheKeyForJob(commandLine: commandLine, inputs: [interfaceInput]) 
     return Job(
       moduleName: moduleOutputInfo.name,
       kind: .verifyModuleInterface,
@@ -67,8 +66,7 @@ extension Driver {
       displayInputs: [interfaceInput],
       inputs: inputs,
       primaryInputs: [],
-      outputs: outputs,
-      outputCacheKeys: cacheKeys
+      outputs: outputs
     )
   }
 }

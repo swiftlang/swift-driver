@@ -18,7 +18,7 @@
 #include <stdint.h>
 
 #define SWIFTSCAN_VERSION_MAJOR 0
-#define SWIFTSCAN_VERSION_MINOR 6
+#define SWIFTSCAN_VERSION_MINOR 5
 
 //=== Public Scanner Data Types -------------------------------------------===//
 
@@ -78,15 +78,17 @@ typedef struct swiftscan_scan_invocation_s *swiftscan_scan_invocation_t;
 typedef void *swiftscan_scanner_t;
 
 //=== CAS/Caching Specification -------------------------------------------===//
-typedef struct swiftscan_cas_options_s *swiftscan_cas_options_t;
 typedef struct swiftscan_cas_s *swiftscan_cas_t;
-typedef struct swiftscan_cached_compilation_s *swiftscan_cached_compilation_t;
-typedef struct swiftscan_cached_output_s *swiftscan_cached_output_t;
-typedef struct swiftscan_cache_replay_instance_s
-    *swiftscan_cache_replay_instance_t;
-typedef struct swiftscan_cache_replay_result_s *swiftscan_cache_replay_result_t;
-typedef struct swiftscan_cache_cancellation_token_s
-    *swiftscan_cache_cancellation_token_t;
+typedef struct swiftscan_cas_options_s *swiftscan_cas_options_t;
+
+typedef enum {
+  SWIFTSCAN_OUTPUT_TYPE_OBJECT = 0,
+  SWIFTSCAN_OUTPUT_TYPE_SWIFTMODULE = 1,
+  SWIFTSCAN_OUTPUT_TYPE_SWIFTINTERFACE = 2,
+  SWIFTSCAN_OUTPUT_TYPE_SWIFTPRIVATEINTERFACE = 3,
+  SWIFTSCAN_OUTPUT_TYPE_CLANG_MODULE = 4,
+  SWIFTSCAN_OUTPUT_TYPE_CLANG_PCH = 5
+} swiftscan_output_kind_t;
 
 //=== libSwiftScan Functions ------------------------------------------------===//
 
@@ -279,74 +281,18 @@ typedef struct {
                                                 const char *path);
   void (*swiftscan_cas_options_set_plugin_path)(swiftscan_cas_options_t options,
                                                 const char *path);
-  bool (*swiftscan_cas_options_set_plugin_option)(
-      swiftscan_cas_options_t options, const char *name, const char *value,
-      swiftscan_string_ref_t *error);
+  bool (*swiftscan_cas_options_set_option)(swiftscan_cas_options_t options,
+                                           const char *name, const char *value,
+                                           swiftscan_string_ref_t *error);
   swiftscan_cas_t (*swiftscan_cas_create_from_options)(
       swiftscan_cas_options_t options, swiftscan_string_ref_t *error);
   void (*swiftscan_cas_dispose)(swiftscan_cas_t cas);
   swiftscan_string_ref_t (*swiftscan_cas_store)(swiftscan_cas_t cas,
                                                 uint8_t *data, unsigned size,
                                                 swiftscan_string_ref_t *error);
-  swiftscan_string_ref_t (*swiftscan_cache_compute_key)(
-      swiftscan_cas_t cas, int argc, const char **argv, const char *input,
-      swiftscan_string_ref_t *error);
-
-  //=== Scanner Caching Query/Replay Operations -----------------------------===//
-  swiftscan_cached_compilation_t (*swiftscan_cache_query)(
-      swiftscan_cas_t cas, const char *key, bool globally,
-      swiftscan_string_ref_t *error);
-  void (*swiftscan_cache_query_async)(
-      swiftscan_cas_t cas, const char *key, bool globally, void *ctx,
-      void (*callback)(void *ctx, swiftscan_cached_compilation_t,
-                       swiftscan_string_ref_t error),
-      swiftscan_cache_cancellation_token_t *);
-
-
-  unsigned (*swiftscan_cached_compilation_get_num_outputs)(
-      swiftscan_cached_compilation_t);
-  swiftscan_cached_output_t (*swiftscan_cached_compilation_get_output)(
-      swiftscan_cached_compilation_t, unsigned idx);
-  bool (*swiftscan_cached_compilation_is_uncacheable)(
-      swiftscan_cached_compilation_t);
-  void (*swiftscan_cached_compilation_make_global_async)(
-      swiftscan_cached_compilation_t, void *ctx,
-      void (*callback)(void *ctx, swiftscan_string_ref_t error),
-      swiftscan_cache_cancellation_token_t *);
-  void (*swiftscan_cached_compilation_dispose)(swiftscan_cached_compilation_t);
-
-  bool (*swiftscan_cached_output_load)(swiftscan_cached_output_t,
-                                       swiftscan_string_ref_t *error);
-  void (*swiftscan_cached_output_load_async)(
-      swiftscan_cached_output_t, void *ctx,
-      void (*callback)(void *ctx, bool success, swiftscan_string_ref_t error),
-      swiftscan_cache_cancellation_token_t *);
-  bool (*swiftscan_cached_output_is_materialized)(swiftscan_cached_output_t);
-  swiftscan_string_ref_t (*swiftscan_cached_output_get_casid)(
-      swiftscan_cached_output_t);
-  swiftscan_string_ref_t (*swiftscan_cached_output_get_name)(
-      swiftscan_cached_output_t);
-  void (*swiftscan_cached_output_dispose)(swiftscan_cached_output_t);
-
-  void (*swiftscan_cache_action_cancel)(swiftscan_cache_cancellation_token_t);
-  void (*swiftscan_cache_cancellation_token_dispose)(
-      swiftscan_cache_cancellation_token_t);
-
-  swiftscan_cache_replay_instance_t (*swiftscan_cache_replay_instance_create)(
-      int argc, const char **argv, swiftscan_string_ref_t *error);
-  void (*swiftscan_cache_replay_instance_dispose)(
-      swiftscan_cache_replay_instance_t);
-
-  swiftscan_cache_replay_result_t (*swiftscan_cache_replay_compilation)(
-      swiftscan_cache_replay_instance_t, swiftscan_cached_compilation_t,
-      swiftscan_string_ref_t *error);
-
-  swiftscan_string_ref_t (*swiftscan_cache_replay_result_get_stdout)(
-      swiftscan_cache_replay_result_t);
-  swiftscan_string_ref_t (*swiftscan_cache_replay_result_get_stderr)(
-      swiftscan_cache_replay_result_t);
-  void (*swiftscan_cache_replay_result_dispose)(
-      swiftscan_cache_replay_result_t);
+  swiftscan_string_ref_t (*swiftscan_compute_cache_key)(
+      swiftscan_cas_t cas, int argc, const char *argv, const char *input,
+      swiftscan_output_kind_t, swiftscan_string_ref_t *error);
 
 } swiftscan_functions_t;
 
