@@ -374,6 +374,9 @@ public struct Driver {
   /// Path to the Swift private interface file.
   let swiftPrivateInterfacePath: VirtualPath.Handle?
 
+  /// Path to the Swift package interface file.
+  let swiftPackageInterfacePath: VirtualPath.Handle?
+
   /// File type for the optimization record.
   let optimizationRecordFileType: FileType?
 
@@ -964,6 +967,14 @@ public struct Driver {
         emitModuleSeparately: emitModuleSeparately,
         outputFileMap: self.outputFileMap,
         moduleName: moduleOutputInfo.name)
+    let givenPackageInterfacePath = try Self.computeSupplementaryOutputPath(
+        &parsedOptions, type: .packageSwiftInterface, isOutputOptions: [],
+        outputPath: .emitPackageModuleInterfacePath,
+        compilerOutputType: compilerOutputType,
+        compilerMode: compilerMode,
+        emitModuleSeparately: emitModuleSeparately,
+        outputFileMap: self.outputFileMap,
+        moduleName: moduleOutputInfo.name)
 
     // Always emitting private swift interfaces if public interfaces are emitted.'
     // With the introduction of features like @_spi_available, we may print public
@@ -976,6 +987,22 @@ public struct Driver {
         .replacingExtension(with: .privateSwiftInterface).intern()
     } else {
       self.swiftPrivateInterfacePath = givenPrivateInterfacePath
+    }
+
+    if let packageNameInput = parsedOptions.getLastArgument(Option.packageName),
+        !packageNameInput.asSingle.isEmpty {
+      // Generate a package interface if built with `-package-name` required for decls
+      // with the `package` access level. The .package.swiftinterface contains package
+      // decls as well as SPI and public decls (superset of a private interface).
+      if let publicInterfacePath = self.swiftInterfacePath,
+         givenPackageInterfacePath == nil {
+        self.swiftPackageInterfacePath = try VirtualPath.lookup(publicInterfacePath)
+          .replacingExtension(with: .packageSwiftInterface).intern()
+      } else {
+        self.swiftPackageInterfacePath = givenPackageInterfacePath
+      }
+    } else {
+      self.swiftPackageInterfacePath = nil
     }
 
     var optimizationRecordFileType = FileType.yamlOptimizationRecord
@@ -2546,7 +2573,7 @@ extension Driver {
       moduleOutputKind = .auxiliary
     } else if parsedOptions.hasArgument(.emitObjcHeader, .emitObjcHeaderPath,
                                         .emitModuleInterface, .emitModuleInterfacePath,
-                                        .emitPrivateModuleInterfacePath) {
+                                        .emitPrivateModuleInterfacePath, .emitPackageModuleInterfacePath) {
       // An option has been passed which requires whole-module knowledge, but we
       // don't have that. Generate a module, but treat it as an intermediate
       // output.

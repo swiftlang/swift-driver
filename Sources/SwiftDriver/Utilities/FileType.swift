@@ -54,6 +54,9 @@ public enum FileType: String, Hashable, CaseIterable, Codable {
   /// An SPI Swift Interface file.
   case privateSwiftInterface = "private.swiftinterface"
 
+  /// An interface file containng package decls as well as SPI and public decls.
+  case packageSwiftInterface = "package.swiftinterface"
+
   /// Serialized source information.
   case swiftSourceInfoFile = "swiftsourceinfo"
 
@@ -194,6 +197,9 @@ extension FileType: CustomStringConvertible {
     case .privateSwiftInterface:
       return "private-swiftinterface"
 
+    case .packageSwiftInterface:
+      return "package-swiftinterface"
+
     case .objcHeader:
       return "objc-header"
 
@@ -275,7 +281,7 @@ extension FileType {
          .emitModuleDependencies, .swiftDocumentation, .pcm, .diagnostics,
          .emitModuleDiagnostics, .objcHeader, .image, .swiftDeps, .moduleTrace,
          .tbd, .yamlOptimizationRecord, .bitstreamOptimizationRecord,
-         .swiftInterface, .privateSwiftInterface, .swiftSourceInfoFile,
+         .swiftInterface, .privateSwiftInterface, .packageSwiftInterface, .swiftSourceInfoFile,
          .jsonDependencies, .clangModuleMap, .jsonTargetInfo, .jsonCompilerFeatures,
          .jsonSwiftArtifacts, .indexUnitOutputPath, .modDepCache, .jsonAPIBaseline,
          .jsonABIBaseline, .swiftConstValues, .jsonAPIDescriptor,
@@ -324,6 +330,8 @@ extension FileType {
       return "swiftinterface"
     case .privateSwiftInterface:
       return "private-swiftinterface"
+    case .packageSwiftInterface:
+      return "package-swiftinterface"
     case .swiftSourceInfoFile:
       return "swiftsourceinfo"
     case .clangModuleMap:
@@ -401,7 +409,7 @@ extension FileType {
     switch self {
     case .swift, .sil, .dependencies, .emitModuleDependencies, .assembly, .ast,
          .raw_sil, .llvmIR,.objcHeader, .autolink, .importedModules, .tbd,
-         .moduleTrace, .yamlOptimizationRecord, .swiftInterface, .privateSwiftInterface,
+         .moduleTrace, .yamlOptimizationRecord, .swiftInterface, .privateSwiftInterface, .packageSwiftInterface,
          .jsonDependencies, .clangModuleMap, .jsonCompilerFeatures, .jsonTargetInfo,
          .jsonSwiftArtifacts, .jsonAPIBaseline, .jsonABIBaseline, .swiftConstValues,
          .jsonAPIDescriptor, .moduleSummary, .moduleSemanticInfo, .cachedDiagnostics:
@@ -422,7 +430,7 @@ extension FileType {
       return true
     case .swift, .sil, .sib, .ast, .image, .dSYM, .dependencies, .emitModuleDependencies,
          .autolink, .swiftModule, .swiftDocumentation, .swiftInterface,
-         .privateSwiftInterface, .swiftSourceInfoFile, .raw_sil, .raw_sib,
+         .privateSwiftInterface, .packageSwiftInterface, .swiftSourceInfoFile, .raw_sil, .raw_sib,
          .diagnostics, .emitModuleDiagnostics, .objcHeader, .swiftDeps, .remap,
          .importedModules, .tbd, .moduleTrace, .indexData, .yamlOptimizationRecord,
          .modDepCache, .bitstreamOptimizationRecord, .pcm, .pch, .jsonDependencies,
@@ -445,7 +453,7 @@ extension FileType {
       return false
     case .assembly, .llvmIR, .llvmBitcode, .object, .sil, .sib, .ast,
          .dependencies, .emitModuleDependencies, .swiftModule,
-         .swiftDocumentation, .swiftInterface, .privateSwiftInterface,
+         .swiftDocumentation, .swiftInterface, .privateSwiftInterface, .packageSwiftInterface,
          .swiftSourceInfoFile, .raw_sil, .raw_sib, .objcHeader, .swiftDeps, .tbd,
          .moduleTrace, .indexData, .yamlOptimizationRecord,
          .bitstreamOptimizationRecord, .pcm, .pch, .jsonDependencies,

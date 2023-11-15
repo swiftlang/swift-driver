@@ -2783,10 +2783,52 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertTrue(emitInterfaceJob.commandLine.contains(.flag("-emit-private-module-interface-path")))
   }
 
+  func testPackageInterfacePathImplicit() throws {
+    let envVars = ProcessEnv.vars
+
+    // A .package.swiftinterface should only be generated if package-name is passed.
+    do {
+      var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-module-name", "foo",
+                                     "-package-name", "mypkg",
+                                     "-emit-module-interface", "-enable-library-evolution"], env: envVars)
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 2)
+      let emitInterfaceJob = plannedJobs[0]
+      XCTAssertTrue(emitInterfaceJob.commandLine.contains(.flag("-emit-module-interface-path")))
+      XCTAssertTrue(emitInterfaceJob.commandLine.contains(.flag("-emit-private-module-interface-path")))
+      XCTAssertTrue(emitInterfaceJob.commandLine.contains(.flag("-emit-package-module-interface-path")))
+    }
+
+    // package-name is not passed, so package interface should not be generated.
+    do {
+      var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-module-name", "foo",
+                                     "-emit-module-interface", "-enable-library-evolution"], env: envVars)
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 2)
+      let emitInterfaceJob = plannedJobs[0]
+      XCTAssertTrue(emitInterfaceJob.commandLine.contains(.flag("-emit-module-interface-path")))
+      XCTAssertTrue(emitInterfaceJob.commandLine.contains(.flag("-emit-private-module-interface-path")))
+      XCTAssertFalse(emitInterfaceJob.commandLine.contains(.flag("-emit-package-module-interface-path")))
+    }
+
+    // package-name is not passed, so specifying emit-package-module-interface-path should be a no-op.
+    do {
+      var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-module-name", "foo",
+                                     "-emit-module-interface",
+                                     "-emit-package-module-interface-path", "foo.package.swiftinterface",
+                                     "-enable-library-evolution"], env: envVars)
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 2)
+      let emitInterfaceJob = plannedJobs[0]
+      XCTAssertTrue(emitInterfaceJob.commandLine.contains(.flag("-emit-module-interface-path")))
+      XCTAssertTrue(emitInterfaceJob.commandLine.contains(.flag("-emit-private-module-interface-path")))
+      XCTAssertFalse(emitInterfaceJob.commandLine.contains(.flag("-emit-package-module-interface-path")))
+    }
+  }
+
   func testSingleThreadedWholeModuleOptimizationCompiles() throws {
     var envVars = ProcessEnv.vars
     envVars["SWIFT_DRIVER_LD_EXEC"] = ld.nativePathString(escaped: false)
-
     var driver1 = try Driver(args: ["swiftc", "-whole-module-optimization", "foo.swift", "bar.swift", "-emit-library", "-emit-module", "-module-name", "Test", "-emit-module-interface", "-emit-objc-header-path", "Test-Swift.h", "-emit-private-module-interface-path", "Test.private.swiftinterface", "-emit-tbd"],
                              env: envVars)
     let plannedJobs = try driver1.planBuild().removingAutolinkExtractJobs()
@@ -5589,6 +5631,99 @@ final class SwiftDriverTests: XCTestCase {
                               env: envVars)
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.filter( { job in job.kind == .verifyModuleInterface}).count, 1)
+    }
+  }
+
+  func testVerifyEmittedPackageInterface() throws {
+      var envVars = ProcessEnv.vars
+      envVars["ENABLE_DEFAULT_INTERFACE_VERIFIER"] = "YES"
+
+      // Evolution enabled
+      do {
+        var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module",
+                                       "-module-name", "foo",
+                                       "-package-name", "foopkg",
+                                       "-emit-module-interface",
+                                       "-emit-package-module-interface-path", "foo.package.swiftinterface",
+                                       "-verify-emitted-module-interface",
+                                       "-enable-library-evolution"], env: envVars)
+
+        let plannedJobs = try driver.planBuild()
+        let x = plannedJobs.first?.commandLine.joinedUnresolvedArguments ?? ""
+        print(x)
+        XCTAssertEqual(plannedJobs.count, 4)
+        let emitJob = try plannedJobs.findJob(.emitModule)
+        let verifyJob = try plannedJobs.findJob(.verifyModuleInterface)
+        let packageOutputs = emitJob.outputs.filter { $0.type == .packageSwiftInterface }
+        let publicOutputs = emitJob.outputs.filter { $0.type == .swiftInterface }
+        XCTAssertTrue(packageOutputs.count == 1,
+                      "There should be one package swiftinterface output")
+        XCTAssertTrue(publicOutputs.count == 1,
+                      "There should be one public swiftinterface output")
+        XCTAssertTrue(verifyJob.inputs.count == 1)
+        XCTAssertTrue(verifyJob.inputs[0] == publicOutputs[0])
+        XCTAssertTrue(verifyJob.outputs.isEmpty)
+      }
+
+      // Explicitly disabled
+      do {
+        var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module",
+                                       "-module-name",  "foo",
+                                       "-package-name", "foopkg",
+                                       "-emit-module-interface",
+                                       "-emit-package-module-interface-path", "foo.package.swiftinterface",
+                                       "-enable-library-evolution",
+                                       "-no-verify-emitted-module-interface"], env: envVars)
+        let plannedJobs = try driver.planBuild()
+        XCTAssertEqual(plannedJobs.count, 2)
+      }
+
+      // Emit-module separately
+      do {
+        var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module",
+                                       "-module-name",  "foo",
+                                       "-package-name", "foopkg",
+                                       "-emit-module-interface",
+                                       "-emit-package-module-interface-path", "foo.package.swiftinterface",
+                                       "-enable-library-evolution",
+                                       "-experimental-emit-module-separately"], env: envVars)
+        let plannedJobs = try driver.planBuild()
+        XCTAssertEqual(plannedJobs.count, 4)
+        let emitJob = try plannedJobs.findJob(.emitModule)
+        let verifyJob = try plannedJobs.findJob(.verifyModuleInterface)
+        let packageOutputs = emitJob.outputs.filter { $0.type == .packageSwiftInterface }
+        let publicOutputs = emitJob.outputs.filter { $0.type == .swiftInterface }
+        XCTAssertTrue(packageOutputs.count == 1,
+                      "There should be one package swiftinterface output")
+        XCTAssertTrue(publicOutputs.count == 1,
+                      "There should be one public swiftinterface output")
+        XCTAssertTrue(verifyJob.inputs.count == 1)
+        XCTAssertTrue(verifyJob.inputs[0] == publicOutputs[0])
+        XCTAssertTrue(verifyJob.outputs.isEmpty)
+      }
+  }
+
+  func testLoadPackageInterface() throws {
+    try withTemporaryDirectory { path in
+      let envVars = ProcessEnv.vars
+      let main = path.appending(component: "main.swift")
+      try localFileSystem.writeFileContents(main) {
+        $0.send("import Foo;")
+      }
+      let swiftModuleInterfacesPath: AbsolutePath =
+      try testInputsPath.appending(component: "testLoadPackageInterface")
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+      var driver = try Driver(args: ["swiftc", main.nativePathString(escaped: true),
+                                     "-typecheck", "-v",
+                                     "-package-name", "foopkg",
+                                     "-experimental-package-interface-load",
+                                     "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                     "-enable-library-evolution"] + sdkArgumentsForTesting,
+                              env: envVars)
+
+      let plannedJobs = try driver.planBuild()
+      XCTAssertTrue(plannedJobs.count == 1)
+      XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-experimental-package-interface-load")))
     }
   }
 

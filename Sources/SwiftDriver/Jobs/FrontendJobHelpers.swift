@@ -233,6 +233,7 @@ extension Driver {
     try commandLine.appendLast(.debugDiagnosticNames, from: &parsedOptions)
     try commandLine.appendLast(.scanDependencies, from: &parsedOptions)
     try commandLine.appendLast(.enableExperimentalConcisePoundFile, from: &parsedOptions)
+    try commandLine.appendLast(.experimentalPackageInterfaceLoad, from: &parsedOptions)
     try commandLine.appendLast(.printEducationalNotes, from: &parsedOptions)
     try commandLine.appendLast(.diagnosticStyle, from: &parsedOptions)
     try commandLine.appendLast(.locale, from: &parsedOptions)
@@ -587,6 +588,13 @@ extension Driver {
           input: nil,
           flag: "-emit-private-module-interface-path")
 
+        if let pkgName = packageName, !pkgName.isEmpty {
+          try addOutputOfType(
+            outputType: .packageSwiftInterface,
+            finalOutputPath: swiftPackageInterfacePath,
+            input: nil,
+            flag: "-emit-package-module-interface-path")
+        }
         try addOutputOfType(
           outputType: .tbd,
           finalOutputPath: tbdPath,

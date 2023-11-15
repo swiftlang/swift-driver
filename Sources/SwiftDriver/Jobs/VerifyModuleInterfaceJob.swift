@@ -13,7 +13,7 @@
 extension Driver {
   mutating func computeCacheKeyForInterface(emitModuleJob: Job,
                                             interfaceKind: FileType) throws -> String? {
-    assert(interfaceKind == .swiftInterface || interfaceKind == .privateSwiftInterface,
+    assert(interfaceKind == .swiftInterface || interfaceKind == .privateSwiftInterface || interfaceKind == .packageSwiftInterface,
            "only expect interface output kind")
     let isNeeded = emitModuleJob.outputs.contains { $0.type == interfaceKind }
     guard isCachingEnabled && isNeeded else { return nil }
@@ -54,11 +54,14 @@ extension Driver {
     }
 
     // TODO: remove this because we'd like module interface errors to fail the build.
-    if !optIn && isFrontendArgSupported(.downgradeTypecheckInterfaceError) {
+    if isFrontendArgSupported(.downgradeTypecheckInterfaceError) &&
+        (!optIn ||
+         // package interface is new and should not be a blocker for now
+         interfaceInput.type == .packageSwiftInterface) {
       commandLine.appendFlag(.downgradeTypecheckInterfaceError)
     }
 
-    let cacheKeys = try computeOutputCacheKeyForJob(commandLine: commandLine, inputs: [interfaceInput]) 
+    let cacheKeys = try computeOutputCacheKeyForJob(commandLine: commandLine, inputs: [interfaceInput])
     return Job(
       moduleName: moduleOutputInfo.name,
       kind: .verifyModuleInterface,

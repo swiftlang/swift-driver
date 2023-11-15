@@ -353,6 +353,7 @@ public class SwiftAdopter: Codable {
   public let moduleDir: String
   public let hasInterface: Bool
   public let hasPrivateInterface: Bool
+  public let hasPackageInterface: Bool
   public let hasModule: Bool
   public let isFramework: Bool
   public let isPrivate: Bool
@@ -364,6 +365,7 @@ public class SwiftAdopter: Codable {
     self.moduleDir = SwiftAdopter.relativeToSDK(moduleDir)
     self.hasInterface = !hasInterface.isEmpty
     self.hasPrivateInterface = hasInterface.contains { $0.basename.hasSuffix(".private.swiftinterface") }
+    self.hasPackageInterface = hasInterface.contains { $0.basename.hasSuffix(".package.swiftinterface") }
     self.hasModule = !hasModule.isEmpty
     self.isFramework = self.moduleDir.contains("\(name).framework")
     self.isPrivate = self.moduleDir.contains("PrivateFrameworks")

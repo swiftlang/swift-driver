@@ -2086,6 +2086,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
     XCTAssertFalse(A.isPrivate)
     XCTAssertFalse(A.hasModule)
     XCTAssertFalse(A.hasPrivateInterface)
+    XCTAssertFalse(A.hasPackageInterface)
     XCTAssertTrue(A.hasInterface)
 
     let B = adopters.first {$0.name == "B"}!
@@ -2093,6 +2094,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
     XCTAssertFalse(B.isPrivate)
     XCTAssertFalse(B.hasModule)
     XCTAssertTrue(B.hasPrivateInterface)
+    XCTAssertFalse(B.hasPackageInterface)
   }
 
   func testCollectSwiftAdoptersWhetherMixed() throws {
