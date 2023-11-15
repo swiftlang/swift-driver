@@ -75,7 +75,6 @@ extension Driver {
       break
     }
 
-    let jobNeedPathRemap: Bool
     // If in ExplicitModuleBuild mode and the dependency graph has been computed, add module
     // dependencies.
     // May also be used for generation of the dependency graph itself in ExplicitModuleBuild mode.
@@ -84,10 +83,8 @@ extension Driver {
       switch kind {
       case .generatePCH:
         try addExplicitPCHBuildArguments(inputs: &inputs, commandLine: &commandLine)
-        jobNeedPathRemap = true
       case .compile, .emitModule, .interpret, .verifyModuleInterface:
         try addExplicitModuleBuildArguments(inputs: &inputs, commandLine: &commandLine)
-        jobNeedPathRemap = true
       case .backend, .mergeModule, .compileModuleFromInterface,
            .generatePCM, .dumpPCM, .repl, .printTargetInfo,
            .versionRequest, .autolinkExtract, .generateDSYM,
@@ -95,10 +92,8 @@ extension Driver {
            .emitSupportedFeatures, .moduleWrap,
            .generateAPIBaseline, .generateABIBaseline, .compareAPIBaseline,
            .compareABIBaseline:
-        jobNeedPathRemap = false
+        break // Do not support creating from dependency scanner output.
       }
-    } else {
-      jobNeedPathRemap = false
     }
 
     if let variant = parsedOptions.getLastArgument(.targetVariant)?.asSingle {
@@ -150,22 +145,24 @@ extension Driver {
     try commandLine.appendLast(.targetCpu, from: &parsedOptions)
 
     if let sdkPath = frontendTargetInfo.sdkPath?.path {
-      try addPathOption(option: .sdk, path: VirtualPath.lookup(sdkPath), to: &commandLine, remap: jobNeedPathRemap)
+      commandLine.appendFlag(.sdk)
+      commandLine.append(.path(VirtualPath.lookup(sdkPath)))
     }
 
     for args: (Option, Option) in [
           (.visualcToolsRoot, .visualcToolsVersion),
           (.windowsSdkRoot, .windowsSdkVersion)
         ] {
-      let (rootOpt, versionOpt) = args
-      if let rootArg = parsedOptions.last(for: rootOpt),
-          isFrontendArgSupported(rootOpt) {
-        try addPathOption(rootArg, to: &commandLine, remap: jobNeedPathRemap)
+      let (rootArg, versionArg) = args
+      if let value = parsedOptions.getLastArgument(rootArg)?.asSingle,
+          isFrontendArgSupported(rootArg) {
+        commandLine.appendFlag(rootArg.spelling)
+        commandLine.appendPath(try .init(validating: value))
       }
 
-      if let value = parsedOptions.getLastArgument(versionOpt)?.asSingle,
-          isFrontendArgSupported(versionOpt) {
-        commandLine.appendFlags(versionOpt.spelling, value)
+      if let value = parsedOptions.getLastArgument(versionArg)?.asSingle,
+          isFrontendArgSupported(versionArg) {
+        commandLine.appendFlags(versionArg.spelling, value)
       }
     }
 
@@ -318,21 +315,19 @@ extension Driver {
       try commandLine.appendLast(.enableBuiltinModule, from: &parsedOptions)
     }
 
-    if !(isCachingEnabled && useClangIncludeTree), let workingDirectory = workingDirectory {
+    if !useClangIncludeTree, let workingDirectory = workingDirectory {
       // Add -Xcc -working-directory before any other -Xcc options to ensure it is
       // overridden by an explicit -Xcc -working-directory, although having a
       // different working directory is probably incorrect.
       commandLine.appendFlag(.Xcc)
       commandLine.appendFlag(.workingDirectory)
       commandLine.appendFlag(.Xcc)
-      try addPathArgument(.absolute(workingDirectory), to: &commandLine, remap: jobNeedPathRemap)
+      commandLine.appendPath(.absolute(workingDirectory))
     }
 
     // Resource directory.
-    try addPathOption(option: .resourceDir,
-                      path: VirtualPath.lookup(frontendTargetInfo.runtimeResourcePath.path),
-                      to: &commandLine,
-                      remap: jobNeedPathRemap)
+    commandLine.appendFlag(.resourceDir)
+    commandLine.appendPath(VirtualPath.lookup(frontendTargetInfo.runtimeResourcePath.path))
 
     if self.useStaticResourceDir {
       commandLine.appendFlag("-use-static-resource-dir")
@@ -359,7 +354,7 @@ extension Driver {
     }
 
     // CAS related options.
-    if isCachingEnabled {
+    if enableCaching {
       commandLine.appendFlag(.cacheCompileJob)
       if let casPath = try getOnDiskCASPath() {
         commandLine.appendFlag(.casPath)
@@ -371,16 +366,15 @@ extension Driver {
       }
       try commandLine.appendAll(.casPluginOption, from: &parsedOptions)
       try commandLine.appendLast(.cacheRemarks, from: &parsedOptions)
-      if !useClangIncludeTree {
-        commandLine.appendFlag(.noClangIncludeTree)
-      }
     }
-    addCacheReplayMapping(to: &commandLine)
+    if useClangIncludeTree {
+      commandLine.appendFlag(.clangIncludeTree)
+    }
 
     // Pass through any subsystem flags.
     try commandLine.appendAll(.Xllvm, from: &parsedOptions)
 
-    if !(isCachingEnabled && useClangIncludeTree) {
+    if !useClangIncludeTree {
       try commandLine.appendAll(.Xcc, from: &parsedOptions)
     }
 
@@ -395,16 +389,16 @@ extension Driver {
         // of a lookup failure.
         if parsedOptions.contains(.pchOutputDir) &&
            !parsedOptions.contains(.driverExplicitModuleBuild) {
-          try addPathArgument(VirtualPath.lookup(importedObjCHeader), to:&commandLine, remap: jobNeedPathRemap)
+          commandLine.appendPath(VirtualPath.lookup(importedObjCHeader))
           try commandLine.appendLast(.pchOutputDir, from: &parsedOptions)
           if !compilerMode.isSingleCompilation {
             commandLine.appendFlag(.pchDisableValidation)
           }
         } else {
-          try addPathArgument(VirtualPath.lookup(pch), to:&commandLine, remap: jobNeedPathRemap)
+          commandLine.appendPath(VirtualPath.lookup(pch))
         }
       } else {
-        try addPathArgument(VirtualPath.lookup(importedObjCHeader), to:&commandLine, remap: jobNeedPathRemap)
+        commandLine.appendPath(VirtualPath.lookup(importedObjCHeader))
       }
     }
 
@@ -444,18 +438,18 @@ extension Driver {
     }
   }
 
-  mutating func addBridgingHeaderPCHCacheKeyArguments(commandLine: inout [Job.ArgTemplate],
-                                                      pchCompileJob: Job?) throws {
-    guard let pchJob = pchCompileJob, isCachingEnabled else { return }
+  func addBridgingHeaderPCHCacheKeyArguments(commandLine: inout [Job.ArgTemplate],
+                                             pchCompileJob: Job?) throws {
+    guard let pchJob = pchCompileJob, enableCaching else { return }
 
     // The pch input file (the bridging header) is added as last inputs to the job.
     guard let inputFile = pchJob.inputs.last else { assertionFailure("no input files from pch job"); return }
     assert(inputFile.type == .objcHeader, "Expect objc header input type")
-    let bridgingHeaderCacheKey = try computeOutputCacheKey(commandLine: pchJob.commandLine,
-                                                           input: inputFile)
-    guard let key = bridgingHeaderCacheKey else { return }
+    let bridgingHeaderCacheKey = try interModuleDependencyOracle.computeCacheKeyForOutput(kind: .pch,
+                                                                                          commandLine: pchJob.commandLine,
+                                                                                          input: inputFile.fileHandle)
     commandLine.appendFlag("-bridging-header-pch-key")
-    commandLine.appendFlag(key)
+    commandLine.appendFlag(bridgingHeaderCacheKey)
   }
 
   mutating func addFrontendSupplementaryOutputArguments(commandLine: inout [Job.ArgTemplate],
@@ -641,7 +635,7 @@ extension Driver {
       var entries = [VirtualPath.Handle: [FileType: VirtualPath.Handle]]()
       for input in primaryInputs {
         if let output = inputOutputMap[input]?.first {
-          try addEntry(&entries, input: input, output: output)
+          addEntry(&entries, input: input, output: output)
         } else {
           // Primary inputs are expected to appear in the output file map even
           // if they have no corresponding outputs.
@@ -660,7 +654,7 @@ extension Driver {
       }
 
       for flaggedPair in flaggedInputOutputPairs {
-        try addEntry(&entries, input: flaggedPair.input, output: flaggedPair.output)
+        addEntry(&entries, input: flaggedPair.input, output: flaggedPair.output)
       }
       // To match the legacy driver behavior, make sure we add an entry for the
       // file under indexing and the primary output file path.
@@ -694,15 +688,14 @@ extension Driver {
     try commandLine.appendLast(.symbolGraphMinimumAccessLevel, from: &parsedOptions)
   }
 
-  mutating func addEntry(_ entries: inout [VirtualPath.Handle: [FileType: VirtualPath.Handle]], input: TypedVirtualPath?, output: TypedVirtualPath) throws {
+  func addEntry(_ entries: inout [VirtualPath.Handle: [FileType: VirtualPath.Handle]], input: TypedVirtualPath?, output: TypedVirtualPath) {
     let entryInput: VirtualPath.Handle
     if let input = input?.fileHandle, input != OutputFileMap.singleInputKey {
       entryInput = input
     } else {
       entryInput = inputFiles[0].fileHandle
     }
-    let inputEntry = isCachingEnabled ? remapPath(VirtualPath.lookup(entryInput)).intern() : entryInput
-    entries[inputEntry, default: [:]][output.type] = output.fileHandle
+    entries[entryInput, default: [:]][output.type] = output.fileHandle
   }
 
   /// Adds all dependencies required for an explicit module build
@@ -737,118 +730,5 @@ extension Driver {
   /// such as Swift modules built from .swiftmodule files and Clang PCMs.
   public func isExplicitMainModuleJob(job: Job) -> Bool {
     return job.moduleName == moduleOutputInfo.name
-  }
-}
-
-extension Driver {
-  private func getAbsolutePathFromVirtualPath(_ path: VirtualPath) -> AbsolutePath? {
-    guard let cwd = workingDirectory ?? fileSystem.currentWorkingDirectory else {
-      return nil
-    }
-    return path.resolvedRelativePath(base: cwd).absolutePath
-  }
-
-  private mutating func remapPath(absolute path: AbsolutePath) -> AbsolutePath {
-    guard !prefixMapping.isEmpty else {
-      return path
-    }
-    for (prefix, value) in prefixMapping {
-      if path.isDescendantOfOrEqual(to: prefix) {
-        return value.appending(path.relative(to: prefix))
-      }
-    }
-    return path
-  }
-
-  public mutating func remapPath(_ path: VirtualPath) -> VirtualPath {
-    guard !prefixMapping.isEmpty,
-      let absPath = getAbsolutePathFromVirtualPath(path) else {
-      return path
-    }
-    let mappedPath = remapPath(absolute: absPath)
-    return try! VirtualPath(path: mappedPath.pathString)
-  }
-
-  /// Helper function to add path to commandLine. Function will validate the path, and remap the path if needed.
-  public mutating func addPathArgument(_ path: VirtualPath, to commandLine: inout [Job.ArgTemplate], remap: Bool = true) throws {
-    guard remap && isCachingEnabled else {
-      commandLine.appendPath(path)
-      return
-    }
-    let mappedPath = remapPath(path)
-    commandLine.appendPath(mappedPath)
-  }
-
-  public mutating func addPathOption(_ option: ParsedOption, to commandLine: inout [Job.ArgTemplate], remap: Bool = true) throws {
-    let path = try VirtualPath(path: option.argument.asSingle)
-    try addPathOption(option: option.option, path: path, to: &commandLine, remap: remap)
-  }
-
-  public mutating func addPathOption(option: Option, path: VirtualPath, to commandLine: inout [Job.ArgTemplate], remap: Bool = true) throws {
-    commandLine.appendFlag(option)
-    let needRemap = remap && option.attributes.contains(.argumentIsPath) &&
-                    !option.attributes.contains(.cacheInvariant)
-    try addPathArgument(path, to: &commandLine, remap: needRemap)
-  }
-
-  /// Helper function to add last argument with path to command-line.
-  public mutating func addLastArgumentWithPath(_ options: Option...,
-                                               from parsedOptions: inout ParsedOptions,
-                                               to commandLine: inout [Job.ArgTemplate],
-                                               remap: Bool = true) throws {
-    guard let parsedOption = parsedOptions.last(for: options) else {
-      return
-    }
-    try addPathOption(parsedOption, to: &commandLine, remap: remap)
-  }
-
-  /// Helper function to add all arguments with path to command-line.
-  public mutating func addAllArgumentsWithPath(_ options: Option...,
-                                               from parsedOptions: inout ParsedOptions,
-                                               to commandLine: inout [Job.ArgTemplate],
-                                               remap: Bool) throws {
-    for matching in parsedOptions.arguments(for: options) {
-      try addPathOption(matching, to: &commandLine, remap: remap)
-    }
-  }
-
-  public mutating func addCacheReplayMapping(to commandLine: inout [Job.ArgTemplate]) {
-    if isCachingEnabled && isFrontendArgSupported(.scannerPrefixMap) {
-      for (key, value) in prefixMapping {
-        commandLine.appendFlag("-cache-replay-prefix-map")
-        commandLine.appendFlag(value.pathString + "=" + key.pathString)
-      }
-    }
-  }
-}
-
-extension Driver {
-  public mutating func computeOutputCacheKeyForJob(commandLine: [Job.ArgTemplate],
-                                          inputs: [TypedVirtualPath]) throws -> [TypedVirtualPath: String] {
-    // No caching setup, return empty dictionary.
-    guard let cas = self.cas else {
-      return [:]
-    }
-    // Resolve command-line first.
-    let resolver = try ArgsResolver(fileSystem: fileSystem)
-    let arguments: [String] = try resolver.resolveArgumentList(for: commandLine)
-
-    return try inputs.reduce(into: [:]) { keys, input in
-      let remappedPath = remapPath(input.file)
-      keys[input] = try cas.computeCacheKey(commandLine: arguments, input: remappedPath.name)
-    }
-  }
-
-  public mutating func computeOutputCacheKey(commandLine: [Job.ArgTemplate],
-                                    input: TypedVirtualPath) throws -> String? {
-    // No caching setup, return empty dictionary.
-    guard let cas = self.cas else {
-      return nil
-    }
-    // Resolve command-line first.
-    let resolver = try ArgsResolver(fileSystem: fileSystem)
-    let arguments: [String] = try resolver.resolveArgumentList(for: commandLine)
-    let remappedPath = remapPath(input.file)
-    return try cas.computeCacheKey(commandLine: arguments, input: remappedPath.name)
   }
 }

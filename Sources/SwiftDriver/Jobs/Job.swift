@@ -101,9 +101,6 @@ public struct Job: Codable, Equatable, Hashable {
   /// The kind of job.
   public var kind: Kind
 
-  /// The Cache Key for the compilation. It is a dictionary from input file to its output cache key.
-  public var outputCacheKeys: [TypedVirtualPath: String]
-
   /// A map from a primary input to all of its corresponding outputs
   private var compileInputOutputMap: [TypedVirtualPath : [TypedVirtualPath]]
 
@@ -116,7 +113,6 @@ public struct Job: Codable, Equatable, Hashable {
     inputs: [TypedVirtualPath],
     primaryInputs: [TypedVirtualPath],
     outputs: [TypedVirtualPath],
-    outputCacheKeys: [TypedVirtualPath: String] = [:],
     inputOutputMap: [TypedVirtualPath : [TypedVirtualPath]] = [:],
     extraEnvironment: [String: String] = [:],
     requiresInPlaceExecution: Bool = false
@@ -129,7 +125,6 @@ public struct Job: Codable, Equatable, Hashable {
     self.inputs = inputs
     self.primaryInputs = primaryInputs
     self.outputs = outputs
-    self.outputCacheKeys = outputCacheKeys
     self.compileInputOutputMap = inputOutputMap
     self.extraEnvironment = extraEnvironment
     self.requiresInPlaceExecution = requiresInPlaceExecution
@@ -289,21 +284,6 @@ extension Job.Kind {
          .versionRequest, .autolinkExtract, .generateDSYM,
          .help, .link, .verifyDebugInfo, .scanDependencies,
          .emitSupportedFeatures, .moduleWrap, .verifyModuleInterface,
-         .generateAPIBaseline, .generateABIBaseline, .compareAPIBaseline,
-         .compareABIBaseline:
-      return false
-    }
-  }
-
-  /// Whether this job supports caching.
-  public var supportCaching: Bool {
-    switch self {
-    case .compile, .emitModule, .generatePCH, .compileModuleFromInterface,
-         .generatePCM, .verifyModuleInterface:
-      return true
-    case .backend, .mergeModule, .dumpPCM, .interpret, .repl, .printTargetInfo,
-         .versionRequest, .autolinkExtract, .generateDSYM, .help, .link,
-         .verifyDebugInfo, .scanDependencies, .emitSupportedFeatures, .moduleWrap,
          .generateAPIBaseline, .generateABIBaseline, .compareAPIBaseline,
          .compareABIBaseline:
       return false

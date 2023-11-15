@@ -97,8 +97,7 @@ extension Driver {
          .moduleTrace, .yamlOptimizationRecord, .bitstreamOptimizationRecord, .pcm, .pch,
          .clangModuleMap, .jsonCompilerFeatures, .jsonTargetInfo, .jsonSwiftArtifacts,
          .indexUnitOutputPath, .modDepCache, .jsonAPIBaseline, .jsonABIBaseline,
-         .swiftConstValues, .jsonAPIDescriptor, .moduleSummary, .moduleSemanticInfo,
-         .cachedDiagnostics, nil:
+         .swiftConstValues, .jsonAPIDescriptor, nil:
       return false
     }
   }
@@ -113,18 +112,13 @@ extension Driver {
                                  outputType: FileType?,
                                  commandLine: inout [Job.ArgTemplate])
   throws -> ([TypedVirtualPath], [TypedVirtualPath]) {
-    let useInputFileList = shouldUseInputFileList
-    if let sourcesFileList = allSourcesFileList {
+    let useInputFileList: Bool
+    if let allSourcesFileList = allSourcesFileList {
+      useInputFileList = true
       commandLine.appendFlag(.filelist)
-      commandLine.appendPath(sourcesFileList)
-    } else if shouldUseInputFileList {
-      let swiftInputs = inputFiles.filter(\.type.isPartOfSwiftCompilation)
-      let remappedSourcesFileList = try VirtualPath.createUniqueFilelist(RelativePath(validating: "sources"),
-                                                                         .list(swiftInputs.map{ return remapPath($0.file) }))
-      // Remember the filelist created.
-      self.allSourcesFileList = remappedSourcesFileList
-      commandLine.appendFlag(.filelist)
-      commandLine.appendPath(remappedSourcesFileList)
+      commandLine.appendPath(allSourcesFileList)
+    } else {
+      useInputFileList = false
     }
 
     let usePrimaryInputFileList = primaryInputs.count > fileListThreshold
@@ -132,7 +126,7 @@ extension Driver {
       // primary file list
       commandLine.appendFlag(.primaryFilelist)
       let fileList = try VirtualPath.createUniqueFilelist(RelativePath(validating: "primaryInputs"),
-                                                          .list(primaryInputs.map{ return remapPath($0.file) }))
+                                                          .list(primaryInputs.map(\.file)))
       commandLine.appendPath(fileList)
     }
 
@@ -172,11 +166,12 @@ extension Driver {
       let isPrimary = usesPrimaryFileInputs && primaryInputFiles.contains(input)
       if isPrimary {
         if !usePrimaryInputFileList {
-          try addPathOption(option: .primaryFile, path: input.file, to:&commandLine)
+          commandLine.appendFlag(.primaryFile)
+          commandLine.appendPath(input.file)
         }
       } else {
         if !useInputFileList {
-          try addPathArgument(input.file, to: &commandLine)
+          commandLine.appendPath(input.file)
         }
       }
 
@@ -397,9 +392,6 @@ extension Driver {
     } else {
       displayInputs = primaryInputs
     }
-    // Only swift input files are contributing to the cache keys.
-    let cacheContributingInputs = displayInputs.filter() { $0.type == .swift }
-    let cacheKeys = try computeOutputCacheKeyForJob(commandLine: commandLine, inputs: cacheContributingInputs)
 
     return Job(
       moduleName: moduleOutputInfo.name,
@@ -410,7 +402,6 @@ extension Driver {
       inputs: inputs,
       primaryInputs: primaryInputs,
       outputs: outputs,
-      outputCacheKeys: cacheKeys,
       inputOutputMap: inputOutputMap
     )
   }
@@ -473,8 +464,7 @@ extension FileType {
          .bitstreamOptimizationRecord, .swiftInterface, .privateSwiftInterface,
          .swiftSourceInfoFile, .clangModuleMap, .jsonSwiftArtifacts,
          .indexUnitOutputPath, .modDepCache, .jsonAPIBaseline, .jsonABIBaseline,
-         .swiftConstValues, .jsonAPIDescriptor, .moduleSummary, .moduleSemanticInfo,
-         .cachedDiagnostics:
+         .swiftConstValues, .jsonAPIDescriptor:
       fatalError("Output type can never be a primary output")
     }
   }

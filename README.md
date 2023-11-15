@@ -156,7 +156,7 @@ $ apt-get install libncurses-dev
 be found, e.g.:
 
 ```
-$ swift build -Xcc -I/path/to/build/Ninja-Release/swift-.../include -Xcc -I/path/to/build/Ninja-Release/llvm-.../include -Xcc -I/path/to/source/llvm-project/llvm/include --product makeOptions
+$ swift build -Xcc -Xcc -I/path/to/build/Ninja-Release/swift-.../include -Xcc -I/path/to/build/Ninja-Release/llvm-.../include -Xcc -I/path/to/source/llvm-project/llvm/include --product makeOptions
 ```
 
 Then, run `makeOptions` and redirect the output to overwrite `Options.swift`:

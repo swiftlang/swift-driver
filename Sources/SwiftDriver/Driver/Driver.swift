@@ -224,10 +224,8 @@ public struct Driver {
   /// Should use file lists for inputs (number of inputs exceeds `fileListThreshold`).
   let shouldUseInputFileList: Bool
 
-  /// VirtualPath for shared all sources file list. `nil` if unused. This is used as a cache for
-  /// the file list computed during CompileJob creation and only holds valid to be query by tests
-  /// after planning to build.
-  @_spi(Testing) public var allSourcesFileList: VirtualPath? = nil
+  /// VirtualPath for shared all sources file list. `nil` if unused.
+  @_spi(Testing) public let allSourcesFileList: VirtualPath?
 
   /// The mode in which the compiler will execute.
   @_spi(Testing) public let compilerMode: CompilerMode
@@ -273,43 +271,6 @@ public struct Driver {
   /// CAS/Caching related options.
   let enableCaching: Bool
   let useClangIncludeTree: Bool
-
-  /// CAS instance used for compilation.
-  public var cas: SwiftScanCAS? = nil
-
-  /// Is swift caching enabled.
-  lazy var isCachingEnabled: Bool = {
-    return enableCaching && isFeatureSupported(.cache_compile_job)
-  }()
-
-  /// Scanner prefix mapping.
-  let scannerPrefixMap: [AbsolutePath: AbsolutePath]
-  let scannerPrefixMapSDK: AbsolutePath?
-  let scannerPrefixMapToolchain: AbsolutePath?
-  lazy var prefixMapping: [(AbsolutePath, AbsolutePath)] = {
-    var mapping: [(AbsolutePath, AbsolutePath)] = scannerPrefixMap.map {
-      return ($0.key, $0.value)
-    }
-    do {
-      guard isFrontendArgSupported(.scannerPrefixMap) else {
-        return []
-      }
-      if let sdkMapping = scannerPrefixMapSDK,
-         let sdkPath = absoluteSDKPath {
-        mapping.append((sdkPath, sdkMapping))
-      }
-      if let toolchainMapping = scannerPrefixMapToolchain {
-        let toolchainPath = try toolchain.executableDir.parentDirectory // usr
-                                                       .parentDirectory // toolchain
-        mapping.append((toolchainPath, toolchainMapping))
-      }
-      // The mapping needs to be sorted so the mapping is determinisitic.
-      // The sorting order is reversed so /tmp/tmp is preferred over /tmp in remapping.
-      return mapping.sorted { $0.0 > $1.0 }
-    } catch {
-      return mapping.sorted { $0.0 > $1.0 }
-    }
-  }()
 
   /// Code & data for incremental compilation. Nil if not running in incremental mode.
   /// Set during planning because needs the jobs to look at outputs.
@@ -424,7 +385,6 @@ public struct Driver {
   @_spi(Testing)
   public enum KnownCompilerFeature: String {
     case emit_abi_descriptor = "emit-abi-descriptor"
-    case cache_compile_job = "cache-compile-job"
   }
 
   lazy var sdkPath: VirtualPath? = {
@@ -637,18 +597,7 @@ public struct Driver {
 
     let cachingEnableOverride = parsedOptions.hasArgument(.driverExplicitModuleBuild) && env.keys.contains("SWIFT_ENABLE_CACHING")
     self.enableCaching = parsedOptions.hasArgument(.cacheCompileJob) || cachingEnableOverride
-    self.useClangIncludeTree = !parsedOptions.hasArgument(.noClangIncludeTree) && !env.keys.contains("SWIFT_CACHING_USE_CLANG_CAS_FS")
-    self.scannerPrefixMap = try Self.computeScanningPrefixMapper(&parsedOptions)
-    if let sdkMapping =  parsedOptions.getLastArgument(.scannerPrefixMapSdk)?.asSingle {
-      self.scannerPrefixMapSDK = try AbsolutePath(validating: sdkMapping)
-    } else {
-      self.scannerPrefixMapSDK = nil
-    }
-    if let toolchainMapping = parsedOptions.getLastArgument(.scannerPrefixMapToolchain)?.asSingle {
-      self.scannerPrefixMapToolchain = try AbsolutePath(validating: toolchainMapping)
-    } else {
-      self.scannerPrefixMapToolchain = nil
-    }
+    self.useClangIncludeTree = enableCaching && env.keys.contains("SWIFT_CACHING_USE_INCLUDE_TREE")
 
     // Compute the working directory.
     workingDirectory = try parsedOptions.getLastArgument(.workingDirectory).map { workingDirectoryArg in
@@ -729,6 +678,13 @@ public struct Driver {
 
     self.fileListThreshold = try Self.computeFileListThreshold(&self.parsedOptions, diagnosticsEngine: diagnosticsEngine)
     self.shouldUseInputFileList = inputFiles.count > fileListThreshold
+    if shouldUseInputFileList {
+      let swiftInputs = inputFiles.filter(\.type.isPartOfSwiftCompilation)
+      self.allSourcesFileList = try VirtualPath.createUniqueFilelist(RelativePath(validating: "sources"),
+                                                                     .list(swiftInputs.map(\.file)))
+    } else {
+      self.allSourcesFileList = nil
+    }
 
     self.lto = Self.ltoKind(&parsedOptions, diagnosticsEngine: diagnosticsEngine)
     // Figure out the primary outputs from the driver.
@@ -3567,19 +3523,5 @@ extension Driver {
       options.append((String(pluginArg[0]), String(pluginArg[1])))
     }
     return options
-  }
-
-  static func computeScanningPrefixMapper(_ parsedOptions: inout ParsedOptions) throws -> [AbsolutePath: AbsolutePath] {
-    var mapping: [AbsolutePath: AbsolutePath] = [:]
-    for opt in parsedOptions.arguments(for: .scannerPrefixMap) {
-      let pluginArg = opt.argument.asSingle.split(separator: "=", maxSplits: 1)
-      if pluginArg.count != 2 {
-        throw Error.invalidArgumentValue(Option.scannerPrefixMap.spelling, opt.argument.asSingle)
-      }
-      let key = try AbsolutePath(validating: String(pluginArg[0]))
-      let value = try AbsolutePath(validating: String(pluginArg[1]))
-      mapping[key] = value
-    }
-    return mapping
   }
 }
