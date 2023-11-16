@@ -334,5 +334,37 @@ extension SwiftScanCAS {
       scanner.api.swiftscan_cache_query_async(cas, key.cString(using: .utf8), globally, context.retain(), callbackFunc, nil)
     }
   }
+
+  public func download(with id: String) async throws -> Bool {
+    class CallbackContext {
+      func retain() -> UnsafeMutableRawPointer {
+        return Unmanaged.passRetained(self).toOpaque()
+      }
+
+      let continuation: CheckedContinuation<Bool, Swift.Error>
+      let cas: SwiftScanCAS
+      init(_ continuation: CheckedContinuation<Bool, Swift.Error>, cas: SwiftScanCAS) {
+        self.continuation = continuation
+        self.cas = cas
+      }
+    }
+
+    func callbackFunc(_ context: UnsafeMutableRawPointer?, _ success: Bool, _ error: swiftscan_string_ref_t) {
+      let obj = Unmanaged<CallbackContext>.fromOpaque(context!).takeRetainedValue()
+      if error.length != 0 {
+        if let err = try? obj.cas.scanner.toSwiftString(error) {
+          obj.continuation.resume(throwing: DependencyScanningError.casError(err))
+        } else {
+          obj.continuation.resume(throwing: DependencyScanningError.casError("unknown output loading error"))
+        }
+      }
+      obj.continuation.resume(returning: success)
+    }
+
+    return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Bool, Swift.Error>) in
+      let context = CallbackContext(continuation, cas: self)
+      scanner.api.swiftscan_cache_download_cas_object_async(cas, id.cString(using: .utf8), context.retain(), callbackFunc, nil)
+    }
+  }
 }
 #endif
