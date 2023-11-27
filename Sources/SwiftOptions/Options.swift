@@ -221,6 +221,7 @@ extension Option {
   public static let disableRequirementMachineLoopNormalization: Option = Option("-disable-requirement-machine-loop-normalization", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable stronger minimization algorithm, for debugging only")
   public static let disableRequirementMachineReuse: Option = Option("-disable-requirement-machine-reuse", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable re-use of requirement machines for minimization, for debugging only")
   public static let disableRoundTripDebugTypes: Option = Option("-disable-round-trip-debug-types", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disables verification of debug info mangling")
+  public static let disableSandbox: Option = Option("-disable-sandbox", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Disable using the sandbox when executing subprocesses")
   public static let disableSilOwnershipVerifier: Option = Option("-disable-sil-ownership-verifier", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Do not verify ownership invariants during SIL Verification ")
   public static let disableSilPartialApply: Option = Option("-disable-sil-partial-apply", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable use of partial_apply in SIL generation")
   public static let disableSilPerfOptzns: Option = Option("-disable-sil-perf-optzns", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't run SIL performance optimization passes")
@@ -456,13 +457,14 @@ extension Option {
   public static let experimentalHermeticSealAtLink: Option = Option("-experimental-hermetic-seal-at-link", .flag, attributes: [.helpHidden, .frontend], helpText: "Library code can assume that all clients are visible at linktime, and aggressively strip unused code")
   public static let experimentalLazyTypecheck: Option = Option("-experimental-lazy-typecheck", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Type-check lazily as needed to produce requested outputs")
   public static let experimentalOneWayClosureParams: Option = Option("-experimental-one-way-closure-params", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental support for one-way closure parameters")
-  public static let experimentalPackageInterfaceLoad: Option = Option("-experimental-package-interface-load", .flag, attributes: [.helpHidden, .frontend, .moduleInterface], helpText: "Supports loading a module via .package.swiftinterface in the same package")
+  public static let experimentalPackageInterfaceLoad: Option = Option("-experimental-package-interface-load", .flag, attributes: [.helpHidden, .frontend], helpText: "Enables loading a package interface if in the same package specified with package-name")
   public static let ExperimentalPerformanceAnnotations: Option = Option("-experimental-performance-annotations", .flag, attributes: [.helpHidden, .frontend], helpText: "Deprecated, has no effect")
   public static let platformCCallingConventionEQ: Option = Option("-experimental-platform-c-calling-convention=", .joined, alias: Option.platformCCallingConvention, attributes: [.helpHidden, .frontend, .noDriver])
   public static let platformCCallingConvention: Option = Option("-experimental-platform-c-calling-convention", .separate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Which calling convention is used to perform non-swift calls. Defaults to llvm's standard C calling convention.")
   public static let experimentalPrintFullConvention: Option = Option("-experimental-print-full-convention", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "When emitting a module interface or SIL, emit additional @convention arguments, regardless of whether they were written in the source. Also requires -use-clang-function-types to be enabled.")
   public static let experimentalSkipAllFunctionBodies: Option = Option("-experimental-skip-all-function-bodies", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Skip type-checking function bodies and all SIL generation")
   public static let experimentalSkipNonExportableDecls: Option = Option("-experimental-skip-non-exportable-decls", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Skip decls that are not exported to clients")
+  public static let experimentalSkipNonInlinableFunctionBodiesIsLazy: Option = Option("-experimental-skip-non-inlinable-function-bodies-is-lazy", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Infer lazy typechecking for -experimental-skip-non-inlinable-function-bodies")
   public static let experimentalSkipNonInlinableFunctionBodiesWithoutTypes: Option = Option("-experimental-skip-non-inlinable-function-bodies-without-types", .flag, attributes: [.helpHidden, .frontend], helpText: "Skip work on non-inlinable function bodies that do not declare nested types")
   public static let experimentalSkipNonInlinableFunctionBodies: Option = Option("-experimental-skip-non-inlinable-function-bodies", .flag, attributes: [.helpHidden, .frontend], helpText: "Skip type-checking and SIL generation for non-inlinable function bodies")
   public static let experimentalSpiImports: Option = Option("-experimental-spi-imports", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental support for SPI imports")
@@ -630,6 +632,7 @@ extension Option {
   public static let pchOutputDir: Option = Option("-pch-output-dir", .separate, attributes: [.helpHidden, .frontend, .argumentIsPath], helpText: "Directory to persist automatically created precompiled bridging headers")
   public static let placeholderDependencyModuleMap: Option = Option("-placeholder-dependency-module-map-file", .separate, attributes: [.frontend, .noDriver], metaVar: "<path>", helpText: "Specify a JSON file containing information of external Swift module dependencies")
   public static let playgroundHighPerformance: Option = Option("-playground-high-performance", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Omit instrumentation that has a high runtime performance impact")
+  public static let playgroundOption: Option = Option("-playground-option", .separate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Provide an option to the playground transform (if enabled)")
   public static let playground: Option = Option("-playground", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Apply the playground semantics and transformation")
   public static let pluginPath: Option = Option("-plugin-path", .separate, attributes: [.frontend, .argumentIsPath], helpText: "Add directory to the plugin search path", group: .pluginSearch)
   public static let prebuiltModuleCachePathEQ: Option = Option("-prebuilt-module-cache-path=", .joined, alias: Option.prebuiltModuleCachePath, attributes: [.frontend, .noDriver, .cacheInvariant])
@@ -1045,6 +1048,7 @@ extension Option {
       Option.disableRequirementMachineLoopNormalization,
       Option.disableRequirementMachineReuse,
       Option.disableRoundTripDebugTypes,
+      Option.disableSandbox,
       Option.disableSilOwnershipVerifier,
       Option.disableSilPartialApply,
       Option.disableSilPerfOptzns,
@@ -1287,6 +1291,7 @@ extension Option {
       Option.experimentalPrintFullConvention,
       Option.experimentalSkipAllFunctionBodies,
       Option.experimentalSkipNonExportableDecls,
+      Option.experimentalSkipNonInlinableFunctionBodiesIsLazy,
       Option.experimentalSkipNonInlinableFunctionBodiesWithoutTypes,
       Option.experimentalSkipNonInlinableFunctionBodies,
       Option.experimentalSpiImports,
@@ -1454,6 +1459,7 @@ extension Option {
       Option.pchOutputDir,
       Option.placeholderDependencyModuleMap,
       Option.playgroundHighPerformance,
+      Option.playgroundOption,
       Option.playground,
       Option.pluginPath,
       Option.prebuiltModuleCachePathEQ,
