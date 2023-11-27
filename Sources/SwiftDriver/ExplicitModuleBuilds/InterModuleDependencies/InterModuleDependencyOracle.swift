@@ -165,7 +165,7 @@ public class InterModuleDependencyOracle {
     return diags.isEmpty ? nil : diags
   }
 
-  @_spi(Testing) public func createCAS(pluginPath: AbsolutePath?, onDiskPath: AbsolutePath?, pluginOptions: [(String, String)]) throws -> SwiftScanCAS {
+  public func createCAS(pluginPath: AbsolutePath?, onDiskPath: AbsolutePath?, pluginOptions: [(String, String)]) throws -> SwiftScanCAS {
     guard let swiftScan = swiftScanLibInstance else {
       fatalError("Attempting to reset scanner cache with no scanner instance.")
     }

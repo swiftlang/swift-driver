@@ -487,10 +487,17 @@ final class CachingBuildTests: XCTestCase {
       let jobs = try driver.planBuild()
       try driver.run(jobs: jobs)
       XCTAssertFalse(driver.diagnosticEngine.hasErrors)
-      guard let cas = driver.cas else {
-        XCTFail("CAS is not available")
+
+      let dependencyOracle = InterModuleDependencyOracle()
+      let scanLibPath = try XCTUnwrap(driver.toolchain.lookupSwiftScanLib())
+      guard try dependencyOracle
+              .verifyOrCreateScannerInstance(fileSystem: localFileSystem,
+                                             swiftScanLibPath: scanLibPath) else {
+        XCTFail("Dependency scanner library not found")
         return
       }
+
+      let cas = try dependencyOracle.createCAS(pluginPath: nil, onDiskPath: casPath, pluginOptions: [])
       try checkCASForResults(jobs: jobs, cas: cas, fs: driver.fileSystem)
     }
   }
