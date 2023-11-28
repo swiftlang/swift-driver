@@ -688,8 +688,8 @@ extension Driver {
                                          dependencyOracle: interModuleDependencyOracle,
                                          integratedDriver: integratedDriver,
                                          supportsExplicitInterfaceBuild:
-                                          isFrontendArgSupported(.explicitInterfaceModuleBuild),
-                                         enableCAS: enableCaching)
+                                         isFrontendArgSupported(.explicitInterfaceModuleBuild),
+                                         cas: cas)
 
     return try explicitDependencyBuildPlanner!.generateExplicitModuleDependenciesBuildJobs()
   }

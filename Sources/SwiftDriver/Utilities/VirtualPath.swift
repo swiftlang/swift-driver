@@ -331,6 +331,11 @@ extension VirtualPath {
 
     public static let standardOutput = Handle(-1)
     public static let standardInput = Handle(-2)
+#if os(Windows)
+    public static let null = try! VirtualPath(path: "nul").intern()
+#else
+    public static let null = try! VirtualPath(path: "/dev/null").intern()
+#endif
   }
 
   /// An implementation of a concurrent path cache.
@@ -710,7 +715,7 @@ extension TSCBasic.FileSystem {
     }
   }
 
-  func readFileContents(_ path: VirtualPath) throws -> ByteString {
+  @_spi(Testing) public func readFileContents(_ path: VirtualPath) throws -> ByteString {
     try resolvingVirtualPath(path, apply: readFileContents)
   }
 
@@ -726,7 +731,7 @@ extension TSCBasic.FileSystem {
     }
   }
 
-  func removeFileTree(_ path: VirtualPath) throws {
+  @_spi(Testing) public func removeFileTree(_ path: VirtualPath) throws {
     try resolvingVirtualPath(path) { absolutePath in
       try self.removeFileTree(absolutePath)
     }

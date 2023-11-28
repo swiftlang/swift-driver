@@ -32,6 +32,7 @@ extension Driver {
 
     if try supportsBridgingHeaderPCHCommand() {
       try addExplicitPCHBuildArguments(inputs: &inputs, commandLine: &commandLine)
+      addCacheReplayMapping(to: &commandLine)
     } else {
       try addGeneratePCHFlags(commandLine: &commandLine, inputs: &inputs)
     }
@@ -67,7 +68,9 @@ extension Driver {
     outputs.append(output)
 
     inputs.append(input)
-    commandLine.appendPath(input.file)
+    try addPathArgument(input.file, to: &commandLine)
+
+    let cacheKeys = try computeOutputCacheKeyForJob(commandLine: commandLine, inputs: [input])
 
     return Job(
       moduleName: moduleOutputInfo.name,
@@ -77,7 +80,8 @@ extension Driver {
       displayInputs: [],
       inputs: inputs,
       primaryInputs: [],
-      outputs: outputs
+      outputs: outputs,
+      outputCacheKeys: cacheKeys
     )
   }
 }

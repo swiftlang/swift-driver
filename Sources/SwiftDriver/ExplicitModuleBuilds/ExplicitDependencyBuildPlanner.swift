@@ -45,7 +45,7 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
   /// Whether we are using the integrated driver via libSwiftDriver shared lib
   private let integratedDriver: Bool
   private let mainModuleName: String?
-  private let enableCAS: Bool
+  private let cas: SwiftScanCAS?
   private let swiftScanOracle: InterModuleDependencyOracle
 
   /// Clang PCM names contain a hash of the command-line arguments that were used to build them.
@@ -60,7 +60,7 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
               dependencyOracle: InterModuleDependencyOracle,
               integratedDriver: Bool = true,
               supportsExplicitInterfaceBuild: Bool = false,
-              enableCAS: Bool = false) throws {
+              cas: SwiftScanCAS? = nil) throws {
     self.dependencyGraph = dependencyGraph
     self.toolchain = toolchain
     self.swiftScanOracle = dependencyOracle
@@ -68,7 +68,7 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
     self.mainModuleName = dependencyGraph.mainModuleName
     self.reachabilityMap = try dependencyGraph.computeTransitiveClosure()
     self.supportsExplicitInterfaceBuild = supportsExplicitInterfaceBuild
-    self.enableCAS = enableCAS
+    self.cas = cas
   }
 
   /// Supports resolving bridging header pch command from swiftScan.
@@ -136,9 +136,6 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
     for moduleId in swiftDependencies {
       let moduleInfo = try dependencyGraph.moduleInfo(of: moduleId)
       var inputs: [TypedVirtualPath] = []
-      let outputs: [TypedVirtualPath] = [
-        TypedVirtualPath(file: moduleInfo.modulePath.path, type: .swiftModule)
-      ]
       var commandLine: [Job.ArgTemplate] = []
       // First, take the command line options provided in the dependency information
       let moduleDetails = try dependencyGraph.swiftModuleDetails(of: moduleId)
@@ -155,9 +152,18 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
         throw Driver.Error.malformedModuleDependency(moduleId.moduleName,
                                                      "no `moduleInterfacePath` object")
       }
-      inputs.append(TypedVirtualPath(file: moduleInterfacePath.path,
-                                     type: .swiftInterface))
 
+      let inputInterfacePath = TypedVirtualPath(file: moduleInterfacePath.path, type: .swiftInterface)
+      inputs.append(inputInterfacePath)
+      let outputModulePath = TypedVirtualPath(file: moduleInfo.modulePath.path, type: .swiftModule)
+      let outputs = [outputModulePath]
+
+      let cacheKeys : [TypedVirtualPath : String]
+      if let key = moduleDetails.moduleCacheKey {
+        cacheKeys = [inputInterfacePath: key]
+      } else {
+        cacheKeys = [:]
+      }
       // Add precompiled module candidates, if present
       if let compiledCandidateList = moduleDetails.compiledModuleCandidates {
         for compiledCandidate in compiledCandidateList {
@@ -173,7 +179,8 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
         commandLine: commandLine,
         inputs: inputs,
         primaryInputs: [],
-        outputs: outputs
+        outputs: outputs,
+        outputCacheKeys: cacheKeys
       ))
     }
     return jobs
@@ -205,15 +212,20 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
       try resolveExplicitModuleDependencies(moduleId: moduleId, inputs: &inputs,
                                             commandLine: &commandLine)
 
-      let moduleMapPath = moduleDetails.moduleMapPath.path
-      let modulePCMPath = moduleInfo.modulePath
-      outputs.append(TypedVirtualPath(file: modulePCMPath.path, type: .pcm))
+      let moduleMapPath = TypedVirtualPath(file: moduleDetails.moduleMapPath.path, type: .clangModuleMap)
+      let modulePCMPath = TypedVirtualPath(file: moduleInfo.modulePath.path, type: .pcm)
+      outputs.append(modulePCMPath)
 
       // The only required input is the .modulemap for this module.
       // Command line options in the dependency scanner output will include the
       // required modulemap, so here we must only add it to the list of inputs.
-      inputs.append(TypedVirtualPath(file: moduleMapPath,
-                                     type: .clangModuleMap))
+      inputs.append(moduleMapPath)
+      let cacheKeys : [TypedVirtualPath : String]
+      if let key = moduleDetails.moduleCacheKey {
+        cacheKeys = [moduleMapPath: key]
+      } else {
+        cacheKeys = [:]
+      }
 
       jobs.append(Job(
         moduleName: moduleId.moduleName,
@@ -222,7 +234,8 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
         commandLine: commandLine,
         inputs: inputs,
         primaryInputs: [],
-        outputs: outputs
+        outputs: outputs,
+        outputCacheKeys: cacheKeys
       ))
     }
     return jobs
@@ -247,7 +260,7 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
                                      type: .swiftModule))
 
       let prebuiltHeaderDependencyPaths = dependencyModule.prebuiltHeaderDependencyPaths ?? []
-      if enableCAS && !prebuiltHeaderDependencyPaths.isEmpty {
+      if cas != nil && !prebuiltHeaderDependencyPaths.isEmpty {
         throw Driver.Error.unsupportedConfigurationForCaching("module \(dependencyModule.moduleName) has prebuilt header dependency")
       }
 
@@ -277,9 +290,9 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
       try serializeModuleDependencies(for: moduleId,
                                       swiftDependencyArtifacts: swiftDependencyArtifacts,
                                       clangDependencyArtifacts: clangDependencyArtifacts)
-    if enableCAS {
+    if let cas = self.cas {
       // When using a CAS, write JSON into CAS and pass the ID on command-line.
-      let casID = try swiftScanOracle.store(data: dependencyFileContent)
+      let casID = try cas.store(data: dependencyFileContent)
       commandLine.appendFlag("-explicit-swift-module-map-file")
       commandLine.appendFlag(casID)
     } else {
@@ -445,7 +458,7 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
       return
     }
 
-    assert(!enableCAS, "Caching build should always return command-line from scanner")
+    assert(cas == nil, "Caching build should always return command-line from scanner")
     // Prohibit the frontend from implicitly building textual modules into binary modules.
     commandLine.appendFlags("-disable-implicit-swift-modules",
                             "-Xcc", "-fno-implicit-modules",

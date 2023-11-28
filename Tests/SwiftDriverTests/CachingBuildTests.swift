@@ -75,6 +75,63 @@ throws {
                                        dependencyGraph: dependencyGraph)
 }
 
+/// Checks that the output keys are in the action cache and also the output
+/// can be replayed from CAS and identicial to the original output.
+private func checkCASForResults(jobs: [Job], cas: SwiftScanCAS, fs: FileSystem) throws {
+  let expectation = XCTestExpectation(description: "Check CAS for output")
+  @Sendable
+  func replayAndVerifyOutput(_ job: Job, _ compilations: [CachedCompilation]) async throws {
+    func hashFile(_ file: VirtualPath) throws -> String {
+      // store the content in the CAS as a hashing function.
+      return try fs.readFileContents(file).withData {
+        try cas.store(data: $0)
+      }
+    }
+    let outputHashes = try job.outputs.map {
+      let hash = try hashFile($0.file)
+      // remove the original output after hashing the file.
+      try fs.removeFileTree($0.file)
+      return hash
+    }
+    let resolver = try ArgsResolver(fileSystem: fs)
+    let arguments: [String] = try resolver.resolveArgumentList(for: job.commandLine)
+    let instance = try cas.createReplayInstance(commandLine: arguments)
+    for compilation in compilations {
+      let _ = try cas.replayCompilation(instance: instance, compilation: compilation)
+    }
+    let replayHashes = try job.outputs.map {
+      try hashFile($0.file)
+    }
+    XCTAssertEqual(outputHashes, replayHashes, "replayed output is not identical to original")
+  }
+  Task {
+    defer {
+      expectation.fulfill()
+    }
+    for job in jobs {
+      if !job.kind.supportCaching {
+        continue
+      }
+      var compilations = [CachedCompilation]()
+      for (_, key) in job.outputCacheKeys {
+        if let compilation = try await cas.queryCacheKey(key, globally: false) {
+          for output in compilation {
+            XCTAssertTrue(output.isMaterialized, "Cached output not founded in CAS")
+            let success = try await output.load()
+            XCTAssertTrue(success, "Cached output not founded in CAS")
+          }
+          compilations.append(compilation)
+        } else {
+          XCTFail("Cached entry not found")
+        }
+      }
+      try await replayAndVerifyOutput(job, compilations)
+    }
+  }
+  let result = XCTWaiter.wait(for: [expectation], timeout: 10.0)
+  XCTAssertEqual(result, .completed)
+}
+
 /// Checks that the build job for the specified module contains the required options and inputs
 /// to build all of its dependencies explicitly
 private func checkCachingBuildJobDependencies(job: Job,
@@ -106,8 +163,6 @@ private func checkCachingBuildJobDependencies(job: Job,
     XCTAssertTrue(job.inputs.contains(clangDependencyModuleMapPath))
     XCTAssertTrue(job.commandLine.contains(
       .flag(String("-fmodule-file=\(dependencyId.moduleName)=\(clangDependencyModulePathString)"))))
-    XCTAssertTrue(job.commandLine.contains(
-      .flag(String("-fmodule-map-file=\(clangDependencyDetails.moduleMapPath.path.description)"))))
     XCTAssertTrue(job.commandLine.contains(
       .flag(String("-fmodule-file-cache-key"))))
     let cacheKey = try XCTUnwrap(clangDependencyDetails.moduleCacheKey)
@@ -168,16 +223,8 @@ final class CachingBuildTests: XCTestCase {
                                      "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: true),
                                      "-import-objc-header", bridgingHeaderpath.nativePathString(escaped: true),
                                      main.nativePathString(escaped: true)] + sdkArgumentsForTesting)
-      let dependencyOracle = InterModuleDependencyOracle()
-      let scanLibPath = try XCTUnwrap(driver.toolchain.lookupSwiftScanLib())
-      guard try dependencyOracle
-              .verifyOrCreateScannerInstance(fileSystem: localFileSystem,
-                                             swiftScanLibPath: scanLibPath) else {
-        XCTFail("Dependency scanner library not found")
-        return
-      }
-      guard try dependencyOracle.supportsCaching() else {
-        throw XCTSkip("libSwiftScan does not support caching.")
+      guard driver.isFeatureSupported(.cache_compile_job) else {
+        throw XCTSkip("toolchain does not support caching.")
       }
 
       let jobs = try driver.planBuild()
@@ -303,16 +350,8 @@ final class CachingBuildTests: XCTestCase {
       guard driver.supportExplicitModuleVerifyInterface() else {
         throw XCTSkip("-typecheck-module-from-interface doesn't support explicit build.")
       }
-      let dependencyOracle = InterModuleDependencyOracle()
-      let scanLibPath = try XCTUnwrap(driver.toolchain.lookupSwiftScanLib())
-      guard try dependencyOracle
-              .verifyOrCreateScannerInstance(fileSystem: localFileSystem,
-                                             swiftScanLibPath: scanLibPath) else {
-        XCTFail("Dependency scanner library not found")
-        return
-      }
-      guard try dependencyOracle.supportsCaching() else {
-        throw XCTSkip("libSwiftScan does not support caching.")
+      guard driver.isFeatureSupported(.cache_compile_job) else {
+        throw XCTSkip("toolchain does not support caching.")
       }
 
       let jobs = try driver.planBuild()
@@ -442,20 +481,17 @@ final class CachingBuildTests: XCTestCase {
                                      "-working-directory", path.nativePathString(escaped: true),
                                      main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
                               env: ProcessEnv.vars)
-      let dependencyOracle = InterModuleDependencyOracle()
-      let scanLibPath = try XCTUnwrap(driver.toolchain.lookupSwiftScanLib())
-      guard try dependencyOracle
-              .verifyOrCreateScannerInstance(fileSystem: localFileSystem,
-                                             swiftScanLibPath: scanLibPath) else {
-        XCTFail("Dependency scanner library not found")
-        return
-      }
-      guard try dependencyOracle.supportsCaching() else {
-        throw XCTSkip("libSwiftScan does not support caching.")
+      guard driver.isFeatureSupported(.cache_compile_job) else {
+        throw XCTSkip("toolchain does not support caching.")
       }
       let jobs = try driver.planBuild()
       try driver.run(jobs: jobs)
       XCTAssertFalse(driver.diagnosticEngine.hasErrors)
+      guard let cas = driver.cas else {
+        XCTFail("CAS is not available")
+        return
+      }
+      try checkCASForResults(jobs: jobs, cas: cas, fs: driver.fileSystem)
     }
   }
 
@@ -500,6 +536,9 @@ final class CachingBuildTests: XCTestCase {
                                       env: ProcessEnv.vars)
 
       // Ensure this tooling supports this functionality
+      guard fooBuildDriver.isFeatureSupported(.cache_compile_job) else {
+        throw XCTSkip("toolchain does not support caching.")
+      }
       let dependencyOracle = InterModuleDependencyOracle()
       let scanLibPath = try XCTUnwrap(fooBuildDriver.toolchain.lookupSwiftScanLib())
       guard try dependencyOracle
@@ -510,9 +549,6 @@ final class CachingBuildTests: XCTestCase {
       }
       guard try dependencyOracle.supportsBinaryModuleHeaderDependencies() else {
         throw XCTSkip("libSwiftScan does not support binary module header dependencies.")
-      }
-      guard try dependencyOracle.supportsCaching() else {
-        throw XCTSkip("libSwiftScan does not support caching.")
       }
 
       let fooJobs = try fooBuildDriver.planBuild()
@@ -561,6 +597,9 @@ final class CachingBuildTests: XCTestCase {
                                      "-disable-clang-target",
                                      main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
                               env: ProcessEnv.vars)
+      guard driver.isFeatureSupported(.cache_compile_job) else {
+        throw XCTSkip("toolchain does not support caching.")
+      }
       let dependencyOracle = InterModuleDependencyOracle()
       let scanLibPath = try XCTUnwrap(driver.toolchain.lookupSwiftScanLib())
       guard try dependencyOracle
@@ -568,9 +607,6 @@ final class CachingBuildTests: XCTestCase {
                                              swiftScanLibPath: scanLibPath) else {
         XCTFail("Dependency scanner library not found")
         return
-      }
-      guard try dependencyOracle.supportsCaching() else {
-        throw XCTSkip("libSwiftScan does not support caching.")
       }
       let resolver = try ArgsResolver(fileSystem: localFileSystem)
       var scannerCommand = try driver.dependencyScannerInvocationCommand().1.map { try resolver.resolve($0) }
@@ -659,6 +695,70 @@ final class CachingBuildTests: XCTestCase {
       XCTAssertEqual(diags.count, 1)
       XCTAssertEqual(diags[0].severity, .error)
       XCTAssertEqual(diags[0].message, "CAS error encountered: conflicting CAS options used in scanning service")
+    }
+  }
+
+  func testDependencyScanningPathRemap() throws {
+    // Create a simple test case.
+    try withTemporaryDirectory { path in
+      let main = path.appending(component: "testDependencyScanning.swift")
+      try localFileSystem.writeFileContents(main) {
+        $0.send("import C;")
+        $0.send("import E;")
+        $0.send("import G;")
+      }
+
+      let cHeadersPath: AbsolutePath =
+          try testInputsPath.appending(component: "ExplicitModuleBuilds")
+                            .appending(component: "CHeaders")
+      let swiftModuleInterfacesPath: AbsolutePath =
+          try testInputsPath.appending(component: "ExplicitModuleBuilds")
+                            .appending(component: "Swift")
+      let casPath = path.appending(component: "cas")
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+      var driver = try Driver(args: ["swiftc",
+                                     "-I", cHeadersPath.nativePathString(escaped: true),
+                                     "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                     "/tmp/Foo.o", "-v",
+                                     "-explicit-module-build",
+                                     "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: true),
+                                     "-working-directory", path.nativePathString(escaped: true),
+                                     "-disable-clang-target", "-scanner-prefix-map-sdk", "/^sdk",
+                                     "-scanner-prefix-map-toolchain", "/^toolchain",
+                                     "-scanner-prefix-map", testInputsPath.description + "=/^src",
+                                     "-scanner-prefix-map", path.description + "=/^tmp",
+                                     main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
+                              env: ProcessEnv.vars)
+      guard driver.isFrontendArgSupported(.scannerPrefixMap) else {
+        throw XCTSkip("frontend doesn't support prefix map")
+      }
+      let dependencyOracle = InterModuleDependencyOracle()
+      let scanLibPath = try XCTUnwrap(driver.toolchain.lookupSwiftScanLib())
+      guard try dependencyOracle
+              .verifyOrCreateScannerInstance(fileSystem: localFileSystem,
+                                             swiftScanLibPath: scanLibPath) else {
+        XCTFail("Dependency scanner library not found")
+        return
+      }
+      let resolver = try ArgsResolver(fileSystem: localFileSystem)
+      let scannerCommand = try driver.dependencyScannerInvocationCommand().1.map { try resolver.resolve($0) }
+
+      XCTAssertTrue(scannerCommand.contains("-scanner-prefix-map"))
+      XCTAssertTrue(scannerCommand.contains(try testInputsPath.description + "=/^src"))
+
+      let jobs = try driver.planBuild()
+      for job in jobs {
+        if !job.kind.supportCaching {
+          continue
+        }
+        let command = try job.commandLine.map { try resolver.resolve($0) }
+        // Check all the arguments that are in the temporary directory are remapped.
+        // The only one that is not remapped should be the `-cas-path` that points to
+        // `casPath`.
+        XCTAssertFalse(command.contains {
+          return $0.starts(with: path.description) && $0 != casPath.description
+        })
+      }
     }
   }
 }
