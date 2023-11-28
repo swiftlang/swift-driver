@@ -2906,6 +2906,15 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertEqual(firstKey, "foo.swift")
   }
 
+  func testExplicitBuildWithJustObjectInputs() throws {
+    var driver = try Driver(args: [
+      "swiftc", "-explicit-module-build", "foo.o", "bar.o"
+    ])
+    let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+    XCTAssertEqual(plannedJobs.count, 1)
+    XCTAssertEqual(plannedJobs.first?.kind, .link)
+  }
+
   func testWMOWithNonSourceInputFirstAndModuleOutput() throws {
     var driver1 = try Driver(args: [
       "swiftc", "-wmo", "danger.o", "foo.swift", "bar.swift", "wibble.swift", "-module-name", "Test",

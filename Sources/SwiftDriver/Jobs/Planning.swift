@@ -139,8 +139,9 @@ extension Driver {
                                                           IncrementalCompilationState.InitialStateForPlanning?)
   throws -> InterModuleDependencyGraph? {
     let interModuleDependencyGraph: InterModuleDependencyGraph?
-    if parsedOptions.contains(.driverExplicitModuleBuild) ||
-       parsedOptions.contains(.explainModuleDependency) {
+    if (parsedOptions.contains(.driverExplicitModuleBuild) ||
+        parsedOptions.contains(.explainModuleDependency)) &&
+       inputFiles.contains(where: { $0.type.isPartOfSwiftCompilation }) {
       // If the incremental build record's module dependency graph is up-to-date, we
       // can skip dependency scanning entirely.
       interModuleDependencyGraph =
