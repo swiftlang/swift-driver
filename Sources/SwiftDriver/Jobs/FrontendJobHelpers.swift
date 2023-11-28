@@ -319,6 +319,10 @@ extension Driver {
       try commandLine.appendLast(.enableBuiltinModule, from: &parsedOptions)
     }
 
+    if isFrontendArgSupported(.disableSandbox) {
+      try commandLine.appendLast(.disableSandbox, from: &parsedOptions)
+    }
+
     if !(isCachingEnabled && useClangIncludeTree), let workingDirectory = workingDirectory {
       // Add -Xcc -working-directory before any other -Xcc options to ensure it is
       // overridden by an explicit -Xcc -working-directory, although having a
