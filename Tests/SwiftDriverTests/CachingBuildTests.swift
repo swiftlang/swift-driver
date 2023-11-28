@@ -119,6 +119,17 @@ private func checkCASForResults(jobs: [Job], cas: SwiftScanCAS, fs: FileSystem) 
             XCTAssertTrue(output.isMaterialized, "Cached output not founded in CAS")
             let success = try await output.load()
             XCTAssertTrue(success, "Cached output not founded in CAS")
+
+            // Try async download. Download should succeed even on a local CAS.
+            let casID = try output.getCASID()
+            let downloaded = try await cas.download(with: casID)
+            XCTAssertTrue(downloaded, "Cached output cannot be downloaded")
+          }
+          // Execise the uploading path.
+          try await compilation.makeGlobal()
+          // Execise call back uploading method.
+          compilation.makeGlobal { error in
+            XCTAssertTrue(error == nil, "Upload Error")
           }
           compilations.append(compilation)
         } else {
@@ -561,6 +572,9 @@ final class CachingBuildTests: XCTestCase {
       let fooJobs = try fooBuildDriver.planBuild()
       try fooBuildDriver.run(jobs: fooJobs)
       XCTAssertFalse(fooBuildDriver.diagnosticEngine.hasErrors)
+
+      let cas = try dependencyOracle.createCAS(pluginPath: nil, onDiskPath: casPath, pluginOptions: [])
+      try checkCASForResults(jobs: fooJobs, cas: cas, fs: fooBuildDriver.fileSystem)
 
       var driver = try Driver(args: ["swiftc",
                                      "-I", FooInstallPath.nativePathString(escaped: true),
