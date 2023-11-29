@@ -327,6 +327,7 @@ extension Option {
   public static let emitObjcHeaderPath: Option = Option("-emit-objc-header-path", .separate, attributes: [.frontend, .noInteractive, .argumentIsPath, .supplementaryOutput, .cacheInvariant], metaVar: "<path>", helpText: "Emit an Objective-C header file to <path>")
   public static let emitObjcHeader: Option = Option("-emit-objc-header", .flag, attributes: [.frontend, .noInteractive, .supplementaryOutput], helpText: "Emit an Objective-C header file")
   public static let emitObject: Option = Option("-emit-object", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Emit object file(s) (-c)", group: .modes)
+  public static let emitPackageModuleInterfacePath: Option = Option("-emit-package-module-interface-path", .separate, attributes: [.helpHidden, .frontend, .noInteractive, .argumentIsPath, .supplementaryOutput, .cacheInvariant], metaVar: "<path>", helpText: "Output package module interface file to <path>")
   public static let emitParseableModuleInterfacePath: Option = Option("-emit-parseable-module-interface-path", .separate, alias: Option.emitModuleInterfacePath, attributes: [.helpHidden, .frontend, .noInteractive, .argumentIsPath, .supplementaryOutput, .cacheInvariant])
   public static let emitParseableModuleInterface: Option = Option("-emit-parseable-module-interface", .flag, alias: Option.emitModuleInterface, attributes: [.helpHidden, .noInteractive, .supplementaryOutput])
   public static let emitParse: Option = Option("-emit-parse", .flag, alias: Option.dumpParse, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild])
@@ -455,6 +456,7 @@ extension Option {
   public static let experimentalHermeticSealAtLink: Option = Option("-experimental-hermetic-seal-at-link", .flag, attributes: [.helpHidden, .frontend], helpText: "Library code can assume that all clients are visible at linktime, and aggressively strip unused code")
   public static let experimentalLazyTypecheck: Option = Option("-experimental-lazy-typecheck", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Type-check lazily as needed to produce requested outputs")
   public static let experimentalOneWayClosureParams: Option = Option("-experimental-one-way-closure-params", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental support for one-way closure parameters")
+  public static let experimentalPackageInterfaceLoad: Option = Option("-experimental-package-interface-load", .flag, attributes: [.helpHidden, .frontend, .moduleInterface], helpText: "Supports loading a module via .package.swiftinterface in the same package")
   public static let ExperimentalPerformanceAnnotations: Option = Option("-experimental-performance-annotations", .flag, attributes: [.helpHidden, .frontend], helpText: "Deprecated, has no effect")
   public static let platformCCallingConventionEQ: Option = Option("-experimental-platform-c-calling-convention=", .joined, alias: Option.platformCCallingConvention, attributes: [.helpHidden, .frontend, .noDriver])
   public static let platformCCallingConvention: Option = Option("-experimental-platform-c-calling-convention", .separate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Which calling convention is used to perform non-swift calls. Defaults to llvm's standard C calling convention.")
@@ -1149,6 +1151,7 @@ extension Option {
       Option.emitObjcHeaderPath,
       Option.emitObjcHeader,
       Option.emitObject,
+      Option.emitPackageModuleInterfacePath,
       Option.emitParseableModuleInterfacePath,
       Option.emitParseableModuleInterface,
       Option.emitParse,
@@ -1277,6 +1280,7 @@ extension Option {
       Option.experimentalHermeticSealAtLink,
       Option.experimentalLazyTypecheck,
       Option.experimentalOneWayClosureParams,
+      Option.experimentalPackageInterfaceLoad,
       Option.ExperimentalPerformanceAnnotations,
       Option.platformCCallingConventionEQ,
       Option.platformCCallingConvention,

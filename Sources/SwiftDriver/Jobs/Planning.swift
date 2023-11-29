@@ -571,15 +571,29 @@ extension Driver {
 
     let optIn = env["ENABLE_DEFAULT_INTERFACE_VERIFIER"] != nil ||
       parsedOptions.hasArgument(.verifyEmittedModuleInterface)
-    func addVerifyJob(forPrivate: Bool) throws {
-      let isNeeded =
-        forPrivate
-        ? parsedOptions.hasArgument(.emitPrivateModuleInterfacePath)
-        : parsedOptions.hasArgument(.emitModuleInterface, .emitModuleInterfacePath)
+
+    enum InterfaceMode {
+      case Public, Private, Package
+    }
+
+    func addVerifyJob(for mode: InterfaceMode) throws {
+      var isNeeded = false
+      var outputType: FileType
+
+      switch mode {
+      case .Public:
+        isNeeded = parsedOptions.hasArgument(.emitModuleInterface, .emitModuleInterfacePath)
+        outputType = FileType.swiftInterface
+      case .Private:
+        isNeeded = parsedOptions.hasArgument(.emitPrivateModuleInterfacePath)
+        outputType = .privateSwiftInterface
+      case .Package:
+        isNeeded = parsedOptions.hasArgument(.emitPackageModuleInterfacePath)
+        outputType = .packageSwiftInterface
+      }
+
       guard isNeeded else { return }
 
-      let outputType: FileType =
-        forPrivate ? .privateSwiftInterface : .swiftInterface
       let mergeInterfaceOutputs = emitModuleJob.outputs.filter { $0.type == outputType }
       assert(mergeInterfaceOutputs.count == 1,
              "Merge module job should only have one swiftinterface output")
@@ -588,8 +602,9 @@ extension Driver {
                                              optIn: optIn)
       addJob(job)
     }
-    try addVerifyJob(forPrivate: false)
-    try addVerifyJob(forPrivate: true)
+    try addVerifyJob(for: .Public)
+    try addVerifyJob(for: .Private)
+    try addVerifyJob(for: .Package)
   }
 
   private mutating func addAutolinkExtractJob(

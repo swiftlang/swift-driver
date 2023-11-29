@@ -92,7 +92,7 @@ extension Driver {
     case .swiftModule:
       return compilerMode.isSingleCompilation && moduleOutputInfo.output?.isTopLevel ?? false
     case .swift, .image, .dSYM, .dependencies, .emitModuleDependencies, .autolink,
-         .swiftDocumentation, .swiftInterface, .privateSwiftInterface, .swiftSourceInfoFile,
+         .swiftDocumentation, .swiftInterface, .privateSwiftInterface, .packageSwiftInterface, .swiftSourceInfoFile,
          .diagnostics, .emitModuleDiagnostics, .objcHeader, .swiftDeps, .remap, .tbd,
          .moduleTrace, .yamlOptimizationRecord, .bitstreamOptimizationRecord, .pcm, .pch,
          .clangModuleMap, .jsonCompilerFeatures, .jsonTargetInfo, .jsonSwiftArtifacts,
@@ -470,7 +470,7 @@ extension FileType {
     case .swift, .dSYM, .autolink, .dependencies, .emitModuleDependencies,
          .swiftDocumentation, .pcm, .diagnostics, .emitModuleDiagnostics,
          .objcHeader, .image, .swiftDeps, .moduleTrace, .tbd, .yamlOptimizationRecord,
-         .bitstreamOptimizationRecord, .swiftInterface, .privateSwiftInterface,
+         .bitstreamOptimizationRecord, .swiftInterface, .privateSwiftInterface, .packageSwiftInterface,
          .swiftSourceInfoFile, .clangModuleMap, .jsonSwiftArtifacts,
          .indexUnitOutputPath, .modDepCache, .jsonAPIBaseline, .jsonABIBaseline,
          .swiftConstValues, .jsonAPIDescriptor, .moduleSummary, .moduleSemanticInfo,
