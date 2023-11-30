@@ -216,6 +216,7 @@ extension Option {
   public static let disableRequirementMachineLoopNormalization: Option = Option("-disable-requirement-machine-loop-normalization", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable stronger minimization algorithm, for debugging only")
   public static let disableRequirementMachineReuse: Option = Option("-disable-requirement-machine-reuse", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable re-use of requirement machines for minimization, for debugging only")
   public static let disableRoundTripDebugTypes: Option = Option("-disable-round-trip-debug-types", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disables verification of debug info mangling")
+  public static let disableSandbox: Option = Option("-disable-sandbox", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Disable using the sandbox when executing subprocesses")
   public static let disableSilOwnershipVerifier: Option = Option("-disable-sil-ownership-verifier", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Do not verify ownership invariants during SIL Verification ")
   public static let disableSilPartialApply: Option = Option("-disable-sil-partial-apply", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable use of partial_apply in SIL generation")
   public static let disableSilPerfOptzns: Option = Option("-disable-sil-perf-optzns", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't run SIL performance optimization passes")
@@ -604,7 +605,7 @@ extension Option {
   public static let O: Option = Option("-O", .flag, attributes: [.frontend, .moduleInterface], helpText: "Compile with optimizations", group: .O)
   public static let o: Option = Option("-o", .joinedOrSeparate, attributes: [.frontend, .noInteractive, .autolinkExtract, .moduleWrap, .indent, .argumentIsPath, .cacheInvariant], metaVar: "<file>", helpText: "Write output to <file>")
   public static let packageDescriptionVersion: Option = Option("-package-description-version", .separate, attributes: [.helpHidden, .frontend, .moduleInterface], metaVar: "<vers>", helpText: "The version number to be applied on the input for the PackageDescription availability kind")
-  public static let packageName: Option = Option("-package-name", .separate, attributes: [.frontend], helpText: "Name of the package the module belongs to")
+  public static let packageName: Option = Option("-package-name", .separate, attributes: [.frontend, .moduleInterface], helpText: "Name of the package the module belongs to")
   public static let parallelScan: Option = Option("-parallel-scan", .flag, attributes: [.frontend, .noDriver], helpText: "Perform dependency scanning in-parallel.")
   public static let parseAsLibrary: Option = Option("-parse-as-library", .flag, attributes: [.frontend, .noInteractive], helpText: "Parse the input file(s) as libraries, not scripts")
   public static let parseSil: Option = Option("-parse-sil", .flag, attributes: [.frontend, .noInteractive], helpText: "Parse the input file as SIL code, not Swift source")
@@ -1021,6 +1022,7 @@ extension Option {
       Option.disableRequirementMachineLoopNormalization,
       Option.disableRequirementMachineReuse,
       Option.disableRoundTripDebugTypes,
+      Option.disableSandbox,
       Option.disableSilOwnershipVerifier,
       Option.disableSilPartialApply,
       Option.disableSilPerfOptzns,
