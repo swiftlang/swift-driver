@@ -16,6 +16,9 @@ public enum Sanitizer: String, Hashable {
   /// Address sanitizer (ASan)
   case address
 
+  // Address sanitizer Stable ABI (ASan)
+  case address_stable_abi
+
   /// Thread sanitizer (TSan)
   case thread
 
@@ -34,6 +37,7 @@ public enum Sanitizer: String, Hashable {
   var libraryName: String {
     switch self {
     case .address: return "asan"
+    case .address_stable_abi: return "asan_abi"
     case .thread: return "tsan"
     case .undefinedBehavior: return "ubsan"
     case .fuzzer: return "fuzzer"

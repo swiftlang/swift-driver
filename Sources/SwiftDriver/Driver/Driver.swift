@@ -841,6 +841,8 @@ public struct Driver {
 
     Self.validateSanitizerAddressUseOdrIndicatorFlag(&parsedOptions, diagnosticEngine: diagnosticsEngine, addressSanitizerEnabled: enabledSanitizers.contains(.address))
 
+    Self.validateSanitizeStableABI(&parsedOptions, diagnosticEngine: diagnosticsEngine, addressSanitizerEnabled: enabledSanitizers.contains(.address))
+
     Self.validateSanitizerRecoverArgValues(&parsedOptions, diagnosticEngine: diagnosticsEngine, enabledSanitizers: enabledSanitizers)
 
     Self.validateSanitizerCoverageArgs(&parsedOptions,
@@ -2439,14 +2441,15 @@ extension Driver {
         continue
       }
 
+      let stableAbi = sanitizer == .address && parsedOptions.contains(.sanitizeStableAbiEQ)
       // Support is determined by existence of the sanitizer library.
       // FIXME: Should we do this? This prevents cross-compiling with sanitizers
       //        enabled.
       var sanitizerSupported = try toolchain.runtimeLibraryExists(
-        for: sanitizer,
+        for: stableAbi ? .address_stable_abi : sanitizer,
         targetInfo: targetInfo,
         parsedOptions: &parsedOptions,
-        isShared: sanitizer != .fuzzer
+        isShared: sanitizer != .fuzzer && !stableAbi
       )
 
       if sanitizer == .thread {
@@ -3060,6 +3063,17 @@ extension Driver {
       diagnosticEngine.emit(
         .warning_option_requires_sanitizer(currentOption: .sanitizeAddressUseOdrIndicator, currentOptionValue: "", sanitizerRequired: .address))
     }
+  }
+
+  private static func validateSanitizeStableABI(
+          _ parsedOptions: inout ParsedOptions,
+          diagnosticEngine: DiagnosticsEngine,
+          addressSanitizerEnabled: Bool
+          ) {
+      if (parsedOptions.hasArgument(.sanitizeStableAbiEQ) && !addressSanitizerEnabled) {
+          diagnosticEngine.emit(
+                  .warning_option_requires_sanitizer(currentOption: .sanitizeStableAbiEQ, currentOptionValue: "", sanitizerRequired: .address))
+      }
   }
 
   /// Validates the set of `-sanitize-recover={sanitizer}` arguments
