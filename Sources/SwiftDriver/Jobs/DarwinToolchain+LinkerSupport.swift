@@ -209,6 +209,10 @@ extension DarwinToolchain {
         .sorted() // Sort so we get a stable, testable order
         .joined(separator: ",")
       commandLine.appendFlag("-fsanitize=\(sanitizerNames)")
+
+      if parsedOptions.contains(.sanitizeStableAbiEQ) {
+        commandLine.appendFlag("-fsanitize-stable-abi")
+      }
     }
 
     if parsedOptions.contains(.embedBitcode) {

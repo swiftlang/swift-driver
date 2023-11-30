@@ -2731,6 +2731,27 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testSanitizeStableAbi() throws {
+    do {
+      var driver = try Driver(args: ["swiftc", "-sanitize=address", "-sanitize-stable-abi", "Test.swift"])
+
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+      XCTAssert(plannedJobs[0].commandLine.contains(.flag("-sanitize=address")))
+      XCTAssert(plannedJobs[0].commandLine.contains(.flag("-sanitize-stable-abi")))
+
+      XCTAssert(plannedJobs[1].commandLine.contains(.flag("-fsanitize=address")))
+      XCTAssert(plannedJobs[1].commandLine.contains(.flag("-fsanitize-stable-abi")))
+    }
+
+    do {
+      try assertDriverDiagnostics(args: ["swiftc","-sanitize-stable-abi", "Test.swift"]) {
+        $1.expect(.warning("option '-sanitize-stable-abi' has no effect when 'address' sanitizer is disabled. Use -sanitize=address to enable the sanitizer"))
+      }
+    }
+  }
+
   func testADDITIONAL_SWIFT_DRIVER_FLAGS() throws {
     var env = ProcessEnv.vars
     env["ADDITIONAL_SWIFT_DRIVER_FLAGS"] = "-Xfrontend -unknown1 -Xfrontend -unknown2"

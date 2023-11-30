@@ -216,6 +216,7 @@ extension Driver {
     try commandLine.appendLast(.sanitizeEQ, from: &parsedOptions)
     try commandLine.appendLast(.sanitizeRecoverEQ, from: &parsedOptions)
     try commandLine.appendLast(.sanitizeAddressUseOdrIndicator, from: &parsedOptions)
+    try commandLine.appendLast(.sanitizeStableAbiEQ, from: &parsedOptions)
     try commandLine.appendLast(.sanitizeCoverageEQ, from: &parsedOptions)
     try commandLine.appendLast(.static, from: &parsedOptions)
     try commandLine.appendLast(.swiftVersion, from: &parsedOptions)
