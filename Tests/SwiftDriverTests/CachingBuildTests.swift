@@ -761,4 +761,73 @@ final class CachingBuildTests: XCTestCase {
       }
     }
   }
+
+  func testCacheIncrementalBuildPlan() throws {
+    try withTemporaryDirectory { path in
+      try localFileSystem.changeCurrentWorkingDirectory(to: path)
+      let moduleCachePath = path.appending(component: "ModuleCache")
+      let casPath = path.appending(component: "cas")
+      try localFileSystem.createDirectory(moduleCachePath)
+      let main = path.appending(component: "testCachingBuild.swift")
+      let mainFileContent = "import C;import E;import G;"
+      try localFileSystem.writeFileContents(main) {
+        $0.send(mainFileContent)
+      }
+      let ofm = path.appending(component: "ofm.json")
+      let inputPathsAndContents: [(AbsolutePath, String)] = [(main, mainFileContent)]
+      OutputFileMapCreator.write(
+        module: "Test", inputPaths: inputPathsAndContents.map {$0.0},
+        derivedData: path, to: ofm, excludeMainEntry: false)
+
+      let cHeadersPath: AbsolutePath =
+          try testInputsPath.appending(component: "ExplicitModuleBuilds")
+                            .appending(component: "CHeaders")
+      let swiftModuleInterfacesPath: AbsolutePath =
+          try testInputsPath.appending(component: "ExplicitModuleBuilds")
+                            .appending(component: "Swift")
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+      let bridgingHeaderpath: AbsolutePath =
+          cHeadersPath.appending(component: "Bridging.h")
+      var driver = try Driver(args: ["swiftc",
+                                     "-I", cHeadersPath.nativePathString(escaped: true),
+                                     "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                     "-explicit-module-build", "-v", "-Rcache-compile-job", "-incremental",
+                                     "-module-cache-path", moduleCachePath.nativePathString(escaped: true),
+                                     "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: true),
+                                     "-import-objc-header", bridgingHeaderpath.nativePathString(escaped: true),
+                                     "-output-file-map", ofm.nativePathString(escaped: true),
+                                     "-working-directory", path.nativePathString(escaped: true),
+                                     main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
+                              env: ProcessEnv.vars)
+      guard driver.isFeatureSupported(.cache_compile_job) else {
+        throw XCTSkip("toolchain does not support caching.")
+      }
+      let jobs = try driver.planBuild()
+      try driver.run(jobs: jobs)
+      XCTAssertFalse(driver.diagnosticEngine.hasErrors)
+
+      let dependencyOracle = InterModuleDependencyOracle()
+      let scanLibPath = try XCTUnwrap(driver.toolchain.lookupSwiftScanLib())
+      guard try dependencyOracle
+              .verifyOrCreateScannerInstance(fileSystem: localFileSystem,
+                                             swiftScanLibPath: scanLibPath) else {
+        XCTFail("Dependency scanner library not found")
+        return
+      }
+
+      let cas = try dependencyOracle.createCAS(pluginPath: nil, onDiskPath: casPath, pluginOptions: [])
+      try checkCASForResults(jobs: jobs, cas: cas, fs: driver.fileSystem)
+
+      // try replan the job and make sure some key command-line options are generated.
+      let rebuildJobs = try driver.planBuild()
+      for job in rebuildJobs {
+        if job.kind == .compile || job.kind == .emitModule {
+          XCTAssertTrue(job.commandLine.contains(.flag(String("-disable-implicit-swift-modules"))))
+          XCTAssertTrue(job.commandLine.contains(.flag(String("-cache-compile-job"))))
+          XCTAssertTrue(job.commandLine.contains(.flag(String("-cas-path"))))
+          XCTAssertTrue(job.commandLine.contains(.flag(String("-bridging-header-pch-key"))))
+        }
+      }
+    }
+  }
 }

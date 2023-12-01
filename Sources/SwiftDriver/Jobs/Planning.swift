@@ -127,7 +127,8 @@ extension Driver {
       // can be returned from `planBuild`.
       // But in that case, don't emit lifecycle messages.
       formBatchedJobs(jobsInPhases.allJobs,
-                      showJobLifecycle: showJobLifecycle && incrementalCompilationState == nil),
+                      showJobLifecycle: showJobLifecycle && incrementalCompilationState == nil,
+                      jobCreatingPch: jobsInPhases.allJobs.first(where: {$0.kind == .generatePCH})),
       incrementalCompilationState
     )
   }
@@ -836,7 +837,7 @@ extension Driver {
   ///
   /// So, in order to avoid making jobs and rebatching, the code would have to just get outputs for each
   /// compilation. But `compileJob` intermixes the output computation with other stuff.
-  mutating func formBatchedJobs(_ jobs: [Job], showJobLifecycle: Bool) throws -> [Job] {
+  mutating func formBatchedJobs(_ jobs: [Job], showJobLifecycle: Bool, jobCreatingPch: Job?) throws -> [Job] {
     guard compilerMode.isBatchCompile else {
       // Don't even go through the logic so as to not print out confusing
       // "batched foobar" messages.
@@ -862,7 +863,6 @@ extension Driver {
       compileJobs.filter { $0.outputs.contains {$0.type == .moduleTrace} }
         .flatMap {$0.primaryInputs}
     )
-    let jobCreatingPch: Job? = jobs.first(where: {$0.kind == .generatePCH})
 
     let batchedCompileJobs = try inputsInOrder.compactMap { anInput -> Job? in
       let idx = partitions.assignment[anInput]!
