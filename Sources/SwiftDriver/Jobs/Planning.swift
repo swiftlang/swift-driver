@@ -604,7 +604,9 @@ extension Driver {
     }
     try addVerifyJob(for: .Public)
     try addVerifyJob(for: .Private)
-    try addVerifyJob(for: .Package)
+    if parsedOptions.hasArgument(.packageName) {
+      try addVerifyJob(for: .Package)
+    }
   }
 
   private mutating func addAutolinkExtractJob(
