@@ -332,6 +332,11 @@ typedef struct {
   void (*swiftscan_cache_cancellation_token_dispose)(
       swiftscan_cache_cancellation_token_t);
 
+  void (*swiftscan_cache_download_cas_object_async)(
+      swiftscan_cas_t, const char *id, void *ctx,
+      void (*callback)(void *ctx, bool success, swiftscan_string_ref_t error),
+      swiftscan_cache_cancellation_token_t *);
+
   swiftscan_cache_replay_instance_t (*swiftscan_cache_replay_instance_create)(
       int argc, const char **argv, swiftscan_string_ref_t *error);
   void (*swiftscan_cache_replay_instance_dispose)(

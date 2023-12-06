@@ -528,6 +528,8 @@ private extension swiftscan_functions_t {
     self.swiftscan_cache_action_cancel = try loadOptional("swiftscan_cache_action_cancel")
     self.swiftscan_cache_cancellation_token_dispose = try loadOptional("swiftscan_cache_cancellation_token_dispose")
 
+    self.swiftscan_cache_download_cas_object_async = try loadOptional("swiftscan_cache_download_cas_object_async")
+
     self.swiftscan_cache_replay_instance_create = try loadOptional("swiftscan_cache_replay_instance_create")
     self.swiftscan_cache_replay_instance_dispose = try loadOptional("swiftscan_cache_replay_instance_dispose")
     self.swiftscan_cache_replay_compilation = try loadOptional("swiftscan_cache_replay_compilation")

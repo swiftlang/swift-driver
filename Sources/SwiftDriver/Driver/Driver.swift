@@ -275,7 +275,7 @@ public struct Driver {
   let useClangIncludeTree: Bool
 
   /// CAS instance used for compilation.
-  public var cas: SwiftScanCAS? = nil
+  var cas: SwiftScanCAS? = nil
 
   /// Is swift caching enabled.
   lazy var isCachingEnabled: Bool = {
