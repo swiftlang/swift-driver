@@ -83,6 +83,7 @@ extension IncrementalCompilationState.FirstWaveComputer {
       Dictionary(uniqueKeysWithValues:
                   jobsInPhases.compileGroups.map { ($0.primaryInput, $0) })
     let buildRecord = self.moduleDependencyGraph.buildRecord
+    let jobCreatingPch = jobsInPhases.beforeCompiles.first(where: {$0.kind == .generatePCH})
     guard !buildRecord.inputInfos.isEmpty else {
       func everythingIsMandatory()
         throws -> (initiallySkippedCompileGroups: [TypedVirtualPath: CompileJobGroup],
@@ -97,7 +98,8 @@ extension IncrementalCompilationState.FirstWaveComputer {
         jobsInPhases.beforeCompiles +
         batchJobFormer.formBatchedJobs(
           mandatoryCompileGroupsInOrder.flatMap {$0.allJobs()},
-          showJobLifecycle: showJobLifecycle)
+          showJobLifecycle: showJobLifecycle,
+          jobCreatingPch: jobCreatingPch)
 
         moduleDependencyGraph.setPhase(to: .buildingAfterEachCompilation)
         return (initiallySkippedCompileGroups: [:],
@@ -124,7 +126,8 @@ extension IncrementalCompilationState.FirstWaveComputer {
     let mandatoryBeforeCompilesJobs = try computeMandatoryBeforeCompilesJobs()
     let batchedCompilationJobs = try batchJobFormer.formBatchedJobs(
       mandatoryCompileGroupsInOrder.flatMap {$0.allJobs()},
-      showJobLifecycle: showJobLifecycle)
+      showJobLifecycle: showJobLifecycle,
+      jobCreatingPch: jobCreatingPch)
 
     // In the case where there are no compilation jobs to run on this build (no source-files were changed),
     // we can skip running `beforeCompiles` jobs if we also ensure that none of the `afterCompiles` jobs

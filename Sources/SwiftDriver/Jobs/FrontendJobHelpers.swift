@@ -453,14 +453,12 @@ extension Driver {
                                                       pchCompileJob: Job?) throws {
     guard let pchJob = pchCompileJob, isCachingEnabled else { return }
 
-    // The pch input file (the bridging header) is added as last inputs to the job.
-    guard let inputFile = pchJob.inputs.last else { assertionFailure("no input files from pch job"); return }
-    assert(inputFile.type == .objcHeader, "Expect objc header input type")
-    let bridgingHeaderCacheKey = try computeOutputCacheKey(commandLine: pchJob.commandLine,
-                                                           input: inputFile)
-    guard let key = bridgingHeaderCacheKey else { return }
+    assert(pchJob.outputCacheKeys.count == 1, "Expect one and only one cache key from pch job")
+    guard let bridgingHeaderCacheKey = pchJob.outputCacheKeys.first?.value else {
+      throw Error.unsupportedConfigurationForCaching("pch job doesn't have an associated cache key")
+    }
     commandLine.appendFlag("-bridging-header-pch-key")
-    commandLine.appendFlag(key)
+    commandLine.appendFlag(bridgingHeaderCacheKey)
   }
 
   mutating func addFrontendSupplementaryOutputArguments(commandLine: inout [Job.ArgTemplate],
