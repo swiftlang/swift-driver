@@ -773,7 +773,10 @@ public struct Driver {
                                diagnosticsEngine: diagnosticEngine)
 
     // Compute debug information output.
-    self.debugInfo = Self.computeDebugInfo(&parsedOptions, diagnosticsEngine: diagnosticEngine)
+    let defaultDwarfVersion = self.toolchain.getDefaultDwarfVersion(targetTriple: self.frontendTargetInfo.target.triple)
+    self.debugInfo = Self.computeDebugInfo(&parsedOptions,
+                                           defaultDwarfVersion: defaultDwarfVersion,
+                                           diagnosticsEngine: diagnosticEngine)
 
     // Error if package-name is passed but the input is empty; if
     // package-name is not passed but `package` decls exist, error
@@ -2323,7 +2326,9 @@ extension Diagnostic.Message {
 // Debug information
 extension Driver {
   /// Compute the level of debug information we are supposed to produce.
-  private static func computeDebugInfo(_ parsedOptions: inout ParsedOptions, diagnosticsEngine: DiagnosticsEngine) -> DebugInfo {
+  private static func computeDebugInfo(_ parsedOptions: inout ParsedOptions,
+                                       defaultDwarfVersion : UInt8,
+                                       diagnosticsEngine: DiagnosticsEngine) -> DebugInfo {
     var shouldVerify = parsedOptions.hasArgument(.verifyDebugInfo)
 
     for debugPrefixMap in parsedOptions.arguments(for: .debugPrefixMap) {
@@ -2392,7 +2397,7 @@ extension Driver {
     }
 
     // Determine the DWARF version.
-    var dwarfVersion: UInt8 = 4
+    var dwarfVersion: UInt8 = defaultDwarfVersion
     if let versionArg = parsedOptions.getLastArgument(.dwarfVersion) {
       if let parsedVersion = UInt8(versionArg.asSingle), parsedVersion >= 2 && parsedVersion <= 5 {
         dwarfVersion = parsedVersion

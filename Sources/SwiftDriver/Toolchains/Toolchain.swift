@@ -122,6 +122,9 @@ public protocol Toolchain {
                     compilerOutputType: FileType?,
                     diagnosticsEngine: DiagnosticsEngine) throws
 
+  /// Return the DWARF version to emit, in the absence of arguments to the contrary.
+  func getDefaultDwarfVersion(targetTriple: Triple) -> UInt8
+
   /// Adds platform-specific linker flags to the provided command line
   func addPlatformSpecificLinkerArgs(
     to commandLine: inout [Job.ArgTemplate],
@@ -330,6 +333,8 @@ extension Toolchain {
                            targetTriple: Triple, targetVariantTriple: Triple?,
                            compilerOutputType: FileType?,
                            diagnosticsEngine: DiagnosticsEngine) {}
+
+  public func getDefaultDwarfVersion(targetTriple: Triple) -> UInt8 { return 4 }
 
   public func addPlatformSpecificCommonFrontendOptions(
     commandLine: inout [Job.ArgTemplate],
