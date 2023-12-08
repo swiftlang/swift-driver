@@ -219,6 +219,15 @@ public final class DarwinToolchain: Toolchain {
     }
   }
 
+  public func getDefaultDwarfVersion(targetTriple: Triple) -> UInt8 {
+      if (targetTriple.isMacOSX && targetTriple.version(for: .macOS) < Triple.Version(10, 11, 0)) ||
+        (targetTriple.isiOS && targetTriple.version(
+            for: .iOS(targetTriple._isSimulatorEnvironment ? .simulator : .device)) < Triple.Version(9, 0, 0)) {
+      return 2;
+    }
+    return 4
+  }
+
   func validateDeploymentTarget(_ parsedOptions: inout ParsedOptions,
                                 targetTriple: Triple, compilerOutputType: FileType?) throws {
     guard let os = targetTriple.os else {

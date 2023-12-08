@@ -195,8 +195,10 @@ extension Driver {
     try commandLine.appendLast(.enableTesting, from: &parsedOptions)
     try commandLine.appendLast(.enablePrivateImports, from: &parsedOptions)
     try commandLine.appendLast(in: .g, from: &parsedOptions)
-    try commandLine.appendLast(.debugInfoFormat, from: &parsedOptions)
-    try commandLine.appendLast(.dwarfVersion, from: &parsedOptions)
+    if debugInfo.level != nil {
+      commandLine.appendFlag("-debug-info-format=\(debugInfo.format)")
+      commandLine.appendFlag("-dwarf-version=\(debugInfo.dwarfVersion)")
+    }
     try commandLine.appendLast(.importUnderlyingModule, from: &parsedOptions)
     try commandLine.appendLast(.moduleCachePath, from: &parsedOptions)
     try commandLine.appendLast(.moduleLinkName, from: &parsedOptions)
