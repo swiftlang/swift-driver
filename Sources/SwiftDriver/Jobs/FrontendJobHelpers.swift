@@ -387,7 +387,8 @@ extension Driver {
     // Pass through any subsystem flags.
     try commandLine.appendAll(.Xllvm, from: &parsedOptions)
 
-    if !(isCachingEnabled && useClangIncludeTree) {
+    // If using clang-include-tree, `-Xcc` should only be passed to scanDependencies job.
+    if (kind == .scanDependencies) || !(isCachingEnabled && useClangIncludeTree) {
       try commandLine.appendAll(.Xcc, from: &parsedOptions)
     }
 

@@ -599,6 +599,10 @@ final class CachingBuildTests: XCTestCase {
       try localFileSystem.writeFileContents(main) {
         $0.send("import C;import E;import G;")
       }
+      let vfsoverlay = path.appending(component: "overlay.yaml")
+      try localFileSystem.writeFileContents(vfsoverlay) {
+        $0.send("{\"case-sensitive\":\"false\",\"roots\":[],\"version\":0}")
+      }
 
       let cHeadersPath: AbsolutePath =
           try testInputsPath.appending(component: "ExplicitModuleBuilds")
@@ -615,6 +619,7 @@ final class CachingBuildTests: XCTestCase {
                                      "-explicit-module-build",
                                      "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: true),
                                      "-working-directory", path.nativePathString(escaped: true),
+                                     "-Xcc", "-ivfsoverlay", "-Xcc", vfsoverlay.nativePathString(escaped: true),
                                      "-disable-clang-target",
                                      main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
                               env: ProcessEnv.vars)
@@ -641,6 +646,10 @@ final class CachingBuildTests: XCTestCase {
       // Ensure we do not propagate the usual PCH-handling arguments to the scanner invocation
       XCTAssertFalse(scannerCommand.contains("-pch-output-dir"))
       XCTAssertFalse(scannerCommand.contains("Foo.o"))
+
+      // Xcc commands are used for scanner command.
+      XCTAssertTrue(scannerCommand.contains("-Xcc"))
+      XCTAssertTrue(scannerCommand.contains("-ivfsoverlay"))
 
       // Here purely to dump diagnostic output in a reasonable fashion when things go wrong.
       let lock = NSLock()
