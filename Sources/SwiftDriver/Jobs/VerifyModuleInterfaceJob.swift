@@ -20,7 +20,7 @@ extension Driver {
 
     // Assume swiftinterface file is always the supplementary output for first input file.
     let key =  try computeOutputCacheKey(commandLine: emitModuleJob.commandLine,
-                                         input: emitModuleJob.inputs[0])
+                                         index: 0)
     return key
   }
 
@@ -61,7 +61,7 @@ extension Driver {
       commandLine.appendFlag(.downgradeTypecheckInterfaceError)
     }
 
-    let cacheKeys = try computeOutputCacheKeyForJob(commandLine: commandLine, inputs: [interfaceInput])
+    let cacheKeys = try computeOutputCacheKeyForJob(commandLine: commandLine, inputs: [(interfaceInput, 0)])
     return Job(
       moduleName: moduleOutputInfo.name,
       kind: .verifyModuleInterface,

@@ -215,7 +215,7 @@ final class CachingBuildTests: XCTestCase {
 #if os(Windows)
     throw XCTSkip("caching not supported on windows")
 #else
-    guard driver.isFeatureSupported(.cache_compile_job) else {
+    guard driver.isFeatureSupported(.compilation_caching) else {
       throw XCTSkip("caching not supported")
     }
 #endif

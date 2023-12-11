@@ -291,6 +291,9 @@ typedef struct {
   swiftscan_string_ref_t (*swiftscan_cache_compute_key)(
       swiftscan_cas_t cas, int argc, const char **argv, const char *input,
       swiftscan_string_ref_t *error);
+  swiftscan_string_ref_t (*swiftscan_cache_compute_key_from_input_index)(
+      swiftscan_cas_t cas, int argc, const char **argv, unsigned input_index,
+      swiftscan_string_ref_t *error);
 
   //=== Scanner Caching Query/Replay Operations -----------------------------===//
   swiftscan_cached_compilation_t (*swiftscan_cache_query)(

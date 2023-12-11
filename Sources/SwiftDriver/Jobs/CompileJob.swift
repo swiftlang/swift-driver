@@ -398,7 +398,11 @@ extension Driver {
       displayInputs = primaryInputs
     }
     // Only swift input files are contributing to the cache keys.
-    let cacheContributingInputs = displayInputs.filter() { $0.type == .swift }
+    let cacheContributingInputs = inputs.enumerated().reduce(into: [(TypedVirtualPath, Int)]()) { result, input in
+      if input.element.type == .swift, displayInputs.contains(input.element) {
+        result.append((input.element, input.offset))
+      }
+    }
     let cacheKeys = try computeOutputCacheKeyForJob(commandLine: commandLine, inputs: cacheContributingInputs)
 
     return Job(

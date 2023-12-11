@@ -198,6 +198,7 @@ public final class SwiftScanCAS {
     return try scanner.toSwiftString(casid)
   }
 
+  @available(*, deprecated)
   public func computeCacheKey(commandLine: [String], input: String) throws -> String {
     let casid = try scanner.handleCASError { err_msg in
       withArrayOfCStrings(commandLine) { commandArray in
@@ -206,6 +207,19 @@ public final class SwiftScanCAS {
                                                 commandArray,
                                                 input.cString(using: String.Encoding.utf8),
                                                 &err_msg)
+      }
+    }
+    return try scanner.toSwiftString(casid)
+  }
+
+  public func computeCacheKey(commandLine: [String], index: Int) throws -> String {
+    let casid = try scanner.handleCASError { err_msg in
+      withArrayOfCStrings(commandLine) { commandArray in
+        scanner.api.swiftscan_cache_compute_key_from_input_index(cas,
+                                                                 Int32(commandLine.count),
+                                                                 commandArray,
+                                                                 UInt32(index),
+                                                                 &err_msg)
       }
     }
     return try scanner.toSwiftString(casid)
