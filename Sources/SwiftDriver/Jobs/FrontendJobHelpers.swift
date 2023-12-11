@@ -197,7 +197,9 @@ extension Driver {
     try commandLine.appendLast(in: .g, from: &parsedOptions)
     if debugInfo.level != nil {
       commandLine.appendFlag("-debug-info-format=\(debugInfo.format)")
-      commandLine.appendFlag("-dwarf-version=\(debugInfo.dwarfVersion)")
+      if isFrontendArgSupported(.dwarfVersion) {
+        commandLine.appendFlag("-dwarf-version=\(debugInfo.dwarfVersion)")
+      }
     }
     try commandLine.appendLast(.importUnderlyingModule, from: &parsedOptions)
     try commandLine.appendLast(.moduleCachePath, from: &parsedOptions)

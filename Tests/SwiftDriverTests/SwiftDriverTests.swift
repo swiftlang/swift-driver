@@ -582,15 +582,27 @@ final class SwiftDriverTests: XCTestCase {
       $1.expect(.error("invalid value '6' in '-dwarf-version="))
     }
 
-    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-emit-module", "-g", "-debug-info-format=dwarf", "-dwarf-version=4") { driver in
-        let jobs = try driver.planBuild()
-        XCTAssertTrue(jobs[0].commandLine.contains(.flag("-dwarf-version=4")))
-    }
-
     try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-g", "-c", "-file-compilation-dir", ".") { driver in
       let jobs = try driver.planBuild()
       XCTAssertTrue(jobs[0].commandLine.contains(.flag("-file-compilation-dir")))
       XCTAssertTrue(jobs[0].commandLine.contains(.flag(".")))
+    }
+
+    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-c", "-file-compilation-dir", ".") { driver in
+      let jobs = try driver.planBuild()
+      XCTAssertFalse(jobs[0].commandLine.contains(.flag("-file-compilation-dir")))
+    }
+  }
+
+  func testDwarfVersionSetting() throws {
+    let driver = try Driver(args: ["swiftc", "foo.swift"])
+    guard driver.isFrontendArgSupported(.dwarfVersion) else {
+      throw XCTSkip("Skipping: compiler does not support '-dwarf-version'")
+    }
+
+    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-emit-module", "-g", "-debug-info-format=dwarf", "-dwarf-version=4") { driver in
+        let jobs = try driver.planBuild()
+        XCTAssertTrue(jobs[0].commandLine.contains(.flag("-dwarf-version=4")))
     }
 
     try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-g", "-c", "-target", "x86_64-apple-macosx10.10") { driver in
@@ -624,11 +636,6 @@ final class SwiftDriverTests: XCTestCase {
     try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-g", "-c", "-target", "arm64_32-apple-watchos10.0") { driver in
       let jobs = try driver.planBuild()
       XCTAssertTrue(jobs[0].commandLine.contains(.flag("-dwarf-version=4")))
-    }
-
-    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-c", "-file-compilation-dir", ".") { driver in
-      let jobs = try driver.planBuild()
-      XCTAssertFalse(jobs[0].commandLine.contains(.flag("-file-compilation-dir")))
     }
   }
 
