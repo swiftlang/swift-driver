@@ -759,6 +759,9 @@ final class CachingBuildTests: XCTestCase {
                                      "-scanner-prefix-map", path.description + "=/^tmp",
                                      main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
                               env: ProcessEnv.vars)
+      guard driver.isFeatureSupported(.cache_compile_job) else {
+        throw XCTSkip("toolchain does not support caching.")
+      }
       guard driver.isFrontendArgSupported(.scannerPrefixMap) else {
         throw XCTSkip("frontend doesn't support prefix map")
       }
