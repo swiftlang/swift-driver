@@ -560,6 +560,16 @@ final class SwiftDriverTests: XCTestCase {
     try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-emit-module", "-g", "-debug-info-format=codeview") { driver in
       XCTAssertEqual(driver.debugInfo.level, .astTypes)
       XCTAssertEqual(driver.debugInfo.format, .codeView)
+
+      let jobs = try driver.planBuild()
+      XCTAssertTrue(jobs[0].commandLine.contains(.flag("-debug-info-format=codeview")))
+    }
+
+    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-emit-module", "-g", "-debug-info-format=dwarf") { driver in
+      XCTAssertEqual(driver.debugInfo.format, .dwarf)
+
+      let jobs = try driver.planBuild()
+      XCTAssertTrue(jobs[0].commandLine.contains(.flag("-debug-info-format=dwarf")))
     }
 
     try assertDriverDiagnostics(args: "swiftc", "foo.swift", "-emit-module", "-debug-info-format=dwarf") {

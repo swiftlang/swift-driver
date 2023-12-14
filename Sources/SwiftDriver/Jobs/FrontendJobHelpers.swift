@@ -196,7 +196,7 @@ extension Driver {
     try commandLine.appendLast(.enablePrivateImports, from: &parsedOptions)
     try commandLine.appendLast(in: .g, from: &parsedOptions)
     if debugInfo.level != nil {
-      commandLine.appendFlag("-debug-info-format=\(debugInfo.format)")
+      commandLine.appendFlag("-debug-info-format=\(debugInfo.format.rawValue)")
       if isFrontendArgSupported(.dwarfVersion) {
         commandLine.appendFlag("-dwarf-version=\(debugInfo.dwarfVersion)")
       }
