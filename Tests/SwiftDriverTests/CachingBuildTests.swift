@@ -205,6 +205,20 @@ private func checkCachingBuildJobDependencies(job: Job,
 
 
 final class CachingBuildTests: XCTestCase {
+  override func setUpWithError() throws {
+    try super.setUpWithError()
+
+    // If the toolchain doesn't support caching, skip directly.
+    let driver = try Driver(args: ["swiftc", "-v"])
+#if os(Windows)
+    throw XCTSkip("caching not supported on windows")
+#else
+    guard driver.isFeatureSupported(.cache_compile_job) else {
+      throw XCTSkip("caching not supported")
+    }
+#endif
+  }
+
   private func pathMatchesSwiftModule(path: VirtualPath, _ name: String) -> Bool {
     return path.basenameWithoutExt.starts(with: "\(name)-") &&
            path.extension! == FileType.swiftModule.rawValue
@@ -234,9 +248,6 @@ final class CachingBuildTests: XCTestCase {
                                      "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: true),
                                      "-import-objc-header", bridgingHeaderpath.nativePathString(escaped: true),
                                      main.nativePathString(escaped: true)] + sdkArgumentsForTesting)
-      guard driver.isFeatureSupported(.cache_compile_job) else {
-        throw XCTSkip("toolchain does not support caching.")
-      }
 
       let jobs = try driver.planBuild()
       let dependencyGraph = try driver.gatherModuleDependencies()
@@ -360,9 +371,6 @@ final class CachingBuildTests: XCTestCase {
 
       guard driver.supportExplicitModuleVerifyInterface() else {
         throw XCTSkip("-typecheck-module-from-interface doesn't support explicit build.")
-      }
-      guard driver.isFeatureSupported(.cache_compile_job) else {
-        throw XCTSkip("toolchain does not support caching.")
       }
 
       let jobs = try driver.planBuild()
@@ -492,9 +500,6 @@ final class CachingBuildTests: XCTestCase {
                                      "-working-directory", path.nativePathString(escaped: true),
                                      main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
                               env: ProcessEnv.vars)
-      guard driver.isFeatureSupported(.cache_compile_job) else {
-        throw XCTSkip("toolchain does not support caching.")
-      }
       let jobs = try driver.planBuild()
       try driver.run(jobs: jobs)
       XCTAssertFalse(driver.diagnosticEngine.hasErrors)
@@ -553,10 +558,6 @@ final class CachingBuildTests: XCTestCase {
                                       + sdkArgumentsForTesting,
                                       env: ProcessEnv.vars)
 
-      // Ensure this tooling supports this functionality
-      guard fooBuildDriver.isFeatureSupported(.cache_compile_job) else {
-        throw XCTSkip("toolchain does not support caching.")
-      }
       let dependencyOracle = InterModuleDependencyOracle()
       let scanLibPath = try XCTUnwrap(fooBuildDriver.toolchain.lookupSwiftScanLib())
       guard try dependencyOracle
@@ -623,9 +624,6 @@ final class CachingBuildTests: XCTestCase {
                                      "-disable-clang-target",
                                      main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
                               env: ProcessEnv.vars)
-      guard driver.isFeatureSupported(.cache_compile_job) else {
-        throw XCTSkip("toolchain does not support caching.")
-      }
       let dependencyOracle = InterModuleDependencyOracle()
       let scanLibPath = try XCTUnwrap(driver.toolchain.lookupSwiftScanLib())
       guard try dependencyOracle
@@ -763,9 +761,6 @@ final class CachingBuildTests: XCTestCase {
                                      "-scanner-prefix-map", path.description + "=/^tmp",
                                      main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
                               env: ProcessEnv.vars)
-      guard driver.isFeatureSupported(.cache_compile_job) else {
-        throw XCTSkip("toolchain does not support caching.")
-      }
       guard driver.isFrontendArgSupported(.scannerPrefixMap) else {
         throw XCTSkip("frontend doesn't support prefix map")
       }
@@ -836,9 +831,6 @@ final class CachingBuildTests: XCTestCase {
                                      "-working-directory", path.nativePathString(escaped: true),
                                      main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
                               env: ProcessEnv.vars)
-      guard driver.isFeatureSupported(.cache_compile_job) else {
-        throw XCTSkip("toolchain does not support caching.")
-      }
       let jobs = try driver.planBuild()
       try driver.run(jobs: jobs)
       XCTAssertFalse(driver.diagnosticEngine.hasErrors)
