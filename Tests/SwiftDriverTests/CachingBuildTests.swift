@@ -674,38 +674,42 @@ final class CachingBuildTests: XCTestCase {
                                                  // FIXME: We need to differentiate the scanning action hash,
                                                  // though the module-name above should be sufficient.
                                                  "-I/tmp/foo/bar/\(index)"]
-        let dependencyGraph =
-          try! dependencyOracle.getDependencies(workingDirectory: path,
-                                                commandLine: iterationCommand)
+        do {
+          let dependencyGraph =
+            try dependencyOracle.getDependencies(workingDirectory: path,
+                                                 commandLine: iterationCommand)
 
-        // The _Concurrency and _StringProcessing modules are automatically
-        // imported in newer versions of the Swift compiler. If they happened to
-        // be provided, adjust our expectations accordingly.
-        let hasConcurrencyModule = dependencyGraph.modules.keys.contains {
-          $0.moduleName == "_Concurrency"
-        }
-        let hasConcurrencyShimsModule = dependencyGraph.modules.keys.contains {
-          $0.moduleName == "_SwiftConcurrencyShims"
-        }
-        let hasStringProcessingModule = dependencyGraph.modules.keys.contains {
-          $0.moduleName == "_StringProcessing"
-        }
-        let adjustedExpectedNumberOfDependencies =
-            expectedNumberOfDependencies +
-            (hasConcurrencyModule ? 1 : 0) +
-            (hasConcurrencyShimsModule ? 1 : 0) +
-            (hasStringProcessingModule ? 1 : 0)
-
-        if (dependencyGraph.modules.count != adjustedExpectedNumberOfDependencies) {
-          lock.lock()
-          print("Unexpected Dependency Scanning Result (\(dependencyGraph.modules.count) modules):")
-          dependencyGraph.modules.forEach {
-            print($0.key.moduleName)
+          // The _Concurrency and _StringProcessing modules are automatically
+          // imported in newer versions of the Swift compiler. If they happened to
+          // be provided, adjust our expectations accordingly.
+          let hasConcurrencyModule = dependencyGraph.modules.keys.contains {
+            $0.moduleName == "_Concurrency"
           }
-          lock.unlock()
+          let hasConcurrencyShimsModule = dependencyGraph.modules.keys.contains {
+            $0.moduleName == "_SwiftConcurrencyShims"
+          }
+          let hasStringProcessingModule = dependencyGraph.modules.keys.contains {
+            $0.moduleName == "_StringProcessing"
+          }
+          let adjustedExpectedNumberOfDependencies =
+              expectedNumberOfDependencies +
+              (hasConcurrencyModule ? 1 : 0) +
+              (hasConcurrencyShimsModule ? 1 : 0) +
+              (hasStringProcessingModule ? 1 : 0)
+
+          if (dependencyGraph.modules.count != adjustedExpectedNumberOfDependencies) {
+            lock.lock()
+            print("Unexpected Dependency Scanning Result (\(dependencyGraph.modules.count) modules):")
+            dependencyGraph.modules.forEach {
+              print($0.key.moduleName)
+            }
+            lock.unlock()
+          }
+          XCTAssertTrue(dependencyGraph.modules.count ==
+                        adjustedExpectedNumberOfDependencies)
+        } catch {
+          XCTFail("Unexpected error: \(error)")
         }
-        XCTAssertTrue(dependencyGraph.modules.count ==
-                      adjustedExpectedNumberOfDependencies)
       }
 
       // Change CAS path is an error.
