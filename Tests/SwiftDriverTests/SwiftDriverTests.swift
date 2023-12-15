@@ -1539,17 +1539,17 @@ final class SwiftDriverTests: XCTestCase {
 
 #if os(Windows)
       try localFileSystem.writeFileContents(fooPath, bytes:
-        """
+        .init(("""
         a\\b c\\\\d e\\\\\"f g\" h\\\"i j\\\\\\\"k \"lmn\" o pqr \"st \\\"u\" \\v"
         @\(barPath.nativePathString(escaped: true))
-        """
+        """).utf8)
       )
       try localFileSystem.writeFileContents(barPath, bytes:
-       #"""
+       .init((#"""
         -Xswiftc -use-ld=lld
         -Xcc -IS:\Library\sqlite-3.36.0\usr\include
         -Xlinker -LS:\Library\sqlite-3.36.0\usr\lib
-        """#
+        """#).utf8)
       )
       let args = try Driver.expandResponseFiles(["@\(fooPath.pathString)"], fileSystem: localFileSystem, diagnosticsEngine: diags)
       XCTAssertEqual(args, ["a\\b", "c\\\\d", "e\\f g", "h\"i", "j\\\"k", "lmn", "o", "pqr", "st \"u", "\\v", "-Xswiftc", "-use-ld=lld", "-Xcc", "-IS:\\Library\\sqlite-3.36.0\\usr\\include", "-Xlinker", "-LS:\\Library\\sqlite-3.36.0\\usr\\lib"])
