@@ -696,6 +696,7 @@ extension Option {
   public static let sanitizeAddressUseOdrIndicator: Option = Option("-sanitize-address-use-odr-indicator", .flag, attributes: [.helpHidden, .frontend, .noInteractive], helpText: "When using AddressSanitizer enable ODR indicator globals to avoid false ODR violation reports in partially sanitized programs at the cost of an increase in binary size")
   public static let sanitizeCoverageEQ: Option = Option("-sanitize-coverage=", .commaJoined, attributes: [.frontend, .noInteractive], metaVar: "<type>", helpText: "Specify the type of coverage instrumentation for Sanitizers and additional options separated by commas")
   public static let sanitizeRecoverEQ: Option = Option("-sanitize-recover=", .commaJoined, attributes: [.frontend, .noInteractive], metaVar: "<check>", helpText: "Specify which sanitizer runtime checks (see -sanitize=) will generate instrumentation that allows error recovery. Listed checks should be comma separated. Default behavior is to not allow error recovery.")
+  public static let sanitizeStableAbiEQ: Option = Option("-sanitize-stable-abi", .flag, attributes: [.frontend, .noInteractive], helpText: "ABI instrumentation for sanitizer runtime.")
   public static let sanitizeEQ: Option = Option("-sanitize=", .commaJoined, attributes: [.frontend, .noInteractive], metaVar: "<check>", helpText: "Turn on runtime checks for erroneous behavior.")
   public static let saveOptimizationRecordPasses: Option = Option("-save-optimization-record-passes", .separate, attributes: [.frontend], metaVar: "<regex>", helpText: "Only include passes which match a specified regular expression in the generated optimization record (by default, include all passes)")
   public static let saveOptimizationRecordPath: Option = Option("-save-optimization-record-path", .separate, attributes: [.frontend, .argumentIsPath], helpText: "Specify the file name of any generated optimization record")
@@ -1523,6 +1524,7 @@ extension Option {
       Option.sanitizeAddressUseOdrIndicator,
       Option.sanitizeCoverageEQ,
       Option.sanitizeRecoverEQ,
+      Option.sanitizeStableAbiEQ,
       Option.sanitizeEQ,
       Option.saveOptimizationRecordPasses,
       Option.saveOptimizationRecordPath,
