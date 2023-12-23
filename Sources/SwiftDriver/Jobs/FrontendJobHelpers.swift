@@ -144,7 +144,8 @@ extension Driver {
       throw ErrorDiagnostics.emitted
     }
 
-    if isEmbeddedEnabled &&
+    // Building embedded Swift requires WMO, unless we're not generating SIL. This allows modes like -index-file to work the same way they do when not using embedded Swift
+    if isEmbeddedEnabled && compilerOutputType?.requiresSILGen == true &&
        (!parsedOptions.hasArgument(.wmo) || !parsedOptions.hasArgument(.wholeModuleOptimization)) {
       diagnosticEngine.emit(.error_need_wmo_embedded)
       throw ErrorDiagnostics.emitted
