@@ -112,11 +112,10 @@ extension Driver {
       commandLine.appendFlag("-aarch64-use-tbi")
     }
 
-    let experimentalFeatures = parsedOptions.arguments(for: .enableExperimentalFeature)
-    let embeddedEnabled = experimentalFeatures.map(\.argument).map(\.asSingle).contains("Embedded")
+    let isEmbeddedEnabled = parsedOptions.isEmbeddedEnabled
 
     // Enable or disable ObjC interop appropriately for the platform
-    if targetTriple.isDarwin && !embeddedEnabled {
+    if targetTriple.isDarwin && !isEmbeddedEnabled {
       commandLine.appendFlag(.enableObjcInterop)
     } else {
       commandLine.appendFlag(.disableObjcInterop)
@@ -130,18 +129,18 @@ extension Driver {
       commandLine.appendFlag("-stdlib=\(stdlibVariant)")
     }
 
-    if embeddedEnabled && parsedOptions.hasArgument(.enableLibraryEvolution) {
+    if isEmbeddedEnabled && parsedOptions.hasArgument(.enableLibraryEvolution) {
       diagnosticEngine.emit(.error_no_library_evolution_embedded)
       throw ErrorDiagnostics.emitted
     }
 
-    if embeddedEnabled &&
+    if isEmbeddedEnabled &&
        (!parsedOptions.hasArgument(.wmo) || !parsedOptions.hasArgument(.wholeModuleOptimization)) {
       diagnosticEngine.emit(.error_need_wmo_embedded)
       throw ErrorDiagnostics.emitted
     }
 
-    if embeddedEnabled && parsedOptions.hasArgument(.enableObjcInterop) {
+    if isEmbeddedEnabled && parsedOptions.hasArgument(.enableObjcInterop) {
       diagnosticEngine.emit(.error_no_objc_interop_embedded)
       throw ErrorDiagnostics.emitted
     }
@@ -871,5 +870,15 @@ extension Driver {
     let arguments: [String] = try resolver.resolveArgumentList(for: commandLine)
     let remappedPath = remapPath(input.file)
     return try cas.computeCacheKey(commandLine: arguments, input: remappedPath.name)
+  }
+}
+
+extension ParsedOptions {
+  /// Checks whether experimental embedded mode is enabled.
+  var isEmbeddedEnabled: Bool {
+    mutating get {
+      let experimentalFeatures = self.arguments(for: .enableExperimentalFeature)
+      return experimentalFeatures.map(\.argument).map(\.asSingle).contains("Embedded")
+    }
   }
 }
