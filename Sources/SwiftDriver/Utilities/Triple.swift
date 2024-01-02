@@ -438,6 +438,8 @@ extension Triple {
     case bpfeb
     /// Hexagon: hexagon
     case hexagon
+    // M68k: Motorola 680x0 family
+    case m68k
     /// MIPS: mips, mipsallegrex, mipsr6
     case mips
     /// MIPSEL: mipsel, mipsallegrexe, mipsr6el
@@ -561,6 +563,8 @@ extension Triple {
         return .thumbeb
       case "avr":
         return .avr
+      case "m68k":
+        return .m68k
       case "msp430":
         return .msp430
       case "mips", "mipseb", "mipsallegrex", "mipsisa32r6", "mipsr6":
@@ -818,7 +822,7 @@ extension Triple {
       case .arc, .arm, .armeb, .hexagon, .le32, .mips, .mipsel, .nvptx,
            .ppc, .r600, .riscv32, .sparc, .sparcel, .tce, .tcele, .thumb,
            .thumbeb, .x86, .xcore, .amdil, .hsail, .spir, .kalimba,.lanai,
-           .shave, .wasm32, .renderscript32, .aarch64_32:
+           .shave, .wasm32, .renderscript32, .aarch64_32, .m68k:
         return 32
 
       case .aarch64, .aarch64e, .aarch64_be, .amdgcn, .bpfel, .bpfeb, .le64, .mips64,
@@ -1394,6 +1398,7 @@ extension Triple {
         case .kalimba: fallthrough
         case .le32: fallthrough
         case .le64: fallthrough
+        case .m68k: fallthrough
         case .mips: fallthrough
         case .mips64: fallthrough
         case .mips64el: fallthrough

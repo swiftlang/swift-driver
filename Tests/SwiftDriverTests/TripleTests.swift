@@ -18,6 +18,7 @@ final class TripleTests: XCTestCase {
   func testBasics() throws {
     XCTAssertEqual(Triple("").arch, nil)
     XCTAssertEqual(Triple("kalimba").arch, .kalimba)
+    XCTAssertEqual(Triple("m68k-unknown-linux-gnu").arch, .m68k)
     XCTAssertEqual(Triple("x86_64-apple-macosx").arch, .x86_64)
     XCTAssertEqual(Triple("blah-apple").arch, nil)
     XCTAssertEqual(Triple("x86_64-apple-macosx").vendor, .apple)
@@ -260,6 +261,11 @@ final class TripleTests: XCTestCase {
     XCTAssertEqual(T.vendor, nil)
     XCTAssertEqual(T.os, nil)
 
+    T = Triple("m68k-unknown-unknown")
+    XCTAssertEqual(T.arch, Triple.Arch.m68k)
+    XCTAssertEqual(T.vendor, nil)
+    XCTAssertEqual(T.os, nil)
+
     T = Triple("sparcel-unknown-unknown")
     XCTAssertEqual(T.arch, Triple.Arch.sparcel)
     XCTAssertEqual(T.vendor, nil)
@@ -400,6 +406,12 @@ final class TripleTests: XCTestCase {
     XCTAssertEqual(T.vendor, nil)
     XCTAssertEqual(T.os, Triple.OS.haiku)
     XCTAssertEqual(T.environment, nil)
+
+    T = Triple("m68k-suse-linux-gnu")
+    XCTAssertEqual(T.arch, Triple.Arch.m68k)
+    XCTAssertEqual(T.vendor, Triple.Vendor.suse)
+    XCTAssertEqual(T.os, Triple.OS.linux)
+    XCTAssertEqual(T.environment, Triple.Environment.gnu)
 
     T = Triple("mips-mti-linux-gnu")
     XCTAssertEqual(T.arch, Triple.Arch.mips)
@@ -1376,6 +1388,7 @@ final class TripleTests: XCTestCase {
     assertToolchain("armv7hl-suse-linux-gnueabi", GenericUnixToolchain.self)
     assertToolchain("i586-pc-haiku", GenericUnixToolchain.self)
     assertToolchain("x86_64-unknown-haiku", GenericUnixToolchain.self)
+    assertToolchain("m68k-suse-linux-gnu", GenericUnixToolchain.self)
     assertToolchain("mips-mti-linux-gnu", GenericUnixToolchain.self)
     assertToolchain("mipsel-img-linux-gnu", GenericUnixToolchain.self)
     assertToolchain("mips64-mti-linux-gnu", GenericUnixToolchain.self)
