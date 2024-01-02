@@ -173,9 +173,9 @@ public extension Driver {
       }
     }
     if !fallbackToFrontend && isCachingEnabled {
-      self.cas = try interModuleDependencyOracle.createCAS(pluginPath: try getCASPluginPath(),
-                                                           onDiskPath: try getOnDiskCASPath(),
-                                                           pluginOptions: try getCASPluginOptions())
+      self.cas = try interModuleDependencyOracle.getOrCreateCAS(pluginPath: try getCASPluginPath(),
+                                                                onDiskPath: try getOnDiskCASPath(),
+                                                                pluginOptions: try getCASPluginOptions())
     }
     return fallbackToFrontend
   }

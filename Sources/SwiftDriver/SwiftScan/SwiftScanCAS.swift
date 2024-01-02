@@ -244,6 +244,12 @@ public final class SwiftScanCAS {
   }
 }
 
+extension SwiftScanCAS: Equatable {
+  static public func == (lhs: SwiftScanCAS, rhs: SwiftScanCAS) -> Bool {
+    return lhs.cas == rhs.cas
+  }
+}
+
 extension swiftscan_cached_compilation_t {
   func convert(_ lib: SwiftScan) -> CachedCompilation {
     return CachedCompilation(self, lib: lib)

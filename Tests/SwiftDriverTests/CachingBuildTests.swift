@@ -205,6 +205,8 @@ private func checkCachingBuildJobDependencies(job: Job,
 
 
 final class CachingBuildTests: XCTestCase {
+  let dependencyOracle = InterModuleDependencyOracle()
+
   override func setUpWithError() throws {
     try super.setUpWithError()
 
@@ -499,12 +501,12 @@ final class CachingBuildTests: XCTestCase {
                                      "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: true),
                                      "-working-directory", path.nativePathString(escaped: true),
                                      main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
-                              env: ProcessEnv.vars)
+                              env: ProcessEnv.vars,
+                              interModuleDependencyOracle: dependencyOracle)
       let jobs = try driver.planBuild()
       try driver.run(jobs: jobs)
       XCTAssertFalse(driver.diagnosticEngine.hasErrors)
 
-      let dependencyOracle = InterModuleDependencyOracle()
       let scanLibPath = try XCTUnwrap(driver.toolchain.lookupSwiftScanLib())
       guard try dependencyOracle
               .verifyOrCreateScannerInstance(fileSystem: localFileSystem,
@@ -513,7 +515,12 @@ final class CachingBuildTests: XCTestCase {
         return
       }
 
-      let cas = try dependencyOracle.createCAS(pluginPath: nil, onDiskPath: casPath, pluginOptions: [])
+      let cas = try dependencyOracle.getOrCreateCAS(pluginPath: nil, onDiskPath: casPath, pluginOptions: [])
+      if let driverCAS = driver.cas {
+        XCTAssertEqual(cas, driverCAS, "CAS should only be created once")
+      } else {
+        XCTFail("Cached compilation doesn't have a CAS")
+      }
       try checkCASForResults(jobs: jobs, cas: cas, fs: driver.fileSystem)
     }
   }
@@ -556,9 +563,9 @@ final class CachingBuildTests: XCTestCase {
                                              "-pch-output-dir", PCHPath.nativePathString(escaped: true),
                                              FooInstallPath.appending(component: "Foo.swiftmodule").nativePathString(escaped: true)]
                                       + sdkArgumentsForTesting,
-                                      env: ProcessEnv.vars)
+                                      env: ProcessEnv.vars,
+                                      interModuleDependencyOracle: dependencyOracle)
 
-      let dependencyOracle = InterModuleDependencyOracle()
       let scanLibPath = try XCTUnwrap(fooBuildDriver.toolchain.lookupSwiftScanLib())
       guard try dependencyOracle
               .verifyOrCreateScannerInstance(fileSystem: localFileSystem,
@@ -574,7 +581,12 @@ final class CachingBuildTests: XCTestCase {
       try fooBuildDriver.run(jobs: fooJobs)
       XCTAssertFalse(fooBuildDriver.diagnosticEngine.hasErrors)
 
-      let cas = try dependencyOracle.createCAS(pluginPath: nil, onDiskPath: casPath, pluginOptions: [])
+      let cas = try dependencyOracle.getOrCreateCAS(pluginPath: nil, onDiskPath: casPath, pluginOptions: [])
+      if let driverCAS = fooBuildDriver.cas {
+        XCTAssertEqual(cas, driverCAS, "CAS should only be created once")
+      } else {
+        XCTFail("Cached compilation doesn't have a CAS")
+      }
       try checkCASForResults(jobs: fooJobs, cas: cas, fs: fooBuildDriver.fileSystem)
 
       var driver = try Driver(args: ["swiftc",
@@ -585,7 +597,8 @@ final class CachingBuildTests: XCTestCase {
                                      "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: true),
                                      "-working-directory", path.nativePathString(escaped: true),
                                      main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
-                              env: ProcessEnv.vars)
+                              env: ProcessEnv.vars,
+                              interModuleDependencyOracle: dependencyOracle)
       // This is currently not supported.
       XCTAssertThrowsError(try driver.planBuild()) {
         XCTAssertEqual($0 as? Driver.Error, .unsupportedConfigurationForCaching("module Foo has prebuilt header dependency"))
@@ -623,8 +636,8 @@ final class CachingBuildTests: XCTestCase {
                                      "-Xcc", "-ivfsoverlay", "-Xcc", vfsoverlay.nativePathString(escaped: true),
                                      "-disable-clang-target",
                                      main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
-                              env: ProcessEnv.vars)
-      let dependencyOracle = InterModuleDependencyOracle()
+                              env: ProcessEnv.vars,
+                              interModuleDependencyOracle: dependencyOracle)
       let scanLibPath = try XCTUnwrap(driver.toolchain.lookupSwiftScanLib())
       guard try dependencyOracle
               .verifyOrCreateScannerInstance(fileSystem: localFileSystem,
@@ -760,11 +773,11 @@ final class CachingBuildTests: XCTestCase {
                                      "-scanner-prefix-map", testInputsPath.description + "=/^src",
                                      "-scanner-prefix-map", path.description + "=/^tmp",
                                      main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
-                              env: ProcessEnv.vars)
+                              env: ProcessEnv.vars,
+                              interModuleDependencyOracle: dependencyOracle)
       guard driver.isFrontendArgSupported(.scannerPrefixMap) else {
         throw XCTSkip("frontend doesn't support prefix map")
       }
-      let dependencyOracle = InterModuleDependencyOracle()
       let scanLibPath = try XCTUnwrap(driver.toolchain.lookupSwiftScanLib())
       guard try dependencyOracle
               .verifyOrCreateScannerInstance(fileSystem: localFileSystem,
@@ -830,12 +843,12 @@ final class CachingBuildTests: XCTestCase {
                                      "-output-file-map", ofm.nativePathString(escaped: true),
                                      "-working-directory", path.nativePathString(escaped: true),
                                      main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
-                              env: ProcessEnv.vars)
+                              env: ProcessEnv.vars,
+                              interModuleDependencyOracle: dependencyOracle)
       let jobs = try driver.planBuild()
       try driver.run(jobs: jobs)
       XCTAssertFalse(driver.diagnosticEngine.hasErrors)
 
-      let dependencyOracle = InterModuleDependencyOracle()
       let scanLibPath = try XCTUnwrap(driver.toolchain.lookupSwiftScanLib())
       guard try dependencyOracle
               .verifyOrCreateScannerInstance(fileSystem: localFileSystem,
@@ -844,7 +857,12 @@ final class CachingBuildTests: XCTestCase {
         return
       }
 
-      let cas = try dependencyOracle.createCAS(pluginPath: nil, onDiskPath: casPath, pluginOptions: [])
+      let cas = try dependencyOracle.getOrCreateCAS(pluginPath: nil, onDiskPath: casPath, pluginOptions: [])
+      if let driverCAS = driver.cas {
+        XCTAssertEqual(cas, driverCAS, "CAS should only be created once")
+      } else {
+        XCTFail("Cached compilation doesn't have a CAS")
+      }
       try checkCASForResults(jobs: jobs, cas: cas, fs: driver.fileSystem)
 
       // try replan the job and make sure some key command-line options are generated.

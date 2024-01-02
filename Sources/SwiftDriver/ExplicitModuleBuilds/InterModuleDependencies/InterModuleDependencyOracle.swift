@@ -165,11 +165,26 @@ public class InterModuleDependencyOracle {
     return diags.isEmpty ? nil : diags
   }
 
-  public func createCAS(pluginPath: AbsolutePath?, onDiskPath: AbsolutePath?, pluginOptions: [(String, String)]) throws -> SwiftScanCAS {
+  public func getOrCreateCAS(pluginPath: AbsolutePath?, onDiskPath: AbsolutePath?, pluginOptions: [(String, String)]) throws -> SwiftScanCAS {
     guard let swiftScan = swiftScanLibInstance else {
       fatalError("Attempting to reset scanner cache with no scanner instance.")
     }
-    return try swiftScan.createCAS(pluginPath: pluginPath?.pathString, onDiskPath: onDiskPath?.pathString, pluginOptions: pluginOptions)
+    // Use synchronized queue to avoid creating multiple OnDisk CAS at the same location as that will leave to synchronization issues.
+    return try queue.sync {
+      let casOpt = CASConfig(onDiskPath: onDiskPath, pluginPath: pluginPath, pluginOptions: pluginOptions)
+      if let cas = createdCASMap[casOpt] {
+        return cas
+      }
+      if let path = onDiskPath {
+        guard !seenCASPath.contains(path) else {
+          throw DependencyScanningError.casError("Cannot create two different CAS at the same OnDiskPath")
+        }
+        seenCASPath.insert(path)
+      }
+      let cas = try swiftScan.createCAS(pluginPath: pluginPath?.pathString, onDiskPath: onDiskPath?.pathString, pluginOptions: pluginOptions)
+      createdCASMap[casOpt] = cas
+      return cas
+    }
   }
 
   private var hasScannerInstance: Bool { self.swiftScanLibInstance != nil }
@@ -181,5 +196,31 @@ public class InterModuleDependencyOracle {
   private var swiftScanLibInstance: SwiftScan? = nil
 
   internal let scannerRequiresPlaceholderModules: Bool
+
+  internal struct CASConfig: Hashable, Equatable {
+    static func == (lhs: InterModuleDependencyOracle.CASConfig, rhs: InterModuleDependencyOracle.CASConfig) -> Bool {
+      return lhs.onDiskPath == rhs.onDiskPath &&
+             lhs.pluginPath == rhs.pluginPath &&
+             lhs.pluginOptions.elementsEqual(rhs.pluginOptions, by: ==)
+    }
+
+    func hash(into hasher: inout Hasher) {
+      hasher.combine(onDiskPath)
+      hasher.combine(pluginPath)
+      for opt in pluginOptions {
+        hasher.combine(opt.0)
+        hasher.combine(opt.1)
+      }
+    }
+
+    let onDiskPath: AbsolutePath?
+    let pluginPath: AbsolutePath?
+    let pluginOptions: [(String, String)]
+  }
+
+  /// Storing the CAS created via CASConfig.
+  internal var createdCASMap: [CASConfig: SwiftScanCAS] = [:]
+  /// The on disk path seen by CAS creation function.
+  internal var seenCASPath: Set<AbsolutePath> = []
 }
 
