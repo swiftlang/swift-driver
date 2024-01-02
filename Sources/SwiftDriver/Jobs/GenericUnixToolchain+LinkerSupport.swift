@@ -158,11 +158,13 @@ extension GenericUnixToolchain {
       let staticExecutable = parsedOptions.hasFlag(positive: .staticExecutable,
                                                    negative: .noStaticExecutable,
                                                   default: false)
+      let isEmbeddedEnabled = parsedOptions.isEmbeddedEnabled
+
       let toolchainStdlibRpath = parsedOptions
                                  .hasFlag(positive: .toolchainStdlibRpath,
                                           negative: .noToolchainStdlibRpath,
                                           default: true)
-      let hasRuntimeArgs = !(staticStdlib || staticExecutable)
+      let hasRuntimeArgs = !(staticStdlib || staticExecutable || isEmbeddedEnabled)
 
       let runtimePaths = try runtimeLibraryPaths(
         for: targetInfo,
@@ -251,7 +253,7 @@ extension GenericUnixToolchain {
         linkFilePath = linkFilePath?.appending(component: "static-executable-args.lnk")
       } else if staticStdlib {
         linkFilePath = linkFilePath?.appending(component: "static-stdlib-args.lnk")
-      } else {
+      } else if !isEmbeddedEnabled {
         linkFilePath = nil
         commandLine.appendFlag("-lswiftCore")
       }

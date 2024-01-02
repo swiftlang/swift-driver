@@ -6482,6 +6482,9 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testEmbeddedSwiftOptions() throws {
+    var env = ProcessEnv.vars
+    env["SWIFT_DRIVER_SWIFT_AUTOLINK_EXTRACT_EXEC"] = "/garbage/swift-autolink-extract"
+
     do {
       var driver = try Driver(args: ["swiftc", "-target", "arm64-apple-macosx10.13",  "test.swift", "-enable-experimental-feature", "Embedded", "-parse-as-library", "-wmo", "-o", "a.out", "-module-name", "main"])
       let plannedJobs = try driver.planBuild()
@@ -6490,6 +6493,18 @@ final class SwiftDriverTests: XCTestCase {
       let linkJob = plannedJobs[1]
       XCTAssertTrue(compileJob.commandLine.contains(.flag("-disable-objc-interop")))
       XCTAssertFalse(linkJob.commandLine.contains(.flag("-force_load")))
+    }
+    do {
+      var driver = try Driver(args: ["swiftc", "-target", "wasm32-none-none-wasm",  "test.swift", "-enable-experimental-feature", "Embedded", "-wmo", "-o", "a.wasm"], env: env)
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 3)
+      let compileJob = plannedJobs[0]
+      let _ /*autolinkJob*/ = plannedJobs[1]
+      let linkJob = plannedJobs[2]
+      XCTAssertTrue(compileJob.commandLine.contains(.flag("-disable-objc-interop")))
+      XCTAssertFalse(linkJob.commandLine.contains(.flag("-force_load")))
+      XCTAssertFalse(linkJob.commandLine.contains(.flag("-rpath")))
+      XCTAssertFalse(linkJob.commandLine.contains(.flag("-lswiftCore")))
     }
     do {
       let diags = DiagnosticsEngine()
