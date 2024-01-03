@@ -253,9 +253,11 @@ extension GenericUnixToolchain {
         linkFilePath = linkFilePath?.appending(component: "static-executable-args.lnk")
       } else if staticStdlib {
         linkFilePath = linkFilePath?.appending(component: "static-stdlib-args.lnk")
-      } else if !isEmbeddedEnabled {
+      } else {
         linkFilePath = nil
-        commandLine.appendFlag("-lswiftCore")
+        if !isEmbeddedEnabled {
+          commandLine.appendFlag("-lswiftCore")
+        }
       }
 
       if let linkFile = linkFilePath {
