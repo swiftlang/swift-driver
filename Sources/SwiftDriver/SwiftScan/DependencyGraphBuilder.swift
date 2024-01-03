@@ -67,7 +67,7 @@ internal extension SwiftScan {
     // Note, respective indices of the batch scan input and the returned result must be aligned.
     for (index, resultGraphRefOrNull) in resultGraphRefArray.enumerated() {
       guard let resultGraphRef = resultGraphRefOrNull else {
-        throw DependencyScanningError.dependencyScanFailed
+        throw DependencyScanningError.dependencyScanFailed("Unable to produce dependency graph from batch scan result")
       }
       let decodedGraph = try constructGraph(from: resultGraphRef, moduleAliases: moduleAliases)
 

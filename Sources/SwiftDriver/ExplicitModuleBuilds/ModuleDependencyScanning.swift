@@ -27,7 +27,7 @@ extension Diagnostic.Message {
     .warning("Fallback to `swift-frontend` dependency scanner invocation")
   }
   static func scanner_diagnostic_error(_ message: String) -> Diagnostic.Message {
-    .error("Dependency scanning failure: \(message)")
+    .error(message)
   }
   static func scanner_diagnostic_warn(_ message: String) -> Diagnostic.Message {
     .warning(message)
@@ -198,11 +198,15 @@ public extension Driver {
                                                 useResponseFiles: .disabled,
                                                 using: executor.resolver)
       Self.sanitizeCommandForLibScanInvocation(&command)
-      imports =
-        try interModuleDependencyOracle.getImports(workingDirectory: cwd,
-                                                   moduleAliases: moduleOutputInfo.aliases,
-                                                   commandLine: command)
-
+      do {
+        imports = try interModuleDependencyOracle.getImports(workingDirectory: cwd,
+                                                             moduleAliases: moduleOutputInfo.aliases,
+                                                             commandLine: command)
+      } catch let DependencyScanningError.dependencyScanFailed(reason) {
+        try emitScannerDiagnostics()
+        throw DependencyScanningError.dependencyScanFailed(reason)
+      }
+      try emitScannerDiagnostics()
     } else {
       // Fallback to legacy invocation of the dependency scanner with
       // `swift-frontend -scan-dependencies -import-prescan`
@@ -213,6 +217,26 @@ public extension Driver {
                                   recordedInputModificationDates: recordedInputModificationDates)
     }
     return imports
+  }
+
+  mutating internal func emitScannerDiagnostics() throws {
+    let possibleDiags = try interModuleDependencyOracle.getScannerDiagnostics()
+    if let diags = possibleDiags {
+      for diagnostic in diags {
+        switch diagnostic.severity {
+        case .error:
+          diagnosticEngine.emit(.scanner_diagnostic_error(diagnostic.message))
+        case .warning:
+          diagnosticEngine.emit(.scanner_diagnostic_warn(diagnostic.message))
+        case .note:
+          diagnosticEngine.emit(.scanner_diagnostic_note(diagnostic.message))
+        case .remark:
+          diagnosticEngine.emit(.scanner_diagnostic_remark(diagnostic.message))
+        case .ignored:
+          diagnosticEngine.emit(.scanner_diagnostic_error(diagnostic.message))
+        }
+      }
+    }
   }
 
   mutating internal func performDependencyScan() throws -> InterModuleDependencyGraph {
@@ -234,27 +258,15 @@ public extension Driver {
                                                 useResponseFiles: .disabled,
                                                 using: executor.resolver)
       Self.sanitizeCommandForLibScanInvocation(&command)
-      dependencyGraph =
-        try interModuleDependencyOracle.getDependencies(workingDirectory: cwd,
-                                                        moduleAliases: moduleOutputInfo.aliases,
-                                                        commandLine: command)
-      let possibleDiags = try interModuleDependencyOracle.getScannerDiagnostics()
-      if let diags = possibleDiags {
-        for diagnostic in diags {
-          switch diagnostic.severity {
-          case .error:
-            diagnosticEngine.emit(.scanner_diagnostic_error(diagnostic.message))
-          case .warning:
-            diagnosticEngine.emit(.scanner_diagnostic_warn(diagnostic.message))
-          case .note:
-            diagnosticEngine.emit(.scanner_diagnostic_note(diagnostic.message))
-          case .remark:
-            diagnosticEngine.emit(.scanner_diagnostic_remark(diagnostic.message))
-          case .ignored:
-            diagnosticEngine.emit(.scanner_diagnostic_error(diagnostic.message))
-          }
-        }
+      do {
+        dependencyGraph = try interModuleDependencyOracle.getDependencies(workingDirectory: cwd,
+                                                                          moduleAliases: moduleOutputInfo.aliases,
+                                                                          commandLine: command)
+      } catch let DependencyScanningError.dependencyScanFailed(reason) {
+        try emitScannerDiagnostics()
+        throw DependencyScanningError.dependencyScanFailed(reason)
       }
+      try emitScannerDiagnostics()
     } else {
       // Fallback to legacy invocation of the dependency scanner with
       // `swift-frontend -scan-dependencies`
