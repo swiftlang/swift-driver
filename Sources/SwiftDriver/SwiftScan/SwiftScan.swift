@@ -23,7 +23,7 @@ import struct TSCBasic.Diagnostic
 
 public enum DependencyScanningError: Error, DiagnosticData {
   case missingRequiredSymbol(String)
-  case dependencyScanFailed
+  case dependencyScanFailed(String)
   case failedToInstantiateScanner
   case casError(String)
   case missingField(String)
@@ -38,14 +38,14 @@ public enum DependencyScanningError: Error, DiagnosticData {
     switch self {
       case .missingRequiredSymbol(let symbolName):
         return "libSwiftScan missing required symbol: '\(symbolName)'"
-      case .dependencyScanFailed:
-        return "libSwiftScan dependency scan query failed"
+      case .dependencyScanFailed(let reason):
+        return "Dependency scan query failed: `\(reason)`"
       case .failedToInstantiateScanner:
-        return "libSwiftScan failed to create scanner instance"
+        return "Failed to create scanner instance"
       case .casError(let reason):
-        return "libSwiftScan CAS error: \(reason)"
+        return "CAS error: \(reason)"
       case .missingField(let fieldName):
-        return "libSwiftScan scan result missing required field: `\(fieldName)`"
+        return "Scan result missing required field: `\(fieldName)`"
       case .moduleNameDecodeFailure(let encodedName):
         return "Failed to decode dependency module name: `\(encodedName)`"
       case .unsupportedDependencyDetailsKind(let kindRawValue):
@@ -57,7 +57,7 @@ public enum DependencyScanningError: Error, DiagnosticData {
       case .scanningLibraryNotFound(let path):
         return "Dependency Scanning library not found at path: \(path)"
       case .argumentQueryFailed:
-        return "libSwiftScan supported compiler argument query failed"
+        return "Supported compiler argument query failed"
     }
   }
 }
@@ -137,7 +137,7 @@ internal extension swiftscan_diagnostic_severity_t {
 
     let importSetRefOrNull = api.swiftscan_import_set_create(scanner, invocation)
     guard let importSetRef = importSetRefOrNull else {
-      throw DependencyScanningError.dependencyScanFailed
+      throw DependencyScanningError.dependencyScanFailed("Unable to produce import set")
     }
 
     let importSet = try constructImportSet(from: importSetRef, with: moduleAliases)
@@ -165,7 +165,7 @@ internal extension swiftscan_diagnostic_severity_t {
 
     let graphRefOrNull = api.swiftscan_dependency_graph_create(scanner, invocation)
     guard let graphRef = graphRefOrNull else {
-      throw DependencyScanningError.dependencyScanFailed
+      throw DependencyScanningError.dependencyScanFailed("Unable to produce dependency graph")
     }
 
     let dependencyGraph = try constructGraph(from: graphRef, moduleAliases: moduleAliases)
@@ -226,7 +226,7 @@ internal extension swiftscan_diagnostic_severity_t {
                                                                       inputRef,
                                                                       invocationRef)
     guard let batchResultRef = batchResultRefOrNull else {
-      throw DependencyScanningError.dependencyScanFailed
+      throw DependencyScanningError.dependencyScanFailed("Unable to produce batch scan results")
     }
     // Translate `swiftscan_batch_scan_result_t`
     // into `[ModuleDependencyId: [InterModuleDependencyGraph]]`
@@ -326,7 +326,7 @@ internal extension swiftscan_diagnostic_severity_t {
 
     for diagnosticRefOrNull in diagnosticRefArray {
       guard let diagnosticRef = diagnosticRefOrNull else {
-        throw DependencyScanningError.dependencyScanFailed
+        throw DependencyScanningError.dependencyScanFailed("Unable to produce scanner diagnostics")
       }
       let message = try toSwiftString(api.swiftscan_diagnostic_get_message(diagnosticRef))
       let severity = api.swiftscan_diagnostic_get_severity(diagnosticRef)
