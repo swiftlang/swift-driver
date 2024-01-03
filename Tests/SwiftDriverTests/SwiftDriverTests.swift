@@ -6494,6 +6494,40 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(compileJob.commandLine.contains(.flag("-disable-objc-interop")))
       XCTAssertFalse(linkJob.commandLine.contains(.flag("-force_load")))
     }
+    
+    do {
+      var driver = try Driver(args: [
+        "swiftc",
+        "-v",
+        "-L",
+        "/TestApp/.build/aarch64-none-none-elf/release",
+        "-o",
+        "/TestApp/.build/aarch64-none-none-elf/release/TestApp",
+        "-module-name",
+        "TestApp",
+        "-emit-executable",
+        "-Xlinker",
+        "--gc-sections",
+        "@/TestApp/.build/aarch64-none-none-elf/release/TestApp.product/Objects.LinkFileList",
+        "-target",
+        "aarch64-none-none-elf",
+        "-enable-experimental-feature", "Embedded",
+        "-Xfrontend",
+        "-function-sections",
+        "-Xfrontend",
+        "-disable-stack-protector",
+        "-use-ld=lld",
+        "-tools-directory",
+        "/Tools/swift.xctoolchain/usr/bin",
+      ], env: env)
+      
+      let jobs = try driver.planBuild()
+      let linkJob = try jobs.findJob(.link)
+      let invalidPath = try VirtualPath(path: "/Tools/swift.xctoolchain/usr/lib/swift")
+      let invalid = linkJob.commandLine.contains(.responseFilePath(invalidPath))
+      XCTAssertFalse(invalid) // ensure the driver does not emit invalid responseFilePaths to the clang invocation
+    }
+    
     do {
       var driver = try Driver(args: ["swiftc", "-target", "wasm32-none-none-wasm",  "test.swift", "-enable-experimental-feature", "Embedded", "-wmo", "-o", "a.wasm"], env: env)
       let plannedJobs = try driver.planBuild()
