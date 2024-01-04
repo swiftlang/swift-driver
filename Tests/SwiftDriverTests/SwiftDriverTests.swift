@@ -5590,6 +5590,8 @@ final class SwiftDriverTests: XCTestCase {
                                      "-no-verify-emitted-module-interface"], env: envVars)
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 2)
+      let emitJob = try plannedJobs.findJob(.emitModule)
+      XCTAssertTrue(emitJob.commandLine.contains("-no-verify-emitted-module-interface"))
     }
 
     // Disabled by default in merge-module
@@ -5628,6 +5630,8 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(verifyJob.inputs.count == 1)
       XCTAssertTrue(verifyJob.inputs[0] == emitInterfaceOutput[0])
       XCTAssertTrue(verifyJob.commandLine.contains(.path(emitInterfaceOutput[0].file)))
+      XCTAssertFalse(emitJob.commandLine.contains("-no-verify-emitted-module-interface"))
+      XCTAssertFalse(emitJob.commandLine.contains("-verify-emitted-module-interface"))
     }
 
     // Whole-module
@@ -5648,6 +5652,19 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(verifyJob.inputs.count == 1)
       XCTAssertTrue(verifyJob.inputs[0] == emitInterfaceOutput[0])
       XCTAssertTrue(verifyJob.commandLine.contains(.path(emitInterfaceOutput[0].file)))
+    }
+
+    // Test the `-no-verify-emitted-module-interface` flag with whole-module
+    do {
+      var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-module-name",
+                                     "foo", "-emit-module-interface",
+                                     "-enable-library-evolution",
+                                     "-whole-module-optimization",
+                                     "-no-verify-emitted-module-interface"], env: envVars)
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      let compileJob = try plannedJobs.findJob(.compile)
+      XCTAssertTrue(compileJob.commandLine.contains("-no-verify-emitted-module-interface"))
     }
 
     // Enabled by default when the library-level is api.
@@ -5672,6 +5689,8 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 1)
       XCTAssertEqual(plannedJobs[0].kind, .compile)
+      let compileJob = try plannedJobs.findJob(.compile)
+      XCTAssertFalse(compileJob.commandLine.contains("-no-verify-emitted-module-interface"))
     }
 
     // The flag -check-api-availability-only is not passed down to the verify job.
