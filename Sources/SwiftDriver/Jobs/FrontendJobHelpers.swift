@@ -420,6 +420,15 @@ extension Driver {
       }
     }
 
+    // Pass along -no-verify-emitted-module-interface only if it's effective.
+    // Assume verification by default as we want to know only when the user skips
+    // the verification.
+    if !parsedOptions.hasFlag(positive: .verifyEmittedModuleInterface,
+                              negative: .noVerifyEmittedModuleInterface,
+                              default: true) {
+      commandLine.appendFlag("-no-verify-emitted-module-interface")
+    }
+
     // Repl Jobs shouldn't include -module-name.
     if compilerMode != .repl && compilerMode != .intro {
       commandLine.appendFlags("-module-name", moduleOutputInfo.name)
