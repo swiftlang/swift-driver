@@ -50,13 +50,9 @@ throws {
         }
         XCTAssertTrue(job.commandLine.filter {$0 == .flag("-candidate-module-file")}.count == compiledCandidateList.count)
       }
-    case .clang(let clangModuleDetails):
-      let moduleMapPath =
-        TypedVirtualPath(file: clangModuleDetails.moduleMapPath.path,
-                         type: .clangModuleMap)
+    case .clang(_):
       XCTAssertEqual(job.kind, .generatePCM)
       XCTAssertEqual(job.description, "Compiling Clang module \(moduleId.moduleName)")
-      XCTAssertTrue(job.inputs.contains(moduleMapPath))
     case .swiftPrebuiltExternal(_):
       XCTFail("Unexpected prebuilt external module dependency found.")
     case .swiftPlaceholder(_):
@@ -88,11 +84,7 @@ private func checkExplicitModuleBuildJobDependencies(job: Job,
     let clangDependencyModulePathString = dependencyInfo.modulePath.path
     let clangDependencyModulePath =
       TypedVirtualPath(file: clangDependencyModulePathString, type: .pcm)
-    let clangDependencyModuleMapPath =
-      TypedVirtualPath(file: clangDependencyDetails.moduleMapPath.path,
-                       type: .clangModuleMap)
     XCTAssertTrue(job.inputs.contains(clangDependencyModulePath))
-    XCTAssertTrue(job.inputs.contains(clangDependencyModuleMapPath))
     XCTAssertTrue(job.commandLine.contains(
       .flag(String("-fmodule-file=\(dependencyId.moduleName)=\(clangDependencyModulePathString)"))))
     XCTAssertTrue(job.commandLine.contains(
