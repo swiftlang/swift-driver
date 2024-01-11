@@ -219,7 +219,6 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
       // The only required input is the .modulemap for this module.
       // Command line options in the dependency scanner output will include the
       // required modulemap, so here we must only add it to the list of inputs.
-      inputs.append(moduleMapPath)
       let cacheKeys : [TypedVirtualPath : String]
       if let key = moduleDetails.moduleCacheKey {
         cacheKeys = [moduleMapPath: key]
@@ -276,11 +275,7 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
       let clangModulePath =
         TypedVirtualPath(file: moduleArtifactInfo.clangModulePath.path,
                          type: .pcm)
-      let clangModuleMapPath =
-        TypedVirtualPath(file: moduleArtifactInfo.clangModuleMapPath.path,
-                         type: .clangModuleMap)
       inputs.append(clangModulePath)
-      inputs.append(clangModuleMapPath)
     }
 
     // Swift Main Module dependencies are passed encoded in a JSON file as described by
@@ -445,11 +440,7 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
       let clangModulePath =
         TypedVirtualPath(file: moduleArtifactInfo.clangModulePath.path,
                          type: .pcm)
-      let clangModuleMapPath =
-        TypedVirtualPath(file: moduleArtifactInfo.clangModuleMapPath.path,
-                         type: .clangModuleMap)
       inputs.append(clangModulePath)
-      inputs.append(clangModuleMapPath)
     }
 
     // Return if depscanner provided build commands.
