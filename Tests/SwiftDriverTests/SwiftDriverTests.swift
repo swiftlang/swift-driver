@@ -2782,6 +2782,9 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testSanitizeStableAbi() throws {
+#if !(os(macOS) || os(iOS) || os(tvOS) || os(watchOS))
+      throw XCTSkip("-sanitize-stable-abi is only implemented on Darwin")
+#else
     var driver = try Driver(args: ["swiftc", "-sanitize=address", "-sanitize-stable-abi", "Test.swift"])
     guard driver.isFrontendArgSupported(.sanitizeStableAbiEQ) else {
       return
@@ -2803,6 +2806,7 @@ final class SwiftDriverTests: XCTestCase {
         $1.expect(.warning("option '-sanitize-stable-abi' has no effect when 'address' sanitizer is disabled. Use -sanitize=address to enable the sanitizer"))
       }
     }
+#endif
   }
 
   func testADDITIONAL_SWIFT_DRIVER_FLAGS() throws {
