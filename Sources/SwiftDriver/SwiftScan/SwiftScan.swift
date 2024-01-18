@@ -287,6 +287,7 @@ internal extension swiftscan_diagnostic_severity_t {
            api.swiftscan_cas_create_from_options != nil &&
            api.swiftscan_cas_dispose != nil &&
            api.swiftscan_cache_compute_key != nil &&
+           api.swiftscan_cache_compute_key_from_input_index != nil &&
            api.swiftscan_cas_store != nil &&
            api.swiftscan_swift_textual_detail_get_module_cache_key != nil &&
            api.swiftscan_swift_binary_detail_get_module_cache_key != nil &&
@@ -507,6 +508,7 @@ private extension swiftscan_functions_t {
     self.swiftscan_cas_create_from_options = try loadOptional("swiftscan_cas_create_from_options")
     self.swiftscan_cas_dispose = try loadOptional("swiftscan_cas_dispose")
     self.swiftscan_cache_compute_key = try loadOptional("swiftscan_cache_compute_key")
+    self.swiftscan_cache_compute_key_from_input_index = try loadOptional("swiftscan_cache_compute_key_from_input_index")
     self.swiftscan_cas_store = try loadOptional("swiftscan_cas_store")
 
     self.swiftscan_cache_query = try loadOptional("swiftscan_cache_query")

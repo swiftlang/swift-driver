@@ -70,7 +70,7 @@ extension Driver {
     inputs.append(input)
     try addPathArgument(input.file, to: &commandLine)
 
-    let cacheKeys = try computeOutputCacheKeyForJob(commandLine: commandLine, inputs: [input])
+    let cacheKeys = try computeOutputCacheKeyForJob(commandLine: commandLine, inputs: [(input, 0)])
 
     return Job(
       moduleName: moduleOutputInfo.name,

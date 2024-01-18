@@ -853,7 +853,7 @@ extension Driver {
 
 extension Driver {
   public mutating func computeOutputCacheKeyForJob(commandLine: [Job.ArgTemplate],
-                                          inputs: [TypedVirtualPath]) throws -> [TypedVirtualPath: String] {
+                                                   inputs: [(TypedVirtualPath, Int)]) throws -> [TypedVirtualPath: String] {
     // No caching setup, return empty dictionary.
     guard let cas = self.cas else {
       return [:]
@@ -863,13 +863,12 @@ extension Driver {
     let arguments: [String] = try resolver.resolveArgumentList(for: commandLine)
 
     return try inputs.reduce(into: [:]) { keys, input in
-      let remappedPath = remapPath(input.file)
-      keys[input] = try cas.computeCacheKey(commandLine: arguments, input: remappedPath.name)
+      keys[input.0] = try cas.computeCacheKey(commandLine: arguments, index: input.1)
     }
   }
 
   public mutating func computeOutputCacheKey(commandLine: [Job.ArgTemplate],
-                                    input: TypedVirtualPath) throws -> String? {
+                                             index: Int) throws -> String? {
     // No caching setup, return empty dictionary.
     guard let cas = self.cas else {
       return nil
@@ -877,8 +876,7 @@ extension Driver {
     // Resolve command-line first.
     let resolver = try ArgsResolver(fileSystem: fileSystem)
     let arguments: [String] = try resolver.resolveArgumentList(for: commandLine)
-    let remappedPath = remapPath(input.file)
-    return try cas.computeCacheKey(commandLine: arguments, input: remappedPath.name)
+    return try cas.computeCacheKey(commandLine: arguments, index: index)
   }
 }
 

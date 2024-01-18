@@ -279,7 +279,7 @@ public struct Driver {
 
   /// Is swift caching enabled.
   lazy var isCachingEnabled: Bool = {
-    return enableCaching && isFeatureSupported(.cache_compile_job)
+    return enableCaching && isFeatureSupported(.compilation_caching)
   }()
 
   /// Scanner prefix mapping.
@@ -427,7 +427,7 @@ public struct Driver {
   @_spi(Testing)
   public enum KnownCompilerFeature: String {
     case emit_abi_descriptor = "emit-abi-descriptor"
-    case cache_compile_job = "cache-compile-job"
+    case compilation_caching = "compilation-caching"
   }
 
   lazy var sdkPath: VirtualPath? = {
