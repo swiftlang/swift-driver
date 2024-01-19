@@ -638,8 +638,18 @@ public struct Driver {
                                                                                         diagnosticEngine: diagnosticsEngine,
                                                                                         compilerMode: compilerMode)
 
-    let cachingEnableOverride = parsedOptions.hasArgument(.driverExplicitModuleBuild) && env.keys.contains("SWIFT_ENABLE_CACHING")
-    self.enableCaching = parsedOptions.hasArgument(.cacheCompileJob) || cachingEnableOverride
+    let cachingEnabled = parsedOptions.hasArgument(.cacheCompileJob) || env.keys.contains("SWIFT_ENABLE_CACHING")
+    if cachingEnabled {
+      if !parsedOptions.hasArgument(.driverExplicitModuleBuild) {
+        diagnosticsEngine.emit(.warning("-cache-compile-job cannot be used without explicit module build, turn off caching"),
+                               location: nil)
+        self.enableCaching = false
+      } else {
+        self.enableCaching = true
+      }
+    } else {
+      self.enableCaching = false
+    }
     self.useClangIncludeTree = !parsedOptions.hasArgument(.noClangIncludeTree) && !env.keys.contains("SWIFT_CACHING_USE_CLANG_CAS_FS")
     self.scannerPrefixMap = try Self.computeScanningPrefixMapper(&parsedOptions)
     if let sdkMapping =  parsedOptions.getLastArgument(.scannerPrefixMapSdk)?.asSingle {

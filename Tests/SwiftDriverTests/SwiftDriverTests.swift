@@ -7605,6 +7605,13 @@ final class SwiftDriverTests: XCTestCase {
       }
     }
   }
+
+  func testCachingBuildOptions() throws {
+    try assertDriverDiagnostics(args: "swiftc", "foo.swift", "-emit-module", "-cache-compile-job") {
+      $1.expect(.warning("-cache-compile-job cannot be used without explicit module build, turn off caching"))
+    }
+    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-emit-module", "-cache-compile-job", "-explicit-module-build")
+  }
 }
 
 func assertString(
