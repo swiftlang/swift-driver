@@ -43,7 +43,8 @@ extension DarwinToolchain {
 
     addPathEnvironmentVariableIfNeeded("DYLD_FRAMEWORK_PATH", to: &envVars,
                                        currentEnv: env, option: .F,
-                                       parsedOptions: &parsedOptions)
+                                       parsedOptions: &parsedOptions,
+                                       extraPaths: ["/System/Library/Frameworks"])
 
     return envVars
   }
