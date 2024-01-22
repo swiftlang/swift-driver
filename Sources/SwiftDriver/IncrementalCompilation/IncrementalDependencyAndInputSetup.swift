@@ -211,7 +211,7 @@ extension IncrementalCompilationState.IncrementalDependencyAndInputSetup {
                                                     buildRecordInfo: BuildRecordInfo,
                                                     reporter: IncrementalCompilationState.Reporter?) throws -> Bool {
     for module in graph.modules {
-      if module.key.moduleName == graph.mainModuleName {
+      if module.key == .swift(graph.mainModuleName) {
         continue
       }
       if try !verifyModuleDependencyUpToDate(moduleID: module.key, 
