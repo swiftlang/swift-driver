@@ -15,13 +15,14 @@
 import func Foundation.strdup
 import func Foundation.free
 import class Foundation.JSONDecoder
+import protocol Foundation.LocalizedError
 import struct Foundation.Data
 
 import protocol TSCBasic.DiagnosticData
 import struct TSCBasic.AbsolutePath
 import struct TSCBasic.Diagnostic
 
-public enum DependencyScanningError: Error, DiagnosticData {
+public enum DependencyScanningError: LocalizedError, DiagnosticData {
   case missingRequiredSymbol(String)
   case dependencyScanFailed(String)
   case failedToInstantiateScanner
@@ -59,6 +60,10 @@ public enum DependencyScanningError: Error, DiagnosticData {
       case .argumentQueryFailed:
         return "Supported compiler argument query failed"
     }
+  }
+
+  public var errorDescription: String? {
+    return self.description
   }
 }
 
