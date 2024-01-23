@@ -29,6 +29,7 @@ public protocol DriverExecutor {
 
   /// Execute multiple jobs, tracking job status using the provided execution delegate.
   /// Pass in the `IncrementalCompilationState` to allow for incremental compilation.
+  /// Pass in the `InterModuleDependencyGraph` to allow for module dependency tracking.
   func execute(workload: DriverExecutorWorkload,
                delegate: JobExecutionDelegate,
                numParallelJobs: Int,
@@ -58,20 +59,24 @@ public struct DriverExecutorWorkload {
     case all([Job])
     case incremental(IncrementalCompilationState)
   }
+
   public let kind: Kind
+  public let interModuleDependencyGraph: InterModuleDependencyGraph?
 
   public init(_ allJobs: [Job],
-       _ incrementalCompilationState: IncrementalCompilationState?,
-       continueBuildingAfterErrors: Bool
-  ) {
-      self.continueBuildingAfterErrors = continueBuildingAfterErrors
-      self.kind = incrementalCompilationState
-        .map {.incremental($0)}
-        ?? .all(allJobs)
+              _ incrementalCompilationState: IncrementalCompilationState?,
+              _ interModuleDependencyGraph: InterModuleDependencyGraph?,
+              continueBuildingAfterErrors: Bool) {
+    self.continueBuildingAfterErrors = continueBuildingAfterErrors
+    self.kind = incrementalCompilationState
+      .map {.incremental($0)}
+      ?? .all(allJobs)
+    self.interModuleDependencyGraph = interModuleDependencyGraph
   }
 
-  static public func all(_ jobs: [Job]) -> Self {
-    .init(jobs, nil, continueBuildingAfterErrors: false)
+  static public func all(_ jobs: [Job],
+                         _ interModuleDependencyGraph: InterModuleDependencyGraph? = nil) -> Self {
+    .init(jobs, nil, interModuleDependencyGraph, continueBuildingAfterErrors: false)
   }
 }
 
@@ -114,7 +119,7 @@ extension DriverExecutor {
     recordedInputModificationDates: [TypedVirtualPath: TimePoint]
   ) throws {
     try execute(
-      workload: .all(jobs),
+      workload: .all(jobs, nil),
       delegate: delegate,
       numParallelJobs: numParallelJobs,
       forceResponseFiles: forceResponseFiles,

@@ -103,7 +103,7 @@ extension Driver {
       try IncrementalCompilationState.computeIncrementalStateForPlanning(driver: &self)
 
     // For an explicit build, compute the inter-module dependency graph
-    let interModuleDependencyGraph = try computeInterModuleDependencyGraph(with: initialIncrementalState)
+    interModuleDependencyGraph = try computeInterModuleDependencyGraph(with: initialIncrementalState)
 
     // Compute the set of all jobs required to build this module
     let jobsInPhases = try computeJobsForPhasedStandardBuild(with: interModuleDependencyGraph)
@@ -115,8 +115,7 @@ extension Driver {
       incrementalCompilationState =
         try IncrementalCompilationState(driver: &self,
                                         jobsInPhases: jobsInPhases,
-                                        initialState: initialState,
-                                        interModuleDependencyGraph: interModuleDependencyGraph)
+                                        initialState: initialState)
     } else {
       incrementalCompilationState = nil
     }
@@ -139,19 +138,17 @@ extension Driver {
   private mutating func computeInterModuleDependencyGraph(with initialIncrementalState:
                                                           IncrementalCompilationState.InitialStateForPlanning?)
   throws -> InterModuleDependencyGraph? {
-    let interModuleDependencyGraph: InterModuleDependencyGraph?
     if (parsedOptions.contains(.driverExplicitModuleBuild) ||
         parsedOptions.contains(.explainModuleDependency)) &&
        inputFiles.contains(where: { $0.type.isPartOfSwiftCompilation }) {
       // If the incremental build record's module dependency graph is up-to-date, we
       // can skip dependency scanning entirely.
-      interModuleDependencyGraph =
+      return
         try initialIncrementalState?.upToDatePriorInterModuleDependencyGraph ??
             gatherModuleDependencies()
     } else {
-      interModuleDependencyGraph = nil
+      return nil
     }
-    return interModuleDependencyGraph
   }
 
   /// Construct a build plan consisting of *all* jobs required for building the current module (non-incrementally).
