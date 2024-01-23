@@ -315,6 +315,10 @@ public struct Driver {
   /// Set during planning because needs the jobs to look at outputs.
   @_spi(Testing) public private(set) var incrementalCompilationState: IncrementalCompilationState? = nil
 
+  /// Nil if not running in explicit module build mode.
+  /// Set during planning.
+  var interModuleDependencyGraph: InterModuleDependencyGraph? = nil
+
   /// The path of the SDK.
   public var absoluteSDKPath: AbsolutePath? {
     guard let path = frontendTargetInfo.sdkPath?.path else {
@@ -1664,6 +1668,7 @@ extension Driver {
     try executor.execute(
       workload: .init(allJobs,
                       incrementalCompilationState,
+                      interModuleDependencyGraph,
                       continueBuildingAfterErrors: continueBuildingAfterErrors),
       delegate: jobExecutionDelegate,
       numParallelJobs: numParallelJobs ?? 1,
