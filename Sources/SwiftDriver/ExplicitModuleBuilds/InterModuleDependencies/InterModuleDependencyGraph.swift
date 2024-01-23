@@ -86,7 +86,7 @@ extension ModuleDependencyId: Codable {
 }
 
 /// Bridging header
-public struct BridgingHeader: Codable {
+public struct BridgingHeader: Codable, Hashable {
   var path: TextualVirtualPath
   /// The source files referenced by the bridging header.
   var sourceFiles: [TextualVirtualPath]
@@ -95,7 +95,7 @@ public struct BridgingHeader: Codable {
 }
 
 /// Details specific to Swift modules.
-public struct SwiftModuleDetails: Codable {
+public struct SwiftModuleDetails: Codable, Hashable {
   /// The module interface from which this module was built, if any.
   public var moduleInterfacePath: TextualVirtualPath?
 
@@ -141,7 +141,7 @@ public struct SwiftModuleDetails: Codable {
 }
 
 /// Details specific to Swift placeholder dependencies.
-public struct SwiftPlaceholderModuleDetails: Codable {
+public struct SwiftPlaceholderModuleDetails: Codable, Hashable {
   /// The path to the .swiftModuleDoc file.
   var moduleDocPath: TextualVirtualPath?
 
@@ -150,7 +150,7 @@ public struct SwiftPlaceholderModuleDetails: Codable {
 }
 
 /// Details specific to Swift externally-pre-built modules.
-public struct SwiftPrebuiltExternalModuleDetails: Codable {
+public struct SwiftPrebuiltExternalModuleDetails: Codable, Hashable {
   /// The path to the already-compiled module that must be used instead of
   /// generating a job to build this module.
   public var compiledModulePath: TextualVirtualPath
@@ -185,7 +185,7 @@ public struct SwiftPrebuiltExternalModuleDetails: Codable {
 }
 
 /// Details specific to Clang modules.
-public struct ClangModuleDetails: Codable {
+public struct ClangModuleDetails: Codable, Hashable {
   /// The path to the module map used to build this module.
   public var moduleMapPath: TextualVirtualPath
 
@@ -215,7 +215,7 @@ public struct ClangModuleDetails: Codable {
   }
 }
 
-public struct ModuleInfo: Codable {
+public struct ModuleInfo: Codable, Hashable {
   /// The path for the module.
   public var modulePath: TextualVirtualPath
 
@@ -229,7 +229,7 @@ public struct ModuleInfo: Codable {
   public var details: Details
 
   /// Specific details of a particular kind of module.
-  public enum Details {
+  public enum Details: Hashable {
     /// Swift modules may be built from a module interface, and may have
     /// a bridging header.
     case swift(SwiftModuleDetails)
