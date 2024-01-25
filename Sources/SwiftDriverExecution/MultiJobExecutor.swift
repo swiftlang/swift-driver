@@ -318,7 +318,7 @@ public final class MultiJobExecutor {
 
     // Throw the stub error the build didn't finish successfully.
     if !result.success {
-      throw Diagnostics.fatalError
+      throw Driver.ErrorDiagnostics.emitted
     }
   }
 
