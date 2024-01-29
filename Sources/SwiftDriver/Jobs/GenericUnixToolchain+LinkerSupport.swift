@@ -185,7 +185,7 @@ extension GenericUnixToolchain {
         }
       }
 
-      if !parsedOptions.hasArgument(.nostartfiles) {
+      if !isEmbeddedEnabled && !parsedOptions.hasArgument(.nostartfiles) {
         let swiftrtPath = VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
           .appending(
             components: targetTriple.platformName() ?? "",
