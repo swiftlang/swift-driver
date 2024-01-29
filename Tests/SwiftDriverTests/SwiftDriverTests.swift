@@ -6549,10 +6549,12 @@ final class SwiftDriverTests: XCTestCase {
       let invalidPath = try VirtualPath(path: "/Tools/swift.xctoolchain/usr/lib/swift")
       let invalid = linkJob.commandLine.contains(.responseFilePath(invalidPath))
       XCTAssertFalse(invalid) // ensure the driver does not emit invalid responseFilePaths to the clang invocation
+      XCTAssertFalse(linkJob.commandLine.joinedUnresolvedArguments.contains("swiftrt.o"))
     }
     
+    // Embedded Wasm compile job
     do {
-      var driver = try Driver(args: ["swiftc", "-target", "wasm32-none-none-wasm",  "test.swift", "-enable-experimental-feature", "Embedded", "-wmo", "-o", "a.wasm"], env: env)
+      var driver = try Driver(args: ["swiftc", "-target", "wasm32-none-none-wasm", "test.swift", "-enable-experimental-feature", "Embedded", "-wmo", "-o", "a.wasm"], env: env)
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 3)
       let compileJob = plannedJobs[0]
@@ -6563,6 +6565,20 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertFalse(linkJob.commandLine.contains(.flag("-rpath")))
       XCTAssertFalse(linkJob.commandLine.contains(.flag("-lswiftCore")))
     }
+
+    // Embedded Wasm link job
+    do {
+      var driver = try Driver(args: ["swiftc", "-target", "wasm32-none-none-wasm", "test.o", "-enable-experimental-feature", "Embedded", "-wmo", "-o", "a.wasm"], env: env)
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 2)
+      let _ /*autolinkJob*/ = plannedJobs[0]
+      let linkJob = plannedJobs[1]
+      XCTAssertFalse(linkJob.commandLine.contains(.flag("-force_load")))
+      XCTAssertFalse(linkJob.commandLine.contains(.flag("-rpath")))
+      XCTAssertFalse(linkJob.commandLine.contains(.flag("-lswiftCore")))
+      XCTAssertFalse(linkJob.commandLine.joinedUnresolvedArguments.contains("swiftrt.o"))
+    }
+
     do {
       let diags = DiagnosticsEngine()
       var driver = try Driver(args: ["swiftc", "-target", "arm64-apple-macosx10.13",  "test.swift", "-enable-experimental-feature", "Embedded", "-parse-as-library", "-wmo", "-o", "a.out", "-module-name", "main", "-enable-library-evolution"], diagnosticsEngine: diags)
