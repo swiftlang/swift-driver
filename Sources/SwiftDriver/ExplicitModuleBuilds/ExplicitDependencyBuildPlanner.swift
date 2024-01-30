@@ -55,6 +55,13 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
   /// Does this compile support `.explicitInterfaceModuleBuild`
   private var supportsExplicitInterfaceBuild: Bool
 
+  /// Cached command-line additions for all main module compile jobs
+  private struct ResolvedModuleDependenciesCommandLineComponents {
+    let inputs: [TypedVirtualPath]
+    let commandLine: [Job.ArgTemplate]
+  }
+  private var resolvedMainModuleDependenciesArgs: ResolvedModuleDependenciesCommandLineComponents? = nil
+
   public init(dependencyGraph: InterModuleDependencyGraph,
               toolchain: Toolchain,
               dependencyOracle: InterModuleDependencyOracle,
@@ -391,18 +398,31 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
   /// inputs and command line flags.
   public mutating func resolveMainModuleDependencies(inputs: inout [TypedVirtualPath],
                                                      commandLine: inout [Job.ArgTemplate]) throws {
-    let mainModuleId: ModuleDependencyId = .swift(dependencyGraph.mainModuleName)
-
-    let mainModuleDetails = try dependencyGraph.swiftModuleDetails(of: mainModuleId)
-    if let additionalArgs = mainModuleDetails.commandLine {
-      additionalArgs.forEach { commandLine.appendFlag($0) }
+    // If not previously computed, gather all dependency input files and command-line arguments
+    if resolvedMainModuleDependenciesArgs == nil {
+      var inputAdditions: [TypedVirtualPath] = []
+      var commandLineAdditions: [Job.ArgTemplate] = []
+      let mainModuleId: ModuleDependencyId = .swift(dependencyGraph.mainModuleName)
+      let mainModuleDetails = try dependencyGraph.swiftModuleDetails(of: mainModuleId)
+      if let additionalArgs = mainModuleDetails.commandLine {
+        additionalArgs.forEach { commandLine.appendFlag($0) }
+      }
+      commandLineAdditions.appendFlags("-disable-implicit-swift-modules",
+                                       "-Xcc", "-fno-implicit-modules",
+                                       "-Xcc", "-fno-implicit-module-maps")
+      try resolveExplicitModuleDependencies(moduleId: mainModuleId,
+                                            inputs: &inputAdditions,
+                                            commandLine: &commandLineAdditions)
+      resolvedMainModuleDependenciesArgs = ResolvedModuleDependenciesCommandLineComponents(
+        inputs: inputAdditions,
+        commandLine: commandLineAdditions
+      )
     }
-    commandLine.appendFlags("-disable-implicit-swift-modules",
-                            "-Xcc", "-fno-implicit-modules",
-                            "-Xcc", "-fno-implicit-module-maps")
-    try resolveExplicitModuleDependencies(moduleId: mainModuleId,
-                                          inputs: &inputs,
-                                          commandLine: &commandLine)
+    guard let mainModuleDependenciesArgs = resolvedMainModuleDependenciesArgs else {
+      fatalError("Failed to compute resolved explicit dependency arguments.")
+    }
+    inputs.append(contentsOf: mainModuleDependenciesArgs.inputs)
+    commandLine.append(contentsOf: mainModuleDependenciesArgs.commandLine)
   }
 
   /// Resolve all module dependencies of the main module and add them to the lists of

@@ -736,30 +736,21 @@ extension Driver {
 
   /// Adds all dependencies required for an explicit module build
   /// to inputs and command line arguments of a compile job.
-  func addExplicitModuleBuildArguments(inputs: inout [TypedVirtualPath],
-                                       commandLine: inout [Job.ArgTemplate]) throws {
-    guard var dependencyPlanner = explicitDependencyBuildPlanner else {
-      fatalError("No dependency planner in Explicit Module Build mode.")
-    }
-    try dependencyPlanner.resolveMainModuleDependencies(inputs: &inputs, commandLine: &commandLine)
+  mutating func addExplicitModuleBuildArguments(inputs: inout [TypedVirtualPath],
+                                                commandLine: inout [Job.ArgTemplate]) throws {
+    try explicitDependencyBuildPlanner?.resolveMainModuleDependencies(inputs: &inputs, commandLine: &commandLine)
   }
 
   /// Adds all dependencies required for an explicit module build of the bridging header
   /// to inputs and command line arguments of a compile job.
-  func addExplicitPCHBuildArguments(inputs: inout [TypedVirtualPath],
-                                    commandLine: inout [Job.ArgTemplate]) throws {
-    guard var dependencyPlanner = explicitDependencyBuildPlanner else {
-      fatalError("No dependency planner in Explicit Module Build mode.")
-    }
-    try dependencyPlanner.resolveBridgingHeaderDependencies(inputs: &inputs, commandLine: &commandLine)
+  mutating func addExplicitPCHBuildArguments(inputs: inout [TypedVirtualPath],
+                                             commandLine: inout [Job.ArgTemplate]) throws {
+    try explicitDependencyBuildPlanner?.resolveBridgingHeaderDependencies(inputs: &inputs, commandLine: &commandLine)
   }
 
   /// If explicit dependency planner supports creating bridging header pch command.
   public func supportsBridgingHeaderPCHCommand() throws -> Bool {
-    guard let dependencyPlanner = explicitDependencyBuildPlanner else {
-      return false
-    }
-    return try dependencyPlanner.supportsBridgingHeaderPCHCommand()
+    return try explicitDependencyBuildPlanner?.supportsBridgingHeaderPCHCommand() ?? false
   }
 
   /// In Explicit Module Build mode, distinguish between main module jobs and intermediate dependency build jobs,
