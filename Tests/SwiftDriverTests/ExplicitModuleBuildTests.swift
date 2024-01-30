@@ -230,6 +230,55 @@ final class ExplicitModuleBuildTests: XCTestCase {
     }
   }
 
+  func testModuleDependencyBuildCommandUniqueDepFile() throws {
+    try withTemporaryDirectory { path in
+      let source0 = path.appending(component: "testModuleDependencyBuildCommandUniqueDepFile1.swift")
+      let source1 = path.appending(component: "testModuleDependencyBuildCommandUniqueDepFile2.swift")
+      try localFileSystem.writeFileContents(source0, bytes:
+        """
+        import C;
+        """
+      )
+      try localFileSystem.writeFileContents(source1, bytes:
+        """
+        import G;
+        """
+      )
+
+      let cHeadersPath: AbsolutePath =
+          try testInputsPath.appending(component: "ExplicitModuleBuilds")
+                            .appending(component: "CHeaders")
+      let bridgingHeaderpath: AbsolutePath =
+          cHeadersPath.appending(component: "Bridging.h")
+      let swiftModuleInterfacesPath: AbsolutePath =
+          try testInputsPath.appending(component: "ExplicitModuleBuilds")
+                            .appending(component: "Swift")
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+      var driver = try Driver(args: ["swiftc",
+                                     "-target", "x86_64-apple-macosx11.0",
+                                     "-I", cHeadersPath.nativePathString(escaped: true),
+                                     "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                     "-explicit-module-build",
+                                     "-import-objc-header", bridgingHeaderpath.nativePathString(escaped: true),
+                                     source0.nativePathString(escaped: true),
+                                     source1.nativePathString(escaped: true)] + sdkArgumentsForTesting)
+
+      let jobs = try driver.planBuild()
+      let compileJobs = jobs.filter({ $0.kind == .compile })
+      XCTAssertEqual(compileJobs.count, 2)
+      let compileJob0 = compileJobs[0]
+      let compileJob1 = compileJobs[1]
+      let explicitDepsFlag = SwiftDriver.Job.ArgTemplate.flag(String("-explicit-swift-module-map-file"))
+      XCTAssert(compileJob0.commandLine.contains(explicitDepsFlag))
+      XCTAssert(compileJob1.commandLine.contains(explicitDepsFlag))
+      let jsonDeps0PathIndex = compileJob0.commandLine.firstIndex(of: explicitDepsFlag)
+      let jsonDeps0PathArg = compileJob0.commandLine[jsonDeps0PathIndex! + 1]
+      let jsonDeps1PathIndex = compileJob1.commandLine.firstIndex(of: explicitDepsFlag)
+      let jsonDeps1PathArg = compileJob1.commandLine[jsonDeps1PathIndex! + 1]
+      XCTAssertEqual(jsonDeps0PathArg, jsonDeps1PathArg)
+    }
+  }
+
   private func pathMatchesSwiftModule(path: VirtualPath, _ name: String) -> Bool {
     return path.basenameWithoutExt.starts(with: "\(name)-") &&
            path.extension! == FileType.swiftModule.rawValue
