@@ -198,6 +198,29 @@ public final class SwiftScanCAS {
     return try scanner.toSwiftString(casid)
   }
 
+  public var supportsSizeManagement: Bool {
+    scanner.supportsCASSizeManagement
+  }
+
+  public func getStorageSize() throws -> Int64? {
+    let size = try scanner.handleCASError { err_msg in
+      scanner.api.swiftscan_cas_get_ondisk_size(cas, &err_msg)
+    }
+    return size == -1 ? nil : size
+  }
+
+  public func setSizeLimit(_ size: Int64) throws {
+    _ = try scanner.handleCASError { err_msg in
+      scanner.api.swiftscan_cas_set_ondisk_size_limit(cas, size, &err_msg)
+    }
+  }
+
+  public func prune() throws {
+    _ = try scanner.handleCASError { err_msg in
+      scanner.api.swiftscan_cas_prune_ondisk_data(cas, &err_msg)
+    }
+  }
+
   @available(*, deprecated)
   public func computeCacheKey(commandLine: [String], input: String) throws -> String {
     let casid = try scanner.handleCASError { err_msg in

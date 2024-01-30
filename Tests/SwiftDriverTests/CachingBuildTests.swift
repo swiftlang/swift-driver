@@ -849,4 +849,27 @@ final class CachingBuildTests: XCTestCase {
       }
     }
   }
+
+  func testCASManagement() throws {
+    try withTemporaryDirectory { path in
+      let casPath = path.appending(component: "cas")
+      let driver = try Driver(args: ["swiftc", "-v"])
+      let scanLibPath = try XCTUnwrap(driver.getSwiftScanLibPath())
+      try dependencyOracle.verifyOrCreateScannerInstance(fileSystem: localFileSystem,
+                                                         swiftScanLibPath: scanLibPath)
+      let cas = try dependencyOracle.getOrCreateCAS(pluginPath: nil, onDiskPath: casPath, pluginOptions: [])
+      guard cas.supportsSizeManagement else {
+        throw XCTSkip("CAS size management is not supported")
+      }
+      let preSize = try XCTUnwrap(try cas.getStorageSize())
+      let dataToStore = Data(count: 1000)
+      _ = try cas.store(data: dataToStore)
+      let postSize = try XCTUnwrap(try cas.getStorageSize())
+      XCTAssertTrue(postSize > preSize)
+
+      // Try prune.
+      try cas.setSizeLimit(100)
+      try cas.prune()
+    }
+  }
 }
