@@ -491,6 +491,10 @@ public struct Driver {
     return supportedFrontendFeatures.contains(feature.rawValue)
   }
 
+  public func getSwiftScanLibPath() throws -> AbsolutePath? {
+    return try toolchain.lookupSwiftScanLib()
+  }
+
   @_spi(Testing)
   public static func findBlocklists(RelativeTo execDir: AbsolutePath) throws ->  [AbsolutePath] {
     // Expect to find all blocklists in such dir:

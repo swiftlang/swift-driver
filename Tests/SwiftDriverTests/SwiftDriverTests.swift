@@ -5130,7 +5130,7 @@ final class SwiftDriverTests: XCTestCase {
                                                                        swiftCompilerPrefixArgs: [])
       var printTargetInfoCommand = try Driver.itemizedJobCommand(of: printTargetInfoJob, useResponseFiles: .disabled, using: ArgsResolver(fileSystem: InMemoryFileSystem()))
       Driver.sanitizeCommandForLibScanInvocation(&printTargetInfoCommand)
-      let swiftScanLibPath = try XCTUnwrap(driver.toolchain.lookupSwiftScanLib())
+      let swiftScanLibPath = try XCTUnwrap(driver.getSwiftScanLibPath())
       if localFileSystem.exists(swiftScanLibPath) {
         let libSwiftScanInstance = try SwiftScan(dylib: swiftScanLibPath)
         if libSwiftScanInstance.canQueryTargetInfo() {
@@ -5150,7 +5150,7 @@ final class SwiftDriverTests: XCTestCase {
                                                                        swiftCompilerPrefixArgs: [])
       var printTargetInfoCommand = try Driver.itemizedJobCommand(of: printTargetInfoJob, useResponseFiles: .disabled, using: ArgsResolver(fileSystem: InMemoryFileSystem()))
       Driver.sanitizeCommandForLibScanInvocation(&printTargetInfoCommand)
-      let swiftScanLibPath = try XCTUnwrap(driver.toolchain.lookupSwiftScanLib())
+      let swiftScanLibPath = try XCTUnwrap(driver.getSwiftScanLibPath())
       if localFileSystem.exists(swiftScanLibPath) {
         let libSwiftScanInstance = try SwiftScan(dylib: swiftScanLibPath)
         if libSwiftScanInstance.canQueryTargetInfo() {

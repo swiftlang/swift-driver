@@ -159,25 +159,26 @@ public extension Driver {
     // If `-nonlib-dependency-scanner` was specified or the libSwiftScan library cannot be found,
     // attempt to fallback to using `swift-frontend -scan-dependencies` invocations for dependency
     // scanning.
-    var fallbackToFrontend = parsedOptions.hasArgument(.driverScanDependenciesNonLib)
-    let optionalScanLibPath = try toolchain.lookupSwiftScanLib()
-    if let scanLibPath = optionalScanLibPath,
-       try interModuleDependencyOracle
-        .verifyOrCreateScannerInstance(fileSystem: fileSystem,
-                                       swiftScanLibPath: scanLibPath) == false {
-      fallbackToFrontend = true
+    guard !parsedOptions.hasArgument(.driverScanDependenciesNonLib),
+          let scanLibPath = try toolchain.lookupSwiftScanLib(),
+          fileSystem.exists(scanLibPath) else {
       // This warning is mostly useful for debugging the driver, so let's hide it
-      // when libSwiftDriver is used, instead of a swift-driver executable.
+      // when libSwiftDriver is used, instead of a swift-driver executable.
       if !integratedDriver {
         diagnosticEngine.emit(.warn_scanner_frontend_fallback())
       }
+
+      return true
     }
-    if !fallbackToFrontend && isCachingEnabled {
+
+    try interModuleDependencyOracle.verifyOrCreateScannerInstance(fileSystem: fileSystem,
+                                                                  swiftScanLibPath: scanLibPath)
+    if isCachingEnabled {
       self.cas = try interModuleDependencyOracle.getOrCreateCAS(pluginPath: try getCASPluginPath(),
                                                                 onDiskPath: try getOnDiskCASPath(),
                                                                 pluginOptions: try getCASPluginOptions())
     }
-    return fallbackToFrontend
+    return false
   }
 
   static func sanitizeCommandForLibScanInvocation(_ command: inout [String]) {

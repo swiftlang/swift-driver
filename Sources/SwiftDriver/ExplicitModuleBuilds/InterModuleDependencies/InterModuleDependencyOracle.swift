@@ -77,15 +77,10 @@ public class InterModuleDependencyOracle {
   }
 
   /// Given a specified toolchain path, locate and instantiate an instance of the SwiftScan library
-  /// Returns True if a library instance exists (either verified or newly-created).
-  @_spi(Testing) public func verifyOrCreateScannerInstance(fileSystem: FileSystem,
-                                                           swiftScanLibPath: AbsolutePath)
-  throws -> Bool {
+  public func verifyOrCreateScannerInstance(fileSystem: FileSystem,
+                                            swiftScanLibPath: AbsolutePath) throws {
     return try queue.sync {
       if swiftScanLibInstance == nil {
-        guard fileSystem.exists(swiftScanLibPath) else {
-          return false
-        }
         swiftScanLibInstance = try SwiftScan(dylib: swiftScanLibPath)
       } else {
         guard swiftScanLibInstance!.path == swiftScanLibPath else {
@@ -93,7 +88,6 @@ public class InterModuleDependencyOracle {
           .scanningLibraryInvocationMismatch(swiftScanLibInstance!.path, swiftScanLibPath)
         }
       }
-      return true
     }
   }
 
