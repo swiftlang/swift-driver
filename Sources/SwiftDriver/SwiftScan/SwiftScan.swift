@@ -300,6 +300,17 @@ internal extension swiftscan_diagnostic_severity_t {
 #endif
   }
 
+  @_spi(Testing) public var supportsCASSizeManagement : Bool {
+#if os(Windows)
+    // CAS is currently not supported on Windows hosts.
+    return false
+#else
+    return api.swiftscan_cas_get_ondisk_size != nil &&
+           api.swiftscan_cas_set_ondisk_size_limit != nil &&
+           api.swiftscan_cas_prune_ondisk_data != nil
+#endif
+  }
+
   @_spi(Testing) public var supportsBridgingHeaderPCHCommand : Bool {
     return api.swiftscan_swift_textual_detail_get_bridging_pch_command_line != nil
   }
@@ -511,6 +522,9 @@ private extension swiftscan_functions_t {
     self.swiftscan_cas_options_set_plugin_option = try loadOptional("swiftscan_cas_options_set_plugin_option")
     self.swiftscan_cas_options_dispose = try loadOptional("swiftscan_cas_options_dispose")
     self.swiftscan_cas_create_from_options = try loadOptional("swiftscan_cas_create_from_options")
+    self.swiftscan_cas_get_ondisk_size = try loadOptional("swiftscan_cas_get_ondisk_size")
+    self.swiftscan_cas_set_ondisk_size_limit = try loadOptional("swiftscan_cas_set_ondisk_size_limit")
+    self.swiftscan_cas_prune_ondisk_data = try loadOptional("swiftscan_cas_prune_ondisk_data")
     self.swiftscan_cas_dispose = try loadOptional("swiftscan_cas_dispose")
     self.swiftscan_cache_compute_key = try loadOptional("swiftscan_cache_compute_key")
     self.swiftscan_cache_compute_key_from_input_index = try loadOptional("swiftscan_cache_compute_key_from_input_index")

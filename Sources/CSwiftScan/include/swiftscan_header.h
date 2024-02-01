@@ -274,6 +274,13 @@ typedef struct {
 
   //=== Scanner CAS Operations ----------------------------------------------===//
   swiftscan_cas_options_t (*swiftscan_cas_options_create)(void);
+  int64_t (*swiftscan_cas_get_ondisk_size)(swiftscan_cas_t,
+                                           swiftscan_string_ref_t *error);
+  bool (*swiftscan_cas_set_ondisk_size_limit)(swiftscan_cas_t,
+                                              int64_t size_limit,
+                                              swiftscan_string_ref_t *error);
+  bool (*swiftscan_cas_prune_ondisk_data)(swiftscan_cas_t,
+                                          swiftscan_string_ref_t *error);
   void (*swiftscan_cas_options_dispose)(swiftscan_cas_options_t options);
   void (*swiftscan_cas_options_set_ondisk_path)(swiftscan_cas_options_t options,
                                                 const char *path);
