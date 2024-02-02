@@ -90,6 +90,19 @@ extension Toolchain {
       commandLine.appendFlag(match.option.spelling + match.argument.asSingle)
     }
   }
+
+  func addExtraClangLinkerArgs(
+    to commandLine: inout [Job.ArgTemplate],
+    parsedOptions: inout ParsedOptions
+  ) throws {
+    // Because we invoke `clang` as the linker executable, we must still
+    // use `-Xlinker` for linker-specific arguments.
+    for linkerOpt in parsedOptions.arguments(for: .Xlinker) {
+      commandLine.appendFlag(.Xlinker)
+      commandLine.appendFlag(linkerOpt.argument.asSingle)
+    }
+    try commandLine.appendAllArguments(.XclangLinker, from: &parsedOptions)
+  }
 }
 
 // MARK: - Common argument routines

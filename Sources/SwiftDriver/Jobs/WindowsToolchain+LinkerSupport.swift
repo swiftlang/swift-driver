@@ -197,12 +197,7 @@ extension WindowsToolchain {
       commandLine.appendFlag("-lclang_rt.profile")
     }
 
-    for option in parsedOptions.arguments(for: .Xlinker) {
-      commandLine.appendFlag(.Xlinker)
-      commandLine.appendFlag(option.argument.asSingle)
-    }
-    // TODO(compnerd) is there a separate equivalent to OPT_linker_option_group?
-    try commandLine.appendAllArguments(.XclangLinker, from: &parsedOptions)
+    try addExtraClangLinkerArgs(to: &commandLine, parsedOptions: &parsedOptions)
 
     if parsedOptions.contains(.v) {
       commandLine.appendFlag("-v")

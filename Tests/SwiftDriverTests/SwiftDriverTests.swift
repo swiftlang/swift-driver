@@ -1907,6 +1907,29 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
+      // Xlinker flags
+      // Ensure that Xlinker flags are passed as such to the clang linker invocation.
+      try withTemporaryDirectory { path in
+        try localFileSystem.writeFileContents(path.appending(components: "wasi", "static-executable-args.lnk")) {
+          $0.send("garbage")
+        }
+        var driver = try Driver(args: commonArgs + ["-emit-executable", "-L", "/tmp", "-Xlinker", "--export-all",
+                                                    "-Xlinker", "-E", "-Xclang-linker", "foo",
+                                                    "-resource-dir", path.pathString,
+                                                    "-target", "wasm32-unknown-wasi"], env: env)
+        let plannedJobs = try driver.planBuild()
+        XCTAssertEqual(plannedJobs.count, 4)
+        let linkJob = plannedJobs[3]
+        let cmd = linkJob.commandLine
+        XCTAssertTrue(cmd.contains(subsequence: [
+          .flag("-Xlinker"), .flag("--export-all"),
+          .flag("-Xlinker"), .flag("-E"),
+          .flag("foo")
+        ]))
+      }
+    }
+
+    do {
       var driver = try Driver(args: commonArgs + ["-emit-library", "-no-toolchain-stdlib-rpath",
                                                   "-target", "aarch64-unknown-linux"], env: env)
       let plannedJobs = try driver.planBuild()
