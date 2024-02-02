@@ -158,8 +158,7 @@ extension WebAssemblyToolchain {
         from: &parsedOptions
       )
       addLinkedLibArgs(to: &commandLine, parsedOptions: &parsedOptions)
-      try commandLine.appendAllArguments(.Xlinker, from: &parsedOptions)
-      try commandLine.appendAllArguments(.XclangLinker, from: &parsedOptions)
+      try addExtraClangLinkerArgs(to: &commandLine, parsedOptions: &parsedOptions)
 
         // This should be the last option, for convenience in checking output.
       commandLine.appendFlag(.o)

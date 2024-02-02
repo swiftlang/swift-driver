@@ -321,13 +321,7 @@ extension GenericUnixToolchain {
         from: &parsedOptions
       )
       addLinkedLibArgs(to: &commandLine, parsedOptions: &parsedOptions)
-      // Because we invoke `clang` as the linker executable, we must still
-      // use `-Xlinker` for linker-specific arguments.
-      for linkerOpt in parsedOptions.arguments(for: .Xlinker) {
-        commandLine.appendFlag(.Xlinker)
-        commandLine.appendFlag(linkerOpt.argument.asSingle)
-      }
-      try commandLine.appendAllArguments(.XclangLinker, from: &parsedOptions)
+      try addExtraClangLinkerArgs(to: &commandLine, parsedOptions: &parsedOptions)
 
       // This should be the last option, for convenience in checking output.
       commandLine.appendFlag(.o)
