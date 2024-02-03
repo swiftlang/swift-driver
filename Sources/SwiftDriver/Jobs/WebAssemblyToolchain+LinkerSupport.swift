@@ -137,6 +137,17 @@ extension WebAssemblyToolchain {
       // Explicitly pass the target to the linker
       commandLine.appendFlag("--target=\(targetTriple.triple)")
 
+      // WebAssembly doesn't reserve low addresses as its ABI. But without
+      // "extra inhabitants" of the pointer representation, runtime performance
+      // and memory footprint are significantly degraded. So we reserve the
+      // low addresses to use them as extra inhabitants by telling the lowest
+      // valid address to the linker.
+      // The value of lowest valid address, called "global base", must be always
+      // synchronized with `SWIFT_ABI_WASM32_LEAST_VALID_POINTER` defined in
+      // apple/swift's runtime library.
+      commandLine.appendFlag(.Xlinker)
+      commandLine.appendFlag("--global-base=4096")
+
       // Delegate to Clang for sanitizers. It will figure out the correct linker
       // options.
       guard sanitizers.isEmpty else {

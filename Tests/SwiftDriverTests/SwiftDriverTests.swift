@@ -2315,6 +2315,7 @@ final class SwiftDriverTests: XCTestCase {
         XCTAssertTrue(commandContainsTemporaryPath(cmd, "bar.o"))
         XCTAssertTrue(commandContainsTemporaryResponsePath(cmd, "Test.autolink"))
         XCTAssertTrue(cmd.contains(.responseFilePath(.absolute(path.appending(components: "wasi", "static-executable-args.lnk")))))
+        XCTAssertTrue(cmd.contains(subsequence: [.flag("-Xlinker"), .flag("--global-base=4096")]))
         XCTAssertTrue(cmd.contains(.flag("-O3")))
         XCTAssertEqual(linkJob.outputs[0].file, try VirtualPath(path: "Test"))
 
