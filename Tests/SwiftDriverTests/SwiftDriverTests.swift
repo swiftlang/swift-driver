@@ -1613,11 +1613,12 @@ final class SwiftDriverTests: XCTestCase {
       let interpretJob = jobs[0]
       let resolver = try ArgsResolver(fileSystem: localFileSystem)
       let resolvedArgs: [String] = try resolver.resolveArgumentList(for: interpretJob)
-      XCTAssertTrue(resolvedArgs.count == 2)
-      XCTAssertEqual(resolvedArgs[1].first, "@")
-      let responseFilePath = try AbsolutePath(validating: String(resolvedArgs[1].dropFirst()))
+      XCTAssertTrue(resolvedArgs.count == 3)
+      XCTAssertEqual(resolvedArgs[1], "-frontend")
+      XCTAssertEqual(resolvedArgs[2].first, "@")
+      let responseFilePath = try AbsolutePath(validating: String(resolvedArgs[2].dropFirst()))
       let contents = try localFileSystem.readFileContents(responseFilePath).description
-      XCTAssertTrue(contents.hasPrefix("\"-frontend\"\n\"-interpret\"\n\"foo.swift\""))
+      XCTAssertTrue(contents.hasPrefix("\"-interpret\"\n\"foo.swift\""))
       XCTAssertTrue(contents.contains("\"-D\"\n\"TEST_20000\""))
       XCTAssertTrue(contents.contains("\"-D\"\n\"TEST_1\""))
     }
@@ -1641,11 +1642,12 @@ final class SwiftDriverTests: XCTestCase {
       let interpretJob = jobs[0]
       let resolver = try ArgsResolver(fileSystem: localFileSystem)
       let resolvedArgs: [String] = try resolver.resolveArgumentList(for: interpretJob, useResponseFiles: .forced)
-      XCTAssertTrue(resolvedArgs.count == 2)
-      XCTAssertEqual(resolvedArgs[1].first, "@")
-      let responseFilePath = try AbsolutePath(validating: String(resolvedArgs[1].dropFirst()))
+      XCTAssertTrue(resolvedArgs.count == 3)
+      XCTAssertEqual(resolvedArgs[1], "-frontend")
+      XCTAssertEqual(resolvedArgs[2].first, "@")
+      let responseFilePath = try AbsolutePath(validating: String(resolvedArgs[2].dropFirst()))
       let contents = try localFileSystem.readFileContents(responseFilePath).description
-      XCTAssertTrue(contents.hasPrefix("\"-frontend\"\n\"-interpret\"\n\"foo.swift\""))
+      XCTAssertTrue(contents.hasPrefix("\"-interpret\"\n\"foo.swift\""))
     }
 
     // No response file
@@ -1679,16 +1681,16 @@ final class SwiftDriverTests: XCTestCase {
       let emitModuleJob = try jobs.findJob(.emitModule)
       let emitModuleResolvedArgs: [String] =
         try resolver.resolveArgumentList(for: emitModuleJob)
-      XCTAssertEqual(emitModuleResolvedArgs.count, 2)
-      XCTAssertEqual(emitModuleResolvedArgs[1].first, "@")
+      XCTAssertEqual(emitModuleResolvedArgs.count, 3)
+      XCTAssertEqual(emitModuleResolvedArgs[2].first, "@")
 
       let compileJobs = jobs.filter { $0.kind == .compile }
       XCTAssertEqual(compileJobs.count, 2)
       for compileJob in compileJobs {
         let compileResolvedArgs: [String] =
           try resolver.resolveArgumentList(for: compileJob)
-        XCTAssertEqual(compileResolvedArgs.count, 2)
-        XCTAssertEqual(compileResolvedArgs[1].first, "@")
+        XCTAssertEqual(compileResolvedArgs.count, 3)
+        XCTAssertEqual(compileResolvedArgs[2].first, "@")
       }
     }
 
@@ -1705,16 +1707,16 @@ final class SwiftDriverTests: XCTestCase {
       let mergeModuleJob = try jobs.findJob(.mergeModule)
       let mergeModuleResolvedArgs: [String] =
         try resolver.resolveArgumentList(for: mergeModuleJob)
-      XCTAssertEqual(mergeModuleResolvedArgs.count, 2)
-      XCTAssertEqual(mergeModuleResolvedArgs[1].first, "@")
+      XCTAssertEqual(mergeModuleResolvedArgs.count, 3)
+      XCTAssertEqual(mergeModuleResolvedArgs[2].first, "@")
 
       let compileJobs = jobs.filter { $0.kind == .compile }
       XCTAssertEqual(compileJobs.count, 2)
       for compileJob in compileJobs {
         let compileResolvedArgs: [String] =
           try resolver.resolveArgumentList(for: compileJob)
-        XCTAssertEqual(compileResolvedArgs.count, 2)
-        XCTAssertEqual(compileResolvedArgs[1].first, "@")
+        XCTAssertEqual(compileResolvedArgs.count, 3)
+        XCTAssertEqual(compileResolvedArgs[2].first, "@")
       }
     }
 
@@ -1730,8 +1732,8 @@ final class SwiftDriverTests: XCTestCase {
       let generatePCMJob = jobs[0]
       let generatePCMResolvedArgs: [String] =
         try resolver.resolveArgumentList(for: generatePCMJob)
-      XCTAssertEqual(generatePCMResolvedArgs.count, 2)
-      XCTAssertEqual(generatePCMResolvedArgs[1].first, "@")
+      XCTAssertEqual(generatePCMResolvedArgs.count, 3)
+      XCTAssertEqual(generatePCMResolvedArgs[2].first, "@")
     }
   }
 

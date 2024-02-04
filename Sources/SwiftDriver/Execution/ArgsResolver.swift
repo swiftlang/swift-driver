@@ -216,9 +216,9 @@ public final class ArgsResolver {
         //   Wrap all arguments in double quotes to ensure that both Unix and
         //   Windows tools understand the response file.
         try fileSystem.writeFileContents(absPath) {
-          $0.send(resolvedArguments[1...].map { quote($0) }.joined(separator: "\n"))
+          $0.send(resolvedArguments[2...].map { quote($0) }.joined(separator: "\n"))
         }
-        resolvedArguments = [resolvedArguments[0], "@\(absPath.pathString)"]
+        resolvedArguments = [resolvedArguments[0], resolvedArguments[1], "@\(absPath.pathString)"]
       }
 
       return true
