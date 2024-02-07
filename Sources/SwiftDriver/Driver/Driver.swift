@@ -646,31 +646,6 @@ public struct Driver {
                                                                                         diagnosticEngine: diagnosticsEngine,
                                                                                         compilerMode: compilerMode)
 
-    let cachingEnabled = parsedOptions.hasArgument(.cacheCompileJob) || env.keys.contains("SWIFT_ENABLE_CACHING")
-    if cachingEnabled {
-      if !parsedOptions.hasArgument(.driverExplicitModuleBuild) {
-        diagnosticsEngine.emit(.warning("-cache-compile-job cannot be used without explicit module build, turn off caching"),
-                               location: nil)
-        self.enableCaching = false
-      } else {
-        self.enableCaching = true
-      }
-    } else {
-      self.enableCaching = false
-    }
-    self.useClangIncludeTree = !parsedOptions.hasArgument(.noClangIncludeTree) && !env.keys.contains("SWIFT_CACHING_USE_CLANG_CAS_FS")
-    self.scannerPrefixMap = try Self.computeScanningPrefixMapper(&parsedOptions)
-    if let sdkMapping =  parsedOptions.getLastArgument(.scannerPrefixMapSdk)?.asSingle {
-      self.scannerPrefixMapSDK = try AbsolutePath(validating: sdkMapping)
-    } else {
-      self.scannerPrefixMapSDK = nil
-    }
-    if let toolchainMapping = parsedOptions.getLastArgument(.scannerPrefixMapToolchain)?.asSingle {
-      self.scannerPrefixMapToolchain = try AbsolutePath(validating: toolchainMapping)
-    } else {
-      self.scannerPrefixMapToolchain = nil
-    }
-
     // Compute the working directory.
     workingDirectory = try parsedOptions.getLastArgument(.workingDirectory).map { workingDirectoryArg in
       let cwd = fileSystem.currentWorkingDirectory
@@ -850,6 +825,36 @@ public struct Driver {
                              location: nil)
     }
     self.supportedFrontendFeatures = try Self.computeSupportedCompilerFeatures(of: self.toolchain, env: env)
+
+    // Caching options.
+    let cachingEnabled = parsedOptions.hasArgument(.cacheCompileJob) || env.keys.contains("SWIFT_ENABLE_CACHING")
+    if cachingEnabled {
+      if !parsedOptions.hasArgument(.driverExplicitModuleBuild) {
+        diagnosticsEngine.emit(.warning("-cache-compile-job cannot be used without explicit module build, turn off caching"),
+                               location: nil)
+        self.enableCaching = false
+      } else if importedObjCHeader != nil && bridgingPrecompiledHeader == nil {
+        diagnosticsEngine.emit(.warning("-cache-compile-job cannot be used with -disable-bridging-pch, turn off caching"),
+                               location: nil)
+        self.enableCaching = false
+      } else {
+        self.enableCaching = true
+      }
+    } else {
+      self.enableCaching = false
+    }
+    self.useClangIncludeTree = !parsedOptions.hasArgument(.noClangIncludeTree) && !env.keys.contains("SWIFT_CACHING_USE_CLANG_CAS_FS")
+    self.scannerPrefixMap = try Self.computeScanningPrefixMapper(&parsedOptions)
+    if let sdkMapping =  parsedOptions.getLastArgument(.scannerPrefixMapSdk)?.asSingle {
+      self.scannerPrefixMapSDK = try AbsolutePath(validating: sdkMapping)
+    } else {
+      self.scannerPrefixMapSDK = nil
+    }
+    if let toolchainMapping = parsedOptions.getLastArgument(.scannerPrefixMapToolchain)?.asSingle {
+      self.scannerPrefixMapToolchain = try AbsolutePath(validating: toolchainMapping)
+    } else {
+      self.scannerPrefixMapToolchain = nil
+    }
 
     self.enabledSanitizers = try Self.parseSanitizerArgValues(
       &parsedOptions,
