@@ -3610,8 +3610,8 @@ extension Driver {
 // CAS and Caching.
 extension Driver {
   mutating func getCASPluginPath() throws -> AbsolutePath? {
-    if let pluginOpt = parsedOptions.getLastArgument(.casPluginOption)?.asSingle {
-      return try AbsolutePath(validating: pluginOpt.description)
+    if let pluginPath = parsedOptions.getLastArgument(.casPluginPath)?.asSingle {
+      return try AbsolutePath(validating: pluginPath.description)
     }
     return try toolchain.lookupToolchainCASPluginLib()
   }
