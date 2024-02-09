@@ -547,10 +547,6 @@ extension Driver {
 
   private mutating func addVerifyJobs(emitModuleJob: Job, addJob: (Job) -> Void )
   throws {
-    // Turn this flag on by default with the env var or for public frameworks.
-    let onByDefault = env["ENABLE_DEFAULT_INTERFACE_VERIFIER"] != nil ||
-        parsedOptions.getLastArgument(.libraryLevel)?.asSingle == "api"
-
     guard
       // Only verify modules with library evolution.
       parsedOptions.hasArgument(.enableLibraryEvolution),
@@ -558,7 +554,7 @@ extension Driver {
       // Only verify when requested, on by default and not disabled.
       parsedOptions.hasFlag(positive: .verifyEmittedModuleInterface,
                             negative: .noVerifyEmittedModuleInterface,
-                            default: onByDefault),
+                            default: true),
 
       // Don't verify by default modules emitted from a merge-module job
       // as it's more likely to be invalid.
@@ -568,8 +564,25 @@ extension Driver {
                             default: false)
     else { return }
 
-    let optIn = env["ENABLE_DEFAULT_INTERFACE_VERIFIER"] != nil ||
-      parsedOptions.hasArgument(.verifyEmittedModuleInterface)
+    // Downgrade errors to a warning for modules expected to fail this check.
+    var knownFailingModules: Set = ["TestBlocklistedModule"]
+    knownFailingModules = knownFailingModules.union(
+      Driver.getAllConfiguredModules(withKey: "SkipModuleInterfaceVerify",
+                              getAdopterConfigsFromXcodeDefaultToolchain()))
+
+    let moduleName = parsedOptions.getLastArgument(.moduleName)?.asSingle
+    let reportAsError = !knownFailingModules.contains(moduleName ?? "") ||
+         env["ENABLE_DEFAULT_INTERFACE_VERIFIER"] != nil ||
+         parsedOptions.hasFlag(positive: .verifyEmittedModuleInterface,
+                               negative: .noVerifyEmittedModuleInterface,
+                               default: false)
+
+    if !reportAsError {
+      diagnosticEngine
+        .emit(
+          .remark(
+            "Verification of module interfaces for '\(moduleName ?? "No module name")' set to warning only by blocklist"))
+    }
 
     enum InterfaceMode {
       case Public, Private, Package
@@ -598,7 +611,7 @@ extension Driver {
              "Merge module job should only have one swiftinterface output")
       let job = try verifyModuleInterfaceJob(interfaceInput: mergeInterfaceOutputs[0],
                                              emitModuleJob: emitModuleJob,
-                                             optIn: optIn)
+                                             reportAsError: reportAsError)
       addJob(job)
     }
     try addVerifyJob(for: .Public)

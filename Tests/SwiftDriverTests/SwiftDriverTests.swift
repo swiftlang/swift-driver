@@ -2881,8 +2881,9 @@ final class SwiftDriverTests: XCTestCase {
                                    "-enable-library-evolution"])
 
     let plannedJobs = try driver1.planBuild()
-    XCTAssertEqual(plannedJobs.count, 2)
-    let emitInterfaceJob = plannedJobs[0]
+    XCTAssertEqual(plannedJobs.count, 3)
+
+    let emitInterfaceJob = try plannedJobs.findJob(.emitModule)
     XCTAssertTrue(emitInterfaceJob.commandLine.contains(.flag("-emit-module-interface-path")))
     XCTAssertTrue(emitInterfaceJob.commandLine.contains(.flag("-emit-private-module-interface-path")))
   }
@@ -5585,23 +5586,31 @@ final class SwiftDriverTests: XCTestCase {
   func testVerifyEmittedInterfaceJob() throws {
     // Evolution enabled
     var envVars = ProcessEnv.vars
-    envVars["ENABLE_DEFAULT_INTERFACE_VERIFIER"] = "YES"
     do {
       var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-module-name",
                                      "foo", "-emit-module-interface",
+                                     "-emit-private-module-interface-path", "foo.private.swiftinterface",
                                      "-verify-emitted-module-interface",
                                      "-enable-library-evolution"])
       let plannedJobs = try driver.planBuild()
-      XCTAssertEqual(plannedJobs.count, 3)
+      XCTAssertEqual(plannedJobs.count, 4)
+
+      // Emit-module should emit both module interface files
       let emitJob = try plannedJobs.findJob(.emitModule)
-      let verifyJob = try plannedJobs.findJob(.verifyModuleInterface)
-      let mergeInterfaceOutputs = emitJob.outputs.filter { $0.type == .swiftInterface }
-      XCTAssertTrue(mergeInterfaceOutputs.count == 1,
-                    "Merge module job should only have one swiftinterface output")
-      XCTAssertTrue(verifyJob.inputs.count == 1)
-      XCTAssertTrue(verifyJob.inputs[0] == mergeInterfaceOutputs[0])
-      XCTAssertTrue(verifyJob.outputs.isEmpty)
-      XCTAssertTrue(verifyJob.commandLine.contains(.path(mergeInterfaceOutputs[0].file)))
+      let publicModuleInterface = emitJob.outputs.filter { $0.type == .swiftInterface }
+      XCTAssertEqual(publicModuleInterface.count, 1)
+      let privateModuleInterface = emitJob.outputs.filter { $0.type == .privateSwiftInterface }
+      XCTAssertEqual(privateModuleInterface.count, 1)
+
+      // Each verify job should either check the public or the private module interface, not both.
+      let verifyJobs = plannedJobs.filter { $0.kind == .verifyModuleInterface }
+      XCTAssertEqual(verifyJobs.count, 2)
+      for verifyJob in verifyJobs {
+        let publicVerify = verifyJob.inputs.contains(try XCTUnwrap(publicModuleInterface.first))
+        let privateVerify = verifyJob.inputs.contains(try XCTUnwrap(privateModuleInterface.first))
+        XCTAssertNotEqual(publicVerify, privateVerify)
+        XCTAssertFalse(verifyJob.commandLine.contains("-downgrade-typecheck-interface-error"))
+      }
     }
 
     // No Evolution
@@ -5610,6 +5619,7 @@ final class SwiftDriverTests: XCTestCase {
                                      "foo", "-emit-module-interface", "-verify-emitted-module-interface"], env: envVars)
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertFalse(plannedJobs.containsJob(.verifyModuleInterface))
     }
 
     // Explicitly disabled
@@ -5620,6 +5630,7 @@ final class SwiftDriverTests: XCTestCase {
                                      "-no-verify-emitted-module-interface"], env: envVars)
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertFalse(plannedJobs.containsJob(.verifyModuleInterface))
       let emitJob = try plannedJobs.findJob(.emitModule)
       XCTAssertTrue(emitJob.commandLine.contains("-no-verify-emitted-module-interface"))
     }
@@ -5632,16 +5643,7 @@ final class SwiftDriverTests: XCTestCase {
                                      "-no-emit-module-separately"], env: envVars)
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 2)
-    }
-
-    // Disabled when no "ENABLE_DEFAULT_INTERFACE_VERIFIER" found in the environment
-    do {
-      var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-module-name",
-                                     "foo", "-emit-module-interface",
-                                     "-enable-library-evolution",
-                                     "-experimental-emit-module-separately"])
-      let plannedJobs = try driver.planBuild()
-      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertFalse(plannedJobs.containsJob(.verifyModuleInterface))
     }
 
     // Emit-module separately
@@ -5660,6 +5662,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(verifyJob.inputs.count == 1)
       XCTAssertTrue(verifyJob.inputs[0] == emitInterfaceOutput[0])
       XCTAssertTrue(verifyJob.commandLine.contains(.path(emitInterfaceOutput[0].file)))
+      XCTAssertFalse(verifyJob.commandLine.contains("-downgrade-typecheck-interface-error"))
       XCTAssertFalse(emitJob.commandLine.contains("-no-verify-emitted-module-interface"))
       XCTAssertFalse(emitJob.commandLine.contains("-verify-emitted-module-interface"))
     }
@@ -5682,6 +5685,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(verifyJob.inputs.count == 1)
       XCTAssertTrue(verifyJob.inputs[0] == emitInterfaceOutput[0])
       XCTAssertTrue(verifyJob.commandLine.contains(.path(emitInterfaceOutput[0].file)))
+      XCTAssertFalse(verifyJob.commandLine.contains("-downgrade-typecheck-interface-error"))
     }
 
     // Test the `-no-verify-emitted-module-interface` flag with whole-module
@@ -5706,10 +5710,11 @@ final class SwiftDriverTests: XCTestCase {
                                      "-library-level", "api"])
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 2)
-      XCTAssertTrue(plannedJobs.containsJob(.verifyModuleInterface))
+      let verifyJob = try plannedJobs.findJob(.verifyModuleInterface)
+      XCTAssertFalse(verifyJob.commandLine.contains("-downgrade-typecheck-interface-error"))
     }
 
-    // Not enabled by default when the library-level is spi.
+    // Enabled by default when the library-level is spi.
     do {
       var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-module-name",
                                      "foo", "-emit-module-interface",
@@ -5717,10 +5722,51 @@ final class SwiftDriverTests: XCTestCase {
                                      "-whole-module-optimization",
                                      "-library-level", "spi"])
       let plannedJobs = try driver.planBuild()
-      XCTAssertEqual(plannedJobs.count, 1)
-      XCTAssertEqual(plannedJobs[0].kind, .compile)
-      let compileJob = try plannedJobs.findJob(.compile)
-      XCTAssertFalse(compileJob.commandLine.contains("-no-verify-emitted-module-interface"))
+      XCTAssertEqual(plannedJobs.count, 2)
+      let verifyJob = try plannedJobs.findJob(.verifyModuleInterface)
+      XCTAssertFalse(verifyJob.commandLine.contains("-downgrade-typecheck-interface-error"))
+    }
+
+    // Errors downgraded to a warning when a module is blocklisted.
+    try assertDriverDiagnostics(args: ["swiftc", "foo.swift", "-emit-module", "-module-name",
+                                       "TestBlocklistedModule", "-emit-module-interface",
+                                       "-enable-library-evolution",
+                                       "-whole-module-optimization",
+                                       "-library-level", "api"]) { driver, verify in
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 2)
+      let verifyJob = try plannedJobs.findJob(.verifyModuleInterface)
+      if driver.isFrontendArgSupported(.downgradeTypecheckInterfaceError) {
+        XCTAssertTrue(verifyJob.commandLine.contains("-downgrade-typecheck-interface-error"))
+      }
+
+      verify.expect(.remark("Verification of module interfaces for 'TestBlocklistedModule' set to warning only by blocklist"))
+    }
+
+    // Don't downgrade to error blocklisted modules when the env var is set.
+    do {
+      envVars["ENABLE_DEFAULT_INTERFACE_VERIFIER"] = "YES"
+      var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-module-name",
+                                     "TestBlocklistedModule", "-emit-module-interface",
+                                     "-enable-library-evolution",
+                                     "-whole-module-optimization"], env: envVars)
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 2)
+      let verifyJob = try plannedJobs.findJob(.verifyModuleInterface)
+      XCTAssertFalse(verifyJob.commandLine.contains("-downgrade-typecheck-interface-error"))
+    }
+
+    // Don't downgrade to error blocklisted modules if the verify flag is set.
+    do {
+      var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-module-name",
+                                     "TestBlocklistedModule", "-emit-module-interface",
+                                     "-enable-library-evolution",
+                                     "-whole-module-optimization",
+                                     "-verify-emitted-module-interface"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 2)
+      let verifyJob = try plannedJobs.findJob(.verifyModuleInterface)
+      XCTAssertFalse(verifyJob.commandLine.contains("-downgrade-typecheck-interface-error"))
     }
 
     // The flag -check-api-availability-only is not passed down to the verify job.
@@ -5752,9 +5798,6 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testVerifyEmittedPackageInterface() throws {
-      var envVars = ProcessEnv.vars
-      envVars["ENABLE_DEFAULT_INTERFACE_VERIFIER"] = "YES"
-
       // Evolution enabled
       do {
         var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module",
@@ -5763,11 +5806,9 @@ final class SwiftDriverTests: XCTestCase {
                                        "-emit-module-interface",
                                        "-emit-package-module-interface-path", "foo.package.swiftinterface",
                                        "-verify-emitted-module-interface",
-                                       "-enable-library-evolution"], env: envVars)
+                                       "-enable-library-evolution"])
 
         let plannedJobs = try driver.planBuild()
-        let x = plannedJobs.first?.commandLine.joinedUnresolvedArguments ?? ""
-        print(x)
         XCTAssertEqual(plannedJobs.count, 4)
         let emitJob = try plannedJobs.findJob(.emitModule)
         let verifyJob = try plannedJobs.findJob(.verifyModuleInterface)
@@ -5790,7 +5831,7 @@ final class SwiftDriverTests: XCTestCase {
                                        "-emit-module-interface",
                                        "-emit-package-module-interface-path", "foo.package.swiftinterface",
                                        "-enable-library-evolution",
-                                       "-no-verify-emitted-module-interface"], env: envVars)
+                                       "-no-verify-emitted-module-interface"])
         let plannedJobs = try driver.planBuild()
         XCTAssertEqual(plannedJobs.count, 2)
       }
@@ -5803,7 +5844,7 @@ final class SwiftDriverTests: XCTestCase {
                                        "-emit-module-interface",
                                        "-emit-package-module-interface-path", "foo.package.swiftinterface",
                                        "-enable-library-evolution",
-                                       "-experimental-emit-module-separately"], env: envVars)
+                                       "-experimental-emit-module-separately"])
         let plannedJobs = try driver.planBuild()
         XCTAssertEqual(plannedJobs.count, 4)
         let emitJob = try plannedJobs.findJob(.emitModule)
