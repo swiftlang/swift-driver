@@ -405,7 +405,7 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
       let mainModuleId: ModuleDependencyId = .swift(dependencyGraph.mainModuleName)
       let mainModuleDetails = try dependencyGraph.swiftModuleDetails(of: mainModuleId)
       if let additionalArgs = mainModuleDetails.commandLine {
-        additionalArgs.forEach { commandLine.appendFlag($0) }
+        additionalArgs.forEach { commandLineAdditions.appendFlag($0) }
       }
       commandLineAdditions.appendFlags("-disable-implicit-swift-modules",
                                        "-Xcc", "-fno-implicit-modules",
