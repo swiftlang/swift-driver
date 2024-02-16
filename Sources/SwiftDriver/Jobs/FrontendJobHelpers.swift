@@ -254,6 +254,7 @@ extension Driver {
     try commandLine.appendAll(.debugPrefixMap, .coveragePrefixMap, .filePrefixMap, from: &parsedOptions)
     try commandLine.appendAllArguments(.Xfrontend, from: &parsedOptions)
     try commandLine.appendLast(.warnConcurrency, from: &parsedOptions)
+    try commandLine.appendLast(.noAllocations, from: &parsedOptions)
     if isFrontendArgSupported(.enableExperimentalFeature) {
       try commandLine.appendAll(
         .enableExperimentalFeature, from: &parsedOptions)
