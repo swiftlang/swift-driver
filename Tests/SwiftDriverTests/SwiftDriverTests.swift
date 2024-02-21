@@ -5632,7 +5632,9 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs.count, 2)
       XCTAssertFalse(plannedJobs.containsJob(.verifyModuleInterface))
       let emitJob = try plannedJobs.findJob(.emitModule)
-      XCTAssertTrue(emitJob.commandLine.contains("-no-verify-emitted-module-interface"))
+      if driver.isFrontendArgSupported(.noVerifyEmittedModuleInterface) {
+        XCTAssertTrue(emitJob.commandLine.contains("-no-verify-emitted-module-interface"))
+      }
     }
 
     // Disabled by default in merge-module
@@ -5698,7 +5700,9 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 1)
       let compileJob = try plannedJobs.findJob(.compile)
-      XCTAssertTrue(compileJob.commandLine.contains("-no-verify-emitted-module-interface"))
+      if driver.isFrontendArgSupported(.noVerifyEmittedModuleInterface) {
+        XCTAssertTrue(compileJob.commandLine.contains("-no-verify-emitted-module-interface"))
+      }
     }
 
     // Enabled by default when the library-level is api.

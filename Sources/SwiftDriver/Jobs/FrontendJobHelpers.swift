@@ -423,7 +423,8 @@ extension Driver {
     // Pass along -no-verify-emitted-module-interface only if it's effective.
     // Assume verification by default as we want to know only when the user skips
     // the verification.
-    if !parsedOptions.hasFlag(positive: .verifyEmittedModuleInterface,
+    if isFrontendArgSupported(.noVerifyEmittedModuleInterface) &&
+       !parsedOptions.hasFlag(positive: .verifyEmittedModuleInterface,
                               negative: .noVerifyEmittedModuleInterface,
                               default: true) {
       commandLine.appendFlag("-no-verify-emitted-module-interface")
