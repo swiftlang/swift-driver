@@ -205,7 +205,7 @@ class APIDigesterTests: XCTestCase {
                                      "-emit-module",
                                      "-emit-digester-baseline",
                                     ],
-                              env: ProcessEnv.vars)
+                              environmentBlock: ProcessEnv.vars)
       let jobs = try driver.planBuild()
       try driver.run(jobs: jobs)
       XCTAssertFalse(driver.diagnosticEngine.hasErrors)
@@ -286,7 +286,7 @@ class APIDigesterTests: XCTestCase {
                                      "-emit-module",
                                      "-emit-digester-baseline"
                                     ],
-                              env: ProcessEnv.vars)
+                              environmentBlock: ProcessEnv.vars)
       guard driver.supportedFrontendFlags.contains("disable-fail-on-error") else {
         throw XCTSkip("Skipping: swift-api-digester does not support '-disable-fail-on-error'")
       }
@@ -310,7 +310,7 @@ class APIDigesterTests: XCTestCase {
                                       "-serialize-breaking-changes-path",
                                       path.appending(component: "changes.dia").pathString
                                      ],
-                              env: ProcessEnv.vars)
+                              environmentBlock: ProcessEnv.vars)
       let jobs2 = try driver2.planBuild()
       try driver2.run(jobs: jobs2)
       XCTAssertFalse(driver2.diagnosticEngine.hasErrors)
@@ -355,7 +355,7 @@ class APIDigesterTests: XCTestCase {
                                      "-emit-digester-baseline",
                                      "-digester-mode", "abi"
                                     ],
-                              env: ProcessEnv.vars)
+                              environmentBlock: ProcessEnv.vars)
       guard driver.supportedFrontendFlags.contains("disable-fail-on-error") else {
         throw XCTSkip("Skipping: swift-api-digester does not support '-disable-fail-on-error'")
       }
@@ -386,7 +386,7 @@ class APIDigesterTests: XCTestCase {
                                       allowlist.pathString,
                                       "-digester-mode", "abi"
                                      ],
-                              env: ProcessEnv.vars)
+                              environmentBlock: ProcessEnv.vars)
       let jobs2 = try driver2.planBuild()
       try driver2.run(jobs: jobs2)
       XCTAssertFalse(driver2.diagnosticEngine.hasErrors)

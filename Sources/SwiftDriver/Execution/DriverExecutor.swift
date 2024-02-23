@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import typealias TSCBasic.ProcessEnvironmentBlock
 import struct TSCBasic.ProcessResult
 
 import struct Foundation.Data
@@ -47,10 +48,21 @@ public protocol DriverExecutor {
 
   /// Launch a process with the given command line and report the result.
   @discardableResult
-  func checkNonZeroExit(args: String..., environment: [String: String]) throws -> String
+  func checkNonZeroExit(args: [String], environmentBlock: ProcessEnvironmentBlock) throws -> String
 
   /// Returns a textual description of the job as it would be run by the executor.
   func description(of job: Job, forceResponseFiles: Bool) throws -> String
+}
+
+extension DriverExecutor {
+  func checkNonZeroExit(args: String..., environment: [String : String]) throws -> String {
+    try self.checkNonZeroExit(args: args, environmentBlock: .init(environment))
+  }
+
+  @discardableResult
+  func checkNonZeroExit(args: String..., environmentBlock: ProcessEnvironmentBlock) throws -> String {
+    try self.checkNonZeroExit(args: args, environmentBlock: environmentBlock)
+  }
 }
 
 public struct DriverExecutorWorkload {

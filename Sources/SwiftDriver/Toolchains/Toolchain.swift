@@ -18,6 +18,7 @@ import func TSCBasic.lookupExecutablePath
 import class TSCBasic.DiagnosticsEngine
 import protocol TSCBasic.FileSystem
 import struct TSCBasic.AbsolutePath
+import typealias TSCBasic.ProcessEnvironmentBlock
 
 public enum Tool: Hashable {
   case swiftCompiler
@@ -76,9 +77,15 @@ public struct ResolvedTool {
 /// Describes a toolchain, which includes information about compilers, linkers
 /// and other tools required to build Swift code.
 public protocol Toolchain {
-  init(env: [String: String], executor: DriverExecutor, fileSystem: FileSystem, compilerExecutableDir: AbsolutePath?, toolDirectory: AbsolutePath?)
+    init(
+        env: ProcessEnvironmentBlock,
+        executor: DriverExecutor,
+        fileSystem: FileSystem,
+        compilerExecutableDir: AbsolutePath?,
+        toolDirectory: AbsolutePath?
+    )
 
-  var env: [String: String] { get }
+  var env: ProcessEnvironmentBlock { get }
 
   var fileSystem: FileSystem { get }
 
@@ -166,9 +173,9 @@ extension Toolchain {
       // a non-Windows host, we would use a Windows toolchain, but would want to
       // use the platform variable for the path.
 #if os(Windows)
-      return getEnvSearchPaths(pathString: env["Path"], currentWorkingDirectory: fileSystem.currentWorkingDirectory)
+      return getEnvSearchPaths(pathString: environmentBlock["Path"], currentWorkingDirectory: fileSystem.currentWorkingDirectory)
 #else
-      return getEnvSearchPaths(pathString: env["PATH"], currentWorkingDirectory: fileSystem.currentWorkingDirectory)
+      return getEnvSearchPaths(pathString: environmentBlock["PATH"], currentWorkingDirectory: fileSystem.currentWorkingDirectory)
 #endif
   }
 
@@ -259,7 +266,7 @@ extension Toolchain {
                                           .appending(component: "_InternalSwiftScan.dll")
 #else
     let libraryName = sharedLibraryName("lib_InternalSwiftScan")
-    if let overrideString = env["SWIFT_DRIVER_SWIFTSCAN_LIB"],
+    if let overrideString = environmentBlock["SWIFT_DRIVER_SWIFTSCAN_LIB"],
        let path = try? AbsolutePath(validating: overrideString) {
       return path
     } else {

@@ -19,6 +19,7 @@ import class TSCBasic.ProcessSet
 import enum TSCBasic.ProcessEnv
 import func TSCBasic.exec
 import protocol TSCBasic.FileSystem
+import typealias TSCBasic.ProcessEnvironmentBlock
 import struct TSCBasic.ProcessResult
 
 public final class SwiftDriverExecutor: DriverExecutor {
@@ -26,16 +27,16 @@ public final class SwiftDriverExecutor: DriverExecutor {
   let processSet: ProcessSet
   let fileSystem: FileSystem
   public let resolver: ArgsResolver
-  let env: [String: String]
+  let environmentBlock: ProcessEnvironmentBlock
 
   public init(diagnosticsEngine: DiagnosticsEngine,
               processSet: ProcessSet,
               fileSystem: FileSystem,
-              env: [String: String]) throws {
+              environmentBlock: ProcessEnvironmentBlock) throws {
     self.diagnosticsEngine = diagnosticsEngine
     self.processSet = processSet
     self.fileSystem = fileSystem
-    self.env = env
+    self.environmentBlock = environmentBlock
     self.resolver = try ArgsResolver(fileSystem: fileSystem)
   }
 
@@ -56,7 +57,7 @@ public final class SwiftDriverExecutor: DriverExecutor {
 
       try exec(path: arguments[0], args: arguments)
     } else {
-      var childEnv = env
+      var childEnv = environmentBlock
       childEnv.merge(job.extraEnvironment, uniquingKeysWith: { (_, new) in new })
       let process : ProcessProtocol
       if job.inputs.contains(TypedVirtualPath(file: .standardInput, type: .swift)) {
@@ -89,8 +90,11 @@ public final class SwiftDriverExecutor: DriverExecutor {
   }
 
   @discardableResult
-  public func checkNonZeroExit(args: String..., environment: [String: String] = ProcessEnv.vars) throws -> String {
-    return try Process.checkNonZeroExit(arguments: args, environment: environment)
+  public func checkNonZeroExit(
+    args: [String],
+    environmentBlock: ProcessEnvironmentBlock = ProcessEnv.block
+  ) throws -> String {
+    return try Process.checkNonZeroExit(arguments: args, environmentBlock: environmentBlock)
   }
 
   public func description(of job: Job, forceResponseFiles: Bool) throws -> String {

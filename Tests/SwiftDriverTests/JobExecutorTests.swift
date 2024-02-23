@@ -66,7 +66,7 @@ extension DarwinToolchain {
     Result {
       let result = try executor.checkNonZeroExit(
         args: "xcrun", "-sdk", "macosx", "--show-sdk-path",
-        environment: env
+        environmentBlock: env
       ).spm_chomp()
       return try AbsolutePath(validating: result)
     }
@@ -105,8 +105,8 @@ final class JobExecutorTests: XCTestCase {
     let executor = try SwiftDriverExecutor(diagnosticsEngine: DiagnosticsEngine(),
                                            processSet: ProcessSet(),
                                            fileSystem: localFileSystem,
-                                           env: ProcessEnv.vars)
-    let toolchain = DarwinToolchain(env: ProcessEnv.vars, executor: executor)
+                                           environmentBlock: ProcessEnv.vars)
+    let toolchain = DarwinToolchain(environmentBlock: ProcessEnv.block, executor: executor)
     try withTemporaryDirectory { path in
       let foo = path.appending(component: "foo.swift")
       let main = path.appending(component: "main.swift")
@@ -197,7 +197,7 @@ final class JobExecutorTests: XCTestCase {
       let delegate = JobCollectingDelegate()
       let executor = MultiJobExecutor(workload: .all([compileFoo, compileMain, link]),
                                       resolver: resolver, executorDelegate: delegate, diagnosticsEngine: DiagnosticsEngine())
-      try executor.execute(env: toolchain.env, fileSystem: localFileSystem)
+      try executor.execute(environmentBlock: toolchain.environmentBlock, fileSystem: localFileSystem)
 
       let output = try TSCBasic.Process.checkNonZeroExit(args: exec.pathString)
       XCTAssertEqual(output, "5\n")
@@ -218,8 +218,8 @@ final class JobExecutorTests: XCTestCase {
     let executor = try SwiftDriverExecutor(diagnosticsEngine: DiagnosticsEngine(),
                                            processSet: ProcessSet(),
                                            fileSystem: localFileSystem,
-                                           env: ProcessEnv.vars)
-    let toolchain = DarwinToolchain(env: ProcessEnv.vars, executor: executor)
+                                           environmentBlock: ProcessEnv.block)
+    let toolchain = DarwinToolchain(environmentBlock: ProcessEnv.vars, executor: executor)
     try withTemporaryDirectory { path in
       let exec = path.appending(component: "main")
       let compile = Job(
@@ -276,7 +276,7 @@ final class JobExecutorTests: XCTestCase {
                                       resolver: resolver, executorDelegate: delegate,
                                       diagnosticsEngine: DiagnosticsEngine(),
                                       inputHandleOverride: testFile)
-      try executor.execute(env: toolchain.env, fileSystem: localFileSystem)
+      try executor.execute(environmentBlock: toolchain.environmentBlock, fileSystem: localFileSystem)
 
       // Execute the resulting program
       let output = try TSCBasic.Process.checkNonZeroExit(args: exec.pathString)
@@ -306,7 +306,7 @@ final class JobExecutorTests: XCTestCase {
       diagnosticsEngine: DiagnosticsEngine(),
       processType: JobCollectingDelegate.StubProcess.self
     )
-    try executor.execute(env: ProcessEnv.vars, fileSystem: localFileSystem)
+    try executor.execute(environmentBlock: ProcessEnv.vars, fileSystem: localFileSystem)
 
     XCTAssertEqual(try delegate.finished[0].1.utf8Output(), "test")
 #endif
@@ -455,10 +455,10 @@ final class JobExecutorTests: XCTestCase {
 
   private func getHostToolchainSdkArg(_ executor: SwiftDriverExecutor) throws -> [String] {
     #if os(macOS)
-    let toolchain = DarwinToolchain(env: ProcessEnv.vars, executor: executor)
+    let toolchain = DarwinToolchain(environmentBlock: ProcessEnv.vars, executor: executor)
     return try ["-sdk", toolchain.sdk.get().pathString]
     #elseif os(Windows)
-    let toolchain = WindowsToolchain(env: ProcessEnv.vars, executor: executor)
+    let toolchain = WindowsToolchain(environmentBlock: ProcessEnv.vars, executor: executor)
     if let path = try toolchain.defaultSDKPath(nil) {
       return ["-sdk", path.nativePathString(escaped: false)]
     }

@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import protocol TSCBasic.FileSystem
+import typealias TSCBasic.ProcessEnvironmentBlock
 import struct TSCBasic.ProcessResult
 import class TSCBasic.Process
 
@@ -48,8 +49,8 @@ internal class SimpleExecutor: DriverExecutor {
     fatalError("Unsupported operation on current executor")
   }
 
-  func checkNonZeroExit(args: String..., environment: [String : String]) throws -> String {
-    try Process.checkNonZeroExit(arguments: args, environment: environment)
+  func checkNonZeroExit(args: [String], environmentBlock: ProcessEnvironmentBlock) throws -> String {
+    try Process.checkNonZeroExit(arguments: args, environmentBlock: environmentBlock)
   }
 
   func description(of job: Job, forceResponseFiles: Bool) throws -> String {

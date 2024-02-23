@@ -84,11 +84,11 @@ final class SwiftDriverTests: XCTestCase {
                                            env: ProcessEnv.vars)
     let toolchain: Toolchain
     #if os(macOS)
-    toolchain = DarwinToolchain(env: ProcessEnv.vars, executor: executor)
+    toolchain = DarwinToolchain(environmentBlock: ProcessEnv.vars, executor: executor)
     #elseif os(Windows)
-    toolchain = WindowsToolchain(env: ProcessEnv.vars, executor: executor)
+    toolchain = WindowsToolchain(environmentBlock: ProcessEnv.vars, executor: executor)
     #else
-    toolchain = GenericUnixToolchain(env: ProcessEnv.vars, executor: executor)
+    toolchain = GenericUnixToolchain(environmentBlock: ProcessEnv.vars, executor: executor)
     #endif
     do {
       _ = try toolchain.getToolPath(.lldb)
@@ -1992,7 +1992,7 @@ final class SwiftDriverTests: XCTestCase {
       // static linking
       // Locating relevant libraries is dependent on being a macOS host
       #if os(macOS)
-      var driver = try Driver(args: commonArgs + ["-emit-library", "-static", "-L", "/tmp", "-Xlinker", "-w", "-target", "x86_64-apple-macosx10.9", "-lto=llvm-full"], env: env)
+      var driver = try Driver(args: commonArgs + ["-emit-library", "-static", "-L", "/tmp", "-Xlinker", "-w", "-target", "x86_64-apple-macosx10.9", "-lto=llvm-full"], environmentBlock: environmentBlock)
       let plannedJobs = try driver.planBuild()
 
       XCTAssertEqual(plannedJobs.count, 3)
@@ -2048,7 +2048,7 @@ final class SwiftDriverTests: XCTestCase {
       // lto linking
       // Locating relevant libraries is dependent on being a macOS host
       #if os(macOS)
-      var driver1 = try Driver(args: commonArgs + ["-emit-executable", "-target", "x86_64-apple-macosx10.15", "-lto=llvm-thin"], env: env)
+      var driver1 = try Driver(args: commonArgs + ["-emit-executable", "-target", "x86_64-apple-macosx10.15", "-lto=llvm-thin"], environmentBlock: environmentBlock)
       let plannedJobs1 = try driver1.planBuild()
       XCTAssertFalse(plannedJobs1.containsJob(.autolinkExtract))
       let linkJob1 = try plannedJobs1.findJob(.link)
@@ -2195,7 +2195,7 @@ final class SwiftDriverTests: XCTestCase {
     #if os(Linux)
     do {
       // executable linking linux static stdlib
-      var driver = try Driver(args: commonArgs + ["-emit-executable", "-Osize", "-static-stdlib", "-target", "x86_64-unknown-linux"], env: env)
+      var driver = try Driver(args: commonArgs + ["-emit-executable", "-Osize", "-static-stdlib", "-target", "x86_64-unknown-linux"], environmentBlock: environmentBlock)
       let plannedJobs = try driver.planBuild()
 
       XCTAssertEqual(plannedJobs.count, 4)
@@ -2227,7 +2227,7 @@ final class SwiftDriverTests: XCTestCase {
       // executable linking linux static stdlib with musl
       var driver = try Driver(args: commonArgs + [
         "-emit-executable", "-Osize", "-static-stdlib", "-static-executable", "-target", "x86_64-unknown-linux-musl"
-      ], env: env)
+      ], environmentBlock: environmentBlock)
       let plannedJobs = try driver.planBuild()
 
       XCTAssertEqual(plannedJobs.count, 4)
@@ -3989,7 +3989,7 @@ final class SwiftDriverTests: XCTestCase {
     var driver = try Driver(args: ["swiftc", "-target",
                                    "arm64-apple-ios12.0", "foo.swift",
                                    "-sdk", sdkRoot.pathString],
-                            env: envVars)
+                            environmentBlock: envVars)
     let plannedJobs = try driver.planBuild()
     XCTAssertEqual(plannedJobs.count, 2)
     XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-target")))
@@ -5069,11 +5069,11 @@ final class SwiftDriverTests: XCTestCase {
                                            fileSystem: localFileSystem,
                                            env: ProcessEnv.vars)
     #if os(macOS)
-    toolchain = DarwinToolchain(env: ProcessEnv.vars, executor: executor)
+    toolchain = DarwinToolchain(environmentBlock: ProcessEnv.vars, executor: executor)
     #elseif os(Windows)
-    toolchain = WindowsToolchain(env: ProcessEnv.vars, executor: executor)
+    toolchain = WindowsToolchain(environmentBlock: ProcessEnv.vars, executor: executor)
     #else
-    toolchain = GenericUnixToolchain(env: ProcessEnv.vars, executor: executor)
+    toolchain = GenericUnixToolchain(environmentBlock: ProcessEnv.vars, executor: executor)
     #endif
 
     XCTAssertEqual(
@@ -7179,7 +7179,7 @@ final class SwiftDriverTests: XCTestCase {
                                        "-incremental",
                                        "-output-file-map", ofm.nativePathString(escaped: true),
                                        main.nativePathString(escaped: true)] + sdkArguments,
-                                env: ProcessEnv.vars)
+                                environmentBlock: ProcessEnv.vars)
         let jobs = try driver.planBuild()
         do {try driver.run(jobs: jobs)}
         catch {return false}
@@ -7393,12 +7393,12 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
-      var env = ProcessEnv.vars
-      env["SDKROOT"] = SDKROOT.nativePathString(escaped: false)
+      var environmentBlock = ProcessEnv.vars
+      environmentBlock["SDKROOT"] = SDKROOT.nativePathString(escaped: false)
 
       var driver = try Driver(args: [
         "swiftc", "-emit-library", "-o", "library.dll", "library.obj"
-      ], env: env)
+      ], environmentBlock: environmentBlock)
       let jobs = try driver.planBuild().removingAutolinkExtractJobs()
       XCTAssertEqual(jobs.count, 1)
       let job = jobs.first!
@@ -7407,12 +7407,12 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
-      var env = ProcessEnv.vars
-      env["SDKROOT"] = SDKROOT.nativePathString(escaped: false)
+      var environmentBlock = ProcessEnv.vars
+      environmentBlock["SDKROOT"] = SDKROOT.nativePathString(escaped: false)
 
       var driver = try Driver(args: [
         "swiftc", "-emit-library", "-o", "library.dll", "library.obj", "-nostartfiles",
-      ], env: env)
+      ], environmentBlock: environmentBlock)
       let jobs = try driver.planBuild().removingAutolinkExtractJobs()
       XCTAssertEqual(jobs.count, 1)
       let job = jobs.first!
@@ -7426,12 +7426,12 @@ final class SwiftDriverTests: XCTestCase {
     // toolchain relative path.
 #if false
     do {
-      var env = ProcessEnv.vars
-      env["SDKROOT"] = nil
+      var environmentBlock = ProcessEnv.vars
+      environmentBlock["SDKROOT"] = nil
 
       var driver = try Driver(args: [
         "swiftc", "-emit-library", "-o", "library.dll", "library.obj"
-      ], env: env)
+      ], environmentBlock: environmentBlock)
       driver.frontendTargetInfo.runtimeResourcePath = SDKROOT
       let jobs = try driver.planBuild().removingAutolinkExtractJobs()
       XCTAssertEqual(jobs.count, 1)
