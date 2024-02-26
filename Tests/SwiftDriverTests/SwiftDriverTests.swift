@@ -4368,7 +4368,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(frontendJobs[1].kind, .link)
       XCTAssertEqual(frontendJobs[1].tool.absolutePath!.pathString, ld.pathString)
 
-      // WebAssembly toolchain
+      // WASI toolchain
       do {
         try withTemporaryDirectory { resourceDir in
           try localFileSystem.writeFileContents(resourceDir.appending(components: "wasi", "static-executable-args.lnk")) {
