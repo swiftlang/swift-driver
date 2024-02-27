@@ -73,6 +73,10 @@ extension WebAssemblyToolchain {
         if let tool = lookupExecutablePath(filename: "clang", searchPaths: [toolsDir]) {
           clangPath = tool
         }
+
+        // Look for binutils in the toolchain folder.
+        commandLine.appendFlag("-B")
+        commandLine.appendPath(toolsDir)
       }
 
       guard !parsedOptions.hasArgument(.noStaticStdlib, .noStaticExecutable) else {

@@ -4367,6 +4367,26 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(frontendJobs.count, 2)
       XCTAssertEqual(frontendJobs[1].kind, .link)
       XCTAssertEqual(frontendJobs[1].tool.absolutePath!.pathString, ld.pathString)
+
+      // WASI toolchain
+      do {
+        try withTemporaryDirectory { resourceDir in
+          try localFileSystem.writeFileContents(resourceDir.appending(components: "wasi", "static-executable-args.lnk")) {
+            $0.send("garbage")
+          }
+          var driver = try Driver(args: ["swiftc",
+                                         "-target", "wasm32-unknown-wasi",
+                                         "-resource-dir", resourceDir.pathString,
+                                         "-tools-directory", tmpDir.pathString,
+                                         "foo.swift"],
+                                  env: env)
+          let frontendJobs = try driver.planBuild().removingAutolinkExtractJobs()
+          XCTAssertEqual(frontendJobs.count, 2)
+          XCTAssertTrue(frontendJobs[1].commandLine.contains(subsequence: [
+            .flag("-B"), .path(.absolute(tmpDir))
+          ]))
+        }
+      }
     }
   }
 
