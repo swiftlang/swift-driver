@@ -46,34 +46,40 @@ public class InterModuleDependencyOracle {
 
   @_spi(Testing) public func getDependencies(workingDirectory: AbsolutePath,
                                              moduleAliases: [String: String]? = nil,
-                                             commandLine: [String])
+                                             commandLine: [String],
+                                             diagnostics: inout [ScannerDiagnosticPayload])
   throws -> InterModuleDependencyGraph {
     precondition(hasScannerInstance)
     return try swiftScanLibInstance!.scanDependencies(workingDirectory: workingDirectory,
                                                       moduleAliases: moduleAliases,
-                                                      invocationCommand: commandLine)
+                                                      invocationCommand: commandLine,
+                                                      diagnostics: &diagnostics)
   }
 
   @_spi(Testing) public func getBatchDependencies(workingDirectory: AbsolutePath,
                                                   moduleAliases: [String: String]? = nil,
                                                   commandLine: [String],
-                                                  batchInfos: [BatchScanModuleInfo])
+                                                  batchInfos: [BatchScanModuleInfo],
+                                                  diagnostics: inout [ScannerDiagnosticPayload])
   throws -> [ModuleDependencyId: [InterModuleDependencyGraph]] {
     precondition(hasScannerInstance)
     return try swiftScanLibInstance!.batchScanDependencies(workingDirectory: workingDirectory,
                                                            moduleAliases: moduleAliases,
                                                            invocationCommand: commandLine,
-                                                           batchInfos: batchInfos)
+                                                           batchInfos: batchInfos,
+                                                           diagnostics: &diagnostics)
   }
 
   @_spi(Testing) public func getImports(workingDirectory: AbsolutePath,
                                         moduleAliases: [String: String]? = nil,
-                                             commandLine: [String])
+                                        commandLine: [String],
+                                        diagnostics: inout [ScannerDiagnosticPayload])
   throws -> InterModuleDependencyImports {
     precondition(hasScannerInstance)
     return try swiftScanLibInstance!.preScanImports(workingDirectory: workingDirectory,
                                                     moduleAliases: moduleAliases,
-                                                    invocationCommand: commandLine)
+                                                    invocationCommand: commandLine,
+                                                    diagnostics: &diagnostics)
   }
 
   /// Given a specified toolchain path, locate and instantiate an instance of the SwiftScan library
@@ -145,6 +151,13 @@ public class InterModuleDependencyOracle {
       fatalError("Attempting to query supported scanner API with no scanner instance.")
     }
     return swiftScan.supportsBridgingHeaderPCHCommand
+  }
+
+  @_spi(Testing) public func supportsPerScanDiagnostics() throws -> Bool {
+    guard let swiftScan = swiftScanLibInstance else {
+      fatalError("Attempting to query supported scanner API with no scanner instance.")
+    }
+    return swiftScan.canQueryPerScanDiagnostics
   }
 
   @_spi(Testing) public func getScannerDiagnostics() throws -> [ScannerDiagnosticPayload]? {

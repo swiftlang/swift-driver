@@ -969,11 +969,12 @@ final class ExplicitModuleBuildTests: XCTestCase {
                             "-module-alias",
                             "Car=Bar",
                             main.nativePathString(escaped: true)] + sdkArgumentsForTesting
-
+      var scanDiagnostics: [ScannerDiagnosticPayload] = []
       let deps =
         try dependencyOracle.getImports(workingDirectory: path,
                                         moduleAliases: ["Car": "Bar"],
-                                        commandLine: scannerCommand)
+                                        commandLine: scannerCommand,
+                                        diagnostics: &scanDiagnostics)
 
       XCTAssertTrue(deps.imports.contains("Bar"))
       XCTAssertFalse(deps.imports.contains("Car"))
@@ -1148,9 +1149,11 @@ final class ExplicitModuleBuildTests: XCTestCase {
       if scannerCommand.first == "-frontend" {
         scannerCommand.removeFirst()
       }
+      var scanDiagnostics: [ScannerDiagnosticPayload] = []
       let dependencyGraph =
           try dependencyOracle.getDependencies(workingDirectory: path,
-                                               commandLine: scannerCommand)
+                                               commandLine: scannerCommand,
+                                               diagnostics: &scanDiagnostics)
 
       let fooDependencyInfo = try XCTUnwrap(dependencyGraph.modules[.swiftPrebuiltExternal("Foo")])
       guard case .swiftPrebuiltExternal(let fooDetails) = fooDependencyInfo.details else {
@@ -1252,10 +1255,11 @@ final class ExplicitModuleBuildTests: XCTestCase {
                             "-I", stdLibPath.nativePathString(escaped: true),
                             "-I", shimsPath.nativePathString(escaped: true),
                             main.nativePathString(escaped: true)] + sdkArgumentsForTesting
-
+      var scanDiagnostics: [ScannerDiagnosticPayload] = []
       let imports =
         try dependencyOracle.getImports(workingDirectory: path,
-                                        commandLine: scannerCommand)
+                                        commandLine: scannerCommand,
+                                        diagnostics: &scanDiagnostics)
       let expectedImports = ["C", "E", "G", "Swift", "SwiftOnoneSupport"]
       // Dependnig on how recent the platform we are running on, the _Concurrency module may or may not be present.
       let expectedImports2 = ["C", "E", "G", "Swift", "SwiftOnoneSupport", "_Concurrency"]
@@ -1362,10 +1366,19 @@ final class ExplicitModuleBuildTests: XCTestCase {
       if scannerCommand.first == "-frontend" {
         scannerCommand.removeFirst()
       }
+      var scanDiagnostics: [ScannerDiagnosticPayload] = []
       let _ =
           try dependencyOracle.getDependencies(workingDirectory: path,
-                                               commandLine: scannerCommand)
-      let potentialDiags = try dependencyOracle.getScannerDiagnostics()
+                                               commandLine: scannerCommand,
+                                               diagnostics: &scanDiagnostics)
+      let potentialDiags: [ScannerDiagnosticPayload]?
+      if try dependencyOracle.supportsPerScanDiagnostics() {
+        potentialDiags = scanDiagnostics
+        print("Using Per-Scan diagnostics")
+      } else {
+        potentialDiags = try dependencyOracle.getScannerDiagnostics()
+        print("Using Scanner-Global diagnostics")
+      }
       XCTAssertEqual(potentialDiags?.count, 5)
       let diags = try XCTUnwrap(potentialDiags)
       let error = diags[0]
@@ -1463,9 +1476,11 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                                  // though the module-name above should be sufficient.
                                                  "-I/tmp/foo/bar/\(index)"]
         do {
+          var scanDiagnostics: [ScannerDiagnosticPayload] = []
           let dependencyGraph =
             try dependencyOracle.getDependencies(workingDirectory: path,
-                                                 commandLine: iterationCommand)
+                                                 commandLine: iterationCommand,
+                                                 diagnostics: &scanDiagnostics)
 
           // The _Concurrency and _StringProcessing modules are automatically
           // imported in newer versions of the Swift compiler. If they happened to
@@ -1497,6 +1512,87 @@ final class ExplicitModuleBuildTests: XCTestCase {
                         adjustedExpectedNumberOfDependencies)
         } catch {
           XCTFail("Unexpected error: \(error)")
+        }
+      }
+    }
+  }
+
+  func testParallelDependencyScanningDiagnostics() throws {
+    let (stdlibPath, shimsPath, toolchain, _) = try getDriverArtifactsForScanning()
+    // The dependency oracle wraps an instance of libSwiftScan and ensures thread safety across
+    // queries.
+    let dependencyOracle = InterModuleDependencyOracle()
+    let scanLibPath = try XCTUnwrap(toolchain.lookupSwiftScanLib())
+    try dependencyOracle.verifyOrCreateScannerInstance(fileSystem: localFileSystem,
+                                                       swiftScanLibPath: scanLibPath)
+    if !(try dependencyOracle.supportsPerScanDiagnostics()) {
+      throw XCTSkip("Scanner does not support per-scan diagnostics")
+    }
+    // Create a simple test case.
+    try withTemporaryDirectory { path in
+      let cHeadersPath: AbsolutePath =
+          try testInputsPath.appending(component: "ExplicitModuleBuilds")
+                            .appending(component: "CHeaders")
+      let swiftModuleInterfacesPath: AbsolutePath =
+          try testInputsPath.appending(component: "ExplicitModuleBuilds")
+                            .appending(component: "Swift")
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+      let baseDriverArgs = ["swiftc",
+                            "-I", cHeadersPath.nativePathString(escaped: true),
+                            "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                            "-I", stdlibPath.nativePathString(escaped: true),
+                            "-I", shimsPath.nativePathString(escaped: true),
+                            "/tmp/Foo.o",
+                            "-explicit-module-build",
+                            "-working-directory", path.nativePathString(escaped: true),
+                            "-disable-clang-target"] + sdkArgumentsForTesting
+      let resolver = try ArgsResolver(fileSystem: localFileSystem)
+      let numFiles = 10
+      var files: [AbsolutePath] = []
+      var drivers: [Driver] = []
+      var scannerCommands: [[String]] = []
+      for fileIndex in 0..<numFiles {
+        files.append(path.appending(component: "testParallelDependencyScanningDiagnostics\(fileIndex).swift"))
+        try localFileSystem.writeFileContents(files.last!, bytes: ByteString(encodingAsUTF8: "import UnknownModule\(fileIndex);"))
+        var driver = try Driver(args: baseDriverArgs +
+                                      [files.last!.nativePathString(escaped: true)] +
+                                      ["-module-name","testParallelDependencyScanningDiagnostics\(fileIndex)"] +
+                                       // FIXME: We need to differentiate the scanning action hash,
+                                       // though the module-name above should be sufficient.
+                                      ["-I/tmp/foo/bar/\(fileIndex)"],
+                                env: ProcessEnv.vars)
+        var scannerCommand = try driver.dependencyScannerInvocationCommand().1.map { try resolver.resolve($0) }
+        if scannerCommand.first == "-frontend" {
+          scannerCommand.removeFirst()
+        }
+        scannerCommands.append(scannerCommand)
+        drivers.append(driver)
+      }
+      var scanDiagnostics = [[ScannerDiagnosticPayload]](repeating: [], count: numFiles)
+      // Execute scans concurrently
+      DispatchQueue.concurrentPerform(iterations: numFiles) { scanIndex in
+        do {
+          let _ =
+            try dependencyOracle.getDependencies(workingDirectory: path,
+                                                 commandLine: scannerCommands[scanIndex],
+                                                 diagnostics: &scanDiagnostics[scanIndex])
+        } catch {
+          XCTFail("Unexpected error: \(error)")
+        }
+      }
+      // Examine the results
+      if try dependencyOracle.supportsPerScanDiagnostics() {
+        for scanIndex in 0..<numFiles {
+          let diagnostics = scanDiagnostics[scanIndex]
+          XCTAssertEqual(diagnostics.count, 2)
+          XCTAssertEqual(diagnostics[0].message, "Unable to find module dependency: 'UnknownModule\(scanIndex)'")
+          XCTAssertEqual(diagnostics[1].message, "a dependency of main module 'testParallelDependencyScanningDiagnostics\(scanIndex)'")
+        }
+      } else {
+        let globalDiagnostics = try dependencyOracle.getScannerDiagnostics()
+        for scanIndex in 0..<numFiles {
+          XCTAssertTrue(globalDiagnostics?.contains(where: {$0.message == "Unable to find module dependency: 'UnknownModule\(scanIndex)'"}))
+          XCTAssertTrue(globalDiagnostics?.contains(where: {$0.message == "a dependency of main module 'testParallelDependencyScanningDiagnostics\(scanIndex)'"}))
         }
       }
     }
@@ -1630,9 +1726,11 @@ final class ExplicitModuleBuildTests: XCTestCase {
         if scannerCommand.first == "-frontend" {
           scannerCommand.removeFirst()
         }
+        var scanDiagnostics: [ScannerDiagnosticPayload] = []
         let dependencyGraph =
           try dependencyOracle.getDependencies(workingDirectory: path,
-                                                commandLine: scannerCommand)
+                                               commandLine: scannerCommand,
+                                               diagnostics: &scanDiagnostics)
         let serializer = DOTModuleDependencyGraphSerializer(dependencyGraph)
 
         let outputFile = path.appending(component: "dependency_graph.dot")
@@ -1695,10 +1793,11 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let firstDependencyOracle = InterModuleDependencyOracle()
       try firstDependencyOracle.verifyOrCreateScannerInstance(fileSystem: localFileSystem,
                                                               swiftScanLibPath: scanLibPath)
-
+      var firstScanDiagnostics: [ScannerDiagnosticPayload] = []
       let firstScanGraph =
         try firstDependencyOracle.getDependencies(workingDirectory: path,
-                                              commandLine: scannerCommand)
+                                              commandLine: scannerCommand,
+                                              diagnostics: &firstScanDiagnostics)
       firstDependencyOracle.serializeScannerCache(to: cacheSavePath)
 
       // Run the second scan, re-using the serialized cache contents.
@@ -1706,9 +1805,11 @@ final class ExplicitModuleBuildTests: XCTestCase {
       try secondDependencyOracle.verifyOrCreateScannerInstance(fileSystem: localFileSystem,
                                                                swiftScanLibPath: scanLibPath)
       XCTAssertFalse(secondDependencyOracle.loadScannerCache(from: cacheSavePath))
+      var secondScanDiagnostics: [ScannerDiagnosticPayload] = []
       let secondScanGraph =
         try secondDependencyOracle.getDependencies(workingDirectory: path,
-                                                   commandLine: scannerCommand)
+                                                   commandLine: scannerCommand,
+                                                   diagnostics: &secondScanDiagnostics)
 
       XCTAssertTrue(firstScanGraph.modules.count == secondScanGraph.modules.count)
     }

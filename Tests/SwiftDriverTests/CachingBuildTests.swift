@@ -666,9 +666,11 @@ final class CachingBuildTests: XCTestCase {
                                                  // though the module-name above should be sufficient.
                                                  "-I/tmp/foo/bar/\(index)"]
         do {
+          var scanDiagnostics: [ScannerDiagnosticPayload] = []
           let dependencyGraph =
             try dependencyOracle.getDependencies(workingDirectory: path,
-                                                 commandLine: iterationCommand)
+                                                 commandLine: iterationCommand,
+                                                 diagnostics: &scanDiagnostics)
 
           // The _Concurrency and _StringProcessing modules are automatically
           // imported in newer versions of the Swift compiler. If they happened to
@@ -712,8 +714,10 @@ final class CachingBuildTests: XCTestCase {
                                       "-I/tmp/bad",
                                       "-cas-path", casPath2.nativePathString(escaped: true),
                                       ]
+      var scanDiagnostics: [ScannerDiagnosticPayload] = []
       XCTAssertThrowsError(try dependencyOracle.getDependencies(workingDirectory: path,
-                                                                commandLine: command)) {
+                                                                commandLine: command,
+                                                                diagnostics: &scanDiagnostics)) {
         XCTAssertTrue($0 is DependencyScanningError)
       }
       let diags = try XCTUnwrap(dependencyOracle.getScannerDiagnostics())

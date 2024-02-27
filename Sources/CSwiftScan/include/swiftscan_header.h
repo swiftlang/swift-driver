@@ -97,6 +97,8 @@ typedef struct {
   (*swiftscan_dependency_graph_get_main_module_name)(swiftscan_dependency_graph_t);
   swiftscan_dependency_set_t *
   (*swiftscan_dependency_graph_get_dependencies)(swiftscan_dependency_graph_t);
+  swiftscan_diagnostic_set_t *
+  (*swiftscan_dependency_graph_get_diagnostics)(swiftscan_dependency_graph_t);
 
   //=== Dependency Module Info Functions ------------------------------------===//
   swiftscan_string_ref_t
@@ -199,6 +201,8 @@ typedef struct {
   //=== Prescan Result Functions --------------------------------------------===//
   swiftscan_string_set_t *
   (*swiftscan_import_set_get_imports)(swiftscan_import_set_t);
+  swiftscan_diagnostic_set_t *
+  (*swiftscan_import_set_get_diagnostics)(swiftscan_import_set_t);
 
   //=== Scanner Invocation Functions ----------------------------------------===//
   swiftscan_scan_invocation_t
