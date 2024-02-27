@@ -201,6 +201,7 @@ public extension Driver {
 
     let isSwiftScanLibAvailable = !(try initSwiftScanLib())
     if isSwiftScanLibAvailable {
+      var scanDiagnostics: [ScannerDiagnosticPayload] = []
       let cwd = workingDirectory ?? fileSystem.currentWorkingDirectory!
       var command = try Self.itemizedJobCommand(of: preScanJob,
                                                 useResponseFiles: .disabled,
@@ -209,12 +210,13 @@ public extension Driver {
       do {
         imports = try interModuleDependencyOracle.getImports(workingDirectory: cwd,
                                                              moduleAliases: moduleOutputInfo.aliases,
-                                                             commandLine: command)
+                                                             commandLine: command,
+                                                             diagnostics: &scanDiagnostics)
       } catch let DependencyScanningError.dependencyScanFailed(reason) {
-        try emitScannerDiagnostics()
+        try emitGlobalScannerDiagnostics()
         throw DependencyScanningError.dependencyScanFailed(reason)
       }
-      try emitScannerDiagnostics()
+      try emitGlobalScannerDiagnostics()
     } else {
       // Fallback to legacy invocation of the dependency scanner with
       // `swift-frontend -scan-dependencies -import-prescan`
@@ -227,10 +229,8 @@ public extension Driver {
     return imports
   }
 
-  mutating internal func emitScannerDiagnostics() throws {
-    let possibleDiags = try interModuleDependencyOracle.getScannerDiagnostics()
-    if let diags = possibleDiags {
-      for diagnostic in diags {
+  internal func emitScannerDiagnostics(_ diagnostics: [ScannerDiagnosticPayload]) throws {
+      for diagnostic in diagnostics {
         switch diagnostic.severity {
         case .error:
           diagnosticEngine.emit(.scanner_diagnostic_error(diagnostic.message))
@@ -244,6 +244,16 @@ public extension Driver {
           diagnosticEngine.emit(.scanner_diagnostic_error(diagnostic.message))
         }
       }
+  }
+
+  mutating internal func emitGlobalScannerDiagnostics() throws {
+    // We only emit global scanner-collected diagnostics as a legacy flow
+    // when the scanner does not support per-scan diagnostic output
+    guard try !interModuleDependencyOracle.supportsPerScanDiagnostics() else {
+      return
+    }
+    if let diags = try interModuleDependencyOracle.getScannerDiagnostics() {
+      try emitScannerDiagnostics(diags)
     }
   }
 
@@ -261,6 +271,7 @@ public extension Driver {
 
     let isSwiftScanLibAvailable = !(try initSwiftScanLib())
     if isSwiftScanLibAvailable {
+      var scanDiagnostics: [ScannerDiagnosticPayload] = []
       let cwd = workingDirectory ?? fileSystem.currentWorkingDirectory!
       var command = try Self.itemizedJobCommand(of: scannerJob,
                                                 useResponseFiles: .disabled,
@@ -269,12 +280,14 @@ public extension Driver {
       do {
         dependencyGraph = try interModuleDependencyOracle.getDependencies(workingDirectory: cwd,
                                                                           moduleAliases: moduleOutputInfo.aliases,
-                                                                          commandLine: command)
+                                                                          commandLine: command,
+                                                                          diagnostics: &scanDiagnostics)
+        try emitScannerDiagnostics(scanDiagnostics)
       } catch let DependencyScanningError.dependencyScanFailed(reason) {
-        try emitScannerDiagnostics()
+        try emitGlobalScannerDiagnostics()
         throw DependencyScanningError.dependencyScanFailed(reason)
       }
-      try emitScannerDiagnostics()
+      try emitGlobalScannerDiagnostics()
     } else {
       // Fallback to legacy invocation of the dependency scanner with
       // `swift-frontend -scan-dependencies`
@@ -295,6 +308,7 @@ public extension Driver {
 
     let isSwiftScanLibAvailable = !(try initSwiftScanLib())
     if isSwiftScanLibAvailable {
+      var scanDiagnostics: [ScannerDiagnosticPayload] = []
       let cwd = workingDirectory ?? fileSystem.currentWorkingDirectory!
       var command = try Self.itemizedJobCommand(of: batchScanningJob,
                                                 useResponseFiles: .disabled,
@@ -304,7 +318,8 @@ public extension Driver {
         try interModuleDependencyOracle.getBatchDependencies(workingDirectory: cwd,
                                                              moduleAliases: moduleOutputInfo.aliases,
                                                              commandLine: command,
-                                                             batchInfos: moduleInfos)
+                                                             batchInfos: moduleInfos,
+                                                             diagnostics: &scanDiagnostics)
     } else {
       // Fallback to legacy invocation of the dependency scanner with
       // `swift-frontend -scan-dependencies`

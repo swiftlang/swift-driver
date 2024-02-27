@@ -126,7 +126,8 @@ internal extension swiftscan_diagnostic_severity_t {
 
   func preScanImports(workingDirectory: AbsolutePath,
                       moduleAliases: [String: String]?,
-                      invocationCommand: [String]) throws -> InterModuleDependencyImports {
+                      invocationCommand: [String],
+                      diagnostics: inout [ScannerDiagnosticPayload]) throws -> InterModuleDependencyImports {
     // Create and configure the scanner invocation
     let invocation = api.swiftscan_scan_invocation_create()
     defer { api.swiftscan_scan_invocation_dispose(invocation) }
@@ -144,6 +145,13 @@ internal extension swiftscan_diagnostic_severity_t {
     guard let importSetRef = importSetRefOrNull else {
       throw DependencyScanningError.dependencyScanFailed("Unable to produce import set")
     }
+    if canQueryPerScanDiagnostics {
+      let diagnosticsSetRefOrNull = api.swiftscan_import_set_get_diagnostics(importSetRef)
+      guard let diagnosticsSetRef = diagnosticsSetRefOrNull else {
+        throw DependencyScanningError.dependencyScanFailed("Unable to query dependency diagnostics")
+      }
+      diagnostics = try mapToDriverDiagnosticPayload(diagnosticsSetRef)
+    }
 
     let importSet = try constructImportSet(from: importSetRef, with: moduleAliases)
     // Free the memory allocated for the in-memory representation of the import set
@@ -154,7 +162,8 @@ internal extension swiftscan_diagnostic_severity_t {
 
   func scanDependencies(workingDirectory: AbsolutePath,
                         moduleAliases: [String: String]?,
-                        invocationCommand: [String]) throws -> InterModuleDependencyGraph {
+                        invocationCommand: [String],
+                        diagnostics: inout [ScannerDiagnosticPayload]) throws -> InterModuleDependencyGraph {
     // Create and configure the scanner invocation
     let invocation = api.swiftscan_scan_invocation_create()
     defer { api.swiftscan_scan_invocation_dispose(invocation) }
@@ -172,6 +181,13 @@ internal extension swiftscan_diagnostic_severity_t {
     guard let graphRef = graphRefOrNull else {
       throw DependencyScanningError.dependencyScanFailed("Unable to produce dependency graph")
     }
+    if canQueryPerScanDiagnostics {
+      let diagnosticsSetRefOrNull = api.swiftscan_dependency_graph_get_diagnostics(graphRef)
+      guard let diagnosticsSetRef = diagnosticsSetRefOrNull else {
+        throw DependencyScanningError.dependencyScanFailed("Unable to query dependency diagnostics")
+      }
+      diagnostics = try mapToDriverDiagnosticPayload(diagnosticsSetRef)
+    }
 
     let dependencyGraph = try constructGraph(from: graphRef, moduleAliases: moduleAliases)
     // Free the memory allocated for the in-memory representation of the dependency
@@ -184,7 +200,8 @@ internal extension swiftscan_diagnostic_severity_t {
   func batchScanDependencies(workingDirectory: AbsolutePath,
                              moduleAliases: [String: String]?,
                              invocationCommand: [String],
-                             batchInfos: [BatchScanModuleInfo])
+                             batchInfos: [BatchScanModuleInfo],
+                             diagnostics: inout [ScannerDiagnosticPayload])
   throws -> [ModuleDependencyId: [InterModuleDependencyGraph]] {
     // Create and configure the scanner invocation
     let invocationRef = api.swiftscan_scan_invocation_create()
@@ -315,6 +332,12 @@ internal extension swiftscan_diagnostic_severity_t {
     return api.swiftscan_swift_textual_detail_get_bridging_pch_command_line != nil
   }
 
+
+  @_spi(Testing) public var canQueryPerScanDiagnostics : Bool {
+    return api.swiftscan_dependency_graph_get_diagnostics != nil &&
+           api.swiftscan_import_set_get_diagnostics != nil
+  }
+
   func serializeScannerCache(to path: AbsolutePath) {
     api.swiftscan_scanner_cache_serialize(scanner,
                                           path.description.cString(using: String.Encoding.utf8))
@@ -329,18 +352,10 @@ internal extension swiftscan_diagnostic_severity_t {
     api.swiftscan_scanner_cache_reset(scanner)
   }
 
-  @_spi(Testing) public func queryScannerDiagnostics() throws -> [ScannerDiagnosticPayload] {
+  internal func mapToDriverDiagnosticPayload(_ diagnosticSetRef: UnsafeMutablePointer<swiftscan_diagnostic_set_t>) throws -> [ScannerDiagnosticPayload] {
     var result: [ScannerDiagnosticPayload] = []
-    let diagnosticSetRefOrNull = api.swiftscan_scanner_diagnostics_query(scanner)
-    guard let diagnosticSetRef = diagnosticSetRefOrNull else {
-      // Seems heavy-handed to fail here
-      // throw DependencyScanningError.dependencyScanFailed
-      return []
-    }
-    defer { api.swiftscan_diagnostics_set_dispose(diagnosticSetRef) }
     let diagnosticRefArray = Array(UnsafeBufferPointer(start: diagnosticSetRef.pointee.diagnostics,
                                                        count: Int(diagnosticSetRef.pointee.count)))
-
     for diagnosticRefOrNull in diagnosticRefArray {
       guard let diagnosticRef = diagnosticRefOrNull else {
         throw DependencyScanningError.dependencyScanFailed("Unable to produce scanner diagnostics")
@@ -350,6 +365,17 @@ internal extension swiftscan_diagnostic_severity_t {
       result.append(ScannerDiagnosticPayload(severity: severity.toDiagnosticBehavior(), message: message))
     }
     return result
+  }
+
+  @_spi(Testing) public func queryScannerDiagnostics() throws -> [ScannerDiagnosticPayload] {
+    let diagnosticSetRefOrNull = api.swiftscan_scanner_diagnostics_query(scanner)
+    guard let diagnosticSetRef = diagnosticSetRefOrNull else {
+      // Seems heavy-handed to fail here
+      // throw DependencyScanningError.dependencyScanFailed
+      return []
+    }
+    defer { api.swiftscan_diagnostics_set_dispose(diagnosticSetRef) }
+    return try mapToDriverDiagnosticPayload(diagnosticSetRef)
   }
 
   @_spi(Testing) public func resetScannerDiagnostics() throws {
@@ -566,6 +592,12 @@ private extension swiftscan_functions_t {
     // Header dependencies of binary modules
     self.swiftscan_swift_binary_detail_get_header_dependencies =
       try loadOptional("swiftscan_swift_binary_detail_get_header_dependencies")
+
+    // Per-scan-query diagnostic output
+    self.swiftscan_dependency_graph_get_diagnostics =
+      try loadOptional("swiftscan_dependency_graph_get_diagnostics")
+    self.swiftscan_import_set_get_diagnostics =
+      try loadOptional("swiftscan_import_set_get_diagnostics")
 
     // MARK: Required Methods
     func loadRequired<T>(_ symbol: String) throws -> T {
