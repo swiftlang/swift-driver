@@ -267,7 +267,7 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
 
       let prebuiltHeaderDependencyPaths = dependencyModule.prebuiltHeaderDependencyPaths ?? []
       if cas != nil && !prebuiltHeaderDependencyPaths.isEmpty {
-        throw Driver.Error.unsupportedConfigurationForCaching("module \(dependencyModule.moduleName) has prebuilt header dependency")
+        throw DependencyScanningError.unsupportedConfigurationForCaching("module \(dependencyModule.moduleName) has bridging header dependency")
       }
 
       for headerDep in prebuiltHeaderDependencyPaths {

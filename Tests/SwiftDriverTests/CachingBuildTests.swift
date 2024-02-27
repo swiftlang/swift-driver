@@ -585,7 +585,7 @@ final class CachingBuildTests: XCTestCase {
                               interModuleDependencyOracle: dependencyOracle)
       // This is currently not supported.
       XCTAssertThrowsError(try driver.planBuild()) {
-        XCTAssertEqual($0 as? Driver.Error, .unsupportedConfigurationForCaching("module Foo has prebuilt header dependency"))
+        XCTAssertEqual($0 as? DependencyScanningError, .unsupportedConfigurationForCaching("module Foo has bridging header dependency"))
       }
     }
   }

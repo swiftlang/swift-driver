@@ -75,8 +75,6 @@ public struct Driver {
     case missingContextHashOnSwiftDependency(String)
     case dependencyScanningFailure(Int, String)
     case missingExternalDependency(String)
-    // Compiler Caching Failures
-    case unsupportedConfigurationForCaching(String)
 
     public var description: String {
       switch self {
@@ -138,8 +136,6 @@ public struct Driver {
         return "unable to load output file map '\(path)': \(error)"
       case .missingExternalDependency(let moduleName):
         return "Missing External dependency info for module: \(moduleName)"
-      case .unsupportedConfigurationForCaching(let reason):
-        return "unsupported configuration for -cache-compile-job: \(reason)"
       case .baselineGenerationRequiresTopLevelModule(let arg):
         return "generating a baseline with '\(arg)' is only supported with '-emit-module' or '-emit-module-path'"
       case .optionRequiresAnother(let first, let second):

@@ -22,7 +22,7 @@ import protocol TSCBasic.DiagnosticData
 import struct TSCBasic.AbsolutePath
 import struct TSCBasic.Diagnostic
 
-public enum DependencyScanningError: LocalizedError, DiagnosticData {
+public enum DependencyScanningError: LocalizedError, DiagnosticData, Equatable {
   case missingRequiredSymbol(String)
   case dependencyScanFailed(String)
   case failedToInstantiateScanner
@@ -34,6 +34,7 @@ public enum DependencyScanningError: LocalizedError, DiagnosticData {
   case scanningLibraryInvocationMismatch(AbsolutePath, AbsolutePath)
   case scanningLibraryNotFound(AbsolutePath)
   case argumentQueryFailed
+  case unsupportedConfigurationForCaching(String)
 
   public var description: String {
     switch self {
@@ -59,6 +60,8 @@ public enum DependencyScanningError: LocalizedError, DiagnosticData {
         return "Dependency Scanning library not found at path: \(path)"
       case .argumentQueryFailed:
         return "Supported compiler argument query failed"
+      case .unsupportedConfigurationForCaching(let reason):
+        return "Unsupported configuration for -cache-compile-job, consider turn off swift caching: \(reason)"
     }
   }
 
