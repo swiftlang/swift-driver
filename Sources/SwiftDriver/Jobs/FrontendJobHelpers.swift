@@ -475,7 +475,7 @@ extension Driver {
 
     assert(pchJob.outputCacheKeys.count == 1, "Expect one and only one cache key from pch job")
     guard let bridgingHeaderCacheKey = pchJob.outputCacheKeys.first?.value else {
-      throw Error.unsupportedConfigurationForCaching("pch job doesn't have an associated cache key")
+      fatalError("pch job doesn't have an associated cache key")
     }
     commandLine.appendFlag("-bridging-header-pch-key")
     commandLine.appendFlag(bridgingHeaderCacheKey)
