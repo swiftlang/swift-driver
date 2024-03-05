@@ -9,9 +9,6 @@ import subprocess
 import sys
 import errno
 
-sys.stdout.reconfigure(encoding='utf-8')
-sys.stderr.reconfigure(encoding='utf-8')
-
 if platform.system() == 'Darwin':
     shared_lib_ext = '.dylib'
 else:
@@ -564,19 +561,24 @@ def cmake_build(args, swiftc_exec, cmake_args, swift_flags, source_path,
 
   if args.verbose:
     print(' '.join(ninja_cmd))
+  # Note: encoding is explicitly set to None to indicate that the output must
+  # be bytes, not strings. This is to work around per-system differences in
+  # default encoding. Some systems have a default encoding of 'ascii', but that
+  # conflicts with this output, which can contain UTF encoded characters. The
+  # bytes are then written, instead of printed, to bypass issues with encoding.
   ninjaProcess = subprocess.Popen(ninja_cmd, cwd=build_dir,
                                   stdout=subprocess.PIPE,
                                   stderr=subprocess.PIPE,
-                                  env = os.environ,
-                                  encoding='utf-8')
+                                  env=os.environ,
+                                  encoding=None)
   stdout, stderr = ninjaProcess.communicate()
   if ninjaProcess.returncode != 0:
-    print(stdout)
+    sys.stdout.buffer.write(stdout)
     print('Ninja invocation failed: ')
-    print(stderr)
+    sys.stderr.buffer.write(stderr)
     sys.exit(ninjaProcess.returncode)
   if args.verbose:
-    print(stdout)
+    sys.stdout.buffer.write(stdout)
 
 def get_build_target(swiftc_path, args, cross_compile=False):
     """Returns the target-triple of the current machine."""
