@@ -9,6 +9,9 @@ import subprocess
 import sys
 import errno
 
+sys.stdout.reconfigure(encoding='utf-8')
+sys.stderr.reconfigure(encoding='utf-8')
+
 if platform.system() == 'Darwin':
     shared_lib_ext = '.dylib'
 else:
