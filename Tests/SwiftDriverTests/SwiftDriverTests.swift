@@ -5026,10 +5026,12 @@ final class SwiftDriverTests: XCTestCase {
     _ = try driverWithEmptySDK.planBuild()
 
     var driver = try Driver(args: ["swiftc", "foo.swift", "-sdk", "/"])
-    let plannedJobs = try driver.planBuild()
+    let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+
     XCTAssertTrue(plannedJobs[0].commandLine.contains(subsequence: ["-sdk", .path(.absolute(try .init(validating: "/")))]))
+
     if !driver.targetTriple.isDarwin {
-      XCTAssertFalse(plannedJobs[2].commandLine.contains(subsequence: ["-L", .path(.absolute(try .init(validating: "/usr/lib/swift")))]))
+      XCTAssertFalse(plannedJobs[1].commandLine.contains(subsequence: ["-L", .path(.absolute(try .init(validating: "/usr/lib/swift")))]))
     }
   }
 
