@@ -598,6 +598,17 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(jobs[0].commandLine.contains(.flag(".")))
     }
 
+    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-g", "-c", "-working-directory", "/tmp") { driver in
+      let jobs = try driver.planBuild()
+      XCTAssertTrue(jobs[0].commandLine.contains(.flag("-file-compilation-dir")))
+      XCTAssertTrue(jobs[0].commandLine.contains(.flag("/tmp")))
+    }
+
+    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-g", "-c") { driver in
+      let jobs = try driver.planBuild()
+      XCTAssertTrue(jobs[0].commandLine.contains(.flag("-file-compilation-dir")))
+    }
+
     try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-c", "-file-compilation-dir", ".") { driver in
       let jobs = try driver.planBuild()
       XCTAssertFalse(jobs[0].commandLine.contains(.flag("-file-compilation-dir")))
