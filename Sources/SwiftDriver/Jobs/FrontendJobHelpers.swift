@@ -368,8 +368,14 @@ extension Driver {
         commandLine.appendFlag(.enableAnonymousContextMangledNames)
       }
 
+      // Always try to append -file-compilation-dir when debug info is used.
       // TODO: Should we support -fcoverage-compilation-dir?
-      try commandLine.appendAll(.fileCompilationDir, from: &parsedOptions)
+      commandLine.appendFlag(.fileCompilationDir)
+      if let compilationDir = parsedOptions.getLastArgument(.fileCompilationDir)?.asSingle {
+        commandLine.appendFlag(compilationDir)
+      } else if let cwd = workingDirectory ?? fileSystem.currentWorkingDirectory {
+        commandLine.appendFlag(cwd.pathString)
+      }
     }
 
     // CAS related options.
