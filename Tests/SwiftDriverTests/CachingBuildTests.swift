@@ -748,7 +748,7 @@ final class CachingBuildTests: XCTestCase {
       var driver = try Driver(args: ["swiftc",
                                      "-I", cHeadersPath.nativePathString(escaped: true),
                                      "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
-                                     "/tmp/Foo.o", "-v",
+                                     "/tmp/Foo.o", "-v", "-g",
                                      "-explicit-module-build",
                                      "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: true),
                                      "-working-directory", path.nativePathString(escaped: true),

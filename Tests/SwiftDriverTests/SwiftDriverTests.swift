@@ -594,14 +594,16 @@ final class SwiftDriverTests: XCTestCase {
 
     try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-g", "-c", "-file-compilation-dir", ".") { driver in
       let jobs = try driver.planBuild()
+      let path = try VirtualPath.intern(path: ".")
       XCTAssertTrue(jobs[0].commandLine.contains(.flag("-file-compilation-dir")))
-      XCTAssertTrue(jobs[0].commandLine.contains(.flag(".")))
+      XCTAssertTrue(jobs[0].commandLine.contains(.path(VirtualPath.lookup(path))))
     }
 
     try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-g", "-c", "-working-directory", "/tmp") { driver in
       let jobs = try driver.planBuild()
+      let path = try VirtualPath.intern(path: "/tmp")
       XCTAssertTrue(jobs[0].commandLine.contains(.flag("-file-compilation-dir")))
-      XCTAssertTrue(jobs[0].commandLine.contains(.flag("/tmp")))
+      XCTAssertTrue(jobs[0].commandLine.contains(.path(VirtualPath.lookup(path))))
     }
 
     try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-g", "-c") { driver in

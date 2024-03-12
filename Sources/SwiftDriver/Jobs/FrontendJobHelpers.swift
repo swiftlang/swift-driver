@@ -372,9 +372,11 @@ extension Driver {
       // TODO: Should we support -fcoverage-compilation-dir?
       commandLine.appendFlag(.fileCompilationDir)
       if let compilationDir = parsedOptions.getLastArgument(.fileCompilationDir)?.asSingle {
-        commandLine.appendFlag(compilationDir)
+        let compDirPath = try VirtualPath.intern(path: compilationDir)
+        try addPathArgument(VirtualPath.lookup(compDirPath), to:&commandLine, remap: jobNeedPathRemap)
       } else if let cwd = workingDirectory ?? fileSystem.currentWorkingDirectory {
-        commandLine.appendFlag(cwd.pathString)
+        let compDirPath = VirtualPath.absolute(cwd)
+        try addPathArgument(compDirPath, to:&commandLine, remap: jobNeedPathRemap)
       }
     }
 
