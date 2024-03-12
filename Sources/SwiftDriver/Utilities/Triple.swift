@@ -126,7 +126,7 @@ public struct Triple {
         parser.components.resize(toCount: 4, paddingWith: "")
         parser.components[2] = "windows"
         if parsedEnv?.value.environment == nil {
-          if let objectFormat = parsedEnv?.value.objectFormat, objectFormat != .coff {
+          if let objectFormat = parsedEnv?.value.objectFormat {
             parser.components[3] = Substring(objectFormat.name)
           } else {
             parser.components[3] = "msvc"

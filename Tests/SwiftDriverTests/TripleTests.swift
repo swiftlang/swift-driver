@@ -816,6 +816,9 @@ final class TripleTests: XCTestCase {
 
     assertNormalizesEqual("i686-pc-windows-elf-elf",
               "i686-pc-windows-elf")
+
+    assertNormalizesEqual("i686-unknown-windows-coff", "i686-unknown-windows-coff")
+    assertNormalizesEqual("x86_64-unknown-windows-coff", "x86_64-unknown-windows-coff")
   }
 
   func testNormalizeARM() {
@@ -1065,6 +1068,7 @@ final class TripleTests: XCTestCase {
     XCTAssertEqual(.macho, Triple("i686---macho").objectFormat)
 
     XCTAssertEqual(.coff, Triple("i686--win32").objectFormat)
+    XCTAssertEqual(.coff, Triple("i686-unknown-windows-coff").objectFormat)
 
     XCTAssertEqual(.elf, Triple("i686-pc-windows-msvc-elf").objectFormat)
     XCTAssertEqual(.elf, Triple("i686-pc-cygwin-elf").objectFormat)
