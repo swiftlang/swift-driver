@@ -292,7 +292,21 @@ extension Triple {
       return conflatingDarwin ? "darwin" : darwinPlatform.platformName
 
     case .linux:
-      return environment == .android ? "android" : "linux"
+      switch environment {
+      case .musl:
+        // The triple for linux-static is <arch>-swift-linux-musl, to distinguish
+        // it from a "normal" musl set-up (ala Alpine).
+        if vendor == .swift {
+          return "linux-static"
+        }
+        fallthrough
+      case .musl, .musleabihf, .musleabi:
+        return "musl"
+      case .android:
+        return "android"
+      default:
+        return "linux"
+      }
     case .freeBSD:
       return "freebsd"
     case .openbsd:

@@ -1032,6 +1032,7 @@ extension Triple {
     case mesa
     case suse
     case openEmbedded = "oe"
+    case swift
 
     fileprivate static func parse(_ component: Substring) -> Triple.Vendor? {
       switch component {
@@ -1067,6 +1068,8 @@ extension Triple {
         return .suse
       case "oe":
         return .openEmbedded
+      case "swift":
+        return .swift
       default:
         return nil
       }
@@ -1711,13 +1714,21 @@ fileprivate extension Array {
   }
 }
 
-// MARK: - Linker support
+// MARK: - Fully static Linux support
 
 extension Triple {
-    /// Returns `true` if a given triple supports producing fully statically linked executables by providing `-static`
-    /// flag to the linker. This implies statically linking platform's libc, and of those that Swift supports currently
-    /// only Musl allows that reliably.
-    var supportsStaticExecutables: Bool {
-        self.environment == .musl
-    }
+  /// Returns `true` if this is the triple for Swift's fully statically
+  /// linked Linux target.
+  var isFullyStaticLinux: Bool {
+    self.vendor == .swift && self.environment == .musl
+  }
+
+  /// Returns `true` if a given triple supports producing fully
+  /// statically linked executables by providing `-static` flag to
+  /// the linker. This implies statically linking platform's libc,
+  /// and of those that Swift supports currently only Musl allows
+  /// that reliably.
+  var supportsStaticExecutables: Bool {
+    self.isFullyStaticLinux
+  }
 }
