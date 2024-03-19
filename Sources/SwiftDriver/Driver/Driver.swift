@@ -336,7 +336,14 @@ public struct Driver {
   let importedObjCHeader: VirtualPath.Handle?
 
   /// The path to the pch for the imported Objective-C header.
-  let bridgingPrecompiledHeader: VirtualPath.Handle?
+  lazy var bridgingPrecompiledHeader: VirtualPath.Handle? = {
+    let contextHash = try? explicitDependencyBuildPlanner?.getMainModuleContextHash()
+    return Self.computeBridgingPrecompiledHeader(&parsedOptions,
+                                                 compilerMode: compilerMode,
+                                                 importedObjCHeader: importedObjCHeader,
+                                                 outputFileMap: outputFileMap,
+                                                 contextHash: contextHash)
+  }()
 
   /// Path to the dependencies file.
   let dependenciesFilePath: VirtualPath.Handle?
@@ -801,10 +808,6 @@ public struct Driver {
       recordedInputModificationDates: recordedInputModificationDates)
 
     self.importedObjCHeader = try Self.computeImportedObjCHeader(&parsedOptions, compilerMode: compilerMode, diagnosticEngine: diagnosticEngine)
-    self.bridgingPrecompiledHeader = try Self.computeBridgingPrecompiledHeader(&parsedOptions,
-                                                                               compilerMode: compilerMode,
-                                                                               importedObjCHeader: importedObjCHeader,
-                                                                               outputFileMap: outputFileMap)
 
     self.supportedFrontendFlags =
       try Self.computeSupportedCompilerArgs(of: self.toolchain,
@@ -829,7 +832,7 @@ public struct Driver {
         diagnosticsEngine.emit(.warning("-cache-compile-job cannot be used without explicit module build, turn off caching"),
                                location: nil)
         self.enableCaching = false
-      } else if importedObjCHeader != nil && bridgingPrecompiledHeader == nil {
+      } else if importedObjCHeader != nil, !parsedOptions.hasFlag(positive: .enableBridgingPch, negative: .disableBridgingPch, default: true) {
         diagnosticsEngine.emit(.warning("-cache-compile-job cannot be used with -disable-bridging-pch, turn off caching"),
                                location: nil)
         self.enableCaching = false
@@ -1779,7 +1782,7 @@ extension Driver {
   /// The swift-driver doesn't have actions, so the logic here takes the jobs and tries
   /// to mimic the actions that would be created by the C++ driver and
   /// prints them in *hopefully* the same order.
-  private func printActions(_ jobs: [Job]) {
+  private mutating func printActions(_ jobs: [Job]) {
     defer {
       stdoutStream.flush()
     }
@@ -2872,23 +2875,29 @@ extension Driver {
   static func computeBridgingPrecompiledHeader(_ parsedOptions: inout ParsedOptions,
                                                compilerMode: CompilerMode,
                                                importedObjCHeader: VirtualPath.Handle?,
-                                               outputFileMap: OutputFileMap?) throws -> VirtualPath.Handle? {
+                                               outputFileMap: OutputFileMap?,
+                                               contextHash: String?) -> VirtualPath.Handle? {
     guard compilerMode.supportsBridgingPCH,
       let input = importedObjCHeader,
       parsedOptions.hasFlag(positive: .enableBridgingPch, negative: .disableBridgingPch, default: true) else {
         return nil
     }
 
-    if let outputPath = try outputFileMap?.existingOutput(inputFile: input, outputType: .pch) {
+    if let outputPath = try? outputFileMap?.existingOutput(inputFile: input, outputType: .pch) {
       return outputPath
     }
 
-    let inputFile = VirtualPath.lookup(input)
-    let pchFileName = inputFile.basenameWithoutExt.appendingFileTypeExtension(.pch)
-    if let outputDirectory = parsedOptions.getLastArgument(.pchOutputDir)?.asSingle {
-      return try VirtualPath(path: outputDirectory).appending(component: pchFileName).intern()
+    let pchFile : String
+    let baseName = VirtualPath.lookup(input).basenameWithoutExt
+    if let hash = contextHash {
+      pchFile = baseName + "-" + hash + ".pch"
     } else {
-      return try VirtualPath.createUniqueTemporaryFile(RelativePath(validating: pchFileName)).intern()
+      pchFile = baseName.appendingFileTypeExtension(.pch)
+    }
+    if let outputDirectory = parsedOptions.getLastArgument(.pchOutputDir)?.asSingle {
+      return try? VirtualPath(path: outputDirectory).appending(component: pchFile).intern()
+    } else {
+      return try? VirtualPath.temporary(RelativePath(validating: pchFile)).intern()
     }
   }
 }
