@@ -101,6 +101,17 @@ extension Driver {
       jobNeedPathRemap = false
     }
 
+    // Check if dependency scanner has put the job into direct clang cc1 mode.
+    // If dependency scanner put us into direct cc1 mode, avoid adding `-Xcc` options, since
+    // dependency scanner already adds needed flags and -Xcc options known by swift-driver are
+    // clang driver flags but not it requires cc1 flags.
+    let directModuleCC1Mode = commandLine.contains(Job.ArgTemplate.flag("-direct-clang-cc1-module-build"))
+    func appendXccFlag(_ flag: String) {
+      guard !directModuleCC1Mode else { return }
+      commandLine.appendFlag(.Xcc)
+      commandLine.appendFlag(flag)
+    }
+
     if let variant = parsedOptions.getLastArgument(.targetVariant)?.asSingle {
       commandLine.appendFlag(.targetVariant)
       commandLine.appendFlag(Triple(variant, normalizing: true).triple)
@@ -125,8 +136,7 @@ extension Driver {
     try commandLine.appendLast(.enableExperimentalCxxInterop, from: &parsedOptions)
     try commandLine.appendLast(.cxxInteroperabilityMode, from: &parsedOptions)
     if let stdlibVariant = parsedOptions.getLastArgument(.experimentalCxxStdlib)?.asSingle {
-      commandLine.appendFlag("-Xcc")
-      commandLine.appendFlag("-stdlib=\(stdlibVariant)")
+      appendXccFlag("-stdlib=\(stdlibVariant)")
     }
 
     if isEmbeddedEnabled && parsedOptions.hasArgument(.enableLibraryEvolution) {
@@ -173,8 +183,7 @@ extension Driver {
     try commandLine.appendAll(.vfsoverlay, from: &parsedOptions)
 
     if let gccToolchain = parsedOptions.getLastArgument(.gccToolchain) {
-        commandLine.appendFlag(.Xcc)
-        commandLine.appendFlag("--gcc-toolchain=\(gccToolchain.asSingle)")
+        appendXccFlag("--gcc-toolchain=\(gccToolchain.asSingle)")
     }
 
     try commandLine.appendLast(.AssertConfig, from: &parsedOptions)
@@ -272,6 +281,11 @@ extension Driver {
     if isFrontendArgSupported(.strictConcurrency) {
       try commandLine.appendLast(.strictConcurrency, from: &parsedOptions)
     }
+    if kind == .scanDependencies,
+        isFrontendArgSupported(.experimentalClangImporterDirectCc1Scan) {
+      try commandLine.appendAll(
+        .experimentalClangImporterDirectCc1Scan, from: &parsedOptions)
+    }
 
     // Expand the -experimental-hermetic-seal-at-link flag
     if parsedOptions.hasArgument(.experimentalHermeticSealAtLink) {
@@ -332,7 +346,7 @@ extension Driver {
       try commandLine.appendLast(.disableSandbox, from: &parsedOptions)
     }
 
-    if !(isCachingEnabled && useClangIncludeTree), let workingDirectory = workingDirectory {
+    if !directModuleCC1Mode, let workingDirectory = workingDirectory {
       // Add -Xcc -working-directory before any other -Xcc options to ensure it is
       // overridden by an explicit -Xcc -working-directory, although having a
       // different working directory is probably incorrect.
@@ -402,8 +416,8 @@ extension Driver {
     // Pass through any subsystem flags.
     try commandLine.appendAll(.Xllvm, from: &parsedOptions)
 
-    // If using clang-include-tree, `-Xcc` should only be passed to scanDependencies job.
-    if (kind == .scanDependencies) || !(isCachingEnabled && useClangIncludeTree) {
+    // Pass through all -Xcc flags if not under directModuleCC1Mode.
+    if !directModuleCC1Mode {
       try commandLine.appendAll(.Xcc, from: &parsedOptions)
     }
 
