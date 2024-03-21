@@ -202,7 +202,9 @@ public extension Driver {
     let isSwiftScanLibAvailable = !(try initSwiftScanLib())
     if isSwiftScanLibAvailable {
       var scanDiagnostics: [ScannerDiagnosticPayload] = []
-      let cwd = workingDirectory ?? fileSystem.currentWorkingDirectory!
+      guard let cwd = workingDirectory else {
+        throw DependencyScanningError.dependencyScanFailed("cannot determine working directory")
+      }
       var command = try Self.itemizedJobCommand(of: preScanJob,
                                                 useResponseFiles: .disabled,
                                                 using: executor.resolver)
@@ -272,7 +274,9 @@ public extension Driver {
     let isSwiftScanLibAvailable = !(try initSwiftScanLib())
     if isSwiftScanLibAvailable {
       var scanDiagnostics: [ScannerDiagnosticPayload] = []
-      let cwd = workingDirectory ?? fileSystem.currentWorkingDirectory!
+      guard let cwd = workingDirectory else {
+        throw DependencyScanningError.dependencyScanFailed("cannot determine working directory")
+      }
       var command = try Self.itemizedJobCommand(of: scannerJob,
                                                 useResponseFiles: .disabled,
                                                 using: executor.resolver)
@@ -309,7 +313,9 @@ public extension Driver {
     let isSwiftScanLibAvailable = !(try initSwiftScanLib())
     if isSwiftScanLibAvailable {
       var scanDiagnostics: [ScannerDiagnosticPayload] = []
-      let cwd = workingDirectory ?? fileSystem.currentWorkingDirectory!
+      guard let cwd = workingDirectory else {
+        throw DependencyScanningError.dependencyScanFailed("cannot determine working directory")
+      }
       var command = try Self.itemizedJobCommand(of: batchScanningJob,
                                                 useResponseFiles: .disabled,
                                                 using: executor.resolver)

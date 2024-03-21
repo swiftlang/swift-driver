@@ -384,6 +384,9 @@ final class ExplicitModuleBuildTests: XCTestCase {
             case .relative(try .init(validating: "testExplicitModuleBuildJobs")):
               XCTAssertTrue(driver.isExplicitMainModuleJob(job: job))
               XCTAssertEqual(job.kind, .link)
+            case .absolute(let path):
+              XCTAssertEqual(path.basename, "testExplicitModuleBuildJobs")
+              XCTAssertEqual(job.kind, .link)
             case .temporary(_):
               let baseName = "testExplicitModuleBuildJobs"
               XCTAssertTrue(matchTemporary(outputFilePath, basename: baseName, fileExtension: "o") ||
@@ -513,6 +516,9 @@ final class ExplicitModuleBuildTests: XCTestCase {
           switch (outputFilePath) {
             case .relative(try .init(validating: "testExplicitModuleVerifyInterfaceJobs")):
               XCTAssertTrue(driver.isExplicitMainModuleJob(job: job))
+              XCTAssertEqual(job.kind, .link)
+            case .absolute(let path):
+              XCTAssertEqual(path.basename, "testExplicitModuleVerifyInterfaceJobs")
               XCTAssertEqual(job.kind, .link)
             case .temporary(_):
               let baseName = "testExplicitModuleVerifyInterfaceJobs"
@@ -648,6 +654,9 @@ final class ExplicitModuleBuildTests: XCTestCase {
             case .relative(try .init(validating: "testExplicitModuleBuildPCHOutputJobs")):
               XCTAssertTrue(driver.isExplicitMainModuleJob(job: job))
               XCTAssertEqual(job.kind, .link)
+            case .absolute(let path):
+              XCTAssertEqual(path.basename, "testExplicitModuleBuildPCHOutputJobs")
+              XCTAssertEqual(job.kind, .link)
             case .temporary(_):
               let baseName = "testExplicitModuleBuildPCHOutputJobs"
               XCTAssertTrue(matchTemporary(outputFilePath, basename: baseName, fileExtension: "o") ||
@@ -751,6 +760,9 @@ final class ExplicitModuleBuildTests: XCTestCase {
           switch (outputFilePath) {
             case .relative(try .init(validating: "testExplicitModuleBuildJobs")):
               XCTAssertTrue(driver.isExplicitMainModuleJob(job: job))
+              XCTAssertEqual(job.kind, .link)
+            case .absolute(let path):
+              XCTAssertEqual(path.basename, "testExplicitModuleBuildJobs")
               XCTAssertEqual(job.kind, .link)
             case .temporary(_):
               let baseName = "testExplicitModuleBuildJobs"

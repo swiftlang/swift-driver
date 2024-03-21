@@ -320,6 +320,9 @@ final class CachingBuildTests: XCTestCase {
             case .relative(try RelativePath(validating: "testCachingBuildJobs")):
               XCTAssertTrue(driver.isExplicitMainModuleJob(job: job))
               XCTAssertEqual(job.kind, .link)
+            case .absolute(let path):
+              XCTAssertEqual(path.basename, "testCachingBuildJobs")
+              XCTAssertEqual(job.kind, .link)
             case .temporary(_):
               let baseName = "testCachingBuildJobs"
               XCTAssertTrue(matchTemporary(outputFilePath, basename: baseName, fileExtension: "o") ||
@@ -453,6 +456,9 @@ final class CachingBuildTests: XCTestCase {
           switch (outputFilePath) {
             case .relative(try RelativePath(validating: "testExplicitModuleVerifyInterfaceJobs")):
               XCTAssertTrue(driver.isExplicitMainModuleJob(job: job))
+              XCTAssertEqual(job.kind, .link)
+            case .absolute(let path):
+              XCTAssertEqual(path.basename, "testExplicitModuleVerifyInterfaceJobs")
               XCTAssertEqual(job.kind, .link)
             case .temporary(_):
               let baseName = "testExplicitModuleVerifyInterfaceJobs"

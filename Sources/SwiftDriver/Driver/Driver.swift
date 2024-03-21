@@ -325,8 +325,7 @@ public struct Driver {
     case .absolute(let path):
       return path
     case .relative(let path):
-      let cwd = workingDirectory ?? fileSystem.currentWorkingDirectory
-      return cwd.map { AbsolutePath($0, path) }
+      return workingDirectory.map { AbsolutePath($0, path) }
     case .standardInput, .standardOutput, .temporary, .temporaryWithKnownContents, .fileList:
       fatalError("Frontend target information will never include a path of this type.")
     }
@@ -643,10 +642,10 @@ public struct Driver {
                                                                                         compilerMode: compilerMode)
 
     // Compute the working directory.
+    let cwd = fileSystem.currentWorkingDirectory
     workingDirectory = try parsedOptions.getLastArgument(.workingDirectory).map { workingDirectoryArg in
-      let cwd = fileSystem.currentWorkingDirectory
       return try cwd.map{ try AbsolutePath(validating: workingDirectoryArg.asSingle, relativeTo: $0) } ?? AbsolutePath(validating: workingDirectoryArg.asSingle)
-    }
+    } ?? cwd
 
     // Apply the working directory to the parsed options.
     if let workingDirectory = self.workingDirectory {
@@ -791,7 +790,7 @@ public struct Driver {
     self.buildRecordInfo = BuildRecordInfo(
       actualSwiftVersion: self.frontendTargetInfo.compilerVersion,
       compilerOutputType: compilerOutputType,
-      workingDirectory: self.workingDirectory ?? fileSystem.currentWorkingDirectory,
+      workingDirectory: self.workingDirectory,
       diagnosticEngine: diagnosticEngine,
       fileSystem: fileSystem,
       moduleOutputInfo: moduleOutputInfo,
@@ -3001,7 +3000,7 @@ extension Driver {
     }
 
     if let profileArgs = parsedOptions.getLastArgument(.profileUse)?.asMultiple,
-       let workingDirectory = workingDirectory ?? fileSystem.currentWorkingDirectory {
+       let workingDirectory = workingDirectory {
       for profilingData in profileArgs {
         if let path = try? AbsolutePath(validating: profilingData,
                                           relativeTo: workingDirectory) {
