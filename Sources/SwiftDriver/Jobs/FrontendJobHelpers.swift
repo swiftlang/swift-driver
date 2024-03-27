@@ -388,7 +388,7 @@ extension Driver {
       if let compilationDir = parsedOptions.getLastArgument(.fileCompilationDir)?.asSingle {
         let compDirPath = try VirtualPath.intern(path: compilationDir)
         try addPathArgument(VirtualPath.lookup(compDirPath), to:&commandLine, remap: jobNeedPathRemap)
-      } else if let cwd = workingDirectory ?? fileSystem.currentWorkingDirectory {
+      } else if let cwd = workingDirectory {
         let compDirPath = VirtualPath.absolute(cwd)
         try addPathArgument(compDirPath, to:&commandLine, remap: jobNeedPathRemap)
       }
@@ -788,7 +788,7 @@ extension Driver {
 
 extension Driver {
   private func getAbsolutePathFromVirtualPath(_ path: VirtualPath) -> AbsolutePath? {
-    guard let cwd = workingDirectory ?? fileSystem.currentWorkingDirectory else {
+    guard let cwd = workingDirectory else {
       return nil
     }
     return path.resolvedRelativePath(base: cwd).absolutePath
