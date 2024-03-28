@@ -15,7 +15,7 @@
 /// - Swift Module Path
 /// - Swift Doc Path
 /// - Swift Source Info Path
-@_spi(Testing) public struct SwiftModuleArtifactInfo: Codable {
+@_spi(Testing) public struct SwiftModuleArtifactInfo: Codable, Hashable {
   /// The module's name
   public let moduleName: String
   /// The path for the module's .swiftmodule file
@@ -48,7 +48,7 @@
 /// - Clang Module (name)
 /// - Clang Module (PCM) Path
 /// - Clang Module Map Path
-@_spi(Testing) public struct ClangModuleArtifactInfo: Codable {
+@_spi(Testing) public struct ClangModuleArtifactInfo: Codable, Hashable {
   /// The module's name
   public let moduleName: String
   /// The path for the module's .pcm file
@@ -57,30 +57,45 @@
   public let clangModuleMapPath: TextualVirtualPath
   /// A flag to indicate whether this module is a framework
   public let isFramework: Bool
+  /// A flag to indicate whether this module is a dependency
+  /// of the main module's bridging header
+  public let isBridgingHeaderDependency: Bool
   /// The cache key for the module.
   public let clangModuleCacheKey: String?
 
   init(name: String, modulePath: TextualVirtualPath, moduleMapPath: TextualVirtualPath,
-       moduleCacheKey: String? = nil) {
+       moduleCacheKey: String? = nil, isBridgingHeaderDependency: Bool = true) {
     self.moduleName = name
     self.clangModulePath = modulePath
     self.clangModuleMapPath = moduleMapPath
     self.isFramework = false
+    self.isBridgingHeaderDependency = isBridgingHeaderDependency
     self.clangModuleCacheKey = moduleCacheKey
   }
 }
 
-enum ModuleDependencyArtifactInfo: Codable {
+@_spi(Testing) public enum ModuleDependencyArtifactInfo: Codable {
   case clang(ClangModuleArtifactInfo)
   case swift(SwiftModuleArtifactInfo)
 
-  func encode(to encoder: Encoder) throws {
+  @_spi(Testing) public func encode(to encoder: Encoder) throws {
     var container = encoder.singleValueContainer()
     switch self {
       case .swift(let swiftInfo):
         try container.encode(swiftInfo)
       case .clang(let clangInfo):
         try container.encode(clangInfo)
+    }
+  }
+
+  @_spi(Testing) public init(from decoder: Decoder) throws {
+    let container = try decoder.singleValueContainer()
+    do {
+      let thing = try container.decode(SwiftModuleArtifactInfo.self)
+      self = .swift(thing)
+    } catch {
+      let thing =  try container.decode(ClangModuleArtifactInfo.self)
+      self = .clang(thing)
     }
   }
 }
