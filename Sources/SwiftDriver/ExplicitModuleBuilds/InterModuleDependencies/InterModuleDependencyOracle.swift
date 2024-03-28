@@ -132,6 +132,13 @@ public class InterModuleDependencyOracle {
     return swiftScan.hasBinarySwiftModuleIsFramework
   }
 
+  @_spi(Testing) public func supportsBinaryModuleHeaderModuleDependencies() throws -> Bool {
+    guard let swiftScan = swiftScanLibInstance else {
+      fatalError("Attempting to query supported scanner API with no scanner instance.")
+    }
+    return swiftScan.hasBinarySwiftModuleHeaderModuleDependencies
+  }
+
   @_spi(Testing) public func supportsScannerDiagnostics() throws -> Bool {
     guard let swiftScan = swiftScanLibInstance else {
       fatalError("Attempting to query supported scanner API with no scanner instance.")

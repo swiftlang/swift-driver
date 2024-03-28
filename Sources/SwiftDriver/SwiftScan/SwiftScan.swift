@@ -268,6 +268,10 @@ internal extension swiftscan_diagnostic_severity_t {
     api.swiftscan_swift_binary_detail_get_is_framework != nil
   }
 
+  @_spi(Testing) public var hasBinarySwiftModuleHeaderModuleDependencies : Bool {
+    api.swiftscan_swift_binary_detail_get_header_dependency_module_dependencies != nil
+  }
+
   @_spi(Testing) public var canLoadStoreScannerCache : Bool {
     api.swiftscan_scanner_cache_load != nil &&
     api.swiftscan_scanner_cache_serialize != nil &&
@@ -534,6 +538,11 @@ private extension swiftscan_functions_t {
     self.swiftscan_swift_binary_detail_get_is_framework =
       try loadOptional("swiftscan_swift_binary_detail_get_is_framework")
 
+    // Clang module dependencies of header input of binary module dependencies
+    self.swiftscan_swift_binary_detail_get_header_dependency_module_dependencies =
+      try loadOptional("swiftscan_swift_binary_detail_get_header_dependency_module_dependencies")
+
+    // Bridging PCH build command-line
     self.swiftscan_swift_textual_detail_get_bridging_pch_command_line =
       try loadOptional("swiftscan_swift_textual_detail_get_bridging_pch_command_line")
 
