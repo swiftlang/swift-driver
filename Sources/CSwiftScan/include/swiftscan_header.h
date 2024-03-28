@@ -155,6 +155,8 @@ typedef struct {
   (*swiftscan_swift_binary_detail_get_is_framework)(swiftscan_module_details_t);
   swiftscan_string_ref_t
   (*swiftscan_swift_binary_detail_get_module_cache_key)(swiftscan_module_details_t);
+  swiftscan_string_set_t *
+  (*swiftscan_swift_binary_detail_get_header_dependency_module_dependencies)(swiftscan_module_details_t);
 
   //=== Swift Placeholder Module Details query APIs -------------------------===//
   swiftscan_string_ref_t

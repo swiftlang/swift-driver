@@ -249,15 +249,22 @@ private extension SwiftScan {
     } else {
       isFramework = false
     }
+
+    let headerDependencyModuleDependencies: [ModuleDependencyId]? =
+      hasBinarySwiftModuleHeaderModuleDependencies ?
+        try getOptionalStringArrayDetail(from: moduleDetailsRef,
+                                         using: api.swiftscan_swift_binary_detail_get_header_dependency_module_dependencies)?.map { .clang($0) } : nil
+
     let moduleCacheKey = supportsCaching ? try getOptionalStringDetail(from: moduleDetailsRef,
                                                      using: api.swiftscan_swift_binary_detail_get_module_cache_key) : nil
 
-    return try SwiftPrebuiltExternalModuleDetails(compiledModulePath: compiledModulePath,
-                                                  moduleDocPath: moduleDocPath,
-                                                  moduleSourceInfoPath: moduleSourceInfoPath,
-                                                  headerDependencies: headerDependencies,
-                                                  isFramework: isFramework,
-                                                  moduleCacheKey: moduleCacheKey)
+    return SwiftPrebuiltExternalModuleDetails(compiledModulePath: compiledModulePath,
+                                              moduleDocPath: moduleDocPath,
+                                              moduleSourceInfoPath: moduleSourceInfoPath,
+                                              headerDependencyPaths: headerDependencies,
+                                              headerDependencyModuleDependencies: headerDependencyModuleDependencies,
+                                              isFramework: isFramework,
+                                              moduleCacheKey: moduleCacheKey)
   }
 
   /// Construct a `SwiftPlaceholderModuleDetails` from a `swiftscan_module_details_t` reference
