@@ -276,6 +276,76 @@ final class ExplicitModuleBuildTests: XCTestCase {
 
   /// Test generation of explicit module build jobs for dependency modules when the driver
   /// is invoked with -explicit-module-build
+  func testBridgingHeaderDeps() throws {
+    try withTemporaryDirectory { path in
+      let main = path.appending(component: "testExplicitModuleBuildJobs.swift")
+      try localFileSystem.writeFileContents(main, bytes:
+        """
+        import C;\
+        import E;\
+        import G;
+        """
+      )
+      let cHeadersPath: AbsolutePath =
+      try testInputsPath.appending(component: "ExplicitModuleBuilds")
+        .appending(component: "CHeaders")
+      let bridgingHeaderpath: AbsolutePath =
+      cHeadersPath.appending(component: "Bridging.h")
+      let swiftModuleInterfacesPath: AbsolutePath =
+      try testInputsPath.appending(component: "ExplicitModuleBuilds")
+        .appending(component: "Swift")
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+      var driver = try Driver(args: ["swiftc",
+                                     "-target", "x86_64-apple-macosx11.0",
+                                     "-I", cHeadersPath.nativePathString(escaped: true),
+                                     "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                     "-explicit-module-build",
+                                     "-import-objc-header", bridgingHeaderpath.nativePathString(escaped: true),
+                                     main.nativePathString(escaped: true)] + sdkArgumentsForTesting)
+      let jobs = try driver.planBuild()
+      let compileJob = try XCTUnwrap(jobs.first(where: { $0.kind == .compile }))
+
+      // Load the dependency JSON and verify this dependency was encoded correctly
+      let explicitDepsFlag =
+        SwiftDriver.Job.ArgTemplate.flag(String("-explicit-swift-module-map-file"))
+      XCTAssert(compileJob.commandLine.contains(explicitDepsFlag))
+      let jsonDepsPathIndex = compileJob.commandLine.firstIndex(of: explicitDepsFlag)
+      let jsonDepsPathArg = compileJob.commandLine[jsonDepsPathIndex! + 1]
+      guard case .path(let jsonDepsPath) = jsonDepsPathArg else {
+        XCTFail("No JSON dependency file path found.")
+        return
+      }
+      guard case let .temporaryWithKnownContents(_, contents) = jsonDepsPath else {
+        XCTFail("Unexpected path type")
+        return
+      }
+      let jsonDepsDecoded = try JSONDecoder().decode(Array<ModuleDependencyArtifactInfo>.self, from: contents)
+
+      // Ensure that "F" is specified as a bridging dependency
+      XCTAssertTrue(jsonDepsDecoded.contains { artifactInfo in
+        if case .clang(let details) = artifactInfo {
+          return details.moduleName == "F" && details.isBridgingHeaderDependency == true
+        } else {
+          return false
+        }
+      })
+
+      // If the scanner supports the feature, ensure that "C" is reported as *not* a bridging
+      // header dependency
+      if try driver.interModuleDependencyOracle.supportsBinaryModuleHeaderModuleDependencies() {
+        XCTAssertTrue(jsonDepsDecoded.contains { artifactInfo in
+          if case .clang(let details) = artifactInfo {
+            return details.moduleName == "C" && details.isBridgingHeaderDependency == false
+          } else {
+            return false
+          }
+        })
+      }
+    }
+  }
+
+  /// Test generation of explicit module build jobs for dependency modules when the driver
+  /// is invoked with -explicit-module-build
   func testExplicitModuleBuildJobs() throws {
     try withTemporaryDirectory { path in
       let main = path.appending(component: "testExplicitModuleBuildJobs.swift")
@@ -545,7 +615,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
 
       let swiftModuleInterfacesPath: AbsolutePath =
           try testInputsPath.appending(component: "ExplicitModuleBuilds")
-                            .appending(component: "Swift")      
+                            .appending(component: "Swift")
       let cHeadersPath: AbsolutePath =
           try testInputsPath.appending(component: "ExplicitModuleBuilds")
                             .appending(component: "CHeaders")

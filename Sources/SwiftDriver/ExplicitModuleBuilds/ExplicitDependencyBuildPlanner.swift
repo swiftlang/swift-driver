@@ -253,8 +253,8 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
                                                           inputs: inout [TypedVirtualPath],
                                                           commandLine: inout [Job.ArgTemplate]) throws {
     // Prohibit the frontend from implicitly building textual modules into binary modules.
-    var swiftDependencyArtifacts: [SwiftModuleArtifactInfo] = []
-    var clangDependencyArtifacts: [ClangModuleArtifactInfo] = []
+    var swiftDependencyArtifacts: Set<SwiftModuleArtifactInfo> = []
+    var clangDependencyArtifacts: Set<ClangModuleArtifactInfo> = []
     try addModuleDependencies(of: moduleId,
                               clangDependencyArtifacts: &clangDependencyArtifacts,
                               swiftDependencyArtifacts: &swiftDependencyArtifacts)
@@ -276,8 +276,6 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
         inputs.append(TypedVirtualPath(file: headerDep.path, type: .pch))
       }
     }
-
-    // Clang module dependencies are specified on the command line explicitly
     for moduleArtifactInfo in clangDependencyArtifacts {
       let clangModulePath =
         TypedVirtualPath(file: moduleArtifactInfo.clangModulePath.path,
@@ -311,8 +309,9 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
 
   private mutating func addModuleDependency(of moduleId: ModuleDependencyId,
                                             dependencyId: ModuleDependencyId,
-                                            clangDependencyArtifacts: inout [ClangModuleArtifactInfo],
-                                            swiftDependencyArtifacts: inout [SwiftModuleArtifactInfo]
+                                            clangDependencyArtifacts: inout Set<ClangModuleArtifactInfo>,
+                                            swiftDependencyArtifacts: inout Set<SwiftModuleArtifactInfo>,
+                                            bridgingHeaderDeps: Set<ModuleDependencyId>? = nil
   ) throws {
     switch dependencyId {
       case .swift:
@@ -325,7 +324,7 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
         isFramework = swiftModuleDetails.isFramework ?? false
         // Accumulate the required information about this dependency
         // TODO: add .swiftdoc and .swiftsourceinfo for this module.
-        swiftDependencyArtifacts.append(
+        swiftDependencyArtifacts.insert(
           SwiftModuleArtifactInfo(name: dependencyId.moduleName,
                                   modulePath: TextualVirtualPath(path: swiftModulePath.fileHandle),
                                   isFramework: isFramework,
@@ -335,11 +334,12 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
         let dependencyClangModuleDetails =
           try dependencyGraph.clangModuleDetails(of: dependencyId)
         // Accumulate the required information about this dependency
-        clangDependencyArtifacts.append(
+        clangDependencyArtifacts.insert(
           ClangModuleArtifactInfo(name: dependencyId.moduleName,
                                   modulePath: TextualVirtualPath(path: dependencyInfo.modulePath.path),
                                   moduleMapPath: dependencyClangModuleDetails.moduleMapPath,
-                                  moduleCacheKey: dependencyClangModuleDetails.moduleCacheKey))
+                                  moduleCacheKey: dependencyClangModuleDetails.moduleCacheKey,
+                                  isBridgingHeaderDependency: bridgingHeaderDeps?.contains(dependencyId) ?? true))
       case .swiftPrebuiltExternal:
         let prebuiltModuleDetails = try dependencyGraph.swiftPrebuiltDetails(of: dependencyId)
         let compiledModulePath = prebuiltModuleDetails.compiledModulePath
@@ -348,7 +348,7 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
           .init(file: compiledModulePath.path, type: .swiftModule)
         // Accumulate the required information about this dependency
         // TODO: add .swiftdoc and .swiftsourceinfo for this module.
-        swiftDependencyArtifacts.append(
+        swiftDependencyArtifacts.insert(
           SwiftModuleArtifactInfo(name: dependencyId.moduleName,
                                   modulePath: TextualVirtualPath(path: swiftModulePath.fileHandle),
                                   headerDependencies: prebuiltModuleDetails.headerDependencyPaths,
@@ -359,11 +359,37 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
     }
   }
 
+  /// Collect the Set of all Clang module dependencies which are dependencies of either
+  /// the `moduleId` bridging header or dependencies of bridging headers
+  /// of any prebuilt binary Swift modules in the dependency graph.
+  private func collectHeaderModuleDeps(of moduleId: ModuleDependencyId) throws -> Set<ModuleDependencyId>?  {
+    var bridgingHeaderDeps: Set<ModuleDependencyId>? = nil
+    guard let moduleDependencies = reachabilityMap[moduleId] else {
+      fatalError("Expected reachability information for the module: \(moduleId.moduleName).")
+    }
+    if let dependencySourceBridingHeaderDeps =
+        try dependencyGraph.moduleInfo(of: moduleId).bridgingHeaderModuleDependencies {
+      bridgingHeaderDeps = Set(dependencySourceBridingHeaderDeps)
+    } else {
+      bridgingHeaderDeps = Set<ModuleDependencyId>()
+    }
+    // Collect all binary Swift module dependnecies' header input module dependencies
+    for dependencyId in moduleDependencies {
+      if case .swiftPrebuiltExternal(_) = dependencyId {
+        let prebuiltDependencyDetails = try dependencyGraph.swiftPrebuiltDetails(of: dependencyId)
+        for headerDependency in prebuiltDependencyDetails.headerDependencyModuleDependencies ?? [] {
+          bridgingHeaderDeps!.insert(headerDependency)
+        }
+      }
+    }
+    return bridgingHeaderDeps
+  }
+
   /// Add a specific module dependency as an input and a corresponding command
   /// line flag.
   private mutating func addModuleDependencies(of moduleId: ModuleDependencyId,
-                                              clangDependencyArtifacts: inout [ClangModuleArtifactInfo],
-                                              swiftDependencyArtifacts: inout [SwiftModuleArtifactInfo]
+                                              clangDependencyArtifacts: inout Set<ClangModuleArtifactInfo>,
+                                              swiftDependencyArtifacts: inout Set<SwiftModuleArtifactInfo>
   ) throws {
     guard let moduleDependencies = reachabilityMap[moduleId] else {
       fatalError("Expected reachability information for the module: \(moduleId.moduleName).")
@@ -371,7 +397,8 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
     for dependencyId in moduleDependencies {
       try addModuleDependency(of: moduleId, dependencyId: dependencyId,
                               clangDependencyArtifacts: &clangDependencyArtifacts,
-                              swiftDependencyArtifacts: &swiftDependencyArtifacts)
+                              swiftDependencyArtifacts: &swiftDependencyArtifacts,
+                              bridgingHeaderDeps: try collectHeaderModuleDeps(of: moduleId))
     }
   }
 
@@ -437,8 +464,8 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
   public mutating func resolveBridgingHeaderDependencies(inputs: inout [TypedVirtualPath],
                                                          commandLine: inout [Job.ArgTemplate]) throws {
     let mainModuleId: ModuleDependencyId = .swift(dependencyGraph.mainModuleName)
-    var swiftDependencyArtifacts: [SwiftModuleArtifactInfo] = []
-    var clangDependencyArtifacts: [ClangModuleArtifactInfo] = []
+    var swiftDependencyArtifacts: Set<SwiftModuleArtifactInfo> = []
+    var clangDependencyArtifacts: Set<ClangModuleArtifactInfo> = []
     let mainModuleDetails = try dependencyGraph.swiftModuleDetails(of: mainModuleId)
 
     var addedDependencies: Set<ModuleDependencyId> = []
@@ -498,8 +525,8 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
 
   /// Serialize the output file artifacts for a given module in JSON format.
   private func serializeModuleDependencies(for moduleId: ModuleDependencyId,
-                                           swiftDependencyArtifacts: [SwiftModuleArtifactInfo],
-                                           clangDependencyArtifacts: [ClangModuleArtifactInfo]
+                                           swiftDependencyArtifacts: Set<SwiftModuleArtifactInfo>,
+                                           clangDependencyArtifacts: Set<ClangModuleArtifactInfo>
   ) throws -> Data {
     // The module dependency map in CAS needs to be stable.
     // Sort the dependencies by name.

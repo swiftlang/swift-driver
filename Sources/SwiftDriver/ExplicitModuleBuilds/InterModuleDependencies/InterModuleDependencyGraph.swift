@@ -164,24 +164,14 @@ public struct SwiftPrebuiltExternalModuleDetails: Codable, Hashable {
   /// The paths to the binary module's header dependencies
   public var headerDependencyPaths: [TextualVirtualPath]?
 
+  /// Clang module dependencies of the textual header input
+  public var headerDependencyModuleDependencies: [ModuleDependencyId]?
+
   /// A flag to indicate whether or not this module is a framework.
   public var isFramework: Bool?
 
   /// The module cache key of the pre-built module.
   public var moduleCacheKey: String?
-
-  public init(compiledModulePath: TextualVirtualPath,
-              moduleDocPath: TextualVirtualPath? = nil,
-              moduleSourceInfoPath: TextualVirtualPath? = nil,
-              headerDependencies: [TextualVirtualPath]? = nil,
-              isFramework: Bool, moduleCacheKey: String? = nil) throws {
-    self.compiledModulePath = compiledModulePath
-    self.moduleDocPath = moduleDocPath
-    self.moduleSourceInfoPath = moduleSourceInfoPath
-    self.headerDependencyPaths = headerDependencies
-    self.isFramework = isFramework
-    self.moduleCacheKey = moduleCacheKey
-  }
 }
 
 /// Details specific to Clang modules.
@@ -201,18 +191,6 @@ public struct ClangModuleDetails: Codable, Hashable {
 
   /// The module cache key of the output module.
   public var moduleCacheKey: String?
-
-  public init(moduleMapPath: TextualVirtualPath,
-              contextHash: String,
-              commandLine: [String],
-              capturedPCMArgs: Set<[String]>?,
-              moduleCacheKey: String? = nil) {
-    self.moduleMapPath = moduleMapPath
-    self.contextHash = contextHash
-    self.commandLine = commandLine
-    self.capturedPCMArgs = capturedPCMArgs
-    self.moduleCacheKey = moduleCacheKey
-  }
 }
 
 public struct ModuleInfo: Codable, Hashable {
@@ -298,6 +276,19 @@ extension ModuleInfo.Details: Codable {
         try container.encode(details, forKey: .swiftPrebuiltExternal)
       case .clang(let details):
         try container.encode(details, forKey: .clang)
+    }
+  }
+}
+
+extension ModuleInfo {
+  var bridgingHeaderModuleDependencies: [ModuleDependencyId]? {
+    switch details {
+    case .swift(let swiftDetails):
+      return swiftDetails.bridgingHeaderDependencies
+    case .swiftPrebuiltExternal(let swiftPrebuiltDetails):
+      return swiftPrebuiltDetails.headerDependencyModuleDependencies
+    default:
+      return nil
     }
   }
 }
