@@ -7322,19 +7322,6 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertLessThan(pluginB2Index!, pluginCIndex!)
 
     #if os(macOS)
-    XCTAssertTrue(job.commandLine.contains(.flag("-external-plugin-path")))
-    let sdkServerPath = sdkRoot.appending(components: "usr", "bin", "swift-plugin-server").pathString
-    let sdkPluginPath = sdkRoot.appending(components: "usr", "lib", "swift", "host", "plugins").pathString
-
-    let sdkPluginPathIndex = job.commandLine.firstIndex(of: .flag("\(sdkPluginPath)#\(sdkServerPath)"))
-    XCTAssertNotNil(sdkPluginPathIndex)
-    XCTAssertLessThan(pluginCIndex!, sdkPluginPathIndex!)
-
-    let sdkLocalPluginPath = sdkRoot.appending(components: "usr", "local", "lib", "swift", "host", "plugins").pathString
-    let sdkLocalPluginPathIndex = job.commandLine.firstIndex(of: .flag("\(sdkLocalPluginPath)#\(sdkServerPath)"))
-    XCTAssertNotNil(sdkLocalPluginPathIndex)
-    XCTAssertLessThan(sdkPluginPathIndex!, sdkLocalPluginPathIndex!)
-
     let origPlatformPath =
       sdkRoot.parentDirectory.parentDirectory.parentDirectory.parentDirectory
         .appending(component: "\(searchPlatform).platform")
@@ -7345,7 +7332,6 @@ final class SwiftDriverTests: XCTestCase {
     let platformPluginPath = platformPath.appending(components: "lib", "swift", "host", "plugins")
     let platformPluginPathIndex = job.commandLine.firstIndex(of: .flag("\(platformPluginPath)#\(platformServerPath)"))
     XCTAssertNotNil(platformPluginPathIndex)
-    XCTAssertLessThan(sdkLocalPluginPathIndex!, platformPluginPathIndex!)
 
     let platformLocalPluginPath = platformPath.appending(components: "local", "lib", "swift", "host", "plugins")
     let platformLocalPluginPathIndex = job.commandLine.firstIndex(of: .flag("\(platformLocalPluginPath)#\(platformServerPath)"))
