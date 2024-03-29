@@ -434,15 +434,6 @@ public final class DarwinToolchain: Toolchain {
     }
 
     if driver.isFrontendArgSupported(.externalPluginPath) {
-      // Default paths for compiler plugins found within an SDK (accessed via
-      // that SDK's plugin server).
-      let sdkPathRoot = VirtualPath.lookup(sdkPath).appending(components: "usr")
-      commandLine.appendFlag(.externalPluginPath)
-      commandLine.appendFlag("\(sdkPathRoot.pluginPath.name)#\(sdkPathRoot.pluginServerPath.name)")
-
-      commandLine.appendFlag(.externalPluginPath)
-      commandLine.appendFlag("\(sdkPathRoot.localPluginPath.name)#\(sdkPathRoot.pluginServerPath.name)")
-
       // Determine the platform path. For simulator platforms, look into the
       // corresponding device platform instance.
       let origPlatformPath = VirtualPath.lookup(sdkPath)
