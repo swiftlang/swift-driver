@@ -1116,6 +1116,7 @@ extension Triple {
     case hurd
     case wasi
     case emscripten
+    case visionos = "xros"
     case noneOS // 'OS' suffix purely to avoid name clash with Optional.none
 
     var name: String {
@@ -1198,6 +1199,8 @@ extension Triple {
         return .emscripten
       case _ where os.hasPrefix("none"):
         return .noneOS
+      case _ where os.hasPrefix("xros"):
+        return .visionos
       default:
         return nil
       }
@@ -1490,9 +1493,14 @@ extension Triple.OS {
     self == .watchos
   }
 
+  public var isVisionOS: Bool {
+    self == .visionos
+  }
+
+
   /// isOSDarwin - Is this a "Darwin" OS (OS X, iOS, or watchOS).
   public var isDarwin: Bool {
-    isMacOSX || isiOS || isWatchOS
+    isMacOSX || isiOS || isWatchOS || isVisionOS
   }
 }
 
@@ -1601,8 +1609,7 @@ extension Triple {
       if version.major < 10 {
         return nil
       }
-
-    case .ios, .tvos, .watchos:
+    case .ios, .tvos, .watchos, .visionos:
        // Ignore the version from the triple.  This is only handled because the
        // the clang driver combines OS X and IOS support into a common Darwin
        // toolchain that wants to know the OS X version number even when targeting
@@ -1635,6 +1642,8 @@ extension Triple {
         version.major = arch == .aarch64 ? 7 : 5
       }
       return version
+    case .visionos:
+      return Version(15, 0, 0)
     case .watchos:
       fatalError("conflicting triple info")
     default:
@@ -1662,6 +1671,24 @@ extension Triple {
       }
       return version
     case .ios:
+      fatalError("conflicting triple info")
+    default:
+      fatalError("unexpected OS for Darwin triple")
+    }
+  }
+
+  public var _visionOSVersion: Version {
+    switch os {
+    case .darwin, .macosx:
+      return Version(1, 0, 0)
+    case .visionos, .ios:
+      var version = self.osVersion
+      // Default to 1.0
+      if version.major == 0 {
+        version.major = 1
+      }
+      return version
+    case .watchos:
       fatalError("conflicting triple info")
     default:
       fatalError("unexpected OS for Darwin triple")

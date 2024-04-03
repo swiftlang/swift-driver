@@ -660,6 +660,16 @@ final class SwiftDriverTests: XCTestCase {
       let jobs = try driver.planBuild()
       XCTAssertTrue(jobs[0].commandLine.contains(.flag("-dwarf-version=4")))
     }
+
+    // TODO: Enable once compiler support lands
+//    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-g", "-c", "-target", "arm64-apple-xros1.0-simulator") { driver in
+//      let jobs = try driver.planBuild()
+//      XCTAssertTrue(jobs[0].commandLine.contains(.flag("-dwarf-version=4")))
+//    }
+//    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-g", "-c", "-target", "arm64-apple-xros1.0") { driver in
+//      let jobs = try driver.planBuild()
+//      XCTAssertTrue(jobs[0].commandLine.contains(.flag("-dwarf-version=4")))
+//    }
   }
 
   func testCoverageSettings() throws {

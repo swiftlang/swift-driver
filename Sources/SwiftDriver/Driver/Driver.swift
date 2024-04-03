@@ -3165,7 +3165,7 @@ extension Driver {
 extension Triple {
   @_spi(Testing) public func toolchainType(_ diagnosticsEngine: DiagnosticsEngine) throws -> Toolchain.Type {
     switch os {
-    case .darwin, .macosx, .ios, .tvos, .watchos:
+    case .darwin, .macosx, .ios, .tvos, .watchos, .visionos:
       return DarwinToolchain.self
     case .linux:
       return GenericUnixToolchain.self
