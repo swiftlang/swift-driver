@@ -293,6 +293,10 @@ private extension DarwinPlatform {
       return ["watchos"]
     case .watchOS(.simulator):
       return ["watchossim", "watchos"]
+    case .visionOS(.device):
+      return ["xros"]
+    case .visionOS(.simulator):
+      return ["xrossim", "xros"]
     }
   }
 }

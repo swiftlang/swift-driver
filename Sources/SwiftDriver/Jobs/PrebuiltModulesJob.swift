@@ -479,6 +479,10 @@ public struct SDKPrebuiltModuleInputsCollector {
       return "arm64-apple-tvos\(version)"
     case .appletvsimulator:
       return "arm64-apple-tvos\(version)-simulator"
+    case .visionos:
+      return "arm64-apple-xros\(version)"
+    case .visionsimulator:
+      return "arm64-apple-xros\(version)-simulator"
     case .unknown:
       fatalError("unknown platform kind")
     }
