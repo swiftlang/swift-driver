@@ -239,7 +239,8 @@ public final class DarwinToolchain: Toolchain {
       .macosx: (.macOS, Triple.Version(10, 9, 0)),
       .ios: (.iOS(targetTriple._isSimulatorEnvironment ? .simulator : .device), Triple.Version(7, 0, 0)),
       .tvos: (.tvOS(targetTriple._isSimulatorEnvironment ? .simulator : .device), Triple.Version(9, 0, 0)),
-      .watchos: (.watchOS(targetTriple._isSimulatorEnvironment ? .simulator : .device), Triple.Version(2, 0, 0))
+      .watchos: (.watchOS(targetTriple._isSimulatorEnvironment ? .simulator : .device), Triple.Version(2, 0, 0)),
+      .visionos: (.visionOS(targetTriple._isSimulatorEnvironment ? .simulator : .device), Triple.Version(1, 0, 0))
     ]
     if let (platform, minVersion) = minVersions[os], targetTriple.version(for: platform) < minVersion {
       throw ToolchainValidationError.osVersionBelowMinimumDeploymentTarget(platform: platform, version: minVersion)
@@ -288,6 +289,8 @@ public final class DarwinToolchain: Toolchain {
       case watchsimulator
       case appletvos
       case appletvsimulator
+      case visionos
+      case visionsimulator
       case unknown
     }
 
