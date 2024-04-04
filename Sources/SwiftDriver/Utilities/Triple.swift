@@ -520,6 +520,8 @@ extension Triple {
     case renderscript32
     // 64-bit RenderScript
     case renderscript64
+    // Xtensa instruction set
+    case xtensa
 
     static func parse(_ archName: Substring) -> Triple.Arch? {
       switch archName {
@@ -633,6 +635,8 @@ extension Triple {
         return .renderscript32
       case "renderscript64":
         return .renderscript64
+      case "xtensa":
+        return .xtensa
 
       case _ where archName.hasPrefix("arm") || archName.hasPrefix("thumb") || archName.hasPrefix("aarch64"):
         return parseARMArch(archName)
@@ -822,7 +826,7 @@ extension Triple {
       case .arc, .arm, .armeb, .hexagon, .le32, .mips, .mipsel, .nvptx,
            .ppc, .r600, .riscv32, .sparc, .sparcel, .tce, .tcele, .thumb,
            .thumbeb, .x86, .xcore, .amdil, .hsail, .spir, .kalimba,.lanai,
-           .shave, .wasm32, .renderscript32, .aarch64_32, .m68k:
+           .shave, .wasm32, .renderscript32, .aarch64_32, .m68k, .xtensa:
         return 32
 
       case .aarch64, .aarch64e, .aarch64_be, .amdgcn, .bpfel, .bpfeb, .le64, .mips64,
@@ -1425,7 +1429,8 @@ extension Triple {
         case .tce: fallthrough
         case .tcele: fallthrough
         case .thumbeb: fallthrough
-        case .xcore:
+        case .xcore: fallthrough
+        case .xtensa:
           return .elf
 
         case .ppc, .ppc64:
