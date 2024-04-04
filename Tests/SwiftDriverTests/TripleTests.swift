@@ -41,6 +41,8 @@ final class TripleTests: XCTestCase {
     XCTAssertEqual(Triple("arm64-unknown-none").environment, nil)
     XCTAssertEqual(Triple("arm64-unknown-none").objectFormat, .elf)
 
+    XCTAssertEqual(Triple("xtensa-unknown-none").objectFormat, .elf)
+
     XCTAssertEqual(Triple("arm64-apple-none-macho").arch, .aarch64)
     XCTAssertEqual(Triple("arm64-apple-none-macho").vendor, .apple)
     XCTAssertEqual(Triple("arm64-apple-none-macho").os, .noneOS)
