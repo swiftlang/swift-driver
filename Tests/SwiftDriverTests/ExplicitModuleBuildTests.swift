@@ -456,7 +456,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
               let baseName = "testExplicitModuleBuildJobs"
               XCTAssertTrue(matchTemporary(outputFilePath, basename: baseName, fileExtension: "o") ||
                             matchTemporary(outputFilePath, basename: baseName, fileExtension: "autolink") ||
-                            matchTemporary(outputFilePath, basename: "Bridging-", fileExtension: "pch"))
+                            matchTemporary(outputFilePath, basename: "Bridging", fileExtension: "pch"))
             default:
               XCTFail("Unexpected module dependency build job output: \(outputFilePath)")
           }

@@ -452,6 +452,13 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
     commandLine.append(contentsOf: mainModuleDependenciesArgs.commandLine)
   }
 
+  /// Get the context hash for the main module.
+  public func getMainModuleContextHash() throws -> String? {
+    let mainModuleId: ModuleDependencyId = .swift(dependencyGraph.mainModuleName)
+    let mainModuleDetails = try dependencyGraph.swiftModuleDetails(of: mainModuleId)
+    return mainModuleDetails.contextHash
+  }
+
   /// Resolve all module dependencies of the main module and add them to the lists of
   /// inputs and command line flags.
   public mutating func resolveBridgingHeaderDependencies(inputs: inout [TypedVirtualPath],
