@@ -60,7 +60,7 @@ public struct Triple {
   public let objectFormat: ObjectFormat?
 
   /// Represents a version that may be present in the target triple.
-  public struct Version: Equatable, Comparable, CustomStringConvertible {
+  public struct Version: Equatable, Comparable, CustomStringConvertible, Sendable {
     public static let zero = Version(0, 0, 0)
 
     public var major: Int
