@@ -38,6 +38,12 @@ extension ModuleDependencyGraph {
     /*@_spi(Testing)*/ public var key: DependencyKey { keyAndFingerprint.key }
     /*@_spi(Testing)*/ public var fingerprint: InternedString? { keyAndFingerprint.fingerprint }
 
+    /// When integrating a change, the driver finds untraced nodes so it can kick off jobs that have not been
+    /// kicked off yet. (Within any one driver invocation, compiling a source file is idempotent.)
+    /// When reading a serialized, prior graph, *don't* recover this state, since it will be a new driver
+    /// invocation that has not kicked off any compiles yet.
+    @_spi(Testing) public private(set) var isTraced: Bool = false
+      
     /// Each Node corresponds to a declaration, somewhere. If the definition has been already found,
     /// the `definitionLocation` will point to it.
     /// If uses are encountered before the definition (in reading swiftdeps files), the `definitionLocation`
@@ -46,11 +52,6 @@ extension ModuleDependencyGraph {
     /// compilation.
 
     @_spi(Testing) public let definitionLocation: DefinitionLocation
-    /// When integrating a change, the driver finds untraced nodes so it can kick off jobs that have not been
-    /// kicked off yet. (Within any one driver invocation, compiling a source file is idempotent.)
-    /// When reading a serialized, prior graph, *don't* recover this state, since it will be a new driver
-    /// invocation that has not kicked off any compiles yet.
-    @_spi(Testing) public private(set) var isTraced: Bool = false
 
     private let cachedHash: Int
 
