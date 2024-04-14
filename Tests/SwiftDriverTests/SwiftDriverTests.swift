@@ -3097,6 +3097,35 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertTrue(firstKeyOutputs.keys.contains(where: { $0 == .swiftModule }))
   }
 
+  func testLinkFilelistWithDebugInfo() throws {
+    func getFileListElements(for filelistOpt: String, job: Job) -> [VirtualPath] {
+        guard let optIdx = job.commandLine.firstIndex(of: .flag(filelistOpt)) else {
+            XCTFail("Argument '\(filelistOpt)' not in job command line")
+            return []
+        }
+        let value = job.commandLine[job.commandLine.index(after: optIdx)]
+        guard case let .path(.fileList(_, valueFileList)) = value else {
+            XCTFail("Argument wasn't a filelist")
+            return []
+        }
+        guard case let .list(inputs) = valueFileList else {
+            XCTFail("FileList wasn't a List")
+            return []
+        }
+        return inputs
+    }
+
+    var driver = try Driver(args: [
+        "swiftc", "-g", "/tmp/hello.swift", "-module-name", "Hello",
+        "-emit-library", "-driver-filelist-threshold=0"
+    ])
+
+    var jobs = try driver.planBuild()
+    XCTAssertEqual(jobs.count, 4)
+    XCTAssertEqual(getFileListElements(for: "-filelist", job: jobs[2]),
+        [.temporary(try .init(validating: "hello-1.o"))])
+  }
+
   func testDashDashPassingDownInput() throws {
     do {
       var driver = try Driver(args: ["swiftc", "-module-name=ThisModule", "-wmo", "-num-threads", "4", "-emit-module", "-o", "test.swiftmodule", "--", "main.swift", "multi-threaded.swift"])

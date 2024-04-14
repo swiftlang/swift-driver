@@ -119,7 +119,6 @@ extension DarwinToolchain {
       var inputModules = [VirtualPath]()
       for input in inputs {
         if input.type == .swiftModule && linkerOutputType != .staticLibrary {
-          inputPaths.append(input.file)
           inputModules.append(input.file)
         } else if input.type == .object {
           inputPaths.append(input.file)
