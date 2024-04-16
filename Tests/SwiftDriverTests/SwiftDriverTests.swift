@@ -7417,11 +7417,10 @@ final class SwiftDriverTests: XCTestCase {
 
     // Check that the we have the plugin path
     let pluginAIndex = job.commandLine.firstIndex(of: .path(VirtualPath.absolute(try .init(validating: "/tmp/PluginA.wasm#ModuleA"))))
-    print(job.commandLine)
     XCTAssertNotNil(pluginAIndex)
 
     // Check that we also have the wasm plugin server path
-    let wasmPathOptionIndex = try XCTUnwrap(job.commandLine.firstIndex(of: "-wasm-plugin-server-path"))
+    let wasmPathOptionIndex = try XCTUnwrap(job.commandLine.firstIndex(of: .flag("-wasm-plugin-server-path")))
     let wasmPath = job.commandLine[wasmPathOptionIndex + 1]
     #if os(Windows)
     let expectedWasmServerPath = executableDir.appending(component: "swift-wasm-plugin-server.exe")
