@@ -488,6 +488,11 @@ extension Driver {
 
       commandLine.appendFlag(.pluginPath)
       commandLine.appendPath(pluginPathRoot.localPluginPath)
+
+      if isFrontendArgSupported(.wasmPluginServerPath) {
+        commandLine.appendFlag(.wasmPluginServerPath)
+        commandLine.appendPath(pluginPathRoot.wasmPluginServerPath)
+      }
     }
   }
 
@@ -904,5 +909,17 @@ extension ParsedOptions {
       let experimentalFeatures = self.arguments(for: .enableExperimentalFeature)
       return experimentalFeatures.map(\.argument).map(\.asSingle).contains("Embedded")
     }
+  }
+}
+
+extension VirtualPath {
+  // Given a virtual path pointing into a toolchain/SDK/platform, produce the
+  // path to `swift-wasm-plugin-server`.
+  fileprivate var wasmPluginServerPath: VirtualPath {
+#if os(Windows)
+    self.appending(components: "bin", "swift-wasm-plugin-server.exe")
+#else
+    self.appending(components: "bin", "swift-wasm-plugin-server")
+#endif
   }
 }
