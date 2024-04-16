@@ -489,7 +489,9 @@ extension Driver {
       commandLine.appendFlag(.pluginPath)
       commandLine.appendPath(pluginPathRoot.localPluginPath)
 
-      if isFrontendArgSupported(.wasmPluginServerPath) {
+      // Avoid cluttering the invocation with the wasm plugin server path unless
+      // the user has requested to load a wasm macro.
+      if isFrontendArgSupported(.wasmPluginServerPath) && parsedOptions.hasWasmPlugins {
         commandLine.appendFlag(.wasmPluginServerPath)
         commandLine.appendPath(pluginPathRoot.wasmPluginServerPath)
       }
@@ -908,6 +910,19 @@ extension ParsedOptions {
     mutating get {
       let experimentalFeatures = self.arguments(for: .enableExperimentalFeature)
       return experimentalFeatures.map(\.argument).map(\.asSingle).contains("Embedded")
+    }
+  }
+
+  /// Checks whether there are any `-load-plugin-executable` arguments for WebAssembly plugins.
+  var hasWasmPlugins: Bool {
+    mutating get {
+      let loadPluginExecutables = self.arguments(for: .loadPluginExecutable)
+      return loadPluginExecutables.contains { option in
+        let argument = option.argument.asSingle
+        // the format is <file.ext>#<modules>
+        guard let separator = argument.lastIndex(of: "#") else { return false }
+        return argument[..<separator].hasSuffix(".wasm")
+      }
     }
   }
 }
