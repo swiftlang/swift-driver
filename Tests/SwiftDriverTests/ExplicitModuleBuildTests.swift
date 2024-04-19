@@ -2043,6 +2043,14 @@ final class ExplicitModuleBuildTests: XCTestCase {
     let collector = try SDKPrebuiltModuleInputsCollector(VirtualPath(path: mockSDKPath).absolutePath!, diagnosticEnging)
     let interfaceMap = try collector.collectSwiftInterfaceMap().inputMap
 
+    let extraArgs = try {
+        let driver = try Driver(args: ["swiftc", "-v"])
+        if driver.isFrontendArgSupported(.moduleLoadMode) {
+          return ["-Xfrontend", "-module-load-mode", "-Xfrontend", "prefer-interface"]
+        }
+        return []
+    }()
+
     // Check interface map always contain everything
     XCTAssertTrue(interfaceMap["Swift"]!.count == 3)
     XCTAssertTrue(interfaceMap["A"]!.count == 3)
@@ -2067,8 +2075,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let moduleCachePath = "/tmp/module-cache"
       var driver = try Driver(args: ["swiftc", main.pathString,
                                      "-sdk", mockSDKPath,
-                                     "-module-cache-path", moduleCachePath
-                                    ])
+                                     "-module-cache-path", moduleCachePath,
+                                    ] + extraArgs)
       let (jobs, danglingJobs) = try driver.generatePrebuiltModuleGenerationJobs(with: interfaceMap,
                                                                                 into: path,
                                                                                 exhaustive: true)
@@ -2112,7 +2120,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       try localFileSystem.writeFileContents(main, bytes: "import H\n")
       var driver = try Driver(args: ["swiftc", main.pathString,
                                      "-sdk", mockSDKPath,
-                                    ])
+                                    ] + extraArgs)
       let (jobs, danglingJobs) = try driver.generatePrebuiltModuleGenerationJobs(with: interfaceMap,
                                                                                 into: path,
                                                                                 exhaustive: false)
@@ -2148,7 +2156,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       try localFileSystem.writeFileContents(main, bytes: "import Swift\n")
       var driver = try Driver(args: ["swiftc", main.pathString,
                                      "-sdk", mockSDKPath,
-                                    ])
+                                    ] + extraArgs)
       let (jobs, danglingJobs) = try driver.generatePrebuiltModuleGenerationJobs(with: interfaceMap,
                                                                                 into: path,
                                                                                 exhaustive: false)
@@ -2162,7 +2170,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       try localFileSystem.writeFileContents(main, bytes: "import F\n")
       var driver = try Driver(args: ["swiftc", main.pathString,
                                      "-sdk", mockSDKPath,
-                                    ])
+                                    ] + extraArgs)
       let (jobs, danglingJobs) = try driver.generatePrebuiltModuleGenerationJobs(with: interfaceMap,
                                                                                 into: path,
                                                                                 exhaustive: false)
@@ -2180,7 +2188,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       try localFileSystem.writeFileContents(main, bytes: "import H\n")
       var driver = try Driver(args: ["swiftc", main.pathString,
                                      "-sdk", mockSDKPath,
-                                    ])
+                                    ] + extraArgs)
       let (jobs, _) = try driver.generatePrebuiltModuleGenerationJobs(with: interfaceMap,
                                                                                 into: path,
                                                                                 exhaustive: false)
