@@ -189,12 +189,6 @@ public class InterModuleDependencyOracle {
       if let cas = createdCASMap[casOpt] {
         return cas
       }
-      if let path = onDiskPath {
-        guard !seenCASPath.contains(path) else {
-          throw DependencyScanningError.casError("Cannot create two different CAS at the same OnDiskPath")
-        }
-        seenCASPath.insert(path)
-      }
       let cas = try swiftScan.createCAS(pluginPath: pluginPath?.pathString, onDiskPath: onDiskPath?.pathString, pluginOptions: pluginOptions)
       createdCASMap[casOpt] = cas
       return cas
@@ -234,7 +228,5 @@ public class InterModuleDependencyOracle {
 
   /// Storing the CAS created via CASConfig.
   internal var createdCASMap: [CASConfig: SwiftScanCAS] = [:]
-  /// The on disk path seen by CAS creation function.
-  internal var seenCASPath: Set<AbsolutePath> = []
 }
 
