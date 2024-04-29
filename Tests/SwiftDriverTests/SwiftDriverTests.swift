@@ -3504,6 +3504,22 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs.count, 4)
       XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .emitModule, .link]))
     }
+
+    do {
+      // Schedule an emit-module separately job even if there are non-compilable inputs.
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.dylib", "-emit-library", "foo.dylib", "-emit-module-path", "foo.swiftmodule"],
+                              env: envVars)
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 3)
+      XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .emitModule, .link]))
+
+      let emitJob = try plannedJobs.findJob(.emitModule)
+      XCTAssertTrue(emitJob.commandLine.contains(try toPathOption("foo.swift")))
+      XCTAssertFalse(emitJob.commandLine.contains(try toPathOption("bar.dylib")))
+
+      let linkJob = try plannedJobs.findJob(.link)
+      XCTAssertTrue(linkJob.commandLine.contains(try toPathOption("bar.dylib")))
+    }
   }
 
   func testEmitModuleSeparatelyWMO() throws {
