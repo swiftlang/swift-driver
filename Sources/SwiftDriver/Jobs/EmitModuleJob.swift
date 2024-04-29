@@ -136,7 +136,7 @@ extension Driver {
                                           moduleOutputInfo: ModuleOutputInfo,
                                           inputFiles: [TypedVirtualPath]) -> Bool {
     if moduleOutputInfo.output == nil ||
-       !inputFiles.allSatisfy({ $0.type.isPartOfSwiftCompilation }) {
+       !inputFiles.contains(where: { $0.type.isPartOfSwiftCompilation }) {
       return false
     }
 
