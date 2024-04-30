@@ -90,7 +90,7 @@ extension Driver {
 
     // Add the inputs.
     for input in self.inputFiles where input.type.isPartOfSwiftCompilation {
-      commandLine.append(.path(input.file))
+      try addPathArgument(input.file, to: &commandLine)
       inputs.append(input)
     }
 
