@@ -3096,7 +3096,7 @@ final class SwiftDriverTests: XCTestCase {
   func testWMOWithNonSourceInputFirstAndModuleOutput() throws {
     var driver1 = try Driver(args: [
       "swiftc", "-wmo", "danger.o", "foo.swift", "bar.swift", "wibble.swift", "-module-name", "Test",
-      "-driver-filelist-threshold=0", "-emit-module", "-emit-library"
+      "-driver-filelist-threshold=0", "-emit-module", "-emit-library", "-no-emit-module-separately-wmo"
     ])
     let plannedJobs = try driver1.planBuild().removingAutolinkExtractJobs()
     XCTAssertEqual(plannedJobs.count, 2)
