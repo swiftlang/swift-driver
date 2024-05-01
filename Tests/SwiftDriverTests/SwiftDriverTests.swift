@@ -3477,11 +3477,11 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .emitModule, .link]))
 
       let emitJob = try plannedJobs.findJob(.emitModule)
-      XCTAssertTrue(emitJob.commandLine.contains(try toPathOption("foo.swift")))
-      XCTAssertFalse(emitJob.commandLine.contains(try toPathOption("bar.dylib")))
+      XCTAssertTrue(try emitJob.commandLine.contains(where: { $0 == .path(.relative(try .init(validating: "foo.swift")))}))
+      XCTAssertFalse(try emitJob.commandLine.contains(where: { $0 == .path(.relative(try .init(validating: "bar.dylib")))}))
 
       let linkJob = try plannedJobs.findJob(.link)
-      XCTAssertTrue(linkJob.commandLine.contains(try toPathOption("bar.dylib")))
+      XCTAssertTrue(try linkJob.commandLine.contains(where: { $0 == .path(.relative(try .init(validating: "bar.dylib")))}))
     }
   }
 
