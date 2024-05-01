@@ -3096,7 +3096,7 @@ final class SwiftDriverTests: XCTestCase {
   func testWMOWithNonSourceInputFirstAndModuleOutput() throws {
     var driver1 = try Driver(args: [
       "swiftc", "-wmo", "danger.o", "foo.swift", "bar.swift", "wibble.swift", "-module-name", "Test",
-      "-driver-filelist-threshold=0", "-emit-module", "-emit-library"
+      "-driver-filelist-threshold=0", "-emit-module", "-emit-library", "-no-emit-module-separately-wmo"
     ])
     let plannedJobs = try driver1.planBuild().removingAutolinkExtractJobs()
     XCTAssertEqual(plannedJobs.count, 2)
@@ -3503,6 +3503,22 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 4)
       XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .emitModule, .link]))
+    }
+
+    do {
+      // Schedule an emit-module separately job even if there are non-compilable inputs.
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.dylib", "-emit-library", "foo.dylib", "-emit-module-path", "foo.swiftmodule"],
+                              env: envVars)
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 3)
+      XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .emitModule, .link]))
+
+      let emitJob = try plannedJobs.findJob(.emitModule)
+      XCTAssertTrue(emitJob.commandLine.contains(try toPathOption("foo.swift")))
+      XCTAssertFalse(emitJob.commandLine.contains(try toPathOption("bar.dylib")))
+
+      let linkJob = try plannedJobs.findJob(.link)
+      XCTAssertTrue(linkJob.commandLine.contains(try toPathOption("bar.dylib")))
     }
   }
 
