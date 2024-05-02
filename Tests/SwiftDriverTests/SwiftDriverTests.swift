@@ -7395,7 +7395,15 @@ final class SwiftDriverTests: XCTestCase {
 
     let toolchainPluginPathIndex = job.commandLine.firstIndex(of: .path(.absolute(try driver.toolchain.executableDir.parentDirectory.appending(components: "lib", "swift", "host", "plugins"))))
     XCTAssertNotNil(toolchainPluginPathIndex)
-    XCTAssertLessThan(platformLocalPluginPathIndex!, toolchainPluginPathIndex!)
+
+    let toolchainStdlibPath = VirtualPath.lookup(driver.frontendTargetInfo.runtimeResourcePath.path)
+      .appending(components: driver.frontendTargetInfo.target.triple.platformName() ?? "", "Swift.swiftmodule")
+    let hasToolchainStdlib = try driver.fileSystem.exists(toolchainStdlibPath)
+    if hasToolchainStdlib {
+      XCTAssertGreaterThan(platformLocalPluginPathIndex!, toolchainPluginPathIndex!)
+    } else {
+      XCTAssertLessThan(platformLocalPluginPathIndex!, toolchainPluginPathIndex!)
+    }
     #endif
 
     XCTAssertTrue(job.commandLine.contains(.flag("-plugin-path")))
