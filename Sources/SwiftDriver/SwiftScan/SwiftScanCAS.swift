@@ -344,8 +344,9 @@ extension CachedOutput {
         } else {
           obj.continuation.resume(throwing: DependencyScanningError.casError("unknown output loading error"))
         }
+      } else {
+        obj.continuation.resume(returning: success)
       }
-      obj.continuation.resume(returning: success)
     }
 
     return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Bool, Swift.Error>) in
@@ -378,8 +379,9 @@ extension SwiftScanCAS {
         } else {
           obj.continuation.resume(throwing: DependencyScanningError.casError("unknown cache querying error"))
         }
+      } else {
+        obj.continuation.resume(returning: obj.cas.convert(compilation: comp))
       }
-      obj.continuation.resume(returning: obj.cas.convert(compilation: comp))
     }
 
     return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<CachedCompilation?, Swift.Error>) in
@@ -410,8 +412,9 @@ extension SwiftScanCAS {
         } else {
           obj.continuation.resume(throwing: DependencyScanningError.casError("unknown output loading error"))
         }
+      } else {
+        obj.continuation.resume(returning: success)
       }
-      obj.continuation.resume(returning: success)
     }
 
     return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Bool, Swift.Error>) in
