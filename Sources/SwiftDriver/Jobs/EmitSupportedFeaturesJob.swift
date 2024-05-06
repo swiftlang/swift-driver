@@ -70,7 +70,7 @@ extension Driver {
         return supportedArgs
       }
     } catch {
-      diagnosticsEngine.emit(.warning_inprocess_supported_features_query_failed(error.localizedDescription))
+      diagnosticsEngine.emit(.remark_inprocess_supported_features_query_failed(error.localizedDescription))
     }
 
     // Fallback: Invoke `swift-frontend -emit-supported-features` and decode the output
