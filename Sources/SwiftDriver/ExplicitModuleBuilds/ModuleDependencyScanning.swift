@@ -22,6 +22,12 @@ import class Foundation.JSONEncoder
 import class Foundation.JSONDecoder
 import var Foundation.EXIT_SUCCESS
 
+private extension String {
+  func stripNewline() -> String {
+    return self.hasSuffix("\n") ? String(self.dropLast()) : self
+  }
+}
+
 extension Diagnostic.Message {
   static func warn_scan_dylib_not_found() -> Diagnostic.Message {
     .warning("Unable to locate libSwiftScan. Fallback to `swift-frontend` dependency scanner invocation.")
@@ -33,16 +39,16 @@ extension Diagnostic.Message {
     .error("Swift Caching enabled - libSwiftScan load failed (\(libPath)).")
   }
   static func scanner_diagnostic_error(_ message: String) -> Diagnostic.Message {
-    .error(message)
+    return .error(message.stripNewline())
   }
   static func scanner_diagnostic_warn(_ message: String) -> Diagnostic.Message {
-    .warning(message)
+    .warning(message.stripNewline())
   }
   static func scanner_diagnostic_note(_ message: String) -> Diagnostic.Message {
-    .note(message)
+    .note(message.stripNewline())
   }
   static func scanner_diagnostic_remark(_ message: String) -> Diagnostic.Message {
-    .remark(message)
+    .remark(message.stripNewline())
   }
 }
 
@@ -249,15 +255,20 @@ public extension Driver {
       for diagnostic in diagnostics {
         switch diagnostic.severity {
         case .error:
-          diagnosticEngine.emit(.scanner_diagnostic_error(diagnostic.message))
+          diagnosticEngine.emit(.scanner_diagnostic_error(diagnostic.message),
+                                location: diagnostic.sourceLocation)
         case .warning:
-          diagnosticEngine.emit(.scanner_diagnostic_warn(diagnostic.message))
+          diagnosticEngine.emit(.scanner_diagnostic_warn(diagnostic.message),
+                                location: diagnostic.sourceLocation)
         case .note:
-          diagnosticEngine.emit(.scanner_diagnostic_note(diagnostic.message))
+          diagnosticEngine.emit(.scanner_diagnostic_note(diagnostic.message),
+                                location: diagnostic.sourceLocation)
         case .remark:
-          diagnosticEngine.emit(.scanner_diagnostic_remark(diagnostic.message))
+          diagnosticEngine.emit(.scanner_diagnostic_remark(diagnostic.message),
+                                location: diagnostic.sourceLocation)
         case .ignored:
-          diagnosticEngine.emit(.scanner_diagnostic_error(diagnostic.message))
+          diagnosticEngine.emit(.scanner_diagnostic_error(diagnostic.message),
+                                location: diagnostic.sourceLocation)
         }
       }
   }

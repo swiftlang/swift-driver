@@ -44,6 +44,7 @@ typedef struct swiftscan_dependency_info_s *swiftscan_dependency_info_t;
 typedef struct swiftscan_dependency_graph_s *swiftscan_dependency_graph_t;
 typedef struct swiftscan_import_set_s *swiftscan_import_set_t;
 typedef struct swiftscan_diagnostic_info_s *swiftscan_diagnostic_info_t;
+typedef struct swiftscan_source_location_s *swiftscan_source_location_t;
 
 typedef enum {
   SWIFTSCAN_DIAGNOSTIC_SEVERITY_ERROR = 0,
@@ -270,8 +271,18 @@ typedef struct {
   (*swiftscan_diagnostic_get_message)(swiftscan_diagnostic_info_t);
   swiftscan_diagnostic_severity_t
   (*swiftscan_diagnostic_get_severity)(swiftscan_diagnostic_info_t);
+  swiftscan_source_location_t
+  (*swiftscan_diagnostic_get_source_location)(swiftscan_diagnostic_info_t);
   void
   (*swiftscan_diagnostics_set_dispose)(swiftscan_diagnostic_set_t*);
+
+  //=== Source Location -----------------------------------------------------===//
+  swiftscan_string_ref_t
+  (*swiftscan_source_location_get_buffer_identifier)(swiftscan_source_location_t);
+  int64_t
+  (*swiftscan_source_location_get_line_number)(swiftscan_source_location_t);
+  int64_t
+  (*swiftscan_source_location_get_column_number)(swiftscan_source_location_t);
 
   //=== Scanner Cache Functions ---------------------------------------------===//
   void (*swiftscan_scanner_cache_serialize)(swiftscan_scanner_t scanner, const char * path);
