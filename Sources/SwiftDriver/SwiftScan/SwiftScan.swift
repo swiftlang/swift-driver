@@ -21,6 +21,7 @@ import struct Foundation.Data
 import protocol TSCBasic.DiagnosticData
 import struct TSCBasic.AbsolutePath
 import struct TSCBasic.Diagnostic
+import protocol TSCBasic.DiagnosticLocation
 
 public enum DependencyScanningError: LocalizedError, DiagnosticData, Equatable {
   case missingRequiredSymbol(String)
@@ -70,9 +71,19 @@ public enum DependencyScanningError: LocalizedError, DiagnosticData, Equatable {
   }
 }
 
-@_spi(Testing) public struct ScannerDiagnosticPayload {
-  @_spi(Testing) public let severity: Diagnostic.Behavior
-  @_spi(Testing) public let message: String
+public struct ScannerDiagnosticSourceLocation : DiagnosticLocation {
+  public var description: String {
+    return "\(bufferIdentifier):\(lineNumber):\(columnNumber)"
+  }
+  public let bufferIdentifier: String
+  public let lineNumber: Int
+  public let columnNumber: Int
+}
+
+public struct ScannerDiagnosticPayload {
+  public let severity: Diagnostic.Behavior
+  public let message: String
+  public let sourceLocation: ScannerDiagnosticSourceLocation?
 }
 
 internal extension swiftscan_diagnostic_severity_t {
@@ -345,6 +356,13 @@ internal extension swiftscan_diagnostic_severity_t {
            api.swiftscan_import_set_get_diagnostics != nil
   }
 
+  @_spi(Testing) public var supportsDiagnosticSourceLocations : Bool {
+    return api.swiftscan_diagnostic_get_source_location != nil &&
+           api.swiftscan_source_location_get_buffer_identifier != nil &&
+           api.swiftscan_source_location_get_line_number != nil &&
+           api.swiftscan_source_location_get_column_number != nil
+  }
+
   func serializeScannerCache(to path: AbsolutePath) {
     api.swiftscan_scanner_cache_serialize(scanner,
                                           path.description.cString(using: String.Encoding.utf8))
@@ -369,7 +387,22 @@ internal extension swiftscan_diagnostic_severity_t {
       }
       let message = try toSwiftString(api.swiftscan_diagnostic_get_message(diagnosticRef))
       let severity = api.swiftscan_diagnostic_get_severity(diagnosticRef)
-      result.append(ScannerDiagnosticPayload(severity: severity.toDiagnosticBehavior(), message: message))
+
+      var sourceLoc: ScannerDiagnosticSourceLocation? = nil
+      if supportsDiagnosticSourceLocations {
+        let sourceLocRefOrNull = api.swiftscan_diagnostic_get_source_location(diagnosticRef)
+        if let sourceLocRef = sourceLocRefOrNull {
+          let bufferName = try toSwiftString(api.swiftscan_source_location_get_buffer_identifier(sourceLocRef))
+          let lineNumber = api.swiftscan_source_location_get_line_number(sourceLocRef)
+          let columnNumber = api.swiftscan_source_location_get_column_number(sourceLocRef)
+          sourceLoc = ScannerDiagnosticSourceLocation(bufferIdentifier: bufferName,
+                                                      lineNumber: Int(lineNumber),
+                                                      columnNumber: Int(columnNumber))
+        }
+      }
+      result.append(ScannerDiagnosticPayload(severity: severity.toDiagnosticBehavior(),
+                                             message: message,
+                                             sourceLocation: sourceLoc))
     }
     return result
   }
@@ -596,6 +629,11 @@ private extension swiftscan_functions_t {
     self.swiftscan_cache_replay_result_get_stdout = try loadOptional("swiftscan_cache_replay_result_get_stdout")
     self.swiftscan_cache_replay_result_get_stderr = try loadOptional("swiftscan_cache_replay_result_get_stderr")
     self.swiftscan_cache_replay_result_dispose = try loadOptional("swiftscan_cache_replay_result_dispose")
+
+    self.swiftscan_diagnostic_get_source_location = try loadOptional("swiftscan_diagnostic_get_source_location")
+    self.swiftscan_source_location_get_buffer_identifier = try loadOptional("swiftscan_source_location_get_buffer_identifier")
+    self.swiftscan_source_location_get_line_number = try loadOptional("swiftscan_source_location_get_line_number")
+    self.swiftscan_source_location_get_column_number = try loadOptional("swiftscan_source_location_get_column_number")
 
     // Swift Overlay Dependencies
     self.swiftscan_swift_textual_detail_get_swift_overlay_dependencies =
