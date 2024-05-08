@@ -4413,6 +4413,27 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testDarwinSDKToolchainName() throws {
+    var envVars = ProcessEnv.vars
+    envVars["SWIFT_DRIVER_LD_EXEC"] = ld.nativePathString(escaped: false)
+
+    try withTemporaryDirectory { tmpDir in
+      let sdk = tmpDir.appending(component: "XROS1.0.sdk")
+      try localFileSystem.createDirectory(sdk, recursive: true)
+      try localFileSystem.writeFileContents(sdk.appending(component: "SDKSettings.json"), bytes:
+        """
+        {
+          "Version":"1.0",
+          "CanonicalName": "xros1.0"
+        }
+        """
+      )
+
+      let sdkInfo = DarwinToolchain.readSDKInfo(localFileSystem, VirtualPath.absolute(sdk).intern())
+      XCTAssertEqual(sdkInfo?.platformKind, .visionos)
+    }
+  }
+
   // Test cases ported from Driver/macabi-environment.swift
   func testDarwinSDKVersioning() throws {
     var envVars = ProcessEnv.vars
