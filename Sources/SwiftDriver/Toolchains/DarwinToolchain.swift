@@ -289,8 +289,8 @@ public final class DarwinToolchain: Toolchain {
       case watchsimulator
       case appletvos
       case appletvsimulator
-      case visionos
-      case visionsimulator
+      case visionos = "xros"
+      case visionsimulator = "xrsimulator"
       case unknown
     }
 
