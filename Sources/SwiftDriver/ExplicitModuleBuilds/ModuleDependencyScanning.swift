@@ -23,8 +23,14 @@ import class Foundation.JSONDecoder
 import var Foundation.EXIT_SUCCESS
 
 extension Diagnostic.Message {
-  static func warn_scanner_frontend_fallback() -> Diagnostic.Message {
-    .warning("Fallback to `swift-frontend` dependency scanner invocation")
+  static func warn_scan_dylib_not_found() -> Diagnostic.Message {
+    .warning("Unable to locate libSwiftScan. Fallback to `swift-frontend` dependency scanner invocation.")
+  }
+  static func warn_scan_dylib_load_failed(_ libPath: String) -> Diagnostic.Message {
+    .warning("In-process dependency scan query failed due to incompatible libSwiftScan (\(libPath)). Fallback to `swift-frontend` dependency scanner invocation. Specify '-nonlib-dependency-scanner' to silence this warning.")
+  }
+  static func error_caching_enabled_libswiftscan_load_failure(_ libPath: String) -> Diagnostic.Message {
+    .error("Swift Caching enabled - libSwiftScan load failed (\(libPath)).")
   }
   static func scanner_diagnostic_error(_ message: String) -> Diagnostic.Message {
     .error(message)
@@ -156,27 +162,35 @@ public extension Driver {
 
   /// Returns false if the lib is available and ready to use
   private mutating func initSwiftScanLib() throws -> Bool {
-    // If `-nonlib-dependency-scanner` was specified or the libSwiftScan library cannot be found,
-    // attempt to fallback to using `swift-frontend -scan-dependencies` invocations for dependency
-    // scanning.
-    guard !parsedOptions.hasArgument(.driverScanDependenciesNonLib),
-          let scanLibPath = try toolchain.lookupSwiftScanLib(),
-          fileSystem.exists(scanLibPath) else {
-      // This warning is mostly useful for debugging the driver, so let's hide it
-      // when libSwiftDriver is used, instead of a swift-driver executable.
-      if !integratedDriver {
-        diagnosticEngine.emit(.warn_scanner_frontend_fallback())
-      }
-
+    // `-nonlib-dependency-scanner` was specified
+    guard !parsedOptions.hasArgument(.driverScanDependenciesNonLib) else {
       return true
     }
 
-    try interModuleDependencyOracle.verifyOrCreateScannerInstance(fileSystem: fileSystem,
-                                                                  swiftScanLibPath: scanLibPath)
-    if isCachingEnabled {
-      self.cas = try interModuleDependencyOracle.getOrCreateCAS(pluginPath: try getCASPluginPath(),
-                                                                onDiskPath: try getOnDiskCASPath(),
-                                                                pluginOptions: try getCASPluginOptions())
+    // If the libSwiftScan library cannot be found,
+    // attempt to fallback to using `swift-frontend -scan-dependencies` invocations for dependency
+    // scanning.
+    guard let scanLibPath = try toolchain.lookupSwiftScanLib(),
+          fileSystem.exists(scanLibPath) else {
+      diagnosticEngine.emit(.warn_scan_dylib_not_found())
+      return true
+    }
+
+    do {
+      try interModuleDependencyOracle.verifyOrCreateScannerInstance(fileSystem: fileSystem,
+                                                                    swiftScanLibPath: scanLibPath)
+      if isCachingEnabled {
+        self.cas = try interModuleDependencyOracle.getOrCreateCAS(pluginPath: try getCASPluginPath(),
+                                                                  onDiskPath: try getOnDiskCASPath(),
+                                                                  pluginOptions: try getCASPluginOptions())
+      }
+    } catch {
+      if isCachingEnabled {
+        diagnosticEngine.emit(.error_caching_enabled_libswiftscan_load_failure(scanLibPath.description))
+      } else {
+        diagnosticEngine.emit(.warn_scan_dylib_load_failed(scanLibPath.description))
+      }
+      return true
     }
     return false
   }
@@ -257,7 +271,7 @@ public extension Driver {
     }
   }
 
-  mutating internal func performDependencyScan() throws -> InterModuleDependencyGraph {
+  mutating func performDependencyScan() throws -> InterModuleDependencyGraph {
     let scannerJob = try dependencyScanningJob()
     let forceResponseFiles = parsedOptions.hasArgument(.driverForceResponseFiles)
     let dependencyGraph: InterModuleDependencyGraph
