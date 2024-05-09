@@ -1597,6 +1597,65 @@ final class ExplicitModuleBuildTests: XCTestCase {
     }
   }
 
+  // Ensure dependency scanning succeeds via fallback `swift-frontend -scan-dependenceis`
+  // mechanism if libSwiftScan.dylib fails to load.
+  func testDependencyScanningFallback() throws {
+    let (stdlibPath, shimsPath, _, _) = try getDriverArtifactsForScanning()
+
+    // Create a simple test case.
+    try withTemporaryDirectory { path in
+      let main = path.appending(component: "testDependencyScanningFallback.swift")
+      try localFileSystem.writeFileContents(main, bytes: "import C;")
+
+      let dummyBrokenDylib = path.appending(component: "lib_InternalSwiftScan.dylib")
+      try localFileSystem.writeFileContents(dummyBrokenDylib, bytes: "n/a")
+
+      var environment = ProcessEnv.vars
+      environment["SWIFT_DRIVER_SWIFTSCAN_LIB"] = dummyBrokenDylib.nativePathString(escaped: true)
+
+      let cHeadersPath: AbsolutePath =
+      try testInputsPath.appending(component: "ExplicitModuleBuilds")
+        .appending(component: "CHeaders")
+      let swiftModuleInterfacesPath: AbsolutePath =
+      try testInputsPath.appending(component: "ExplicitModuleBuilds")
+        .appending(component: "Swift")
+      let sdkArgumentsForTesting: [String] = (try? Driver.sdkArgumentsForTesting()) ?? []
+      let driverArgs: [String] = ["swiftc",
+                                  "-I", cHeadersPath.nativePathString(escaped: true),
+                                  "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                  "-I", stdlibPath.nativePathString(escaped: true),
+                                  "-I", shimsPath.nativePathString(escaped: true),
+                                  "/tmp/Foo.o",
+                                  "-explicit-module-build",
+                                  "-working-directory", path.nativePathString(escaped: true),
+                                  "-disable-clang-target",
+                                  main.nativePathString(escaped: true)] + sdkArgumentsForTesting
+      do {
+        var driver = try Driver(args: driverArgs, env: environment)
+        let interModuleDependencyGraph = try driver.performDependencyScan()
+        XCTAssertTrue(driver.diagnosticEngine.diagnostics.contains { $0.behavior == .warning &&
+          $0.message.text == "In-process dependency scan query failed due to incompatible libSwiftScan (\(dummyBrokenDylib.nativePathString(escaped: true))). Fallback to `swift-frontend` dependency scanner invocation. Specify '-nonlib-dependency-scanner' to silence this warning."})
+        XCTAssertTrue(interModuleDependencyGraph.mainModule.directDependencies?.contains(where: { $0.moduleName == "C" }))
+      }
+
+      // Ensure no warning is emitted with '-nonlib-dependency-scanner'
+      do {
+        var driver = try Driver(args: driverArgs + ["-nonlib-dependency-scanner"], env: environment)
+        let _ = try driver.performDependencyScan()
+        XCTAssertFalse(driver.diagnosticEngine.diagnostics.contains { $0.behavior == .warning &&
+          $0.message.text == "In-process dependency scan query failed due to incompatible libSwiftScan (\(dummyBrokenDylib.nativePathString(escaped: true))). Fallback to `swift-frontend` dependency scanner invocation. Specify '-nonlib-dependency-scanner' to silence this warning."})
+      }
+
+      // Ensure error is emitted when caching is enabled
+      do {
+        var driver = try Driver(args: driverArgs + ["-cache-compile-job"], env: environment)
+        let _ = try driver.performDependencyScan()
+        XCTAssertFalse(driver.diagnosticEngine.diagnostics.contains { $0.behavior == .error &&
+          $0.message.text == "Swift Caching enabled - libSwiftScan load failed (\(dummyBrokenDylib.nativePathString(escaped: true))."})
+      }
+    }
+  }
+
   func testParallelDependencyScanningDiagnostics() throws {
     let (stdlibPath, shimsPath, toolchain, _) = try getDriverArtifactsForScanning()
     // The dependency oracle wraps an instance of libSwiftScan and ensures thread safety across
