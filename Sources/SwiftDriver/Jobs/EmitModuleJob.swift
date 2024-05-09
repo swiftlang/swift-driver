@@ -119,6 +119,12 @@ extension Driver {
       commandLine.appendPath(abiPath.file)
       outputs.append(abiPath)
     }
+    let cacheContributingInputs = inputs.enumerated().reduce(into: [(TypedVirtualPath, Int)]()) { result, input in
+      // only the first swift input contributes cache key to an emit module job.
+      guard result.isEmpty, input.element.type == .swift else { return }
+      result.append((input.element, input.offset))
+    }
+    let cacheKeys = try computeOutputCacheKeyForJob(commandLine: commandLine, inputs: cacheContributingInputs)
     return Job(
       moduleName: moduleOutputInfo.name,
       kind: .emitModule,
@@ -126,7 +132,8 @@ extension Driver {
       commandLine: commandLine,
       inputs: inputs,
       primaryInputs: [],
-      outputs: outputs
+      outputs: outputs,
+      outputCacheKeys: cacheKeys
     )
   }
 
