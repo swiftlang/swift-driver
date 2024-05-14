@@ -74,7 +74,7 @@ extension ParsedOption: CustomStringConvertible {
     case .joinedOrSeparate, .separate:
       return option.spelling + " " + argument.asSingle.spm_shellEscaped()
 
-    case .remaining:
+    case .remaining, .multiArg:
       let args = argument.asMultiple
       if args.isEmpty {
         return option.spelling
@@ -193,7 +193,7 @@ extension ParsedOptions {
         result.append(parsed.option.spelling)
         result.append(parsed.argument.asSingle)
 
-      case .remaining:
+      case .remaining, .multiArg:
         result.append(parsed.option.spelling)
         result.append(contentsOf: parsed.argument.asMultiple)
       }
