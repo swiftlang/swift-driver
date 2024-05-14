@@ -3146,7 +3146,7 @@ extension Driver {
     for arg in parsedOptions.arguments(for: .sanitizeCoverageEQ).flatMap(\.argument.asMultiple) {
       if ["func", "bb", "edge"].contains(arg) {
         foundRequiredArg = true
-      } else if !["indirect-calls", "trace-bb", "trace-cmp", "8bit-counters", "trace-pc", "trace-pc-guard","pc-table","inline-8bit-counters",].contains(arg) {
+      } else if !["indirect-calls", "trace-bb", "trace-cmp", "8bit-counters", "trace-pc", "trace-pc-guard","pc-table","inline-8bit-counters"].contains(arg) {
         diagnosticsEngine.emit(.error_unsupported_argument(argument: arg, option: .sanitizeCoverageEQ))
       }
 
