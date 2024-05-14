@@ -36,6 +36,20 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertEqual(results.description, "-- input1 input2")
   }
 
+  func testParsingMultiArg() throws {
+    var options = OptionTable()
+    let two = Option("-two", .multiArg, attributes: [], numArgs: 2)
+    let three = Option("-three", .multiArg, attributes: [], numArgs: 3)
+    options.addNewOption(two)
+    options.addNewOption(three)
+    let results = try options.parse(["-two", "1", "2", "-three", "1", "2", "3", "-two", "2", "3"], for: .batch)
+    XCTAssertEqual(results.description, "-two 1 2 -three 1 2 3 -two 2 3")
+    // Check not enough arguments are passed.
+    XCTAssertThrowsError(try options.parse(["-two", "1"], for: .batch)) { error in
+      XCTAssertEqual(error as? OptionParseError, .missingArgument(index: 0, argument: "-two"))
+    }
+  }
+
   func testParseErrors() {
     let options = OptionTable()
 
@@ -84,4 +98,10 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(error as? OptionParseError, .unknownOption(index: 0, argument: "--invalid"))
     }
   }
+}
+
+extension OptionTable {
+    mutating func addNewOption(_ opt: Option) {
+        options.append(opt)
+    }
 }

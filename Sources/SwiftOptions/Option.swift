@@ -56,6 +56,9 @@ public struct Option {
     /// An option with multiple arguments, which are collected by splitting
     /// the text directly following the spelling at each comma.
     case commaJoined
+    /// An option with multiple arguments, which the number of arguments is
+    /// specified by numArgs.
+    case multiArg
   }
 
   /// The spelling of the option, including any leading dashes.
@@ -81,11 +84,15 @@ public struct Option {
   /// The group in which this option occurs.
   public let group: Group?
 
+  /// The number of arguments for MultiArg options.
+  public let numArgs: UInt
+
   public init(_ spelling: String, _ kind: Kind,
               alias: Option? = nil,
               attributes: OptionAttributes = [], metaVar: String? = nil,
               helpText: String? = nil,
-              group: Group? = nil) {
+              group: Group? = nil,
+              numArgs: UInt = 0) {
     self.spelling = spelling
     self.kind = kind
     self.aliasFunction = alias.map { aliasOption in { aliasOption }}
@@ -93,6 +100,7 @@ public struct Option {
     self.metaVar = metaVar
     self.helpText = helpText
     self.group = group
+    self.numArgs = numArgs
   }
 }
 
