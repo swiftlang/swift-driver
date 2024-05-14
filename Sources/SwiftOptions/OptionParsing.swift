@@ -171,6 +171,21 @@ extension OptionTable {
 
         parsedOptions.addOption(option, argument: .single(arguments[index]))
         index += 1
+
+      case .multiArg:
+        if argument != option.spelling {
+          throw OptionParseError.unknownOption(
+            index: index - 1, argument: argument)
+        }
+        let endIdx = index + Int(option.numArgs)
+        if endIdx > arguments.endIndex {
+          throw OptionParseError.missingArgument(
+            index: index - 1, argument: argument)
+        }
+        parsedOptions.addOption(option, argument: .multiple(Array()))
+        arguments[index..<endIdx].map { String($0) }.forEach { parsedOptions.addInput($0) }
+        index = endIdx
+
       }
     }
     parsedOptions.buildIndex()
