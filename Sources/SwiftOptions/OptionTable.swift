@@ -75,7 +75,7 @@ extension OptionTable {
         case .joined, .commaJoined:
           displayName += option.metaVar ?? "<value>"
 
-        case .separate, .remaining, .joinedOrSeparate:
+        case .separate, .remaining, .joinedOrSeparate, .multiArg:
           displayName += " " + (option.metaVar ?? "<value>")
       }
 

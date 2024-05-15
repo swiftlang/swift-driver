@@ -34,6 +34,7 @@ enum class OptionKind {
   RemainingArgs,
   CommaJoined,
   JoinedOrSeparate,
+  MultiArg,
 };
 
 #define LLVM_MAKE_OPT_ID_WITH_ID_PREFIX(ID_PREFIX, PREFIX, NAME, ID, KIND,     \
@@ -113,6 +114,7 @@ struct RawOption {
   unsigned flags;
   const char *helpText;
   const char *metaVar;
+  unsigned numArgs;
 
   bool isGroup() const {
     return kind == OptionKind::Group;
@@ -135,7 +137,7 @@ static const RawOption rawOptions[] = {
 #define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS, PARAM,  \
                HELPTEXT, METAVAR, VALUES)                                      \
  { OptionID::Opt_##ID, PREFIX, NAME, swiftify(#ID), OptionKind::KIND, \
-   OptionID::Opt_##GROUP, OptionID::Opt_##ALIAS, FLAGS, HELPTEXT, METAVAR },
+   OptionID::Opt_##GROUP, OptionID::Opt_##ALIAS, FLAGS, HELPTEXT, METAVAR, PARAM },
 #include "swift/Option/Options.inc"
 #undef OPTION
 };
@@ -291,6 +293,10 @@ int makeOptions_main() {
         out << ".separate";
         break;
 
+      case OptionKind::MultiArg:
+        out << ".multiArg";
+        break;
+
       case OptionKind::Group:
       case OptionKind::Unknown:
         assert(false && "Should have been filtered out");
@@ -349,6 +355,9 @@ int makeOptions_main() {
       }
       if (option.group != OptionID::Opt_INVALID) {
         out << ", group: ." << groups[groupIndexByID[option.group]].id;
+      }
+      if (option.kind == OptionKind::MultiArg) {
+        out << ", numArgs: " << option.numArgs;
       }
       out << ")\n";
     });
