@@ -2799,7 +2799,7 @@ final class SwiftDriverTests: XCTestCase {
       $1.expect(.error("unsupported argument 'baz' to option '-sanitize-coverage='"))
     }
 
-    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-sanitize=thread", "-sanitize-coverage=edge,indirect-calls,trace-bb,trace-cmp,8bit-counters")
+    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-sanitize=thread", "-sanitize-coverage=edge,indirect-calls,trace-bb,trace-cmp,8bit-counters,pc-table,inline-8bit-counters")
 #endif
   }
 
