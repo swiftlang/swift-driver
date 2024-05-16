@@ -22,12 +22,6 @@ import class Foundation.JSONEncoder
 import class Foundation.JSONDecoder
 import var Foundation.EXIT_SUCCESS
 
-private extension String {
-  func stripNewline() -> String {
-    return self.hasSuffix("\n") ? String(self.dropLast()) : self
-  }
-}
-
 extension Diagnostic.Message {
   static func warn_scan_dylib_not_found() -> Diagnostic.Message {
     .warning("Unable to locate libSwiftScan. Fallback to `swift-frontend` dependency scanner invocation.")
@@ -39,16 +33,16 @@ extension Diagnostic.Message {
     .error("Swift Caching enabled - libSwiftScan load failed (\(libPath)).")
   }
   static func scanner_diagnostic_error(_ message: String) -> Diagnostic.Message {
-    return .error(message.stripNewline())
+    return .error(message)
   }
   static func scanner_diagnostic_warn(_ message: String) -> Diagnostic.Message {
-    .warning(message.stripNewline())
+    .warning(message)
   }
   static func scanner_diagnostic_note(_ message: String) -> Diagnostic.Message {
-    .note(message.stripNewline())
+    .note(message)
   }
   static func scanner_diagnostic_remark(_ message: String) -> Diagnostic.Message {
-    .remark(message.stripNewline())
+    .remark(message)
   }
 }
 

@@ -1458,7 +1458,6 @@ final class ExplicitModuleBuildTests: XCTestCase {
         Unable to find module dependency: 'unknown_module'
         import unknown_module
                ^
-
         """)
         let sourceLoc = try XCTUnwrap(error.sourceLocation)
         XCTAssertTrue(sourceLoc.bufferIdentifier.hasSuffix("I.swiftinterface"))
@@ -1483,7 +1482,6 @@ final class ExplicitModuleBuildTests: XCTestCase {
         a dependency of main module 'testDependencyScanning'
         import unknown_module
                ^
-
         """
         )
       } else {
@@ -1533,7 +1531,6 @@ final class ExplicitModuleBuildTests: XCTestCase {
         Unable to find module dependency: 'FooBar'
         import FooBar
                ^
-
         """)
 
         let sourceLoc = try XCTUnwrap(error.sourceLocation)
@@ -1550,7 +1547,6 @@ final class ExplicitModuleBuildTests: XCTestCase {
         a dependency of main module 'testDependencyScanning'
         import FooBar
                ^
-
         """
         )
       } else {
@@ -1805,8 +1801,31 @@ final class ExplicitModuleBuildTests: XCTestCase {
         for scanIndex in 0..<numFiles {
           let diagnostics = scanDiagnostics[scanIndex]
           XCTAssertEqual(diagnostics.count, 2)
-          XCTAssertEqual(diagnostics[0].message, "Unable to find module dependency: 'UnknownModule\(scanIndex)'")
-          XCTAssertEqual(diagnostics[1].message, "a dependency of main module 'testParallelDependencyScanningDiagnostics\(scanIndex)'")
+          // Diagnostic source locations came after per-scan diagnostics, only meaningful
+          // on this test code-path
+          if try dependencyOracle.supportsDiagnosticSourceLocations() {
+              let sourceLoc = try XCTUnwrap(diagnostics[0].sourceLocation)
+              XCTAssertEqual(sourceLoc.lineNumber, 1)
+              XCTAssertEqual(sourceLoc.columnNumber, 8)
+              XCTAssertEqual(diagnostics[0].message,
+              """
+              Unable to find module dependency: 'UnknownModule\(scanIndex)'
+              import UnknownModule\(scanIndex);
+                     ^
+              """)
+              let noteSourceLoc = try XCTUnwrap(diagnostics[1].sourceLocation)
+              XCTAssertEqual(noteSourceLoc.lineNumber, 1)
+              XCTAssertEqual(noteSourceLoc.columnNumber, 8)
+              XCTAssertEqual(diagnostics[1].message,
+              """
+              a dependency of main module 'testParallelDependencyScanningDiagnostics\(scanIndex)'
+              import UnknownModule\(scanIndex);
+                     ^
+              """)
+          } else {
+              XCTAssertEqual(diagnostics[0].message, "Unable to find module dependency: 'UnknownModule\(scanIndex)'")
+              XCTAssertEqual(diagnostics[1].message, "a dependency of main module 'testParallelDependencyScanningDiagnostics\(scanIndex)'")
+          }
         }
       } else {
         let globalDiagnostics = try dependencyOracle.getScannerDiagnostics()
