@@ -97,6 +97,7 @@ extension Option {
   public static let CrossModuleOptimization: Option = Option("-cross-module-optimization", .flag, attributes: [.helpHidden, .frontend], helpText: "Perform cross-module optimization")
   public static let crosscheckUnqualifiedLookup: Option = Option("-crosscheck-unqualified-lookup", .flag, attributes: [.frontend, .noDriver], helpText: "Compare legacy DeclContext- to ASTScope-based unqualified name lookup (for debugging)")
   public static let cxxInteropGettersSettersAsProperties: Option = Option("-cxx-interop-getters-setters-as-properties", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Import getters and setters as computed properties in Swift")
+  public static let cxxInteropUseOpaquePointerForMoveonly: Option = Option("-cxx-interop-use-opaque-pointer-for-moveonly", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Testing flag that will be eliminated soon. Do not use.")
   public static let cxxInteroperabilityMode: Option = Option("-cxx-interoperability-mode=", .joined, attributes: [.frontend, .moduleInterface], helpText: "Enables C++ interoperability; pass 'default' to enable or 'off' to disable")
   public static let c: Option = Option("-c", .flag, alias: Option.emitObject, attributes: [.frontend, .noInteractive], group: .modes)
   public static let debugAssertAfterParse: Option = Option("-debug-assert-after-parse", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Force an assertion failure after parsing", group: .debugCrash)
@@ -231,6 +232,7 @@ extension Option {
   public static let disableRequirementMachineReuse: Option = Option("-disable-requirement-machine-reuse", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable re-use of requirement machines for minimization, for debugging only")
   public static let disableRoundTripDebugTypes: Option = Option("-disable-round-trip-debug-types", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disables verification of debug info mangling")
   public static let disableSandbox: Option = Option("-disable-sandbox", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Disable using the sandbox when executing subprocesses")
+  public static let disableSendingArgsAndResultsWithRegionIsolation: Option = Option("-disable-sending-args-and-results-with-region-based-isolation", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable sending args and results when region based isolation is enabled. Only enabled with asserts")
   public static let disableSilOpaqueValues: Option = Option("-disable-sil-opaque-values", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable SIL Opaque Values")
   public static let disableSilOwnershipVerifier: Option = Option("-disable-sil-ownership-verifier", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Do not verify ownership invariants during SIL Verification ")
   public static let disableSilPartialApply: Option = Option("-disable-sil-partial-apply", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable use of partial_apply in SIL generation")
@@ -243,6 +245,7 @@ extension Option {
   public static let disableSwift3ObjcInference: Option = Option("-disable-swift3-objc-inference", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Deprecated, has no effect")
   public static let disableTargetOsChecking: Option = Option("-disable-target-os-checking", .flag, attributes: [.frontend, .noDriver], helpText: "Disable checking the target OS of serialized modules")
   public static let disableTestableAttrRequiresTestableModule: Option = Option("-disable-testable-attr-requires-testable-module", .flag, attributes: [.frontend, .noDriver], helpText: "Disable checking of @testable")
+  public static let disableTransferringArgsAndResultsWithRegionIsolation: Option = Option("-disable-transferring-args-and-results-with-region-based-isolation", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable transferring args and results when region based isolation is enabled. Only enabled with asserts")
   public static let disableTypeLayouts: Option = Option("-disable-type-layout", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable type layout based lowering")
   public static let disableTypoCorrection: Option = Option("-disable-typo-correction", .flag, attributes: [.frontend, .noDriver], helpText: "Disable typo correction")
   public static let disableVerifyExclusivity: Option = Option("-disable-verify-exclusivity", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable verification of access markers used to enforce exclusivity.")
@@ -684,6 +687,7 @@ extension Option {
   public static let profileStatsEntities: Option = Option("-profile-stats-entities", .flag, attributes: [.helpHidden, .frontend], helpText: "Profile changes to stats in -stats-output-dir, subdivided by source entity")
   public static let profileStatsEvents: Option = Option("-profile-stats-events", .flag, attributes: [.helpHidden, .frontend], helpText: "Profile changes to stats in -stats-output-dir")
   public static let profileUse: Option = Option("-profile-use=", .commaJoined, attributes: [.frontend, .noInteractive, .argumentIsPath], metaVar: "<profdata>", helpText: "Supply a profdata file to enable profile-guided optimization")
+  public static let projectName: Option = Option("-project-name", .separate, attributes: [.frontend], helpText: "Name of the project this module to build belongs to")
   public static let protocolRequirementAllowList: Option = Option("-protocol-requirement-allow-list", .separate, attributes: [.noDriver, .argumentIsPath], metaVar: "<path>", helpText: "File containing a new-line separated list of protocol names")
   public static let protocolRequirementAllowList_: Option = Option("--protocol-requirement-allow-list", .separate, alias: Option.protocolRequirementAllowList, attributes: [.noDriver, .argumentIsPath], metaVar: "<path>", helpText: "File containing a new-line separated list of protocol names")
   public static let publicAutolinkLibrary: Option = Option("-public-autolink-library", .separate, attributes: [.frontend, .noDriver], helpText: "Add public dependent library")
@@ -771,7 +775,6 @@ extension Option {
   public static let suppressStaticExclusivitySwap: Option = Option("-suppress-static-exclusivity-swap", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Suppress static violations of exclusive access with swap()")
   public static let suppressWarnings: Option = Option("-suppress-warnings", .flag, attributes: [.frontend], helpText: "Suppress all warnings")
   public static let swiftAsyncFramePointerEQ: Option = Option("-swift-async-frame-pointer=", .joined, attributes: [.helpHidden, .frontend, .noDriver], helpText: "One of 'auto', 'always' or 'never'")
-  public static let swiftModuleCrossImport: Option = Option("-swift-module-cross-import", .multiArg, attributes: [.frontend, .noDriver], metaVar: "<moduleName> <crossImport.swiftoverlay>", helpText: "Specify the cross import module", numArgs: 2)
   public static let swiftModuleFile: Option = Option("-swift-module-file=", .joined, attributes: [.frontend, .noDriver], metaVar: "<name>=<path>", helpText: "Specify Swift module input explicitly built from textual interface")
   public static let swiftOnly: Option = Option("-swift-only", .flag, attributes: [.noDriver], helpText: "Only include APIs defined from Swift source")
   public static let swiftOnly_: Option = Option("--swift-only", .flag, alias: Option.swiftOnly, attributes: [.noDriver], helpText: "Only include APIs defined from Swift source")
@@ -950,6 +953,7 @@ extension Option {
       Option.CrossModuleOptimization,
       Option.crosscheckUnqualifiedLookup,
       Option.cxxInteropGettersSettersAsProperties,
+      Option.cxxInteropUseOpaquePointerForMoveonly,
       Option.cxxInteroperabilityMode,
       Option.c,
       Option.debugAssertAfterParse,
@@ -1084,6 +1088,7 @@ extension Option {
       Option.disableRequirementMachineReuse,
       Option.disableRoundTripDebugTypes,
       Option.disableSandbox,
+      Option.disableSendingArgsAndResultsWithRegionIsolation,
       Option.disableSilOpaqueValues,
       Option.disableSilOwnershipVerifier,
       Option.disableSilPartialApply,
@@ -1096,6 +1101,7 @@ extension Option {
       Option.disableSwift3ObjcInference,
       Option.disableTargetOsChecking,
       Option.disableTestableAttrRequiresTestableModule,
+      Option.disableTransferringArgsAndResultsWithRegionIsolation,
       Option.disableTypeLayouts,
       Option.disableTypoCorrection,
       Option.disableVerifyExclusivity,
@@ -1537,6 +1543,7 @@ extension Option {
       Option.profileStatsEntities,
       Option.profileStatsEvents,
       Option.profileUse,
+      Option.projectName,
       Option.protocolRequirementAllowList,
       Option.protocolRequirementAllowList_,
       Option.publicAutolinkLibrary,
@@ -1624,7 +1631,6 @@ extension Option {
       Option.suppressStaticExclusivitySwap,
       Option.suppressWarnings,
       Option.swiftAsyncFramePointerEQ,
-      Option.swiftModuleCrossImport,
       Option.swiftModuleFile,
       Option.swiftOnly,
       Option.swiftOnly_,
