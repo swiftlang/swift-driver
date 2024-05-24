@@ -75,6 +75,10 @@ extension Driver {
       targetInfo: frontendTargetInfo
     )
 
+    if parsedOptions.hasArgument(.explicitAutoLinking) {
+      try explicitDependencyBuildPlanner?.getLinkLibraryLoadCommandFlags(&commandLine)
+    }
+
     return Job(
       moduleName: moduleOutputInfo.name,
       kind: .link,

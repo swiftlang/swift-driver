@@ -472,6 +472,12 @@ extension Driver {
       commandLine.appendFlag("-frontend-parseable-output")
     }
 
+    // If explicit auto-linking is enabled, ensure that compiler tasks do not produce
+    // auto-link load commands in resulting object files.
+    if parsedOptions.hasArgument(.explicitAutoLinking) {
+      commandLine.appendFlag(.disableAllAutolinking)
+    }
+
     savedUnknownDriverFlagsForSwiftFrontend.forEach {
       commandLine.appendFlag($0)
     }

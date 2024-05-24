@@ -94,6 +94,13 @@ public struct BridgingHeader: Codable, Hashable {
   var moduleDependencies: [String]
 }
 
+/// Linked Library
+public struct LinkLibraryInfo: Codable, Hashable {
+  public var linkName: String
+  public var isFramework: Bool
+  public var shouldForceLoad: Bool
+}
+
 /// Details specific to Swift modules.
 public struct SwiftModuleDetails: Codable, Hashable {
   /// The module interface from which this module was built, if any.
@@ -203,6 +210,9 @@ public struct ModuleInfo: Codable, Hashable {
   /// The set of direct module dependencies of this module.
   public var directDependencies: [ModuleDependencyId]?
 
+  /// The set of libraries that need to be linked
+  public var linkLibraries: [LinkLibraryInfo]?
+
   /// Specific details of a particular kind of module.
   public var details: Details
 
@@ -226,10 +236,12 @@ public struct ModuleInfo: Codable, Hashable {
   public init(modulePath: TextualVirtualPath,
               sourceFiles: [String]?,
               directDependencies: [ModuleDependencyId]?,
+              linkLibraries: [LinkLibraryInfo]?,
               details: Details) {
     self.modulePath = modulePath
     self.sourceFiles = sourceFiles
     self.directDependencies = directDependencies
+    self.linkLibraries = linkLibraries
     self.details = details
   }
 }
@@ -306,7 +318,7 @@ public struct InterModuleDependencyGraph: Codable {
   public var mainModule: ModuleInfo { modules[.swift(mainModuleName)]! }
 }
 
-internal extension InterModuleDependencyGraph {
+@_spi(Testing) public  extension InterModuleDependencyGraph {
   func toJSONData() throws -> Data {
     let encoder = JSONEncoder()
 #if os(Linux) || os(Android)

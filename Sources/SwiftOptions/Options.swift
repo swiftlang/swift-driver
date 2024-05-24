@@ -165,6 +165,7 @@ extension Option {
   public static let disableColocateTypeDescriptors: Option = Option("-disable-colocate-type-descriptors", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable colocate type descriptors")
   public static let disableConcreteTypeMetadataMangledNameAccessors: Option = Option("-disable-concrete-type-metadata-mangled-name-accessors", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable concrete type metadata access by mangled name")
   public static let disableConstraintSolverPerformanceHacks: Option = Option("-disable-constraint-solver-performance-hacks", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable all the hacks in the constraint solver")
+  public static let disableCrossImportOverlaySearch: Option = Option("-disable-cross-import-overlay-search", .flag, attributes: [.frontend, .noDriver], helpText: "Disable searching for cross import overlay file")
   public static let disableCrossImportOverlays: Option = Option("-disable-cross-import-overlays", .flag, attributes: [.frontend, .noDriver], helpText: "Do not automatically import declared cross-import overlays.")
   public static let cxxInteropDisableRequirementAtImport: Option = Option("-disable-cxx-interop-requirement-at-import", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Do not require C++ interoperability to be enabled when importing a Swift module that enables C++ interoperability")
   public static let disableDebuggerShadowCopies: Option = Option("-disable-debugger-shadow-copies", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable debugger shadow copies of local variables.This option is only useful for testing the compiler.")
@@ -180,10 +181,12 @@ extension Option {
   public static let disableExperimentalStringProcessing: Option = Option("-disable-experimental-string-processing", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable experimental string processing")
   public static let disableFailOnError: Option = Option("-disable-fail-on-error", .flag, attributes: [.noDriver], helpText: "Don't exit with a nonzero status if errors are emitted")
   public static let disableFailOnError_: Option = Option("--disable-fail-on-error", .flag, alias: Option.disableFailOnError, attributes: [.noDriver], helpText: "Don't exit with a nonzero status if errors are emitted")
+  public static let disableForceLoadSymbols: Option = Option("-disable-force-load-symbols", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable generation of all Swift _FORCE_LOAD symbols")
   public static let disableFragileResilientProtocolWitnesses: Option = Option("-disable-fragile-relative-protocol-tables", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable relative protocol witness tables")
   public static let disableGenericMetadataPrespecialization: Option = Option("-disable-generic-metadata-prespecialization", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Do not statically specialize metadata for generic types at types that are known to be used in source.")
   public static let disableImplicitBacktracingModuleImport: Option = Option("-disable-implicit-backtracing-module-import", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable the implicit import of the _Backtracing module.")
   public static let disableImplicitConcurrencyModuleImport: Option = Option("-disable-implicit-concurrency-module-import", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable the implicit import of the _Concurrency module.")
+  public static let disableImplicitCxxModuleImport: Option = Option("-disable-implicit-cxx-module-import", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable the implicit import of the C++ Standard Library module.")
   public static let disableImplicitStringProcessingModuleImport: Option = Option("-disable-implicit-string-processing-module-import", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable the implicit import of the _StringProcessing module.")
   public static let disableImplicitSwiftModules: Option = Option("-disable-implicit-swift-modules", .flag, attributes: [.frontend, .noDriver], helpText: "Disable building Swift modules implicitly by the compiler")
   public static let disableImportPtrauthFieldFunctionPointers: Option = Option("-disable-import-ptrauth-field-function-pointers", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable import of custom ptrauth qualified field function pointers")
@@ -487,13 +490,13 @@ extension Option {
   public static let experimentalPrintFullConvention: Option = Option("-experimental-print-full-convention", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "When emitting a module interface or SIL, emit additional @convention arguments, regardless of whether they were written in the source. Also requires -use-clang-function-types to be enabled.")
   public static let experimentalSkipAllFunctionBodies: Option = Option("-experimental-skip-all-function-bodies", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Skip type-checking function bodies and all SIL generation")
   public static let experimentalSkipNonExportableDecls: Option = Option("-experimental-skip-non-exportable-decls", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Skip decls that are not exported to clients")
-  public static let experimentalSkipNonInlinableFunctionBodiesIsLazy: Option = Option("-experimental-skip-non-inlinable-function-bodies-is-lazy", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Infer lazy typechecking for -experimental-skip-non-inlinable-function-bodies")
   public static let experimentalSkipNonInlinableFunctionBodiesWithoutTypes: Option = Option("-experimental-skip-non-inlinable-function-bodies-without-types", .flag, attributes: [.helpHidden, .frontend], helpText: "Skip work on non-inlinable function bodies that do not declare nested types")
   public static let experimentalSkipNonInlinableFunctionBodies: Option = Option("-experimental-skip-non-inlinable-function-bodies", .flag, attributes: [.helpHidden, .frontend], helpText: "Skip type-checking and SIL generation for non-inlinable function bodies")
   public static let experimentalSpiImports: Option = Option("-experimental-spi-imports", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental support for SPI imports")
   public static let experimentalSpiOnlyImports: Option = Option("-experimental-spi-only-imports", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable use of @_spiOnly imports")
   public static let enableExperimentalSwiftBasedClosureSpecialization: Option = Option("-experimental-swift-based-closure-specialization", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Use the experimental Swift based closure-specialization optimization pass instead of the existing C++ one")
   public static let explainModuleDependency: Option = Option("-explain-module-dependency", .separate, attributes: [], helpText: "Emit remark/notes describing why compilation may depend on a module with a given name.")
+  public static let explicitAutoLinking: Option = Option("-explicit-auto-linking", .flag, attributes: [], helpText: "Instead of linker-load directives, have the driver specify all link dependencies on the linker invocation. Requires '-explicit-module-build'.")
   public static let explicitDependencyGraphFormat: Option = Option("-explicit-dependency-graph-format=", .joined, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Specify the explicit dependency graph output format to either 'json' or 'dot'")
   public static let explicitInterfaceModuleBuild: Option = Option("-explicit-interface-module-build", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Use the specified command-line to build the module from interface, instead of flags specified in the interface")
   public static let driverExplicitModuleBuild: Option = Option("-explicit-module-build", .flag, attributes: [.helpHidden], helpText: "Prebuild module dependencies to make them explicit")
@@ -604,6 +607,8 @@ extension Option {
   public static let moduleAbiName: Option = Option("-module-abi-name", .separate, attributes: [.frontend, .moduleInterface], helpText: "ABI name to use for the contents of this module")
   public static let moduleAlias: Option = Option("-module-alias", .separate, attributes: [.frontend, .moduleInterface], metaVar: "<alias_name=real_name>", helpText: "If a source file imports or references module <alias_name>, the <real_name> is used for the contents of the file")
   public static let moduleCachePath: Option = Option("-module-cache-path", .separate, attributes: [.frontend, .doesNotAffectIncrementalBuild, .argumentIsPath], helpText: "Specifies the module cache path")
+  public static let moduleCanImportVersion: Option = Option("-module-can-import-version", .multiArg, attributes: [.frontend, .noDriver], metaVar: "<moduleName> <version> <underlyingVersion>", helpText: "Specify canImport module and versions", numArgs: 3)
+  public static let moduleCanImport: Option = Option("-module-can-import", .separate, attributes: [.frontend, .noDriver], metaVar: "<moduleName>", helpText: "Specify canImport module name")
   public static let moduleInterfacePreserveTypesAsWritten: Option = Option("-module-interface-preserve-types-as-written", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "When emitting a module interface, preserve types as they were written in the source")
   public static let moduleLinkNameEQ: Option = Option("-module-link-name=", .joined, alias: Option.moduleLinkName, attributes: [.frontend])
   public static let moduleLinkName: Option = Option("-module-link-name", .separate, attributes: [.frontend, .moduleInterface], helpText: "Library to link against when using this module")
@@ -776,6 +781,7 @@ extension Option {
   public static let suppressStaticExclusivitySwap: Option = Option("-suppress-static-exclusivity-swap", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Suppress static violations of exclusive access with swap()")
   public static let suppressWarnings: Option = Option("-suppress-warnings", .flag, attributes: [.frontend], helpText: "Suppress all warnings")
   public static let swiftAsyncFramePointerEQ: Option = Option("-swift-async-frame-pointer=", .joined, attributes: [.helpHidden, .frontend, .noDriver], helpText: "One of 'auto', 'always' or 'never'")
+  public static let swiftModuleCrossImport: Option = Option("-swift-module-cross-import", .multiArg, attributes: [.frontend, .noDriver], metaVar: "<moduleName> <crossImport.swiftoverlay>", helpText: "Specify the cross import module", numArgs: 2)
   public static let swiftModuleFile: Option = Option("-swift-module-file=", .joined, attributes: [.frontend, .noDriver], metaVar: "<name>=<path>", helpText: "Specify Swift module input explicitly built from textual interface")
   public static let swiftOnly: Option = Option("-swift-only", .flag, attributes: [.noDriver], helpText: "Only include APIs defined from Swift source")
   public static let swiftOnly_: Option = Option("--swift-only", .flag, alias: Option.swiftOnly, attributes: [.noDriver], helpText: "Only include APIs defined from Swift source")
@@ -1022,6 +1028,7 @@ extension Option {
       Option.disableColocateTypeDescriptors,
       Option.disableConcreteTypeMetadataMangledNameAccessors,
       Option.disableConstraintSolverPerformanceHacks,
+      Option.disableCrossImportOverlaySearch,
       Option.disableCrossImportOverlays,
       Option.cxxInteropDisableRequirementAtImport,
       Option.disableDebuggerShadowCopies,
@@ -1037,10 +1044,12 @@ extension Option {
       Option.disableExperimentalStringProcessing,
       Option.disableFailOnError,
       Option.disableFailOnError_,
+      Option.disableForceLoadSymbols,
       Option.disableFragileResilientProtocolWitnesses,
       Option.disableGenericMetadataPrespecialization,
       Option.disableImplicitBacktracingModuleImport,
       Option.disableImplicitConcurrencyModuleImport,
+      Option.disableImplicitCxxModuleImport,
       Option.disableImplicitStringProcessingModuleImport,
       Option.disableImplicitSwiftModules,
       Option.disableImportPtrauthFieldFunctionPointers,
@@ -1344,13 +1353,13 @@ extension Option {
       Option.experimentalPrintFullConvention,
       Option.experimentalSkipAllFunctionBodies,
       Option.experimentalSkipNonExportableDecls,
-      Option.experimentalSkipNonInlinableFunctionBodiesIsLazy,
       Option.experimentalSkipNonInlinableFunctionBodiesWithoutTypes,
       Option.experimentalSkipNonInlinableFunctionBodies,
       Option.experimentalSpiImports,
       Option.experimentalSpiOnlyImports,
       Option.enableExperimentalSwiftBasedClosureSpecialization,
       Option.explainModuleDependency,
+      Option.explicitAutoLinking,
       Option.explicitDependencyGraphFormat,
       Option.explicitInterfaceModuleBuild,
       Option.driverExplicitModuleBuild,
@@ -1461,6 +1470,8 @@ extension Option {
       Option.moduleAbiName,
       Option.moduleAlias,
       Option.moduleCachePath,
+      Option.moduleCanImportVersion,
+      Option.moduleCanImport,
       Option.moduleInterfacePreserveTypesAsWritten,
       Option.moduleLinkNameEQ,
       Option.moduleLinkName,
@@ -1633,6 +1644,7 @@ extension Option {
       Option.suppressStaticExclusivitySwap,
       Option.suppressWarnings,
       Option.swiftAsyncFramePointerEQ,
+      Option.swiftModuleCrossImport,
       Option.swiftModuleFile,
       Option.swiftOnly,
       Option.swiftOnly_,

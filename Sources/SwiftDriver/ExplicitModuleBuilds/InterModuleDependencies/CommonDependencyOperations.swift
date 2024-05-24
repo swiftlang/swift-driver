@@ -27,24 +27,26 @@ import func TSCBasic.topologicalSort
       if let currentInfo = modules[swiftModuleId],
          externalModuleId.moduleName != mainModuleName {
         let newExternalModuleDetails =
-        try SwiftPrebuiltExternalModuleDetails(compiledModulePath:
-                                                TextualVirtualPath(path: VirtualPath.absolute(externalModulePath).intern()),
-                                               isFramework: externalModuleDetails.isFramework)
+        SwiftPrebuiltExternalModuleDetails(compiledModulePath:
+                                            TextualVirtualPath(path: VirtualPath.absolute(externalModulePath).intern()),
+                                           isFramework: externalModuleDetails.isFramework)
         let newInfo = ModuleInfo(modulePath: TextualVirtualPath(path: VirtualPath.absolute(externalModulePath).intern()),
                                  sourceFiles: [],
                                  directDependencies: currentInfo.directDependencies,
+                                 linkLibraries: currentInfo.linkLibraries,
                                  details: .swiftPrebuiltExternal(newExternalModuleDetails))
         Self.replaceModule(originalId: swiftModuleId, replacementId: prebuiltModuleId,
                            replacementInfo: newInfo, in: &modules)
       } else if let currentPrebuiltInfo = modules[prebuiltModuleId] {
         // Just update the isFramework bit on this prebuilt module dependency
         let newExternalModuleDetails =
-        try SwiftPrebuiltExternalModuleDetails(compiledModulePath:
-                                                TextualVirtualPath(path: VirtualPath.absolute(externalModulePath).intern()),
-                                               isFramework: externalModuleDetails.isFramework)
+        SwiftPrebuiltExternalModuleDetails(compiledModulePath:
+                                            TextualVirtualPath(path: VirtualPath.absolute(externalModulePath).intern()),
+                                           isFramework: externalModuleDetails.isFramework)
         let newInfo = ModuleInfo(modulePath: TextualVirtualPath(path: VirtualPath.absolute(externalModulePath).intern()),
                                  sourceFiles: [],
                                  directDependencies: currentPrebuiltInfo.directDependencies,
+                                 linkLibraries: currentPrebuiltInfo.linkLibraries,
                                  details: .swiftPrebuiltExternal(newExternalModuleDetails))
         Self.replaceModule(originalId: prebuiltModuleId, replacementId: prebuiltModuleId,
                            replacementInfo: newInfo, in: &modules)
@@ -231,6 +233,9 @@ extension InterModuleDependencyGraph {
     let firstModuleDependencies = firstInfo.directDependencies ?? []
     let secondModuleDependencies = secondInfo.directDependencies ?? []
     let combinedDependencies = Array(Set(firstModuleDependencies + secondModuleDependencies))
+    let firstLinkLibraries = firstInfo.linkLibraries ?? []
+    let secondLinkLibraries = secondInfo.linkLibraries ?? []
+    let combinedLinkLibraries = Array(Set(firstLinkLibraries + secondLinkLibraries))
 
     let firstModuleCapturedPCMArgs = firstDetails.capturedPCMArgs ?? Set<[String]>()
     let secondModuleCapturedPCMArgs = secondDetails.capturedPCMArgs ?? Set<[String]>()
@@ -245,6 +250,7 @@ extension InterModuleDependencyGraph {
     return ModuleInfo(modulePath: firstInfo.modulePath,
                       sourceFiles: combinedSourceFiles,
                       directDependencies: combinedDependencies,
+                      linkLibraries: combinedLinkLibraries,
                       details: .clang(combinedModuleDetails))
   }
 }
