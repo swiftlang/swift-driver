@@ -795,7 +795,7 @@ extension Driver {
     // the user has requested to load a wasm macro.
     if isFrontendArgSupported(.wasmPluginServerPath) && parsedOptions.hasWasmPlugins {
       commandLine.appendFlag(.wasmPluginServerPath)
-      commandLine.appendPath(pluginPathRoot.wasmPluginServerPath)
+      commandLine.appendPath(pluginPathRoot.pluginServerPath)
     }
   }
 
@@ -943,17 +943,5 @@ extension ParsedOptions {
         return argument[..<separator].hasSuffix(".wasm")
       }
     }
-  }
-}
-
-extension VirtualPath {
-  // Given a virtual path pointing into a toolchain/SDK/platform, produce the
-  // path to `swift-wasm-plugin-server`.
-  fileprivate var wasmPluginServerPath: VirtualPath {
-#if os(Windows)
-    self.appending(components: "bin", "swift-wasm-plugin-server.exe")
-#else
-    self.appending(components: "bin", "swift-wasm-plugin-server")
-#endif
   }
 }

@@ -7494,9 +7494,9 @@ final class SwiftDriverTests: XCTestCase {
     let wasmPathOptionIndex = try XCTUnwrap(job.commandLine.firstIndex(of: .flag("-wasm-plugin-server-path")))
     let wasmPath = job.commandLine[wasmPathOptionIndex + 1]
     #if os(Windows)
-    let expectedWasmServerPath = executableDir.appending(component: "swift-wasm-plugin-server.exe")
+    let expectedWasmServerPath = executableDir.appending(component: "swift-plugin-server.exe")
     #else
-    let expectedWasmServerPath = executableDir.appending(component: "swift-wasm-plugin-server")
+    let expectedWasmServerPath = executableDir.appending(component: "swift-plugin-server")
     #endif
     XCTAssertEqual(wasmPath, .path(.absolute(expectedWasmServerPath)))
   }
