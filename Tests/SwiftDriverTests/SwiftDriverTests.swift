@@ -2368,20 +2368,11 @@ final class SwiftDriverTests: XCTestCase {
 
     do {
       // The Android NDK only uses the lld linker now
-      var driver = try Driver(args: commonArgs + ["-emit-library", "-target", "aarch64-unknown-linux-android24"], env: env)
+      var driver = try Driver(args: commonArgs + ["-emit-library", "-target", "aarch64-unknown-linux-android24", "-use-ld=lld"], env: env)
       let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
       let lastJob = plannedJobs.last!
       XCTAssertTrue(lastJob.tool.name.contains("clang"))
-      XCTAssertTrue(lastJob.commandLine.contains(subsequence: [.flag("-fuse-ld=lld"),
-        .flag("-Xlinker"), .flag("-z"), .flag("-Xlinker"), .flag("nostart-stop-gc")]))
-    }
-
-    do {
-      var driver = try Driver(args: commonArgs + ["-emit-library", "-target", "x86_64-unknown-freebsd"], env: env)
-      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
-      let lastJob = plannedJobs.last!
-      XCTAssertTrue(lastJob.tool.name.contains("clang"))
-      XCTAssertTrue(lastJob.commandLine.contains(.flag("-fuse-ld=lld")))
+      XCTAssertTrue(lastJob.commandLine.contains(.flag("--fuse-ld=lld")))
     }
   }
 
@@ -2807,7 +2798,7 @@ final class SwiftDriverTests: XCTestCase {
       $1.expect(.error("unsupported argument 'baz' to option '-sanitize-coverage='"))
     }
 
-    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-sanitize=thread", "-sanitize-coverage=edge,indirect-calls,trace-bb,trace-cmp,8bit-counters")
+    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-sanitize=thread", "-sanitize-coverage=edge,indirect-calls,trace-bb,trace-cmp,8bit-counters,pc-table,inline-8bit-counters")
 #endif
   }
 
@@ -3096,7 +3087,7 @@ final class SwiftDriverTests: XCTestCase {
   func testWMOWithNonSourceInputFirstAndModuleOutput() throws {
     var driver1 = try Driver(args: [
       "swiftc", "-wmo", "danger.o", "foo.swift", "bar.swift", "wibble.swift", "-module-name", "Test",
-      "-driver-filelist-threshold=0", "-emit-module", "-emit-library"
+      "-driver-filelist-threshold=0", "-emit-module", "-emit-library", "-no-emit-module-separately-wmo"
     ])
     let plannedJobs = try driver1.planBuild().removingAutolinkExtractJobs()
     XCTAssertEqual(plannedJobs.count, 2)
@@ -3503,6 +3494,22 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 4)
       XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .emitModule, .link]))
+    }
+
+    do {
+      // Schedule an emit-module separately job even if there are non-compilable inputs.
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.dylib", "-emit-library", "foo.dylib", "-emit-module-path", "foo.swiftmodule"],
+                              env: envVars)
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 3)
+      XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .emitModule, .link]))
+
+      let emitJob = try plannedJobs.findJob(.emitModule)
+      XCTAssertTrue(emitJob.commandLine.contains(try toPathOption("foo.swift")))
+      XCTAssertFalse(emitJob.commandLine.contains(try toPathOption("bar.dylib")))
+
+      let linkJob = try plannedJobs.findJob(.link)
+      XCTAssertTrue(linkJob.commandLine.contains(try toPathOption("bar.dylib")))
     }
   }
 
@@ -4447,6 +4454,27 @@ final class SwiftDriverTests: XCTestCase {
           ]))
         }
       }
+    }
+  }
+
+  func testDarwinSDKToolchainName() throws {
+    var envVars = ProcessEnv.vars
+    envVars["SWIFT_DRIVER_LD_EXEC"] = ld.nativePathString(escaped: false)
+
+    try withTemporaryDirectory { tmpDir in
+      let sdk = tmpDir.appending(component: "XROS1.0.sdk")
+      try localFileSystem.createDirectory(sdk, recursive: true)
+      try localFileSystem.writeFileContents(sdk.appending(component: "SDKSettings.json"), bytes:
+        """
+        {
+          "Version":"1.0",
+          "CanonicalName": "xros1.0"
+        }
+        """
+      )
+
+      let sdkInfo = DarwinToolchain.readSDKInfo(localFileSystem, VirtualPath.absolute(sdk).intern())
+      XCTAssertEqual(sdkInfo?.platformKind, .visionos)
     }
   }
 
@@ -6786,6 +6814,41 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertEqual(jobs.first!.tool.name, swiftHelp.pathString)
   }
 
+  func testSwiftClangOverride() throws {
+    var env = ProcessEnv.vars
+    let swiftClang = try AbsolutePath(validating: "/A/Path/swift-clang")
+    env["SWIFT_DRIVER_CLANG_EXEC"] = swiftClang.pathString
+
+    var driver = try Driver(
+      args: ["swiftc", "-emit-library", "foo.swift", "bar.o", "-o", "foo.l"],
+      env: env)
+    let jobs = try driver.planBuild()
+    XCTAssertEqual(jobs.count, 2)
+    let linkJob = jobs[1]
+    XCTAssertEqual(linkJob.tool.name, swiftClang.pathString)
+  }
+
+  func testSwiftClangxxOverride() throws {
+#if os(iOS) || os(macOS) || os(tvOS) || os(watchOS)
+      throw XCTSkip("Darwin always uses `clang` to link")
+#else
+    var env = ProcessEnv.vars
+    let swiftClang = try AbsolutePath(validating: "/A/Path/swift-clang")
+    let swiftClangxx = try AbsolutePath(validating: "/A/Path/swift-clang++")
+    env["SWIFT_DRIVER_CLANG_EXEC"] = swiftClang.pathString
+    env["SWIFT_DRIVER_CLANGXX_EXEC"] = swiftClangxx.pathString
+
+    var driver = try Driver(
+      args: ["swiftc", "-cxx-interoperability-mode=swift-5.9", "-emit-library",
+             "foo.swift", "bar.o", "-o", "foo.l"],
+      env: env)
+
+    let jobs = try driver.planBuild()
+    let linkJob = jobs.last!
+    XCTAssertEqual(linkJob.tool.name, swiftClangxx.pathString)
+#endif
+  }
+
   func testSourceInfoFileEmitOption() throws {
     // implicit
     do {
@@ -7379,7 +7442,15 @@ final class SwiftDriverTests: XCTestCase {
 
     let toolchainPluginPathIndex = job.commandLine.firstIndex(of: .path(.absolute(try driver.toolchain.executableDir.parentDirectory.appending(components: "lib", "swift", "host", "plugins"))))
     XCTAssertNotNil(toolchainPluginPathIndex)
-    XCTAssertLessThan(platformLocalPluginPathIndex!, toolchainPluginPathIndex!)
+
+    let toolchainStdlibPath = VirtualPath.lookup(driver.frontendTargetInfo.runtimeResourcePath.path)
+      .appending(components: driver.frontendTargetInfo.target.triple.platformName() ?? "", "Swift.swiftmodule")
+    let hasToolchainStdlib = try driver.fileSystem.exists(toolchainStdlibPath)
+    if hasToolchainStdlib {
+      XCTAssertGreaterThan(platformLocalPluginPathIndex!, toolchainPluginPathIndex!)
+    } else {
+      XCTAssertLessThan(platformLocalPluginPathIndex!, toolchainPluginPathIndex!)
+    }
     #endif
 
     XCTAssertTrue(job.commandLine.contains(.flag("-plugin-path")))

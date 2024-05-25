@@ -1420,6 +1420,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       throw XCTSkip("libSwiftScan does not support diagnostics query.")
     }
 
+    // Missing Swift Interface dependency
     try withTemporaryDirectory { path in
       let main = path.appending(component: "testDependencyScanning.swift")
       try localFileSystem.writeFileContents(main, bytes: "import S;")
@@ -1462,8 +1463,21 @@ final class ExplicitModuleBuildTests: XCTestCase {
       XCTAssertEqual(potentialDiags?.count, 5)
       let diags = try XCTUnwrap(potentialDiags)
       let error = diags[0]
-      XCTAssertEqual(error.message, "Unable to find module dependency: 'unknown_module'")
       XCTAssertEqual(error.severity, .error)
+      if try dependencyOracle.supportsDiagnosticSourceLocations() {
+        XCTAssertEqual(error.message,
+        """
+        Unable to find module dependency: 'unknown_module'
+        import unknown_module
+               ^
+        """)
+        let sourceLoc = try XCTUnwrap(error.sourceLocation)
+        XCTAssertTrue(sourceLoc.bufferIdentifier.hasSuffix("I.swiftinterface"))
+        XCTAssertEqual(sourceLoc.lineNumber, 3)
+        XCTAssertEqual(sourceLoc.columnNumber, 8)
+      } else {
+        XCTAssertEqual(error.message, "Unable to find module dependency: 'unknown_module'")
+      }
       let noteI = diags[1]
       XCTAssertTrue(noteI.message.starts(with: "a dependency of Swift module 'I':"))
       XCTAssertEqual(noteI.severity, .note)
@@ -1474,7 +1488,82 @@ final class ExplicitModuleBuildTests: XCTestCase {
       XCTAssertTrue(noteS.message.starts(with: "a dependency of Swift module 'S':"))
       XCTAssertEqual(noteS.severity, .note)
       let noteTest = diags[4]
-      XCTAssertEqual(noteTest.message, "a dependency of main module 'testDependencyScanning'")
+      if try dependencyOracle.supportsDiagnosticSourceLocations() {
+        XCTAssertEqual(noteTest.message,
+        """
+        a dependency of main module 'testDependencyScanning'
+        import unknown_module
+               ^
+        """
+        )
+      } else {
+        XCTAssertEqual(noteTest.message, "a dependency of main module 'testDependencyScanning'")
+      }
+      XCTAssertEqual(noteTest.severity, .note)
+    }
+
+    // Missing main module dependency
+    try withTemporaryDirectory { path in
+      let main = path.appending(component: "testDependencyScanning.swift")
+      try localFileSystem.writeFileContents(main, bytes: "import FooBar")
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+      var driver = try Driver(args: ["swiftc",
+                                     "-I", stdlibPath.nativePathString(escaped: true),
+                                     "-I", shimsPath.nativePathString(escaped: true),
+                                     "-explicit-module-build",
+                                     "-working-directory", path.nativePathString(escaped: true),
+                                     "-disable-clang-target",
+                                     main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
+                              env: ProcessEnv.vars)
+      let resolver = try ArgsResolver(fileSystem: localFileSystem)
+      var scannerCommand = try driver.dependencyScannerInvocationCommand().1.map { try resolver.resolve($0) }
+      if scannerCommand.first == "-frontend" {
+        scannerCommand.removeFirst()
+      }
+      var scanDiagnostics: [ScannerDiagnosticPayload] = []
+      let _ =
+          try dependencyOracle.getDependencies(workingDirectory: path,
+                                               commandLine: scannerCommand,
+                                               diagnostics: &scanDiagnostics)
+      let potentialDiags: [ScannerDiagnosticPayload]?
+      if try dependencyOracle.supportsPerScanDiagnostics() {
+        potentialDiags = scanDiagnostics
+        print("Using Per-Scan diagnostics")
+      } else {
+        potentialDiags = try dependencyOracle.getScannerDiagnostics()
+        print("Using Scanner-Global diagnostics")
+      }
+      XCTAssertEqual(potentialDiags?.count, 2)
+      let diags = try XCTUnwrap(potentialDiags)
+      let error = diags[0]
+      XCTAssertEqual(error.severity, .error)
+      if try dependencyOracle.supportsDiagnosticSourceLocations() {
+        XCTAssertEqual(error.message,
+        """
+        Unable to find module dependency: 'FooBar'
+        import FooBar
+               ^
+        """)
+
+        let sourceLoc = try XCTUnwrap(error.sourceLocation)
+        XCTAssertTrue(sourceLoc.bufferIdentifier.hasSuffix("testDependencyScanning.swift"))
+        XCTAssertEqual(sourceLoc.lineNumber, 1)
+        XCTAssertEqual(sourceLoc.columnNumber, 8)
+      } else {
+        XCTAssertEqual(error.message, "Unable to find module dependency: 'FooBar'")
+      }
+      let noteTest = diags[1]
+      if try dependencyOracle.supportsDiagnosticSourceLocations() {
+        XCTAssertEqual(noteTest.message,
+        """
+        a dependency of main module 'testDependencyScanning'
+        import FooBar
+               ^
+        """
+        )
+      } else {
+        XCTAssertEqual(noteTest.message, "a dependency of main module 'testDependencyScanning'")
+      }
       XCTAssertEqual(noteTest.severity, .note)
     }
   }
@@ -1597,6 +1686,65 @@ final class ExplicitModuleBuildTests: XCTestCase {
     }
   }
 
+  // Ensure dependency scanning succeeds via fallback `swift-frontend -scan-dependenceis`
+  // mechanism if libSwiftScan.dylib fails to load.
+  func testDependencyScanningFallback() throws {
+    let (stdlibPath, shimsPath, _, _) = try getDriverArtifactsForScanning()
+
+    // Create a simple test case.
+    try withTemporaryDirectory { path in
+      let main = path.appending(component: "testDependencyScanningFallback.swift")
+      try localFileSystem.writeFileContents(main, bytes: "import C;")
+
+      let dummyBrokenDylib = path.appending(component: "lib_InternalSwiftScan.dylib")
+      try localFileSystem.writeFileContents(dummyBrokenDylib, bytes: "n/a")
+
+      var environment = ProcessEnv.vars
+      environment["SWIFT_DRIVER_SWIFTSCAN_LIB"] = dummyBrokenDylib.nativePathString(escaped: true)
+
+      let cHeadersPath: AbsolutePath =
+      try testInputsPath.appending(component: "ExplicitModuleBuilds")
+        .appending(component: "CHeaders")
+      let swiftModuleInterfacesPath: AbsolutePath =
+      try testInputsPath.appending(component: "ExplicitModuleBuilds")
+        .appending(component: "Swift")
+      let sdkArgumentsForTesting: [String] = (try? Driver.sdkArgumentsForTesting()) ?? []
+      let driverArgs: [String] = ["swiftc",
+                                  "-I", cHeadersPath.nativePathString(escaped: true),
+                                  "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                  "-I", stdlibPath.nativePathString(escaped: true),
+                                  "-I", shimsPath.nativePathString(escaped: true),
+                                  "/tmp/Foo.o",
+                                  "-explicit-module-build",
+                                  "-working-directory", path.nativePathString(escaped: true),
+                                  "-disable-clang-target",
+                                  main.nativePathString(escaped: true)] + sdkArgumentsForTesting
+      do {
+        var driver = try Driver(args: driverArgs, env: environment)
+        let interModuleDependencyGraph = try driver.performDependencyScan()
+        XCTAssertTrue(driver.diagnosticEngine.diagnostics.contains { $0.behavior == .warning &&
+          $0.message.text == "In-process dependency scan query failed due to incompatible libSwiftScan (\(dummyBrokenDylib.nativePathString(escaped: true))). Fallback to `swift-frontend` dependency scanner invocation. Specify '-nonlib-dependency-scanner' to silence this warning."})
+        XCTAssertTrue(interModuleDependencyGraph.mainModule.directDependencies?.contains(where: { $0.moduleName == "C" }))
+      }
+
+      // Ensure no warning is emitted with '-nonlib-dependency-scanner'
+      do {
+        var driver = try Driver(args: driverArgs + ["-nonlib-dependency-scanner"], env: environment)
+        let _ = try driver.performDependencyScan()
+        XCTAssertFalse(driver.diagnosticEngine.diagnostics.contains { $0.behavior == .warning &&
+          $0.message.text == "In-process dependency scan query failed due to incompatible libSwiftScan (\(dummyBrokenDylib.nativePathString(escaped: true))). Fallback to `swift-frontend` dependency scanner invocation. Specify '-nonlib-dependency-scanner' to silence this warning."})
+      }
+
+      // Ensure error is emitted when caching is enabled
+      do {
+        var driver = try Driver(args: driverArgs + ["-cache-compile-job"], env: environment)
+        let _ = try driver.performDependencyScan()
+        XCTAssertFalse(driver.diagnosticEngine.diagnostics.contains { $0.behavior == .error &&
+          $0.message.text == "Swift Caching enabled - libSwiftScan load failed (\(dummyBrokenDylib.nativePathString(escaped: true))."})
+      }
+    }
+  }
+
   func testParallelDependencyScanningDiagnostics() throws {
     let (stdlibPath, shimsPath, toolchain, _) = try getDriverArtifactsForScanning()
     // The dependency oracle wraps an instance of libSwiftScan and ensures thread safety across
@@ -1665,8 +1813,31 @@ final class ExplicitModuleBuildTests: XCTestCase {
         for scanIndex in 0..<numFiles {
           let diagnostics = scanDiagnostics[scanIndex]
           XCTAssertEqual(diagnostics.count, 2)
-          XCTAssertEqual(diagnostics[0].message, "Unable to find module dependency: 'UnknownModule\(scanIndex)'")
-          XCTAssertEqual(diagnostics[1].message, "a dependency of main module 'testParallelDependencyScanningDiagnostics\(scanIndex)'")
+          // Diagnostic source locations came after per-scan diagnostics, only meaningful
+          // on this test code-path
+          if try dependencyOracle.supportsDiagnosticSourceLocations() {
+              let sourceLoc = try XCTUnwrap(diagnostics[0].sourceLocation)
+              XCTAssertEqual(sourceLoc.lineNumber, 1)
+              XCTAssertEqual(sourceLoc.columnNumber, 8)
+              XCTAssertEqual(diagnostics[0].message,
+              """
+              Unable to find module dependency: 'UnknownModule\(scanIndex)'
+              import UnknownModule\(scanIndex);
+                     ^
+              """)
+              let noteSourceLoc = try XCTUnwrap(diagnostics[1].sourceLocation)
+              XCTAssertEqual(noteSourceLoc.lineNumber, 1)
+              XCTAssertEqual(noteSourceLoc.columnNumber, 8)
+              XCTAssertEqual(diagnostics[1].message,
+              """
+              a dependency of main module 'testParallelDependencyScanningDiagnostics\(scanIndex)'
+              import UnknownModule\(scanIndex);
+                     ^
+              """)
+          } else {
+              XCTAssertEqual(diagnostics[0].message, "Unable to find module dependency: 'UnknownModule\(scanIndex)'")
+              XCTAssertEqual(diagnostics[1].message, "a dependency of main module 'testParallelDependencyScanningDiagnostics\(scanIndex)'")
+          }
         }
       } else {
         let globalDiagnostics = try dependencyOracle.getScannerDiagnostics()

@@ -256,7 +256,7 @@ extension Driver {
         return targetInfo
       }
     } catch {
-      diagnosticsEngine.emit(.warning_inprocess_target_info_query_failed(error.localizedDescription))
+      diagnosticsEngine.emit(.remark_inprocess_target_info_query_failed(error.localizedDescription))
     }
 
     // Fallback: Invoke `swift-frontend -print-target-info` and decode the output

@@ -397,9 +397,20 @@ extension Driver {
     } else {
       displayInputs = primaryInputs
     }
-    // Only swift input files are contributing to the cache keys.
+    // The cache key for compilation is created one per input file, and each cache key contains all the output
+    // files for that specific input file. All the module level output files are attached to the cache key for
+    // the first input file. Only the input files that produce the output will have a cache key. This behavior
+    // needs to match the cache key creation logic in swift-frontend.
     let cacheContributingInputs = inputs.enumerated().reduce(into: [(TypedVirtualPath, Int)]()) { result, input in
-      if input.element.type == .swift, displayInputs.contains(input.element) {
+      guard input.element.type == .swift else { return }
+      let singleInputKey = TypedVirtualPath(file: OutputFileMap.singleInputKey, type: .swift)
+      if inputOutputMap[singleInputKey] != nil {
+        // If singleInputKey exists, that means only the first swift file produces outputs.
+        if result.isEmpty {
+          result.append((input.element, input.offset))
+        }
+      } else if !inputOutputMap[input.element, default: []].isEmpty {
+        // Otherwise, add all the inputs that produce output.
         result.append((input.element, input.offset))
       }
     }

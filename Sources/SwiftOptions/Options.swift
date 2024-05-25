@@ -97,6 +97,7 @@ extension Option {
   public static let CrossModuleOptimization: Option = Option("-cross-module-optimization", .flag, attributes: [.helpHidden, .frontend], helpText: "Perform cross-module optimization")
   public static let crosscheckUnqualifiedLookup: Option = Option("-crosscheck-unqualified-lookup", .flag, attributes: [.frontend, .noDriver], helpText: "Compare legacy DeclContext- to ASTScope-based unqualified name lookup (for debugging)")
   public static let cxxInteropGettersSettersAsProperties: Option = Option("-cxx-interop-getters-setters-as-properties", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Import getters and setters as computed properties in Swift")
+  public static let cxxInteropUseOpaquePointerForMoveonly: Option = Option("-cxx-interop-use-opaque-pointer-for-moveonly", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Testing flag that will be eliminated soon. Do not use.")
   public static let cxxInteroperabilityMode: Option = Option("-cxx-interoperability-mode=", .joined, attributes: [.frontend, .moduleInterface], helpText: "Enables C++ interoperability; pass 'default' to enable or 'off' to disable")
   public static let c: Option = Option("-c", .flag, alias: Option.emitObject, attributes: [.frontend, .noInteractive], group: .modes)
   public static let debugAssertAfterParse: Option = Option("-debug-assert-after-parse", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Force an assertion failure after parsing", group: .debugCrash)
@@ -169,6 +170,7 @@ extension Option {
   public static let disableDeserializationRecovery: Option = Option("-disable-deserialization-recovery", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't attempt to recover from missing xrefs (etc) in swiftmodules")
   public static let disableDeserializationSafety: Option = Option("-disable-deserialization-safety", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't avoid reading potentially unsafe decls in swiftmodules")
   public static let disableDiagnosticPasses: Option = Option("-disable-diagnostic-passes", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't run diagnostic passes")
+  public static let disableDynamicActorIsolation: Option = Option("-disable-dynamic-actor-isolation", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Disable dynamic actor isolation checks")
   public static let disableEmitGenericClassRoTList: Option = Option("-disable-emit-generic-class-ro_t-list", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable emission of a section with references to class_ro_t of generic class patterns")
   public static let disableExperimentalClangImporterDiagnostics: Option = Option("-disable-experimental-clang-importer-diagnostics", .flag, attributes: [.helpHidden, .frontend, .noDriver, .moduleInterface], helpText: "Disable experimental diagnostics when importing C, C++, and Objective-C libraries")
   public static let disableExperimentalLifetimeDependenceInference: Option = Option("-disable-experimental-lifetime-dependence-inference", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable experimental lifetime dependence inference")
@@ -230,6 +232,7 @@ extension Option {
   public static let disableRequirementMachineReuse: Option = Option("-disable-requirement-machine-reuse", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable re-use of requirement machines for minimization, for debugging only")
   public static let disableRoundTripDebugTypes: Option = Option("-disable-round-trip-debug-types", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disables verification of debug info mangling")
   public static let disableSandbox: Option = Option("-disable-sandbox", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Disable using the sandbox when executing subprocesses")
+  public static let disableSendingArgsAndResultsWithRegionIsolation: Option = Option("-disable-sending-args-and-results-with-region-based-isolation", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable sending args and results when region based isolation is enabled. Only enabled with asserts")
   public static let disableSilOpaqueValues: Option = Option("-disable-sil-opaque-values", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable SIL Opaque Values")
   public static let disableSilOwnershipVerifier: Option = Option("-disable-sil-ownership-verifier", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Do not verify ownership invariants during SIL Verification ")
   public static let disableSilPartialApply: Option = Option("-disable-sil-partial-apply", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable use of partial_apply in SIL generation")
@@ -242,6 +245,7 @@ extension Option {
   public static let disableSwift3ObjcInference: Option = Option("-disable-swift3-objc-inference", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Deprecated, has no effect")
   public static let disableTargetOsChecking: Option = Option("-disable-target-os-checking", .flag, attributes: [.frontend, .noDriver], helpText: "Disable checking the target OS of serialized modules")
   public static let disableTestableAttrRequiresTestableModule: Option = Option("-disable-testable-attr-requires-testable-module", .flag, attributes: [.frontend, .noDriver], helpText: "Disable checking of @testable")
+  public static let disableTransferringArgsAndResultsWithRegionIsolation: Option = Option("-disable-transferring-args-and-results-with-region-based-isolation", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable transferring args and results when region based isolation is enabled. Only enabled with asserts")
   public static let disableTypeLayouts: Option = Option("-disable-type-layout", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable type layout based lowering")
   public static let disableTypoCorrection: Option = Option("-disable-typo-correction", .flag, attributes: [.frontend, .noDriver], helpText: "Disable typo correction")
   public static let disableVerifyExclusivity: Option = Option("-disable-verify-exclusivity", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable verification of access markers used to enforce exclusivity.")
@@ -384,7 +388,7 @@ extension Option {
   public static let enableDeserializationRecovery: Option = Option("-enable-deserialization-recovery", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Attempt to recover from missing xrefs (etc) in swiftmodules")
   public static let enableDeserializationSafety: Option = Option("-enable-deserialization-safety", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Avoid reading potentially unsafe decls in swiftmodules")
   public static let enableDestroyHoisting: Option = Option("-enable-destroy-hoisting=", .joined, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "true|false", helpText: "Whether to enable destroy hoisting")
-  public static let enableDeterministicCheck: Option = Option("-enable-deterministic-check", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Check compiler output determinisim by running it twice")
+  public static let enableDeterministicCheck: Option = Option("-enable-deterministic-check", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Check compiler output determinism by running it twice")
   public static let enableDynamicReplacementChaining: Option = Option("-enable-dynamic-replacement-chaining", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable chaining of dynamic replacements")
   public static let enableEmitGenericClassRoTList: Option = Option("-enable-emit-generic-class-ro_t-list", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable emission of a section with references to class_ro_t of generic class patterns")
   public static let enableExperimentalAdditiveArithmeticDerivation: Option = Option("-enable-experimental-additive-arithmetic-derivation", .flag, attributes: [.frontend], helpText: "Enable experimental 'AdditiveArithmetic' derived conformances")
@@ -463,7 +467,8 @@ extension Option {
   public static let entryPointFunctionName: Option = Option("-entry-point-function-name", .separate, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<string>", helpText: "Name of the entry point function")
   public static let experimentalAllowModuleWithCompilerErrors: Option = Option("-experimental-allow-module-with-compiler-errors", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Attempt to output .swiftmodule, regardless of compilation errors")
   public static let experimentalAllowNonResilientAccess: Option = Option("-experimental-allow-non-resilient-access", .flag, attributes: [.frontend], helpText: "Allow non-resilient access by generating all contents besides exportable decls")
-  public static let experimentalCForeignReferenceTypes: Option = Option("-experimental-c-foreign-reference-types", .flag, attributes: [.helpHidden, .frontend, .moduleInterface], helpText: "Enable experimental C foreign references types (with reference coutning).")
+  public static let experimentalAllowedReexportedModules: Option = Option("-experimental-allowed-reexported-modules=", .commaJoined, attributes: [.noDriver], helpText: "Allow reexporting symbols from the provided modules if they are themselves exported from the main module. This is a comma separated list of module names.")
+  public static let experimentalCForeignReferenceTypes: Option = Option("-experimental-c-foreign-reference-types", .flag, attributes: [.helpHidden, .frontend, .moduleInterface], helpText: "Enable experimental C foreign references types (with reference counting).")
   public static let experimentalClangImporterDirectCc1Scan: Option = Option("-experimental-clang-importer-direct-cc1-scan", .flag, attributes: [.helpHidden, .frontend], helpText: "Enables swift driver to construct swift-frontend invocations using -direct-clang-cc1-module-build")
   public static let experimentalCxxStdlib: Option = Option("-experimental-cxx-stdlib", .separate, attributes: [.helpHidden], helpText: "C++ standard library to use; forwarded to Clang's -stdlib flag")
   public static let emitModuleSeparately: Option = Option("-experimental-emit-module-separately", .flag, attributes: [.helpHidden], helpText: "Emit module files as a distinct job")
@@ -473,7 +478,7 @@ extension Option {
   public static let experimentalLazyTypecheck: Option = Option("-experimental-lazy-typecheck", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Type-check lazily as needed to produce requested outputs")
   public static let experimentalOneWayClosureParams: Option = Option("-experimental-one-way-closure-params", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental support for one-way closure parameters")
   public static let experimentalPackageBypassResilience: Option = Option("-experimental-package-bypass-resilience", .flag, attributes: [.frontend], helpText: "Enable optimization to bypass resilience within a package")
-  public static let ExperimentalPackageCMO: Option = Option("-experimental-package-cmo", .flag, attributes: [.frontend], helpText: "Enable optimization to perform defalut CMO within a package boundary")
+  public static let ExperimentalPackageCMO: Option = Option("-experimental-package-cmo", .flag, attributes: [.frontend], helpText: "Enable optimization to perform default CMO within a package boundary")
   public static let experimentalPackageInterfaceLoad: Option = Option("-experimental-package-interface-load", .flag, attributes: [.helpHidden, .frontend], helpText: "Enables loading a package interface if in the same package specified with package-name")
   public static let ExperimentalPerformanceAnnotations: Option = Option("-experimental-performance-annotations", .flag, attributes: [.helpHidden, .frontend], helpText: "Deprecated, has no effect")
   public static let platformCCallingConventionEQ: Option = Option("-experimental-platform-c-calling-convention=", .joined, alias: Option.platformCCallingConvention, attributes: [.helpHidden, .frontend, .noDriver])
@@ -486,7 +491,8 @@ extension Option {
   public static let experimentalSkipNonInlinableFunctionBodies: Option = Option("-experimental-skip-non-inlinable-function-bodies", .flag, attributes: [.helpHidden, .frontend], helpText: "Skip type-checking and SIL generation for non-inlinable function bodies")
   public static let experimentalSpiImports: Option = Option("-experimental-spi-imports", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental support for SPI imports")
   public static let experimentalSpiOnlyImports: Option = Option("-experimental-spi-only-imports", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable use of @_spiOnly imports")
-  public static let explainModuleDependency: Option = Option("-explain-module-dependency", .separate, attributes: [], helpText: "Emit remark/notes describing why compilaiton may depend on a module with a given name.")
+  public static let enableExperimentalSwiftBasedClosureSpecialization: Option = Option("-experimental-swift-based-closure-specialization", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Use the experimental Swift based closure-specialization optimization pass instead of the existing C++ one")
+  public static let explainModuleDependency: Option = Option("-explain-module-dependency", .separate, attributes: [], helpText: "Emit remark/notes describing why compilation may depend on a module with a given name.")
   public static let explicitDependencyGraphFormat: Option = Option("-explicit-dependency-graph-format=", .joined, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Specify the explicit dependency graph output format to either 'json' or 'dot'")
   public static let explicitInterfaceModuleBuild: Option = Option("-explicit-interface-module-build", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Use the specified command-line to build the module from interface, instead of flags specified in the interface")
   public static let driverExplicitModuleBuild: Option = Option("-explicit-module-build", .flag, attributes: [.helpHidden], helpText: "Prebuild module dependencies to make them explicit")
@@ -651,6 +657,7 @@ extension Option {
   public static let pchDisableValidation: Option = Option("-pch-disable-validation", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable validating the persistent PCH")
   public static let pchOutputDir: Option = Option("-pch-output-dir", .separate, attributes: [.helpHidden, .frontend, .argumentIsPath], helpText: "Directory to persist automatically created precompiled bridging headers")
   public static let placeholderDependencyModuleMap: Option = Option("-placeholder-dependency-module-map-file", .separate, attributes: [.frontend, .noDriver], metaVar: "<path>", helpText: "Specify a JSON file containing information of external Swift module dependencies")
+  public static let platformAvailabilityInheritanceMapPath: Option = Option("-platform-availability-inheritance-map-path", .separate, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<path>", helpText: "Path of the platform inheritance platform map")
   public static let playgroundHighPerformance: Option = Option("-playground-high-performance", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Omit instrumentation that has a high runtime performance impact")
   public static let playgroundOption: Option = Option("-playground-option", .separate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Provide an option to the playground transform (if enabled)")
   public static let playground: Option = Option("-playground", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Apply the playground semantics and transformation")
@@ -680,6 +687,7 @@ extension Option {
   public static let profileStatsEntities: Option = Option("-profile-stats-entities", .flag, attributes: [.helpHidden, .frontend], helpText: "Profile changes to stats in -stats-output-dir, subdivided by source entity")
   public static let profileStatsEvents: Option = Option("-profile-stats-events", .flag, attributes: [.helpHidden, .frontend], helpText: "Profile changes to stats in -stats-output-dir")
   public static let profileUse: Option = Option("-profile-use=", .commaJoined, attributes: [.frontend, .noInteractive, .argumentIsPath], metaVar: "<profdata>", helpText: "Supply a profdata file to enable profile-guided optimization")
+  public static let projectName: Option = Option("-project-name", .separate, attributes: [.frontend], helpText: "Name of the project this module to build belongs to")
   public static let protocolRequirementAllowList: Option = Option("-protocol-requirement-allow-list", .separate, attributes: [.noDriver, .argumentIsPath], metaVar: "<path>", helpText: "File containing a new-line separated list of protocol names")
   public static let protocolRequirementAllowList_: Option = Option("--protocol-requirement-allow-list", .separate, alias: Option.protocolRequirementAllowList, attributes: [.noDriver, .argumentIsPath], metaVar: "<path>", helpText: "File containing a new-line separated list of protocol names")
   public static let publicAutolinkLibrary: Option = Option("-public-autolink-library", .separate, attributes: [.frontend, .noDriver], helpText: "Add public dependent library")
@@ -705,7 +713,7 @@ extension Option {
   public static let resourceDir: Option = Option("-resource-dir", .separate, attributes: [.helpHidden, .frontend, .argumentIsPath], metaVar: "</usr/lib/swift>", helpText: "The directory that holds the compiler resource files")
   public static let remarkIndexingSystemModule: Option = Option("-Rindexing-system-module", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Emit a remark when indexing a system module")
   public static let remarkMacroLoading: Option = Option("-Rmacro-loading", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Emit remarks about loaded macro implementations")
-  public static let remarkModuleApiImport: Option = Option("-Rmodule-api-import", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Emit remarks about the import briging in each element composing the API")
+  public static let remarkModuleApiImport: Option = Option("-Rmodule-api-import", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Emit remarks about the import bridging in each element composing the API")
   public static let RmoduleInterfaceRebuild: Option = Option("-Rmodule-interface-rebuild", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Emits a remark if an imported module needs to be re-compiled from its module interface")
   public static let remarkLoadingModule: Option = Option("-Rmodule-loading", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Emit remarks about loaded module")
   public static let remarkModuleRecovery: Option = Option("-Rmodule-recovery", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Emit remarks about contextual inconsistencies in loaded modules")
@@ -749,7 +757,7 @@ extension Option {
   public static let silVerifyNone: Option = Option("-sil-verify-none", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Completely disable SIL verification")
   public static let skipImportInPublicInterface: Option = Option("-skip-import-in-public-interface", .separate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Skip the import statement corresponding to a module name when printing the public interface.")
   public static let skipInheritedDocs: Option = Option("-skip-inherited-docs", .flag, attributes: [.helpHidden, .frontend, .noInteractive, .supplementaryOutput], helpText: "Skip emitting doc comments for members inherited through classes or default implementations")
-  public static let skipProtocolImplementations: Option = Option("-skip-protocol-implementations", .flag, attributes: [.helpHidden, .frontend, .noInteractive, .supplementaryOutput], helpText: "Skip emitting symbols that are implementations of protocol requirements or inherited from protocl extensions")
+  public static let skipProtocolImplementations: Option = Option("-skip-protocol-implementations", .flag, attributes: [.helpHidden, .frontend, .noInteractive, .supplementaryOutput], helpText: "Skip emitting symbols that are implementations of protocol requirements or inherited from protocol extensions")
   public static let skipSynthesizedMembers: Option = Option("-skip-synthesized-members", .flag, attributes: [.noDriver], helpText: "Skip members inherited through classes or default implementations")
   public static let solverDisableShrink: Option = Option("-solver-disable-shrink", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable the shrink phase of expression type checking")
   public static let solverExpressionTimeThresholdEQ: Option = Option("-solver-expression-time-threshold=", .joined, attributes: [.helpHidden, .frontend, .noDriver])
@@ -946,6 +954,7 @@ extension Option {
       Option.CrossModuleOptimization,
       Option.crosscheckUnqualifiedLookup,
       Option.cxxInteropGettersSettersAsProperties,
+      Option.cxxInteropUseOpaquePointerForMoveonly,
       Option.cxxInteroperabilityMode,
       Option.c,
       Option.debugAssertAfterParse,
@@ -1018,6 +1027,7 @@ extension Option {
       Option.disableDeserializationRecovery,
       Option.disableDeserializationSafety,
       Option.disableDiagnosticPasses,
+      Option.disableDynamicActorIsolation,
       Option.disableEmitGenericClassRoTList,
       Option.disableExperimentalClangImporterDiagnostics,
       Option.disableExperimentalLifetimeDependenceInference,
@@ -1079,6 +1089,7 @@ extension Option {
       Option.disableRequirementMachineReuse,
       Option.disableRoundTripDebugTypes,
       Option.disableSandbox,
+      Option.disableSendingArgsAndResultsWithRegionIsolation,
       Option.disableSilOpaqueValues,
       Option.disableSilOwnershipVerifier,
       Option.disableSilPartialApply,
@@ -1091,6 +1102,7 @@ extension Option {
       Option.disableSwift3ObjcInference,
       Option.disableTargetOsChecking,
       Option.disableTestableAttrRequiresTestableModule,
+      Option.disableTransferringArgsAndResultsWithRegionIsolation,
       Option.disableTypeLayouts,
       Option.disableTypoCorrection,
       Option.disableVerifyExclusivity,
@@ -1312,6 +1324,7 @@ extension Option {
       Option.entryPointFunctionName,
       Option.experimentalAllowModuleWithCompilerErrors,
       Option.experimentalAllowNonResilientAccess,
+      Option.experimentalAllowedReexportedModules,
       Option.experimentalCForeignReferenceTypes,
       Option.experimentalClangImporterDirectCc1Scan,
       Option.experimentalCxxStdlib,
@@ -1335,6 +1348,7 @@ extension Option {
       Option.experimentalSkipNonInlinableFunctionBodies,
       Option.experimentalSpiImports,
       Option.experimentalSpiOnlyImports,
+      Option.enableExperimentalSwiftBasedClosureSpecialization,
       Option.explainModuleDependency,
       Option.explicitDependencyGraphFormat,
       Option.explicitInterfaceModuleBuild,
@@ -1500,6 +1514,7 @@ extension Option {
       Option.pchDisableValidation,
       Option.pchOutputDir,
       Option.placeholderDependencyModuleMap,
+      Option.platformAvailabilityInheritanceMapPath,
       Option.playgroundHighPerformance,
       Option.playgroundOption,
       Option.playground,
@@ -1529,6 +1544,7 @@ extension Option {
       Option.profileStatsEntities,
       Option.profileStatsEvents,
       Option.profileUse,
+      Option.projectName,
       Option.protocolRequirementAllowList,
       Option.protocolRequirementAllowList_,
       Option.publicAutolinkLibrary,

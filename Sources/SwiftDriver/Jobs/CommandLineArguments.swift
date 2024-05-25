@@ -56,7 +56,7 @@ extension Array where Element == Job.ArgTemplate {
   /// Append an option's spelling to the command line arguments.
   mutating func appendFlag(_ option: Option) {
     switch option.kind {
-    case .flag, .joinedOrSeparate, .remaining, .separate:
+    case .flag, .joinedOrSeparate, .remaining, .separate, .multiArg:
       break
     case .commaJoined, .input, .joined:
       fatalError("Option cannot be appended as a flag: \(option)")
@@ -95,7 +95,7 @@ extension Array where Element == Job.ArgTemplate {
       assert(!option.attributes.contains(.argumentIsPath))
       appendFlag(option.spelling + argument.asMultiple.joined(separator: ","))
 
-    case .remaining:
+    case .remaining, .multiArg:
       appendFlag(option.spelling)
       for arg in argument.asMultiple {
         try appendSingleArgument(option: option, argument: arg)

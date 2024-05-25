@@ -473,28 +473,24 @@ extension Driver {
       commandLine.appendFlag($0)
     }
 
+    let toolchainStdlibPath = VirtualPath.lookup(frontendTargetInfo.runtimeResourcePath.path)
+      .appending(components: frontendTargetInfo.target.triple.platformName() ?? "", "Swift.swiftmodule")
+    let hasToolchainStdlib = try fileSystem.exists(toolchainStdlibPath)
+
+    // If the resource directory has the standard library, prefer the toolchain's plugins
+    // to the platform SDK plugins.
+    if hasToolchainStdlib {
+      try addPluginPathArguments(commandLine: &commandLine)
+    }
+
     try toolchain.addPlatformSpecificCommonFrontendOptions(commandLine: &commandLine,
                                                            inputs: &inputs,
                                                            frontendTargetInfo: frontendTargetInfo,
                                                            driver: &self)
 
-    // Platform-agnostic options that need to happen after platform-specific ones.
-    if isFrontendArgSupported(.pluginPath) {
-      // Default paths for compiler plugins found within the toolchain
-      // (loaded as shared libraries).
-      let pluginPathRoot = VirtualPath.absolute(try toolchain.executableDir.parentDirectory)
-      commandLine.appendFlag(.pluginPath)
-      commandLine.appendPath(pluginPathRoot.pluginPath)
-
-      commandLine.appendFlag(.pluginPath)
-      commandLine.appendPath(pluginPathRoot.localPluginPath)
-
-      // Avoid cluttering the invocation with the wasm plugin server path unless
-      // the user has requested to load a wasm macro.
-      if isFrontendArgSupported(.wasmPluginServerPath) && parsedOptions.hasWasmPlugins {
-        commandLine.appendFlag(.wasmPluginServerPath)
-        commandLine.appendPath(pluginPathRoot.wasmPluginServerPath)
-      }
+    // Otherwise, prefer the platform's plugins.
+    if !hasToolchainStdlib {
+      try addPluginPathArguments(commandLine: &commandLine)
     }
   }
 
@@ -780,6 +776,29 @@ extension Driver {
                                              commandLine: inout [Job.ArgTemplate]) throws {
     try explicitDependencyBuildPlanner?.resolveBridgingHeaderDependencies(inputs: &inputs, commandLine: &commandLine)
   }
+
+  mutating func addPluginPathArguments(commandLine: inout [Job.ArgTemplate]) throws {
+    guard isFrontendArgSupported(.pluginPath) else {
+      return
+    }
+
+    // Default paths for compiler plugins found within the toolchain
+    // (loaded as shared libraries).
+    let pluginPathRoot = VirtualPath.absolute(try toolchain.executableDir.parentDirectory)
+    commandLine.appendFlag(.pluginPath)
+    commandLine.appendPath(pluginPathRoot.pluginPath)
+
+    commandLine.appendFlag(.pluginPath)
+    commandLine.appendPath(pluginPathRoot.localPluginPath)
+
+    // Avoid cluttering the invocation with the wasm plugin server path unless
+    // the user has requested to load a wasm macro.
+    if isFrontendArgSupported(.wasmPluginServerPath) && parsedOptions.hasWasmPlugins {
+      commandLine.appendFlag(.wasmPluginServerPath)
+      commandLine.appendPath(pluginPathRoot.wasmPluginServerPath)
+    }
+  }
+
 
   /// If explicit dependency planner supports creating bridging header pch command.
   public func supportsBridgingHeaderPCHCommand() throws -> Bool {
