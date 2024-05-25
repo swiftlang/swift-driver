@@ -120,6 +120,13 @@ do {
   }
 
   let jobs = try driver.planBuild()
+
+  // Planning may result in further errors emitted
+  // due to dependency scanning failures.
+  guard !driver.diagnosticEngine.hasErrors else {
+    throw Driver.ErrorDiagnostics.emitted
+  }
+
   try driver.run(jobs: jobs)
 
   if driver.diagnosticEngine.hasErrors {

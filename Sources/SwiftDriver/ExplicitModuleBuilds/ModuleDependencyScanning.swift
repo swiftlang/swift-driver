@@ -33,7 +33,7 @@ extension Diagnostic.Message {
     .error("Swift Caching enabled - libSwiftScan load failed (\(libPath)).")
   }
   static func scanner_diagnostic_error(_ message: String) -> Diagnostic.Message {
-    .error(message)
+    return .error(message)
   }
   static func scanner_diagnostic_warn(_ message: String) -> Diagnostic.Message {
     .warning(message)
@@ -247,15 +247,20 @@ public extension Driver {
       for diagnostic in diagnostics {
         switch diagnostic.severity {
         case .error:
-          diagnosticEngine.emit(.scanner_diagnostic_error(diagnostic.message))
+          diagnosticEngine.emit(.scanner_diagnostic_error(diagnostic.message),
+                                location: diagnostic.sourceLocation)
         case .warning:
-          diagnosticEngine.emit(.scanner_diagnostic_warn(diagnostic.message))
+          diagnosticEngine.emit(.scanner_diagnostic_warn(diagnostic.message),
+                                location: diagnostic.sourceLocation)
         case .note:
-          diagnosticEngine.emit(.scanner_diagnostic_note(diagnostic.message))
+          diagnosticEngine.emit(.scanner_diagnostic_note(diagnostic.message),
+                                location: diagnostic.sourceLocation)
         case .remark:
-          diagnosticEngine.emit(.scanner_diagnostic_remark(diagnostic.message))
+          diagnosticEngine.emit(.scanner_diagnostic_remark(diagnostic.message),
+                                location: diagnostic.sourceLocation)
         case .ignored:
-          diagnosticEngine.emit(.scanner_diagnostic_error(diagnostic.message))
+          diagnosticEngine.emit(.scanner_diagnostic_error(diagnostic.message),
+                                location: diagnostic.sourceLocation)
         }
       }
   }
