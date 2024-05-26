@@ -7478,7 +7478,7 @@ final class SwiftDriverTests: XCTestCase {
       executor: executor,
       compilerExecutableDir: executableDir
     )
-    guard driver.isFrontendArgSupported(.wasmPluginServerPath) else {
+    guard driver.isFrontendArgSupported(.loadPlugin) else {
       return
     }
 
@@ -7486,19 +7486,15 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertEqual(jobs.count, 1)
     let job = jobs.first!
 
-    // Check that the we have the plugin path
-    let pluginAIndex = job.commandLine.firstIndex(of: .path(VirtualPath.absolute(try .init(validating: "/tmp/PluginA.wasm#ModuleA"))))
-    XCTAssertNotNil(pluginAIndex)
-
-    // Check that we also have the wasm plugin server path
-    let wasmPathOptionIndex = try XCTUnwrap(job.commandLine.firstIndex(of: .flag("-wasm-plugin-server-path")))
-    let wasmPath = job.commandLine[wasmPathOptionIndex + 1]
     #if os(Windows)
     let expectedWasmServerPath = executableDir.appending(component: "swift-plugin-server.exe")
     #else
     let expectedWasmServerPath = executableDir.appending(component: "swift-plugin-server")
     #endif
-    XCTAssertEqual(wasmPath, .path(.absolute(expectedWasmServerPath)))
+
+    // Check that the we have the plugin path
+    let pluginAIndex = job.commandLine.firstIndex(of: .flag("/tmp/PluginA.wasm:\(expectedWasmServerPath)#ModuleA"))
+    XCTAssertNotNil(pluginAIndex)
   }
 
   func testClangModuleValidateOnce() throws {

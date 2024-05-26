@@ -309,7 +309,10 @@ extension Driver {
     }
 
     // Emit user-provided plugin paths, in order.
-    if isFrontendArgSupported(.externalPluginPath) {
+    if isFrontendArgSupported(.loadPlugin) {
+      try commandLine.appendAll(.pluginPath, .externalPluginPath, .loadPluginLibrary, .loadPlugin, from: &parsedOptions)
+      try addLoadPluginExecutableArguments(commandLine: &commandLine)
+    } else if isFrontendArgSupported(.externalPluginPath) {
       try commandLine.appendAll(.pluginPath, .externalPluginPath, .loadPluginLibrary, .loadPluginExecutable, from: &parsedOptions)
     } else if isFrontendArgSupported(.pluginPath) {
       try commandLine.appendAll(.pluginPath, .loadPluginLibrary, from: &parsedOptions)
@@ -790,12 +793,36 @@ extension Driver {
 
     commandLine.appendFlag(.pluginPath)
     commandLine.appendPath(pluginPathRoot.localPluginPath)
+  }
 
-    // Avoid cluttering the invocation with the wasm plugin server path unless
-    // the user has requested to load a wasm macro.
-    if isFrontendArgSupported(.wasmPluginServerPath) && parsedOptions.hasWasmPlugins {
-      commandLine.appendFlag(.wasmPluginServerPath)
-      commandLine.appendPath(pluginPathRoot.pluginServerPath)
+  mutating func addLoadPluginExecutableArguments(commandLine: inout [Job.ArgTemplate]) throws {
+    var cachedPluginServerPath: VirtualPath?
+    var pluginServerPath: VirtualPath {
+      get throws {
+        if let cachedPluginServerPath = cachedPluginServerPath {
+          return cachedPluginServerPath
+        }
+        let pluginPathRoot = VirtualPath.absolute(try toolchain.executableDir.parentDirectory)
+        let pluginServerPath = pluginPathRoot.pluginServerPath
+        cachedPluginServerPath = pluginServerPath
+        return pluginServerPath
+      }
+    }
+
+    for loadPluginExecutable in parsedOptions.arguments(for: .loadPluginExecutable) {
+      let argument = loadPluginExecutable.argument.asSingle
+      guard let separator = argument.lastIndex(of: "#") else { continue }
+
+      let path = argument[..<separator]
+      let afterPath = argument[separator...]
+
+      guard path.hasSuffix(".wasm") else {
+        try commandLine.append(loadPluginExecutable)
+        continue
+      }
+
+      commandLine.appendFlag(.loadPlugin)
+      try commandLine.appendFlag("\(path):\(pluginServerPath)\(afterPath)")
     }
   }
 
@@ -929,19 +956,6 @@ extension ParsedOptions {
     mutating get {
       let experimentalFeatures = self.arguments(for: .enableExperimentalFeature)
       return experimentalFeatures.map(\.argument).map(\.asSingle).contains("Embedded")
-    }
-  }
-
-  /// Checks whether there are any `-load-plugin-executable` arguments for WebAssembly plugins.
-  var hasWasmPlugins: Bool {
-    mutating get {
-      let loadPluginExecutables = self.arguments(for: .loadPluginExecutable)
-      return loadPluginExecutables.contains { option in
-        let argument = option.argument.asSingle
-        // the format is <file.ext>#<modules>
-        guard let separator = argument.lastIndex(of: "#") else { return false }
-        return argument[..<separator].hasSuffix(".wasm")
-      }
     }
   }
 }
