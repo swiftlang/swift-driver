@@ -795,6 +795,9 @@ extension Driver {
     commandLine.appendPath(pluginPathRoot.localPluginPath)
   }
 
+  /// Forward `-load-plugin-executable` arguments, with special handling for Wasm plugins.
+  ///
+  /// Wasm plugins are updated to use `-load-plugin` with the plugin server.
   mutating func addLoadPluginExecutableArguments(commandLine: inout [Job.ArgTemplate]) throws {
     var cachedPluginServerPath: VirtualPath?
     var pluginServerPath: VirtualPath {

@@ -7454,7 +7454,7 @@ final class SwiftDriverTests: XCTestCase {
     #endif
 
     XCTAssertTrue(job.commandLine.contains(.flag("-plugin-path")))
-    XCTAssertFalse(job.commandLine.contains(.flag("-wasm-plugin-server-path")))
+    XCTAssertFalse(job.commandLine.contains(.flag("-load-plugin")))
 #if os(Windows)
     XCTAssertTrue(job.commandLine.contains(.path(.absolute(try driver.toolchain.executableDir.parentDirectory.appending(components: "bin")))))
 #else
