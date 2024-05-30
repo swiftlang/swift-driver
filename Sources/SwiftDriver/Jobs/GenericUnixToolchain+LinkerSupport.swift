@@ -50,9 +50,9 @@ extension GenericUnixToolchain {
     case .executable:
       // Select the linker to use.
       if let arg = parsedOptions.getLastArgument(.useLd)?.asSingle {
-        commandLine.appendFlag("--fuse-ld=\(arg)")
+        commandLine.appendFlag("-fuse-ld=\(arg)")
       } else if lto != nil {
-        commandLine.appendFlag("--fuse-ld=lld")
+        commandLine.appendFlag("-fuse-ld=lld")
       }
 
       if let arg = parsedOptions.getLastArgument(.ldPath)?.asSingle {
