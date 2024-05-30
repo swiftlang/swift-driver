@@ -2372,7 +2372,7 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
       let lastJob = plannedJobs.last!
       XCTAssertTrue(lastJob.tool.name.contains("clang"))
-      XCTAssertTrue(lastJob.commandLine.contains(.flag("--fuse-ld=lld")))
+      XCTAssertTrue(lastJob.commandLine.contains(.flag("-fuse-ld=lld")))
     }
   }
 
