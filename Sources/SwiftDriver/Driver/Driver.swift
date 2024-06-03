@@ -2805,7 +2805,7 @@ extension Driver {
 
       if !fileSystem.exists(path) {
         diagnosticsEngine.emit(.warning_no_such_sdk(sdkPath))
-      } else if !(targetTriple?.isWindows ?? (defaultToolchainType == WindowsToolchain.self)) {
+      } else if (targetTriple?.isDarwin ?? (defaultToolchainType == DarwinToolchain.self)) {
         if isSDKTooOld(sdkPath: path, fileSystem: fileSystem,
                        diagnosticsEngine: diagnosticsEngine) {
           diagnosticsEngine.emit(.error_sdk_too_old(sdkPath))
