@@ -86,6 +86,7 @@ extension Option {
   public static let colorDiagnostics: Option = Option("-color-diagnostics", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Print diagnostics in color")
   public static let compareToBaselinePath: Option = Option("-compare-to-baseline-path", .separate, attributes: [.noInteractive, .argumentIsPath], metaVar: "<path>", helpText: "Compare the built module to the baseline at <path> and diagnose breaking changes using the API digester")
   public static let compileModuleFromInterface: Option = Option("-compile-module-from-interface", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Treat the (single) input as a swiftinterface and produce a module", group: .modes)
+  public static let compilerAssertions: Option = Option("-compiler-assertions", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild, .cacheInvariant], helpText: "Enable internal self-checks while compiling", group: .internalDebug)
   public static let compilerStyleDiags: Option = Option("-compiler-style-diags", .flag, attributes: [.noDriver], helpText: "Print compiler style diagnostics to stderr.")
   public static let compilerStyleDiags_: Option = Option("--compiler-style-diags", .flag, alias: Option.compilerStyleDiags, attributes: [.noDriver], helpText: "Print compiler style diagnostics to stderr.")
   public static let concurrencyModelEQ: Option = Option("-concurrency-model=", .joined, alias: Option.concurrencyModel, attributes: [.helpHidden, .frontend, .noDriver])
@@ -942,6 +943,7 @@ extension Option {
       Option.colorDiagnostics,
       Option.compareToBaselinePath,
       Option.compileModuleFromInterface,
+      Option.compilerAssertions,
       Option.compilerStyleDiags,
       Option.compilerStyleDiags_,
       Option.concurrencyModelEQ,

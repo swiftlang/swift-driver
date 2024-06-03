@@ -266,6 +266,9 @@ extension Driver {
     if isFrontendArgSupported(.noAllocations) {
       try commandLine.appendLast(.noAllocations, from: &parsedOptions)
     }
+    if isFrontendArgSupported(.compilerAssertions) {
+      try commandLine.appendLast(.compilerAssertions, from: &parsedOptions)
+    }
     if isFrontendArgSupported(.enableExperimentalFeature) {
       try commandLine.appendAll(
         .enableExperimentalFeature, from: &parsedOptions)
