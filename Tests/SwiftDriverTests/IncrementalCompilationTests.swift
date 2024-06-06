@@ -382,7 +382,6 @@ extension IncrementalCompilationTests {
   // On this graph, inputs of 'G' are updated, causing it to be re-built
   // as well as all modules on paths from root to it: 'Y', 'H', 'T','J'
   func testExplicitIncrementalBuildChangedDependencyInvalidatesUpstreamDependencies() throws {
-    // Add an import of 'B', 'C' to make sure followup changes has consistent inputs
     replace(contentsOf: "other", with: "import Y;import T")
     try buildInitialState(checkDiagnostics: false, explicitModuleBuild: true)
 
@@ -427,6 +426,62 @@ extension IncrementalCompilationTests {
       compilingExplicitSwiftDependency("T")
       compilingExplicitSwiftDependency("Y")
       compilingExplicitSwiftDependency("H")
+      schedulingPostCompileJobs
+      linking
+    }
+  }
+
+  // A dependency has been re-built to be newer than its dependents
+  // so we must ensure the dependents get re-built even though all the
+  // modules are up-to-date with respect to their textual source inputs.
+  //
+  //             test
+  //                 \
+  //                  J
+  //                   \
+  //                    G
+  //
+  // On this graph, after the initial build, if G module binary file is newer
+  // than that of J, even if each of the modules is up-to-date w.r.t. their source inputs
+  // we still expect that J gets re-built
+  func testExplicitIncrementalBuildChangedDependencyBinaryInvalidatesUpstreamDependencies() throws {
+    replace(contentsOf: "other", with: "import J;")
+    try buildInitialState(checkDiagnostics: false, explicitModuleBuild: true)
+
+    let modCacheEntries = try localFileSystem.getDirectoryContents(explicitModuleCacheDir)
+    let nameOfGModule = try XCTUnwrap(modCacheEntries.first { $0.hasPrefix("G") && $0.hasSuffix(".swiftmodule")})
+    let pathToGModule = explicitModuleCacheDir.appending(component: nameOfGModule)
+    // Just update the time-stamp of one of the module dependencies' outputs.
+    // Also add a dependency to cause a re-scan.
+    touch(pathToGModule)
+    replace(contentsOf: "other", with: "import J;import R")
+
+    // Changing a dependency will mean that we both re-run the dependency scan,
+    // and also ensure that all source-files are re-built with a non-cascading build
+    // since the source files themselves have not changed.
+    try doABuild(
+      "update dependency (G) result timestamp",
+      checkDiagnostics: true,
+      extraArguments: explicitBuildArgs,
+      whenAutolinking: autolinkLifecycleExpectedDiags
+    ) {
+      readGraph
+      enablingCrossModule
+      readInterModuleGraph
+      explicitMustReScanDueToChangedImports
+      maySkip("main")
+      schedulingChangedInitialQueuing("other")
+      skipping("main")
+      findingBatchingCompiling("other")
+      reading(deps: "other")
+      fingerprintsChanged("other")
+      moduleOutputNotFound("R")
+      moduleWillBeRebuiltOutOfDate("R")
+      compilingExplicitSwiftDependency("R")
+      explicitModulesWillBeRebuilt(["J", "R"])
+      explicitDependencyNewerModuleInputs("J")
+      compilingExplicitSwiftDependency("J")
+      skipped("main")
       schedulingPostCompileJobs
       linking
     }
@@ -1644,6 +1699,9 @@ extension DiagVerifiable {
   }
   @DiagsBuilder func explicitDependencyInvalidatedDownstream(_ moduleName: String) -> [Diagnostic.Message] {
     "Incremental compilation: Dependency module '\(moduleName)' will be re-built: Invalidated by downstream dependency"
+  }
+  @DiagsBuilder func explicitDependencyNewerModuleInputs(_ moduleName: String) -> [Diagnostic.Message] {
+    "Incremental compilation: Dependency module '\(moduleName)' will be re-built: Has newer module dependency inputs"
   }
 
   // MARK: - misc
