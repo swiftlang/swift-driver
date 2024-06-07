@@ -106,7 +106,7 @@ extension IncrementalCompilationState.IncrementalDependencyAndInputSetup {
   ) throws -> InterModuleDependencyGraph? {
     // Attempt to read a serialized inter-module dependency graph from a prior build
     guard let priorInterModuleDependencyGraph =
-        buildRecordInfo.readOutOfDateInterModuleDependencyGraph(reporter: reporter),
+        buildRecordInfo.readPriorInterModuleDependencyGraph(reporter: reporter),
           let priorImports = priorInterModuleDependencyGraph.mainModule.directDependencies?.map({ $0.moduleName }) else {
       reporter?.reportExplicitBuildMustReScan("Could not read inter-module dependency graph at \(buildRecordInfo.interModuleDependencyGraphPath)")
       return nil
