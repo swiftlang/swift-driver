@@ -351,6 +351,7 @@ extension IncrementalCompilationTests {
       readInterModuleGraph
       // Ensure the above 'touch' is detected and causes a re-scan
       explicitDependencyModuleOlderThanInput("E")
+      moduleInfoStaleOutOfDate("E")
       explicitMustReScanDueToChangedDependencyInput
       noFingerprintInSwiftModule("E.swiftinterface")
       dependencyNewerThanNode("E.swiftinterface")
@@ -402,6 +403,11 @@ extension IncrementalCompilationTests {
       readInterModuleGraph
       // Ensure the above 'touch' is detected and causes a re-scan
       explicitDependencyModuleOlderThanInput("G")
+      moduleInfoStaleOutOfDate("G")
+      moduleInfoStaleInvalidatedDownstream("J")
+      moduleInfoStaleInvalidatedDownstream("T")
+      moduleInfoStaleInvalidatedDownstream("Y")
+      moduleInfoStaleInvalidatedDownstream("H")
       explicitMustReScanDueToChangedDependencyInput
       noFingerprintInSwiftModule("G.swiftinterface")
       dependencyNewerThanNode("G.swiftinterface")
@@ -415,10 +421,10 @@ extension IncrementalCompilationTests {
       queuingInitial("main", "other")
       findingBatchingCompiling("main", "other")
       explicitDependencyModuleOlderThanInput("G")
-      explicitDependencyInvalidatedDownstream("J")
-      explicitDependencyInvalidatedDownstream("T")
-      explicitDependencyInvalidatedDownstream("Y")
-      explicitDependencyInvalidatedDownstream("H")
+      moduleWillBeRebuiltInvalidatedDownstream("J")
+      moduleWillBeRebuiltInvalidatedDownstream("T")
+      moduleWillBeRebuiltInvalidatedDownstream("Y")
+      moduleWillBeRebuiltInvalidatedDownstream("H")
       explicitModulesWillBeRebuilt(["G", "H", "J", "T", "Y"])
       moduleWillBeRebuiltOutOfDate("G")
       compilingExplicitSwiftDependency("G")
@@ -452,9 +458,9 @@ extension IncrementalCompilationTests {
     let nameOfGModule = try XCTUnwrap(modCacheEntries.first { $0.hasPrefix("G") && $0.hasSuffix(".swiftmodule")})
     let pathToGModule = explicitModuleCacheDir.appending(component: nameOfGModule)
     // Just update the time-stamp of one of the module dependencies' outputs.
-    // Also add a dependency to cause a re-scan.
     touch(pathToGModule)
-    replace(contentsOf: "other", with: "import J;import R")
+    // Touch one of the inputs to actually trigger the incremental build
+    touch(inputPath(basename: "other"))
 
     // Changing a dependency will mean that we both re-run the dependency scan,
     // and also ensure that all source-files are re-built with a non-cascading build
@@ -468,19 +474,18 @@ extension IncrementalCompilationTests {
       readGraph
       enablingCrossModule
       readInterModuleGraph
-      explicitMustReScanDueToChangedImports
+      explicitDependencyModuleOlderThanInput("J")
+      moduleInfoStaleOutOfDate("J")
+      explicitMustReScanDueToChangedDependencyInput
       maySkip("main")
       schedulingChangedInitialQueuing("other")
       skipping("main")
+      explicitDependencyModuleOlderThanInput("J")
+      moduleWillBeRebuiltOutOfDate("J")
+      explicitModulesWillBeRebuilt(["J"])
+      compilingExplicitSwiftDependency("J")
       findingBatchingCompiling("other")
       reading(deps: "other")
-      fingerprintsChanged("other")
-      moduleOutputNotFound("R")
-      moduleWillBeRebuiltOutOfDate("R")
-      compilingExplicitSwiftDependency("R")
-      explicitModulesWillBeRebuilt(["J", "R"])
-      explicitDependencyNewerModuleInputs("J")
-      compilingExplicitSwiftDependency("J")
       skipped("main")
       schedulingPostCompileJobs
       linking
@@ -1694,14 +1699,17 @@ extension DiagVerifiable {
   @DiagsBuilder func moduleWillBeRebuiltOutOfDate(_ moduleName: String) -> [Diagnostic.Message] {
     "Incremental compilation: Dependency module '\(moduleName)' will be re-built: Out-of-date"
   }
-  @DiagsBuilder func explicitModulesWillBeRebuilt(_ moduleNames: [String]) -> [Diagnostic.Message] {
-    "Incremental compilation: Following explicit module dependencies will be re-built: [\(moduleNames.joined(separator: ", "))]"
-  }
-  @DiagsBuilder func explicitDependencyInvalidatedDownstream(_ moduleName: String) -> [Diagnostic.Message] {
+  @DiagsBuilder func moduleWillBeRebuiltInvalidatedDownstream(_ moduleName: String) -> [Diagnostic.Message] {
     "Incremental compilation: Dependency module '\(moduleName)' will be re-built: Invalidated by downstream dependency"
   }
-  @DiagsBuilder func explicitDependencyNewerModuleInputs(_ moduleName: String) -> [Diagnostic.Message] {
-    "Incremental compilation: Dependency module '\(moduleName)' will be re-built: Has newer module dependency inputs"
+  @DiagsBuilder func moduleInfoStaleOutOfDate(_ moduleName: String) -> [Diagnostic.Message] {
+    "Incremental compilation: Dependency module '\(moduleName)' info is stale: Out-of-date"
+  }
+  @DiagsBuilder func moduleInfoStaleInvalidatedDownstream(_ moduleName: String) -> [Diagnostic.Message] {
+    "Incremental compilation: Dependency module '\(moduleName)' info is stale: Invalidated by downstream dependency"
+  }
+  @DiagsBuilder func explicitModulesWillBeRebuilt(_ moduleNames: [String]) -> [Diagnostic.Message] {
+    "Incremental compilation: Following explicit module dependencies will be re-built: [\(moduleNames.joined(separator: ", "))]"
   }
 
   // MARK: - misc
