@@ -184,7 +184,7 @@ import class Dispatch.DispatchQueue
     try? fileSystem.removeFileTree(absPath)
   }
 
-  func readOutOfDateInterModuleDependencyGraph(
+  func readPriorInterModuleDependencyGraph(
     reporter: IncrementalCompilationState.Reporter?
   ) -> InterModuleDependencyGraph? {
     let decodedGraph: InterModuleDependencyGraph
