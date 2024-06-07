@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import func TSCBasic.topologicalSort
+import protocol TSCBasic.FileSystem
 
 @_spi(Testing) public extension InterModuleDependencyGraph {
   /// For targets that are built alongside the driver's current module, the scanning action will report them as
@@ -246,6 +247,82 @@ extension InterModuleDependencyGraph {
                       sourceFiles: combinedSourceFiles,
                       directDependencies: combinedDependencies,
                       details: .clang(combinedModuleDetails))
+  }
+}
+
+/// Incremental Build Machinery
+internal extension InterModuleDependencyGraph {
+  /// We must determine if any of the module dependencies require re-compilation
+  /// Since we know that a prior dependency graph was not completely up-to-date,
+  /// there must be at least *some* dependencies that require being re-built.
+  ///
+  /// If a dependency is deemed as requiring a re-build, then every module
+  /// between it and the root (source module being built by this driver
+  /// instance) must also be re-built.
+  func computeInvalidatedModuleDependencies(fileSystem: FileSystem,
+                                            reporter: IncrementalCompilationState.Reporter? = nil)
+  throws -> Set<ModuleDependencyId> {
+    let mainModuleInfo = mainModule
+    var modulesRequiringRebuild: Set<ModuleDependencyId> = []
+    var visited: Set<ModuleDependencyId> = []
+    // Scan from the main module's dependencies to avoid reporting
+    // the main module itself in the results.
+    for dependencyId in mainModuleInfo.directDependencies ?? [] {
+      try outOfDateModuleScan(from: dependencyId, visited: &visited,
+                              modulesRequiringRebuild: &modulesRequiringRebuild,
+                              fileSystem: fileSystem, reporter: reporter)
+    }
+
+    reporter?.reportExplicitDependencyReBuildSet(Array(modulesRequiringRebuild))
+    return modulesRequiringRebuild
+  }
+
+  /// Perform a postorder DFS to locate modules which are out-of-date with respect
+  /// to their inputs. Upon encountering such a module, add it to the set of invalidated
+  /// modules, along with the path from the root to this module.
+  func outOfDateModuleScan(from sourceModuleId: ModuleDependencyId,
+                           visited: inout Set<ModuleDependencyId>,
+                           modulesRequiringRebuild: inout Set<ModuleDependencyId>,
+                           fileSystem: FileSystem,
+                           reporter: IncrementalCompilationState.Reporter? = nil) throws {
+    let sourceModuleInfo = try moduleInfo(of: sourceModuleId)
+    // Visit the module's dependencies
+    var hasOutOfDateModuleDependency = false
+    var mostRecentlyUpdatedDependencyOutput: TimePoint = .zero
+    for dependencyId in sourceModuleInfo.directDependencies ?? [] {
+      // If we have not already visited this module, recurse.
+      if !visited.contains(dependencyId) {
+        try outOfDateModuleScan(from: dependencyId, visited: &visited,
+                                modulesRequiringRebuild: &modulesRequiringRebuild,
+                                fileSystem: fileSystem, reporter: reporter)
+      }
+      // Even if we're not revisiting a dependency, we must check if it's already known to be out of date.
+      hasOutOfDateModuleDependency = hasOutOfDateModuleDependency || modulesRequiringRebuild.contains(dependencyId)
+
+      // Keep track of dependencies' output file time stamp to determine if it is newer than the current module.
+      if let depOutputTimeStamp = try? fileSystem.lastModificationTime(for: VirtualPath.lookup(moduleInfo(of: dependencyId).modulePath.path)),
+         depOutputTimeStamp > mostRecentlyUpdatedDependencyOutput {
+        mostRecentlyUpdatedDependencyOutput = depOutputTimeStamp
+      }
+    }
+
+    if hasOutOfDateModuleDependency {
+      reporter?.reportExplicitDependencyWillBeReBuilt(sourceModuleId.moduleNameForDiagnostic, reason: "Invalidated by downstream dependency")
+      modulesRequiringRebuild.insert(sourceModuleId)
+    } else if try !IncrementalCompilationState.IncrementalDependencyAndInputSetup.verifyModuleDependencyUpToDate(moduleID: sourceModuleId, moduleInfo: sourceModuleInfo,
+                                                                                                                 fileSystem: fileSystem, reporter: reporter) {
+      reporter?.reportExplicitDependencyWillBeReBuilt(sourceModuleId.moduleNameForDiagnostic, reason: "Out-of-date")
+      modulesRequiringRebuild.insert(sourceModuleId)
+    } else if let outputModTime = try? fileSystem.lastModificationTime(for: VirtualPath.lookup(sourceModuleInfo.modulePath.path)),
+              outputModTime < mostRecentlyUpdatedDependencyOutput {
+      // If a prior variant of this module dependnecy exists, and is older than any of its direct or transitive
+      // module dependency outputs, it must also be re-built.
+      reporter?.reportExplicitDependencyWillBeReBuilt(sourceModuleId.moduleNameForDiagnostic, reason: "Has newer module dependency inputs")
+      modulesRequiringRebuild.insert(sourceModuleId)
+    }
+
+    // Now that we've determined if this module must be rebuilt, mark it as visited.
+    visited.insert(sourceModuleId)
   }
 }
 
