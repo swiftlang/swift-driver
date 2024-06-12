@@ -313,8 +313,8 @@ extension Driver {
 
     // Emit user-provided plugin paths, in order.
     if isFrontendArgSupported(.loadPlugin) {
-      try commandLine.appendAll(.pluginPath, .externalPluginPath, .loadPluginLibrary, .loadPlugin, from: &parsedOptions)
-      try addLoadPluginExecutableArguments(commandLine: &commandLine)
+      let options = parsedOptions.arguments(for: .pluginPath, .externalPluginPath, .loadPluginLibrary, .loadPluginExecutable, .loadPlugin)
+      try commandLine.append(contentsOf: transformPluginOptions(options))
     } else if isFrontendArgSupported(.externalPluginPath) {
       try commandLine.appendAll(.pluginPath, .externalPluginPath, .loadPluginLibrary, .loadPluginExecutable, from: &parsedOptions)
     } else if isFrontendArgSupported(.pluginPath) {
@@ -804,40 +804,51 @@ extension Driver {
     commandLine.appendPath(pluginPathRoot.localPluginPath)
   }
 
-  /// Forward `-load-plugin-executable` arguments, with special handling for Wasm plugins.
+  /// Forward all plugin-related arguments, with special handling for Wasm plugins requested via `-load-plugin-executable`.
   ///
   /// Wasm plugins are updated to use `-load-plugin` with the plugin server.
-  mutating func addLoadPluginExecutableArguments(commandLine: inout [Job.ArgTemplate]) throws {
-    var cachedPluginServerPath: VirtualPath?
-    var pluginServerPath: VirtualPath {
-      get throws {
-        if let cachedPluginServerPath = cachedPluginServerPath {
-          return cachedPluginServerPath
-        }
-        let pluginPathRoot = VirtualPath.absolute(try toolchain.executableDir.parentDirectory)
-        let pluginServerPath = pluginPathRoot.pluginServerPath
-        cachedPluginServerPath = pluginServerPath
-        return pluginServerPath
-      }
+  private func transformPluginOptions(_ options: [ParsedOption]) throws -> [ParsedOption] {
+    lazy var pluginServerPathResult = Result {
+      VirtualPath.absolute(try toolchain.executableDir.parentDirectory).pluginServerPath
     }
-
-    for loadPluginExecutable in parsedOptions.arguments(for: .loadPluginExecutable) {
-      let argument = loadPluginExecutable.argument.asSingle
-      guard let separator = argument.lastIndex(of: "#") else { continue }
-
-      let path = argument[..<separator]
-      let afterPath = argument[separator...]
-
-      guard path.hasSuffix(".wasm") else {
-        try commandLine.append(loadPluginExecutable)
-        continue
-      }
-
-      commandLine.appendFlag(.loadPlugin)
-      try commandLine.appendFlag("\(path):\(pluginServerPath)\(afterPath)")
+    return try options.map { pluginOption in
+      try transformPluginOption(
+        pluginOption,
+        // Not the same as `pluginServerPath: pluginServerPathResult.get`.
+        // We want to ensure that `pluginServerPathResult` is lazily initialized.
+        pluginServerPath: { try pluginServerPathResult.get() }
+      )
     }
   }
 
+  /// Transforms a single plugin-related option to handle Wasm plugins.
+  ///
+  /// If the option is of the form `-load-plugin-executable foo.wasm`, it's updated to use
+  /// `-load-plugin` with the plugin server. Otherwise, it's returned unmodified.
+  private func transformPluginOption(
+    _ pluginOption: ParsedOption,
+    pluginServerPath: () throws -> VirtualPath
+  ) throws -> ParsedOption {
+    guard pluginOption.option == .loadPluginExecutable else {
+      return pluginOption
+    }
+
+    let argument = pluginOption.argument.asSingle
+    guard let separator = argument.lastIndex(of: "#") else { return pluginOption }
+
+    let path = argument[..<separator]
+    let afterPath = argument[separator...]
+
+    guard path.hasSuffix(".wasm") else { return pluginOption }
+
+    let pluginServerPath = try pluginServerPath()
+
+    return ParsedOption(
+      option: .loadPlugin,
+      argument: .single("\(path):\(pluginServerPath)\(afterPath)"), 
+      index: pluginOption.index
+    )
+  }
 
   /// If explicit dependency planner supports creating bridging header pch command.
   public func supportsBridgingHeaderPCHCommand() throws -> Bool {

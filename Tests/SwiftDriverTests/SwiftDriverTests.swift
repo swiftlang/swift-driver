@@ -7497,13 +7497,11 @@ final class SwiftDriverTests: XCTestCase {
     )
     let executableDir = try AbsolutePath(validating: "/tmp/swift/bin")
     var driver = try Driver(
-      args: ["swiftc", "-typecheck", "foo.swift", "-sdk", VirtualPath.absolute(sdkRoot).name, "-load-plugin-executable", "PluginA.wasm#ModuleA", "-working-directory", "/tmp"],
+      args: ["swiftc", "-typecheck", "foo.swift", "-sdk", VirtualPath.absolute(sdkRoot).name, "-load-plugin-executable", "PluginA#ModuleA", "-load-plugin-executable", "PluginB.wasm#ModuleB", "-working-directory", "/tmp", "-load-plugin-library", "PluginC.dylib"],
       executor: executor,
       compilerExecutableDir: executableDir
     )
-    guard driver.isFrontendArgSupported(.loadPlugin) else {
-      return
-    }
+    try XCTSkipUnless(driver.isFrontendArgSupported(.loadPlugin))
 
     let jobs = try driver.planBuild().removingAutolinkExtractJobs()
     XCTAssertEqual(jobs.count, 1)
@@ -7516,8 +7514,12 @@ final class SwiftDriverTests: XCTestCase {
     #endif
 
     // Check that the we have the plugin path
-    let pluginAIndex = job.commandLine.firstIndex(of: .flag("/tmp/PluginA.wasm:\(expectedWasmServerPath)#ModuleA"))
-    XCTAssertNotNil(pluginAIndex)
+    let pluginAIndex = try XCTUnwrap(job.commandLine.firstIndex(of: .path(.absolute(AbsolutePath(validating: "/tmp/PluginA#ModuleA")))))
+    let pluginBIndex = try XCTUnwrap(job.commandLine.firstIndex(of: .flag("/tmp/PluginB.wasm:\(expectedWasmServerPath)#ModuleB")))
+    let pluginCIndex = try XCTUnwrap(job.commandLine.firstIndex(of: .path(.absolute(AbsolutePath(validating: "/tmp/PluginC.dylib")))))
+
+    XCTAssertLessThan(pluginAIndex, pluginBIndex, "Order of options should be preserved")
+    XCTAssertLessThan(pluginBIndex, pluginCIndex, "Order of options should be preserved")
   }
 
   func testClangModuleValidateOnce() throws {
