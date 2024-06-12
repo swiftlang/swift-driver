@@ -266,7 +266,6 @@ internal extension InterModuleDependencyGraph {
   /// between it and the root (source module being built by this driver
   /// instance) must also be re-built.
   func computeInvalidatedModuleDependencies(fileSystem: FileSystem,
-                                            forRebuild: Bool,
                                             reporter: IncrementalCompilationState.Reporter? = nil)
   throws -> Set<ModuleDependencyId> {
     let mainModuleInfo = mainModule
@@ -277,13 +276,10 @@ internal extension InterModuleDependencyGraph {
     for dependencyId in mainModuleInfo.directDependencies ?? [] {
       try outOfDateModuleScan(from: dependencyId, visited: &visited,
                               modulesRequiringRebuild: &modulesRequiringRebuild,
-                              fileSystem: fileSystem, forRebuild: forRebuild,
-                              reporter: reporter)
+                              fileSystem: fileSystem, reporter: reporter)
     }
 
-    if forRebuild {
-      reporter?.reportExplicitDependencyReBuildSet(Array(modulesRequiringRebuild))
-    }
+    reporter?.reportExplicitDependencyReBuildSet(Array(modulesRequiringRebuild))
     return modulesRequiringRebuild
   }
 
@@ -294,123 +290,45 @@ internal extension InterModuleDependencyGraph {
                            visited: inout Set<ModuleDependencyId>,
                            modulesRequiringRebuild: inout Set<ModuleDependencyId>,
                            fileSystem: FileSystem,
-                           forRebuild: Bool,
                            reporter: IncrementalCompilationState.Reporter? = nil) throws {
-    let reportOutOfDate = { (name: String, reason: String)  in
-      if forRebuild {
-        reporter?.reportExplicitDependencyWillBeReBuilt(sourceModuleId.moduleNameForDiagnostic, reason: reason)
-      } else {
-        reporter?.reportPriorExplicitDependencyStale(sourceModuleId.moduleNameForDiagnostic, reason: reason)
-      }
-    }
-
     let sourceModuleInfo = try moduleInfo(of: sourceModuleId)
     // Visit the module's dependencies
     var hasOutOfDateModuleDependency = false
+    var mostRecentlyUpdatedDependencyOutput: TimePoint = .zero
     for dependencyId in sourceModuleInfo.directDependencies ?? [] {
       // If we have not already visited this module, recurse.
       if !visited.contains(dependencyId) {
         try outOfDateModuleScan(from: dependencyId, visited: &visited,
                                 modulesRequiringRebuild: &modulesRequiringRebuild,
-                                fileSystem: fileSystem, forRebuild: forRebuild,
-                                reporter: reporter)
+                                fileSystem: fileSystem, reporter: reporter)
       }
       // Even if we're not revisiting a dependency, we must check if it's already known to be out of date.
       hasOutOfDateModuleDependency = hasOutOfDateModuleDependency || modulesRequiringRebuild.contains(dependencyId)
+
+      // Keep track of dependencies' output file time stamp to determine if it is newer than the current module.
+      if let depOutputTimeStamp = try? fileSystem.lastModificationTime(for: VirtualPath.lookup(moduleInfo(of: dependencyId).modulePath.path)),
+         depOutputTimeStamp > mostRecentlyUpdatedDependencyOutput {
+        mostRecentlyUpdatedDependencyOutput = depOutputTimeStamp
+      }
     }
 
     if hasOutOfDateModuleDependency {
-      reportOutOfDate(sourceModuleId.moduleNameForDiagnostic, "Invalidated by downstream dependency")
+      reporter?.reportExplicitDependencyWillBeReBuilt(sourceModuleId.moduleNameForDiagnostic, reason: "Invalidated by downstream dependency")
       modulesRequiringRebuild.insert(sourceModuleId)
-    } else if try !verifyModuleDependencyUpToDate(moduleID: sourceModuleId, fileSystem: fileSystem, reporter: reporter) {
-      reportOutOfDate(sourceModuleId.moduleNameForDiagnostic, "Out-of-date")
+    } else if try !IncrementalCompilationState.IncrementalDependencyAndInputSetup.verifyModuleDependencyUpToDate(moduleID: sourceModuleId, moduleInfo: sourceModuleInfo,
+                                                                                                                 fileSystem: fileSystem, reporter: reporter) {
+      reporter?.reportExplicitDependencyWillBeReBuilt(sourceModuleId.moduleNameForDiagnostic, reason: "Out-of-date")
+      modulesRequiringRebuild.insert(sourceModuleId)
+    } else if let outputModTime = try? fileSystem.lastModificationTime(for: VirtualPath.lookup(sourceModuleInfo.modulePath.path)),
+              outputModTime < mostRecentlyUpdatedDependencyOutput {
+      // If a prior variant of this module dependnecy exists, and is older than any of its direct or transitive
+      // module dependency outputs, it must also be re-built.
+      reporter?.reportExplicitDependencyWillBeReBuilt(sourceModuleId.moduleNameForDiagnostic, reason: "Has newer module dependency inputs")
       modulesRequiringRebuild.insert(sourceModuleId)
     }
 
     // Now that we've determined if this module must be rebuilt, mark it as visited.
     visited.insert(sourceModuleId)
-  }
-
-  func verifyModuleDependencyUpToDate(moduleID: ModuleDependencyId,
-                                      fileSystem: FileSystem,
-                                      reporter: IncrementalCompilationState.Reporter?) throws -> Bool {
-    let checkedModuleInfo = try moduleInfo(of: moduleID)
-    // Verify that the specified input exists and is older than the specified output
-    let verifyInputOlderThanOutputModTime: (String, VirtualPath, TimePoint) -> Bool =
-    { moduleName, inputPath, outputModTime in
-      guard let inputModTime =
-              try? fileSystem.lastModificationTime(for: inputPath) else {
-        reporter?.report("Unable to 'stat' \(inputPath.description)")
-        return false
-      }
-      if inputModTime > outputModTime {
-        reporter?.reportExplicitDependencyOutOfDate(moduleName,
-                                                    inputPath: inputPath.description)
-        return false
-      }
-      return true
-    }
-
-    // Check if the output file exists
-    guard let outputModTime = try? fileSystem.lastModificationTime(for: VirtualPath.lookup(checkedModuleInfo.modulePath.path)) else {
-      reporter?.report("Module output not found: '\(moduleID.moduleNameForDiagnostic)'")
-      return false
-    }
-
-    // Check if a dependency of this module has a newer output than this module
-    for dependencyId in checkedModuleInfo.directDependencies ?? [] {
-      let dependencyInfo = try moduleInfo(of: dependencyId)
-      if !verifyInputOlderThanOutputModTime(moduleID.moduleName,
-                                            VirtualPath.lookup(dependencyInfo.modulePath.path),
-                                            outputModTime) {
-        return false
-      }
-    }
-
-    // Check if any of the textual sources of this module are newer than this module
-    switch checkedModuleInfo.details {
-    case .swift(let swiftDetails):
-      if let moduleInterfacePath = swiftDetails.moduleInterfacePath {
-        if !verifyInputOlderThanOutputModTime(moduleID.moduleName,
-                                              VirtualPath.lookup(moduleInterfacePath.path),
-                                              outputModTime) {
-          return false
-        }
-      }
-      if let bridgingHeaderPath = swiftDetails.bridgingHeaderPath {
-        if !verifyInputOlderThanOutputModTime(moduleID.moduleName,
-                                              VirtualPath.lookup(bridgingHeaderPath.path),
-                                              outputModTime) {
-          return false
-        }
-      }
-      for bridgingSourceFile in swiftDetails.bridgingSourceFiles ?? [] {
-        if !verifyInputOlderThanOutputModTime(moduleID.moduleName,
-                                              VirtualPath.lookup(bridgingSourceFile.path),
-                                              outputModTime) {
-          return false
-        }
-      }
-    case .clang(_):
-      for inputSourceFile in checkedModuleInfo.sourceFiles ?? [] {
-        if !verifyInputOlderThanOutputModTime(moduleID.moduleName,
-                                              try VirtualPath(path: inputSourceFile),
-                                              outputModTime) {
-          return false
-        }
-      }
-    case .swiftPrebuiltExternal(_):
-      // TODO: We have to give-up here until we have a way to verify the timestamp of the binary module.
-      // We can do better here by knowing if this module hasn't changed - which would allows us to not
-      // invalidate any of the dependencies that depend on it.
-      reporter?.report("Unable to verify binary module dependency up-to-date: \(moduleID.moduleNameForDiagnostic)")
-      return false;
-    case .swiftPlaceholder(_):
-      // TODO: This should never ever happen. Hard error?
-      return false;
-    }
-
-    return true
   }
 }
 

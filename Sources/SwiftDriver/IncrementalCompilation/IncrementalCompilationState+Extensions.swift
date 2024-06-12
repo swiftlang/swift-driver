@@ -308,11 +308,6 @@ extension IncrementalCompilationState {
       report("Dependency module '\(moduleOutputPath)' will be re-built: \(reason)")
     }
 
-    func reportPriorExplicitDependencyStale(_ moduleOutputPath: String,
-                                               reason: String) {
-      report("Dependency module '\(moduleOutputPath)' info is stale: \(reason)")
-    }
-
     func reportExplicitDependencyReBuildSet(_ modules: [ModuleDependencyId]) {
       report("Following explicit module dependencies will be re-built: [\(modules.map { $0.moduleNameForDiagnostic }.sorted().joined(separator: ", "))]")
     }

@@ -155,9 +155,7 @@ extension IncrementalCompilationState.FirstWaveComputer {
 
     // Determine which module pre-build jobs must be re-run
     let modulesRequiringReBuild =
-      try moduleDependencyGraph.computeInvalidatedModuleDependencies(fileSystem: fileSystem,
-                                                                     forRebuild: true,
-                                                                     reporter: reporter)
+      try moduleDependencyGraph.computeInvalidatedModuleDependencies(fileSystem: fileSystem, reporter: reporter)
 
     // Filter the `.generatePCM` and `.compileModuleFromInterface` jobs for 
     // modules which do *not* need re-building.
