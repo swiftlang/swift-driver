@@ -834,12 +834,15 @@ extension Driver {
     }
 
     let argument = pluginOption.argument.asSingle
-    guard let separator = argument.lastIndex(of: "#") else { return pluginOption }
+    guard let separator = argument.lastIndex(of: "#") else {
+      return pluginOption
+    }
 
     let path = argument[..<separator]
+    guard path.hasSuffix(".wasm") else {
+      return pluginOption
+    }
     let afterPath = argument[separator...]
-
-    guard path.hasSuffix(".wasm") else { return pluginOption }
 
     let pluginServerPath = try pluginServerPath()
 
