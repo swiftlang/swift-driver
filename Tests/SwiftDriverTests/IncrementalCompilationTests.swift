@@ -19,10 +19,7 @@ import TestUtilities
 
 // MARK: - Instance variables and initialization
 final class IncrementalCompilationTests: XCTestCase {
-
   var tempDir: AbsolutePath = try! AbsolutePath(validating: "/tmp")
-  var explicitModuleCacheDir: AbsolutePath = try! AbsolutePath(validating: "/tmp/ModuleCache")
-
   var derivedDataDir: AbsolutePath {
     tempDir.appending(component: "derivedData")
   }
@@ -77,6 +74,28 @@ final class IncrementalCompilationTests: XCTestCase {
     ]
     + inputPathsAndContents.map {$0.0.nativePathString(escaped: true)} .sorted()
   }
+
+  var explicitModuleCacheDir: AbsolutePath {
+    tempDir.appending(component: "ModuleCache")
+  }
+  var explicitDependencyTestInputsPath: AbsolutePath {
+    tempDir.appending(component: "ExplicitTestInputs")
+  }
+  var explicitCDependenciesPath: AbsolutePath {
+    explicitDependencyTestInputsPath.appending(component: "CHeaders")
+  }
+  var explicitSwiftDependenciesPath: AbsolutePath {
+    explicitDependencyTestInputsPath.appending(component: "Swift")
+  }
+
+  var explicitDependencyTestInputsSourcePath: AbsolutePath {
+    var root: AbsolutePath = try! AbsolutePath(validating: #file)
+    while root.basename != "Tests" {
+      root = root.parentDirectory
+    }
+    return root.parentDirectory.appending(component: "TestInputs")
+  }
+
   var explicitBuildArgs: [String] {
     ["-explicit-module-build",
      "-module-cache-path", explicitModuleCacheDir.nativePathString(escaped: true),
@@ -90,8 +109,11 @@ final class IncrementalCompilationTests: XCTestCase {
 
   override func setUp() {
     self.tempDir = try! withTemporaryDirectory(removeTreeOnDeinit: false) {$0}
-    self.explicitModuleCacheDir = tempDir.appending(component: "ModuleCache")
+    try! localFileSystem.createDirectory(explicitModuleCacheDir)
     try! localFileSystem.createDirectory(derivedDataPath)
+    try! localFileSystem.createDirectory(explicitDependencyTestInputsPath)
+    try! localFileSystem.createDirectory(explicitCDependenciesPath)
+    try! localFileSystem.createDirectory(explicitSwiftDependenciesPath)
     OutputFileMapCreator.write(module: module,
                                inputPaths: inputPathsAndContents.map {$0.0},
                                derivedData: derivedDataPath,
@@ -99,6 +121,26 @@ final class IncrementalCompilationTests: XCTestCase {
     for (base, contents) in baseNamesAndContents {
       write(contents, to: base)
     }
+
+    // Set up a per-test copy of all the explicit build module input artifacts
+    do {
+      let ebmSwiftInputsSourcePath = explicitDependencyTestInputsSourcePath
+        .appending(component: "ExplicitModuleBuilds").appending(component: "Swift")
+      let ebmCInputsSourcePath = explicitDependencyTestInputsSourcePath
+        .appending(component: "ExplicitModuleBuilds").appending(component: "CHeaders")
+      stdoutStream.flush()
+      try! localFileSystem.getDirectoryContents(ebmSwiftInputsSourcePath).forEach { filePath in
+        let sourceFilePath = ebmSwiftInputsSourcePath.appending(component: filePath)
+        let destinationFilePath = explicitSwiftDependenciesPath.appending(component: filePath)
+        try! localFileSystem.copy(from: sourceFilePath, to: destinationFilePath)
+      }
+      try! localFileSystem.getDirectoryContents(ebmCInputsSourcePath).forEach { filePath in
+        let sourceFilePath = ebmCInputsSourcePath.appending(component: filePath)
+        let destinationFilePath = explicitCDependenciesPath.appending(component: filePath)
+        try! localFileSystem.copy(from: sourceFilePath, to: destinationFilePath)
+      }
+    }
+
     let driver = try! Driver(args: ["swiftc", "-v"])
     if driver.isFrontendArgSupported(.moduleLoadMode) {
       self.extraExplicitBuildArgs = ["-Xfrontend", "-module-load-mode", "-Xfrontend", "prefer-interface"]
@@ -260,23 +302,6 @@ fileprivate extension Driver {
 
 // MARK: - Explicit Module Build incremental tests
 extension IncrementalCompilationTests {
-  private var testExplicitDependencyInputsPath: AbsolutePath {
-    var root: AbsolutePath = try! AbsolutePath(validating: #file)
-    while root.basename != "Tests" {
-      root = root.parentDirectory
-    }
-    return root.parentDirectory.appending(component: "TestInputs")
-  }
-
-  private var explicitCDependenciesPath: AbsolutePath {
-    testExplicitDependencyInputsPath.appending(component: "ExplicitModuleBuilds")
-      .appending(component: "CHeaders")
-  }
-  private var explicitSwiftDependenciesPath: AbsolutePath {
-    testExplicitDependencyInputsPath.appending(component: "ExplicitModuleBuilds")
-      .appending(component: "Swift")
-  }
-
   func testExplicitIncrementalSimpleBuild() throws {
     try buildInitialState(explicitModuleBuild: true)
     try checkNullBuild(explicitModuleBuild: true)
