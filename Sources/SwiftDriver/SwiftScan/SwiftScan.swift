@@ -298,6 +298,10 @@ private extension String {
     return api.swiftscan_swift_binary_detail_get_header_dependencies != nil
   }
 
+  @_spi(Testing) public var supportsBinaryModuleHeaderDependency : Bool {
+    return api.swiftscan_swift_binary_detail_get_header_dependency != nil
+  }
+
   @_spi(Testing) public var supportsStringDispose : Bool {
     return api.swiftscan_string_dispose != nil
   }
@@ -655,6 +659,8 @@ private extension swiftscan_functions_t {
     // Header dependencies of binary modules
     self.swiftscan_swift_binary_detail_get_header_dependencies =
       try loadOptional("swiftscan_swift_binary_detail_get_header_dependencies")
+    self.swiftscan_swift_binary_detail_get_header_dependency =
+      try loadOptional("swiftscan_swift_binary_detail_get_header_dependency")
 
     // Per-scan-query diagnostic output
     self.swiftscan_dependency_graph_get_diagnostics =
