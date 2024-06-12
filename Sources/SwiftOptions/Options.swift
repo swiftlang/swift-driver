@@ -86,6 +86,7 @@ extension Option {
   public static let colorDiagnostics: Option = Option("-color-diagnostics", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Print diagnostics in color")
   public static let compareToBaselinePath: Option = Option("-compare-to-baseline-path", .separate, attributes: [.noInteractive, .argumentIsPath], metaVar: "<path>", helpText: "Compare the built module to the baseline at <path> and diagnose breaking changes using the API digester")
   public static let compileModuleFromInterface: Option = Option("-compile-module-from-interface", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Treat the (single) input as a swiftinterface and produce a module", group: .modes)
+  public static let compilerAssertions: Option = Option("-compiler-assertions", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild, .cacheInvariant], helpText: "Enable internal self-checks while compiling", group: .internalDebug)
   public static let compilerStyleDiags: Option = Option("-compiler-style-diags", .flag, attributes: [.noDriver], helpText: "Print compiler style diagnostics to stderr.")
   public static let compilerStyleDiags_: Option = Option("--compiler-style-diags", .flag, alias: Option.compilerStyleDiags, attributes: [.noDriver], helpText: "Print compiler style diagnostics to stderr.")
   public static let concurrencyModelEQ: Option = Option("-concurrency-model=", .joined, alias: Option.concurrencyModel, attributes: [.helpHidden, .frontend, .noDriver])
@@ -180,6 +181,7 @@ extension Option {
   public static let disableExperimentalStringProcessing: Option = Option("-disable-experimental-string-processing", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable experimental string processing")
   public static let disableFailOnError: Option = Option("-disable-fail-on-error", .flag, attributes: [.noDriver], helpText: "Don't exit with a nonzero status if errors are emitted")
   public static let disableFailOnError_: Option = Option("--disable-fail-on-error", .flag, alias: Option.disableFailOnError, attributes: [.noDriver], helpText: "Don't exit with a nonzero status if errors are emitted")
+  public static let disableForceLoadSymbols: Option = Option("-disable-force-load-symbols", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable generation of all Swift _FORCE_LOAD symbols")
   public static let disableFragileResilientProtocolWitnesses: Option = Option("-disable-fragile-relative-protocol-tables", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable relative protocol witness tables")
   public static let disableGenericMetadataPrespecialization: Option = Option("-disable-generic-metadata-prespecialization", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Do not statically specialize metadata for generic types at types that are known to be used in source.")
   public static let disableImplicitBacktracingModuleImport: Option = Option("-disable-implicit-backtracing-module-import", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable the implicit import of the _Backtracing module.")
@@ -494,6 +496,7 @@ extension Option {
   public static let experimentalSpiOnlyImports: Option = Option("-experimental-spi-only-imports", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable use of @_spiOnly imports")
   public static let enableExperimentalSwiftBasedClosureSpecialization: Option = Option("-experimental-swift-based-closure-specialization", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Use the experimental Swift based closure-specialization optimization pass instead of the existing C++ one")
   public static let explainModuleDependency: Option = Option("-explain-module-dependency", .separate, attributes: [], helpText: "Emit remark/notes describing why compilation may depend on a module with a given name.")
+  public static let explicitAutoLinking: Option = Option("-explicit-auto-linking", .flag, attributes: [], helpText: "Instead of linker-load directives, have the driver specify all link dependencies on the linker invocation. Requires '-explicit-module-build'.")
   public static let explicitDependencyGraphFormat: Option = Option("-explicit-dependency-graph-format=", .joined, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Specify the explicit dependency graph output format to either 'json' or 'dot'")
   public static let explicitInterfaceModuleBuild: Option = Option("-explicit-interface-module-build", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Use the specified command-line to build the module from interface, instead of flags specified in the interface")
   public static let driverExplicitModuleBuild: Option = Option("-explicit-module-build", .flag, attributes: [.helpHidden], helpText: "Prebuild module dependencies to make them explicit")
@@ -605,6 +608,8 @@ extension Option {
   public static let moduleAbiName: Option = Option("-module-abi-name", .separate, attributes: [.frontend, .moduleInterface], helpText: "ABI name to use for the contents of this module")
   public static let moduleAlias: Option = Option("-module-alias", .separate, attributes: [.frontend, .moduleInterface], metaVar: "<alias_name=real_name>", helpText: "If a source file imports or references module <alias_name>, the <real_name> is used for the contents of the file")
   public static let moduleCachePath: Option = Option("-module-cache-path", .separate, attributes: [.frontend, .doesNotAffectIncrementalBuild, .argumentIsPath], helpText: "Specifies the module cache path")
+  public static let moduleCanImportVersion: Option = Option("-module-can-import-version", .multiArg, attributes: [.frontend, .noDriver], metaVar: "<moduleName> <version> <underlyingVersion>", helpText: "Specify canImport module and versions", numArgs: 3)
+  public static let moduleCanImport: Option = Option("-module-can-import", .separate, attributes: [.frontend, .noDriver], metaVar: "<moduleName>", helpText: "Specify canImport module name")
   public static let moduleInterfacePreserveTypesAsWritten: Option = Option("-module-interface-preserve-types-as-written", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "When emitting a module interface, preserve types as they were written in the source")
   public static let moduleLinkNameEQ: Option = Option("-module-link-name=", .joined, alias: Option.moduleLinkName, attributes: [.frontend])
   public static let moduleLinkName: Option = Option("-module-link-name", .separate, attributes: [.frontend, .moduleInterface], helpText: "Library to link against when using this module")
@@ -945,6 +950,7 @@ extension Option {
       Option.colorDiagnostics,
       Option.compareToBaselinePath,
       Option.compileModuleFromInterface,
+      Option.compilerAssertions,
       Option.compilerStyleDiags,
       Option.compilerStyleDiags_,
       Option.concurrencyModelEQ,
@@ -1039,6 +1045,7 @@ extension Option {
       Option.disableExperimentalStringProcessing,
       Option.disableFailOnError,
       Option.disableFailOnError_,
+      Option.disableForceLoadSymbols,
       Option.disableFragileResilientProtocolWitnesses,
       Option.disableGenericMetadataPrespecialization,
       Option.disableImplicitBacktracingModuleImport,
@@ -1353,6 +1360,7 @@ extension Option {
       Option.experimentalSpiOnlyImports,
       Option.enableExperimentalSwiftBasedClosureSpecialization,
       Option.explainModuleDependency,
+      Option.explicitAutoLinking,
       Option.explicitDependencyGraphFormat,
       Option.explicitInterfaceModuleBuild,
       Option.driverExplicitModuleBuild,
@@ -1464,6 +1472,8 @@ extension Option {
       Option.moduleAbiName,
       Option.moduleAlias,
       Option.moduleCachePath,
+      Option.moduleCanImportVersion,
+      Option.moduleCanImport,
       Option.moduleInterfacePreserveTypesAsWritten,
       Option.moduleLinkNameEQ,
       Option.moduleLinkName,

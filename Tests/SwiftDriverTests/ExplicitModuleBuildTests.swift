@@ -344,6 +344,93 @@ final class ExplicitModuleBuildTests: XCTestCase {
     }
   }
 
+  func testExplicitLinkLibraries() throws {
+    try withTemporaryDirectory { path in
+      let (_, _, toolchain, _) = try getDriverArtifactsForScanning()
+
+      let main = path.appending(component: "testExplicitLinkLibraries.swift")
+      try localFileSystem.writeFileContents(main, bytes:
+        """
+        import C;import E;import G;
+        """
+      )
+
+      let cHeadersPath: AbsolutePath =
+      try testInputsPath.appending(component: "ExplicitModuleBuilds")
+        .appending(component: "CHeaders")
+      let bridgingHeaderpath: AbsolutePath =
+      cHeadersPath.appending(component: "Bridging.h")
+      let swiftModuleInterfacesPath: AbsolutePath =
+      try testInputsPath.appending(component: "ExplicitModuleBuilds")
+        .appending(component: "Swift")
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+
+      // 2. Run a dependency scan to find the just-built module
+      let dependencyOracle = InterModuleDependencyOracle()
+      let scanLibPath = try XCTUnwrap(toolchain.lookupSwiftScanLib())
+      try dependencyOracle.verifyOrCreateScannerInstance(fileSystem: localFileSystem,
+                                                         swiftScanLibPath: scanLibPath)
+      guard try dependencyOracle.supportsLinkLibraries() else {
+        throw XCTSkip("libSwiftScan does not support link library reporting.")
+      }
+
+      var driver = try Driver(args: ["swiftc",
+                                     "-I", cHeadersPath.nativePathString(escaped: true),
+                                     "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                     "-explicit-module-build",
+                                     "-import-objc-header", bridgingHeaderpath.nativePathString(escaped: true),
+                                     main.nativePathString(escaped: true)] + sdkArgumentsForTesting)
+      let _ = try driver.planBuild()
+      let dependencyGraph = try XCTUnwrap(driver.explicitDependencyBuildPlanner?.dependencyGraph)
+
+      let checkForLinkLibrary = { (info: ModuleInfo, linkName: String, isFramework: Bool, shouldForceLoad: Bool) in
+        let linkLibraries = try XCTUnwrap(info.linkLibraries)
+        XCTAssertEqual(linkLibraries.count, 1)
+        let linkLibrary = try XCTUnwrap(linkLibraries.first)
+        XCTAssertEqual(linkLibrary.linkName, linkName)
+        XCTAssertEqual(linkLibrary.isFramework, isFramework)
+        XCTAssertEqual(linkLibrary.shouldForceLoad, shouldForceLoad)
+      }
+
+      for (depId, depInfo) in dependencyGraph.modules {
+        switch depId {
+        case .swiftPrebuiltExternal("Swift"):
+          fallthrough
+        case .swift("Swift"):
+          try checkForLinkLibrary(depInfo, "swiftCore", false, false)
+          break
+
+        case .swiftPrebuiltExternal("_StringProcessing"):
+          fallthrough
+        case .swift("_StringProcessing"):
+          try checkForLinkLibrary(depInfo, "swift_StringProcessing", false, false)
+          break
+
+        case .swiftPrebuiltExternal("SwiftOnoneSupport"):
+          fallthrough
+        case .swift("SwiftOnoneSupport"):
+          try checkForLinkLibrary(depInfo, "swiftSwiftOnoneSupport", false, false)
+          break
+
+        case .swiftPrebuiltExternal("_Concurrency"):
+          fallthrough
+        case .swift("_Concurrency"):
+          try checkForLinkLibrary(depInfo, "swift_Concurrency", false, false)
+          break
+
+        case .swift("testExplicitLinkLibraries"):
+          let linkLibraries = try XCTUnwrap(depInfo.linkLibraries)
+          if driver.targetTriple.isDarwin {
+            XCTAssertTrue(!linkLibraries.isEmpty)
+            XCTAssertTrue(linkLibraries.contains { $0.linkName == "objc" })
+          }
+        default:
+          continue
+        }
+      }
+    }
+  }
+
   /// Test generation of explicit module build jobs for dependency modules when the driver
   /// is invoked with -explicit-module-build
   func testExplicitModuleBuildJobs() throws {

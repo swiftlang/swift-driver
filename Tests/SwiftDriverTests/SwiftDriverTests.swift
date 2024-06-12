@@ -2372,7 +2372,7 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
       let lastJob = plannedJobs.last!
       XCTAssertTrue(lastJob.tool.name.contains("clang"))
-      XCTAssertTrue(lastJob.commandLine.contains(.flag("--fuse-ld=lld")))
+      XCTAssertTrue(lastJob.commandLine.contains(.flag("-fuse-ld=lld")))
     }
   }
 
@@ -4453,6 +4453,29 @@ final class SwiftDriverTests: XCTestCase {
             .flag("-B"), .path(.absolute(tmpDir))
           ]))
         }
+      }
+    }
+  }
+
+  func testNonDarwinSDK() throws {
+    try withTemporaryDirectory { tmpDir in
+      let sdk = tmpDir.appending(component: "NonDarwin.sdk")
+      // SDK without SDKSettings.json should be ok for non-Darwin platforms
+      try localFileSystem.createDirectory(sdk, recursive: true)
+      for triple in ["x86_64-unknown-linux-gnu", "wasm32-unknown-wasi"] {
+        try assertDriverDiagnostics(args: "swiftc", "-target", triple, "foo.swift", "-sdk", sdk.pathString) {
+          $1.forbidUnexpected(.error, .warning)
+        }
+      }
+    }
+  }
+
+  func testDarwinSDKWithoutSDKSettings() throws {
+    try withTemporaryDirectory { tmpDir in
+      let sdk = tmpDir.appending(component: "MacOSX10.15.sdk")
+      try localFileSystem.createDirectory(sdk, recursive: true)
+      try assertDriverDiagnostics(args: "swiftc", "-target", "x86_64-apple-macosx10.15", "foo.swift", "-sdk", sdk.pathString) {
+        $1.expect(.warning("Could not read SDKSettings.json for SDK at: \(sdk.pathString)"))
       }
     }
   }

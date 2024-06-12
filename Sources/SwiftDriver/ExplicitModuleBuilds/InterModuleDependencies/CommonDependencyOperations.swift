@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import func TSCBasic.topologicalSort
+import protocol TSCBasic.FileSystem
 
 @_spi(Testing) public extension InterModuleDependencyGraph {
   /// For targets that are built alongside the driver's current module, the scanning action will report them as
@@ -27,24 +28,26 @@ import func TSCBasic.topologicalSort
       if let currentInfo = modules[swiftModuleId],
          externalModuleId.moduleName != mainModuleName {
         let newExternalModuleDetails =
-        try SwiftPrebuiltExternalModuleDetails(compiledModulePath:
-                                                TextualVirtualPath(path: VirtualPath.absolute(externalModulePath).intern()),
-                                               isFramework: externalModuleDetails.isFramework)
+        SwiftPrebuiltExternalModuleDetails(compiledModulePath:
+                                            TextualVirtualPath(path: VirtualPath.absolute(externalModulePath).intern()),
+                                           isFramework: externalModuleDetails.isFramework)
         let newInfo = ModuleInfo(modulePath: TextualVirtualPath(path: VirtualPath.absolute(externalModulePath).intern()),
                                  sourceFiles: [],
                                  directDependencies: currentInfo.directDependencies,
+                                 linkLibraries: currentInfo.linkLibraries,
                                  details: .swiftPrebuiltExternal(newExternalModuleDetails))
         Self.replaceModule(originalId: swiftModuleId, replacementId: prebuiltModuleId,
                            replacementInfo: newInfo, in: &modules)
       } else if let currentPrebuiltInfo = modules[prebuiltModuleId] {
         // Just update the isFramework bit on this prebuilt module dependency
         let newExternalModuleDetails =
-        try SwiftPrebuiltExternalModuleDetails(compiledModulePath:
-                                                TextualVirtualPath(path: VirtualPath.absolute(externalModulePath).intern()),
-                                               isFramework: externalModuleDetails.isFramework)
+        SwiftPrebuiltExternalModuleDetails(compiledModulePath:
+                                            TextualVirtualPath(path: VirtualPath.absolute(externalModulePath).intern()),
+                                           isFramework: externalModuleDetails.isFramework)
         let newInfo = ModuleInfo(modulePath: TextualVirtualPath(path: VirtualPath.absolute(externalModulePath).intern()),
                                  sourceFiles: [],
                                  directDependencies: currentPrebuiltInfo.directDependencies,
+                                 linkLibraries: currentPrebuiltInfo.linkLibraries,
                                  details: .swiftPrebuiltExternal(newExternalModuleDetails))
         Self.replaceModule(originalId: prebuiltModuleId, replacementId: prebuiltModuleId,
                            replacementInfo: newInfo, in: &modules)
@@ -231,6 +234,9 @@ extension InterModuleDependencyGraph {
     let firstModuleDependencies = firstInfo.directDependencies ?? []
     let secondModuleDependencies = secondInfo.directDependencies ?? []
     let combinedDependencies = Array(Set(firstModuleDependencies + secondModuleDependencies))
+    let firstLinkLibraries = firstInfo.linkLibraries ?? []
+    let secondLinkLibraries = secondInfo.linkLibraries ?? []
+    let combinedLinkLibraries = Array(Set(firstLinkLibraries + secondLinkLibraries))
 
     let firstModuleCapturedPCMArgs = firstDetails.capturedPCMArgs ?? Set<[String]>()
     let secondModuleCapturedPCMArgs = secondDetails.capturedPCMArgs ?? Set<[String]>()
@@ -245,7 +251,166 @@ extension InterModuleDependencyGraph {
     return ModuleInfo(modulePath: firstInfo.modulePath,
                       sourceFiles: combinedSourceFiles,
                       directDependencies: combinedDependencies,
+                      linkLibraries: combinedLinkLibraries,
                       details: .clang(combinedModuleDetails))
+  }
+}
+
+/// Incremental Build Machinery
+internal extension InterModuleDependencyGraph {
+  /// We must determine if any of the module dependencies require re-compilation
+  /// Since we know that a prior dependency graph was not completely up-to-date,
+  /// there must be at least *some* dependencies that require being re-built.
+  ///
+  /// If a dependency is deemed as requiring a re-build, then every module
+  /// between it and the root (source module being built by this driver
+  /// instance) must also be re-built.
+  func computeInvalidatedModuleDependencies(fileSystem: FileSystem,
+                                            forRebuild: Bool,
+                                            reporter: IncrementalCompilationState.Reporter? = nil)
+  throws -> Set<ModuleDependencyId> {
+    let mainModuleInfo = mainModule
+    var modulesRequiringRebuild: Set<ModuleDependencyId> = []
+    var visited: Set<ModuleDependencyId> = []
+    // Scan from the main module's dependencies to avoid reporting
+    // the main module itself in the results.
+    for dependencyId in mainModuleInfo.directDependencies ?? [] {
+      try outOfDateModuleScan(from: dependencyId, visited: &visited,
+                              modulesRequiringRebuild: &modulesRequiringRebuild,
+                              fileSystem: fileSystem, forRebuild: forRebuild,
+                              reporter: reporter)
+    }
+
+    if forRebuild {
+      reporter?.reportExplicitDependencyReBuildSet(Array(modulesRequiringRebuild))
+    }
+    return modulesRequiringRebuild
+  }
+
+  /// Perform a postorder DFS to locate modules which are out-of-date with respect
+  /// to their inputs. Upon encountering such a module, add it to the set of invalidated
+  /// modules, along with the path from the root to this module.
+  func outOfDateModuleScan(from sourceModuleId: ModuleDependencyId,
+                           visited: inout Set<ModuleDependencyId>,
+                           modulesRequiringRebuild: inout Set<ModuleDependencyId>,
+                           fileSystem: FileSystem,
+                           forRebuild: Bool,
+                           reporter: IncrementalCompilationState.Reporter? = nil) throws {
+    let reportOutOfDate = { (name: String, reason: String)  in
+      if forRebuild {
+        reporter?.reportExplicitDependencyWillBeReBuilt(sourceModuleId.moduleNameForDiagnostic, reason: reason)
+      } else {
+        reporter?.reportPriorExplicitDependencyStale(sourceModuleId.moduleNameForDiagnostic, reason: reason)
+      }
+    }
+
+    let sourceModuleInfo = try moduleInfo(of: sourceModuleId)
+    // Visit the module's dependencies
+    var hasOutOfDateModuleDependency = false
+    for dependencyId in sourceModuleInfo.directDependencies ?? [] {
+      // If we have not already visited this module, recurse.
+      if !visited.contains(dependencyId) {
+        try outOfDateModuleScan(from: dependencyId, visited: &visited,
+                                modulesRequiringRebuild: &modulesRequiringRebuild,
+                                fileSystem: fileSystem, forRebuild: forRebuild,
+                                reporter: reporter)
+      }
+      // Even if we're not revisiting a dependency, we must check if it's already known to be out of date.
+      hasOutOfDateModuleDependency = hasOutOfDateModuleDependency || modulesRequiringRebuild.contains(dependencyId)
+    }
+
+    if hasOutOfDateModuleDependency {
+      reportOutOfDate(sourceModuleId.moduleNameForDiagnostic, "Invalidated by downstream dependency")
+      modulesRequiringRebuild.insert(sourceModuleId)
+    } else if try !verifyModuleDependencyUpToDate(moduleID: sourceModuleId, fileSystem: fileSystem, reporter: reporter) {
+      reportOutOfDate(sourceModuleId.moduleNameForDiagnostic, "Out-of-date")
+      modulesRequiringRebuild.insert(sourceModuleId)
+    }
+
+    // Now that we've determined if this module must be rebuilt, mark it as visited.
+    visited.insert(sourceModuleId)
+  }
+
+  func verifyModuleDependencyUpToDate(moduleID: ModuleDependencyId,
+                                      fileSystem: FileSystem,
+                                      reporter: IncrementalCompilationState.Reporter?) throws -> Bool {
+    let checkedModuleInfo = try moduleInfo(of: moduleID)
+    // Verify that the specified input exists and is older than the specified output
+    let verifyInputOlderThanOutputModTime: (String, VirtualPath, TimePoint) -> Bool =
+    { moduleName, inputPath, outputModTime in
+      guard let inputModTime =
+              try? fileSystem.lastModificationTime(for: inputPath) else {
+        reporter?.report("Unable to 'stat' \(inputPath.description)")
+        return false
+      }
+      if inputModTime > outputModTime {
+        reporter?.reportExplicitDependencyOutOfDate(moduleName,
+                                                    inputPath: inputPath.description)
+        return false
+      }
+      return true
+    }
+
+    // Check if the output file exists
+    guard let outputModTime = try? fileSystem.lastModificationTime(for: VirtualPath.lookup(checkedModuleInfo.modulePath.path)) else {
+      reporter?.report("Module output not found: '\(moduleID.moduleNameForDiagnostic)'")
+      return false
+    }
+
+    // Check if a dependency of this module has a newer output than this module
+    for dependencyId in checkedModuleInfo.directDependencies ?? [] {
+      let dependencyInfo = try moduleInfo(of: dependencyId)
+      if !verifyInputOlderThanOutputModTime(moduleID.moduleName,
+                                            VirtualPath.lookup(dependencyInfo.modulePath.path),
+                                            outputModTime) {
+        return false
+      }
+    }
+
+    // Check if any of the textual sources of this module are newer than this module
+    switch checkedModuleInfo.details {
+    case .swift(let swiftDetails):
+      if let moduleInterfacePath = swiftDetails.moduleInterfacePath {
+        if !verifyInputOlderThanOutputModTime(moduleID.moduleName,
+                                              VirtualPath.lookup(moduleInterfacePath.path),
+                                              outputModTime) {
+          return false
+        }
+      }
+      if let bridgingHeaderPath = swiftDetails.bridgingHeaderPath {
+        if !verifyInputOlderThanOutputModTime(moduleID.moduleName,
+                                              VirtualPath.lookup(bridgingHeaderPath.path),
+                                              outputModTime) {
+          return false
+        }
+      }
+      for bridgingSourceFile in swiftDetails.bridgingSourceFiles ?? [] {
+        if !verifyInputOlderThanOutputModTime(moduleID.moduleName,
+                                              VirtualPath.lookup(bridgingSourceFile.path),
+                                              outputModTime) {
+          return false
+        }
+      }
+    case .clang(_):
+      for inputSourceFile in checkedModuleInfo.sourceFiles ?? [] {
+        if !verifyInputOlderThanOutputModTime(moduleID.moduleName,
+                                              try VirtualPath(path: inputSourceFile),
+                                              outputModTime) {
+          return false
+        }
+      }
+    case .swiftPrebuiltExternal(_):
+      // TODO: We have to give-up here until we have a way to verify the timestamp of the binary module.
+      // We can do better here by knowing if this module hasn't changed - which would allows us to not
+      // invalidate any of the dependencies that depend on it.
+      reporter?.report("Unable to verify binary module dependency up-to-date: \(moduleID.moduleNameForDiagnostic)")
+      return false;
+    case .swiftPlaceholder(_):
+      // TODO: This should never ever happen. Hard error?
+      return false;
+    }
+
+    return true
   }
 }
 

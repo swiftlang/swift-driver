@@ -34,7 +34,7 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
 /// that specify said explicit module dependencies.
 @_spi(Testing) public struct ExplicitDependencyBuildPlanner {
   /// The module dependency graph.
-  private let dependencyGraph: InterModuleDependencyGraph
+  @_spi(Testing) public let dependencyGraph: InterModuleDependencyGraph
 
   /// A set of direct and transitive dependencies for every module in the dependency graph
   private let reachabilityMap: [ModuleDependencyId : Set<ModuleDependencyId>]
@@ -417,6 +417,29 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
         clangPCMSetMap[dependencyId]!.insert(pcmArgs)
       } else {
         clangPCMSetMap[dependencyId] = [pcmArgs]
+      }
+    }
+  }
+
+  public func getLinkLibraryLoadCommandFlags(_ commandLine: inout [Job.ArgTemplate]) throws {
+    var allLinkLibraries: [LinkLibraryInfo] = []
+    for (_, moduleInfo) in dependencyGraph.modules {
+      guard let moduleLinkLibraries = moduleInfo.linkLibraries else {
+        continue
+      }
+      for linkLibrary in moduleLinkLibraries {
+        allLinkLibraries.append(linkLibrary)
+      }
+    }
+
+    for linkLibrary in allLinkLibraries {
+      if !linkLibrary.isFramework {
+        commandLine.appendFlag("-l\(linkLibrary.linkName)")
+      } else {
+        commandLine.appendFlag(.Xlinker)
+        commandLine.appendFlag("-framework")
+        commandLine.appendFlag(.Xlinker)
+        commandLine.appendFlag(linkLibrary.linkName)
       }
     }
   }

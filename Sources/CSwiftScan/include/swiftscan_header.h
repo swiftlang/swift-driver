@@ -18,7 +18,7 @@
 #include <stdint.h>
 
 #define SWIFTSCAN_VERSION_MAJOR 0
-#define SWIFTSCAN_VERSION_MINOR 6
+#define SWIFTSCAN_VERSION_MINOR 10
 
 //=== Public Scanner Data Types -------------------------------------------===//
 
@@ -41,6 +41,7 @@ typedef enum {
 
 typedef struct swiftscan_module_details_s *swiftscan_module_details_t;
 typedef struct swiftscan_dependency_info_s *swiftscan_dependency_info_t;
+typedef struct swiftscan_link_library_info_s *swiftscan_link_library_info_t;
 typedef struct swiftscan_dependency_graph_s *swiftscan_dependency_graph_t;
 typedef struct swiftscan_import_set_s *swiftscan_import_set_t;
 typedef struct swiftscan_diagnostic_info_s *swiftscan_diagnostic_info_t;
@@ -60,6 +61,10 @@ typedef struct {
   swiftscan_dependency_info_t *modules;
   size_t count;
 } swiftscan_dependency_set_t;
+typedef struct {
+  swiftscan_link_library_info_t *link_libraries;
+  size_t count;
+} swiftscan_link_library_set_t;
 
 //=== Batch Scan Input Specification --------------------------------------===//
 
@@ -110,8 +115,18 @@ typedef struct {
   (*swiftscan_module_info_get_source_files)(swiftscan_dependency_info_t);
   swiftscan_string_set_t *
   (*swiftscan_module_info_get_direct_dependencies)(swiftscan_dependency_info_t);
+  swiftscan_link_library_set_t *
+  (*swiftscan_module_info_get_link_libraries)(swiftscan_dependency_graph_t);
   swiftscan_module_details_t
   (*swiftscan_module_info_get_details)(swiftscan_dependency_info_t);
+
+  //=== Link Library Info Functions ------------------------------------===//
+  swiftscan_string_ref_t
+  (*swiftscan_link_library_info_get_link_name)(swiftscan_link_library_info_t);
+  bool
+  (*swiftscan_link_library_info_get_is_framework)(swiftscan_link_library_info_t);
+  bool
+  (*swiftscan_link_library_info_get_should_force_load)(swiftscan_link_library_info_t);
 
   //=== Dependency Module Info Details Functions ----------------------------===//
   swiftscan_dependency_info_kind_t

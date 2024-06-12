@@ -266,6 +266,9 @@ extension Driver {
     if isFrontendArgSupported(.noAllocations) {
       try commandLine.appendLast(.noAllocations, from: &parsedOptions)
     }
+    if isFrontendArgSupported(.compilerAssertions) {
+      try commandLine.appendLast(.compilerAssertions, from: &parsedOptions)
+    }
     if isFrontendArgSupported(.enableExperimentalFeature) {
       try commandLine.appendAll(
         .enableExperimentalFeature, from: &parsedOptions)
@@ -470,6 +473,12 @@ extension Driver {
     // Enable frontend Parseable-output, if needed.
     if parsedOptions.contains(.useFrontendParseableOutput) {
       commandLine.appendFlag("-frontend-parseable-output")
+    }
+
+    // If explicit auto-linking is enabled, ensure that compiler tasks do not produce
+    // auto-link load commands in resulting object files.
+    if parsedOptions.hasArgument(.explicitAutoLinking) {
+      commandLine.appendFlag(.disableAllAutolinking)
     }
 
     savedUnknownDriverFlagsForSwiftFrontend.forEach {

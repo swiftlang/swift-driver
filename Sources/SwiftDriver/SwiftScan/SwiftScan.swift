@@ -364,6 +364,13 @@ private extension String {
            api.swiftscan_source_location_get_column_number != nil
   }
 
+  @_spi(Testing) public var supportsLinkLibraries : Bool {
+    return api.swiftscan_module_info_get_link_libraries != nil &&
+           api.swiftscan_link_library_info_get_link_name != nil &&
+           api.swiftscan_link_library_info_get_is_framework != nil &&
+           api.swiftscan_link_library_info_get_should_force_load != nil
+  }
+
   func serializeScannerCache(to path: AbsolutePath) {
     api.swiftscan_scanner_cache_serialize(scanner,
                                           path.description.cString(using: String.Encoding.utf8))
@@ -635,6 +642,11 @@ private extension swiftscan_functions_t {
     self.swiftscan_source_location_get_buffer_identifier = try loadOptional("swiftscan_source_location_get_buffer_identifier")
     self.swiftscan_source_location_get_line_number = try loadOptional("swiftscan_source_location_get_line_number")
     self.swiftscan_source_location_get_column_number = try loadOptional("swiftscan_source_location_get_column_number")
+
+    self.swiftscan_module_info_get_link_libraries = try loadOptional("swiftscan_module_info_get_link_libraries")
+    self.swiftscan_link_library_info_get_link_name = try loadOptional("swiftscan_link_library_info_get_link_name")
+    self.swiftscan_link_library_info_get_is_framework = try loadOptional("swiftscan_link_library_info_get_is_framework")
+    self.swiftscan_link_library_info_get_should_force_load = try loadOptional("swiftscan_link_library_info_get_should_force_load")
 
     // Swift Overlay Dependencies
     self.swiftscan_swift_textual_detail_get_swift_overlay_dependencies =

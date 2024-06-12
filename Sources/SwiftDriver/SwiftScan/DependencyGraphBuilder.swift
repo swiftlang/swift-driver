@@ -120,6 +120,24 @@ private extension SwiftScan {
       directDependencies = nil
     }
 
+    var linkLibraries: [LinkLibraryInfo] = []
+    if supportsLinkLibraries {
+      let linkLibrarySetRefOrNull = api.swiftscan_module_info_get_link_libraries(moduleInfoRef)
+      guard let linkLibrarySetRef = linkLibrarySetRefOrNull else {
+        throw DependencyScanningError.missingField("dependency_graph.link_libraries")
+      }
+      // Turn the `swiftscan_dependency_set_t` into an array of `swiftscan_dependency_info_t`
+      // references we can iterate through in order to construct `ModuleInfo` objects.
+      let linkLibraryRefArray = Array(UnsafeBufferPointer(start: linkLibrarySetRef.pointee.link_libraries,
+                                                          count: Int(linkLibrarySetRef.pointee.count)))
+      for linkLibraryRefOrNull in linkLibraryRefArray {
+        guard let linkLibraryRef = linkLibraryRefOrNull else {
+          throw DependencyScanningError.missingField("dependency_set_t.link_libraries[_]")
+        }
+        linkLibraries.append(try constructLinkLibrayInfo(from: linkLibraryRef))
+      }
+    }
+
     guard let moduleDetailsRef = api.swiftscan_module_info_get_details(moduleInfoRef) else {
       throw DependencyScanningError.missingField("modules[\(moduleId)].details")
     }
@@ -128,7 +146,14 @@ private extension SwiftScan {
 
     return (moduleId, ModuleInfo(modulePath: modulePath, sourceFiles: sourceFiles,
                                  directDependencies: directDependencies,
+                                 linkLibraries: linkLibraries,
                                  details: details))
+  }
+
+  func constructLinkLibrayInfo(from linkLibraryInfoRef: swiftscan_link_library_info_t) throws -> LinkLibraryInfo {
+    return LinkLibraryInfo(linkName: try toSwiftString(api.swiftscan_link_library_info_get_link_name(linkLibraryInfoRef)),
+                             isFramework: api.swiftscan_link_library_info_get_is_framework(linkLibraryInfoRef),
+                             shouldForceLoad: api.swiftscan_link_library_info_get_should_force_load(linkLibraryInfoRef))
   }
 
   /// From a reference to a binary-format module info details object info returned by libSwiftScan,
