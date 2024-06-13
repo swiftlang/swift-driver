@@ -239,6 +239,10 @@ private extension SwiftScan {
     if supportsBinaryModuleHeaderDependencies {
       headerDependencies = try getOptionalPathArrayDetail(from: moduleDetailsRef,
                                                           using: api.swiftscan_swift_binary_detail_get_header_dependencies)
+    } else if supportsBinaryModuleHeaderDependency,
+              let header = try getOptionalPathDetail(from: moduleDetailsRef,
+                                                     using: api.swiftscan_swift_binary_detail_get_header_dependency) {
+      headerDependencies = [header]
     } else {
       headerDependencies = nil
     }
