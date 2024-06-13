@@ -669,15 +669,35 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(jobs[0].commandLine.contains(.flag("-dwarf-version=4")))
     }
 
-    // TODO: Enable once compiler support lands
-//    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-g", "-c", "-target", "arm64-apple-xros1.0-simulator") { driver in
-//      let jobs = try driver.planBuild()
-//      XCTAssertTrue(jobs[0].commandLine.contains(.flag("-dwarf-version=4")))
-//    }
-//    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-g", "-c", "-target", "arm64-apple-xros1.0") { driver in
-//      let jobs = try driver.planBuild()
-//      XCTAssertTrue(jobs[0].commandLine.contains(.flag("-dwarf-version=4")))
-//    }
+    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-g", "-c", "-target", "x86_64-apple-macosx15") { driver in
+      let jobs = try driver.planBuild()
+      XCTAssertTrue(jobs[0].commandLine.contains(.flag("-dwarf-version=5")))
+    }
+    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-g", "-c", "-target", "arm64-apple-ios18.0") { driver in
+      let jobs = try driver.planBuild()
+      XCTAssertTrue(jobs[0].commandLine.contains(.flag("-dwarf-version=5")))
+    }
+    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-g", "-c", "-target", "arm64_32-apple-watchos11") { driver in
+      let jobs = try driver.planBuild()
+      XCTAssertTrue(jobs[0].commandLine.contains(.flag("-dwarf-version=5")))
+    }
+    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-g", "-c", "-target", "arm64-apple-tvos18") { driver in
+      let jobs = try driver.planBuild()
+      XCTAssertTrue(jobs[0].commandLine.contains(.flag("-dwarf-version=5")))
+    }
+    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-g", "-c", "-target", "arm64-apple-xros1.0-simulator") { driver in
+      let jobs = try driver.planBuild()
+      XCTAssertTrue(jobs[0].commandLine.contains(.flag("-dwarf-version=4")))
+    }
+    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-g", "-c", "-target", "arm64-apple-xros2.0") { driver in
+      let jobs = try driver.planBuild()
+      XCTAssertTrue(jobs[0].commandLine.contains(.flag("-dwarf-version=5")))
+    }
+
+    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-c", "-file-compilation-dir", ".") { driver in
+      let jobs = try driver.planBuild()
+      XCTAssertFalse(jobs[0].commandLine.contains(.flag("-file-compilation-dir")))
+    }
   }
 
   func testCoverageSettings() throws {
