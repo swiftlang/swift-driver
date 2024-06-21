@@ -1712,6 +1712,27 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertFalse(resolvedArgs.contains { $0.hasPrefix("@") })
     }
   }
+    
+  func testResponseFileDeterministicNaming() throws {
+    #if !os(macOS)
+    throw XCTSkip("Test assumes macOS response file quoting behavior")
+    #endif
+    do {
+      let testJob = Job(moduleName: "Foo",
+                        kind: .compile,
+                        tool: .init(path: try AbsolutePath(validating: "/swiftc"), supportsResponseFiles: true),
+                        commandLine: (1...20000).map { .flag("-DTEST_\($0)") },
+                        inputs: [],
+                        primaryInputs: [],
+                        outputs: [])
+      let resolver = try ArgsResolver(fileSystem: localFileSystem)
+      let resolvedArgs: [String] = try resolver.resolveArgumentList(for: testJob)
+      XCTAssertTrue(resolvedArgs.count == 3)
+      XCTAssertEqual(resolvedArgs[2].first, "@")
+      let responseFilePath = try AbsolutePath(validating: String(resolvedArgs[2].dropFirst()))
+      XCTAssertEqual(responseFilePath.basename, "arguments-847d15e70d97df7c18033735497ca8dcc4441f461d5a9c2b764b127004524e81.resp")
+    }
+  }
 
   func testSpecificJobsResponseFiles() throws {
     // The jobs below often take large command lines (e.g., when passing a large number of Clang
