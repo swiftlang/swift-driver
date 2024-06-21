@@ -15,6 +15,7 @@ import class Foundation.NSLock
 import func TSCBasic.withTemporaryDirectory
 import protocol TSCBasic.FileSystem
 import struct TSCBasic.AbsolutePath
+import struct TSCBasic.SHA256
 
 @_implementationOnly import Yams
 
@@ -208,7 +209,8 @@ public final class ArgsResolver {
       assert(!forceResponseFiles || job.supportsResponseFiles,
              "Platform does not support response files for job: \(job)")
       // Match the integrated driver's behavior, which uses response file names of the form "arguments-[0-9a-zA-Z].resp".
-      let responseFilePath = temporaryDirectory.appending(component: "arguments-\(abs(job.hashValue)).resp")
+      let hash = SHA256().hash(resolvedArguments.joined(separator: " ")).hexadecimalRepresentation
+      let responseFilePath = temporaryDirectory.appending(component: "arguments-\(hash).resp")
 
       // FIXME: Need a way to support this for distributed build systems...
       if let absPath = responseFilePath.absolutePath {
