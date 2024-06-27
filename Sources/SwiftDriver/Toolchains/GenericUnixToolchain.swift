@@ -9,7 +9,10 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import TSCBasic
+
+import protocol TSCBasic.FileSystem
+import struct TSCBasic.AbsolutePath
+import var TSCBasic.localFileSystem
 
 /// Toolchain for Unix-like systems.
 public final class GenericUnixToolchain: Toolchain {
@@ -73,6 +76,8 @@ public final class GenericUnixToolchain: Toolchain {
       return try lookup(executable: "clang")
     case .clang:
       return try lookup(executable: "clang")
+    case .clangxx:
+      return try lookup(executable: "clang++")
     case .swiftAutolinkExtract:
       return try lookup(executable: "swift-autolink-extract")
     case .dsymutil:
@@ -101,6 +106,8 @@ public final class GenericUnixToolchain: Toolchain {
   }
 
   public var shouldStoreInvocationInDebugInfo: Bool { false }
+
+  public var globalDebugPathRemapping: String? { nil }
 
   public func runtimeLibraryName(
     for sanitizer: Sanitizer,

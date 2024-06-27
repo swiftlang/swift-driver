@@ -22,10 +22,10 @@
 public struct TwoLevelMap<OuterKey: Hashable, InnerKey: Hashable, Value> {
   public typealias InnerDict = [InnerKey: Value]
   public typealias OuterDict = [OuterKey: InnerDict]
-  
+
   public typealias Key = (OuterKey, InnerKey)
   public typealias Element = (Key, Value)
-  
+
   private var outerDict = [OuterKey: [InnerKey: Value]]()
 }
 
@@ -42,7 +42,7 @@ extension TwoLevelMap: Collection {
   public enum Index: Comparable {
     case end
     case notEnd(OuterDict.Index, InnerDict.Index)
-    
+
     public static func < (lhs: Self, rhs: Self) -> Bool {
       switch (lhs, rhs) {
       case (.end, .end): return false

@@ -74,8 +74,12 @@ extension ParsedOption: CustomStringConvertible {
     case .joinedOrSeparate, .separate:
       return option.spelling + " " + argument.asSingle.spm_shellEscaped()
 
-    case .remaining:
-      return argument.asSingle
+    case .remaining, .multiArg:
+      let args = argument.asMultiple
+      if args.isEmpty {
+        return option.spelling
+      }
+      return option.spelling + " " + argument.asMultiple.map { $0.spm_shellEscaped() }.joined(separator: " ")
     }
   }
 }
@@ -102,10 +106,40 @@ public struct ParsedOptions {
   /// driver. Any unconsumed options could have been omitted from the command
   /// line.
   private var consumed: [Bool] = []
+
+  /// Delay unknown flags throwing because some of them may be recognized as
+  /// swift-frontend flags.
+  private var unknownFlags: [OptionParseError] = []
 }
 
 extension ParsedOptions {
-  mutating func buildIndex() {
+  mutating func addUnknownFlag(index: Int, argument: String) {
+    unknownFlags.append(OptionParseError.unknownOption(index: index, argument: argument))
+  }
+  public func saveUnknownFlags(isSupported: (String) -> Bool) throws -> [String] {
+    var savedUnknownFlags: [String] = []
+    try unknownFlags.forEach {
+      switch $0 {
+      case .unknownOption(index: _, argument: let argument):
+        if isSupported(argument) {
+          savedUnknownFlags.append(argument)
+          break
+        }
+        if argument == "-unlikely-flag-for-testing" {
+          savedUnknownFlags.append(argument)
+          break
+        }
+        throw $0
+      default:
+        throw $0
+      }
+    }
+    return savedUnknownFlags
+  }
+}
+
+public extension ParsedOptions {
+  internal mutating func buildIndex() {
     optionIndex.removeAll()
     for parsed in parsedOptions {
       optionIndex[parsed.option.canonical.spelling, default: []].append(parsed)
@@ -159,7 +193,7 @@ extension ParsedOptions {
         result.append(parsed.option.spelling)
         result.append(parsed.argument.asSingle)
 
-      case .remaining:
+      case .remaining, .multiArg:
         result.append(parsed.option.spelling)
         result.append(contentsOf: parsed.argument.asMultiple)
       }
@@ -230,7 +264,7 @@ extension ParsedOptions {
   ///
   /// This operation does not consume any inputs.
   public var hasAnyInput: Bool {
-    return !lookupWithoutConsuming(.INPUT).isEmpty
+    return !lookupWithoutConsuming(.INPUT).isEmpty || !lookupWithoutConsuming(.e).isEmpty
   }
 
   /// Walk through all of the parsed options, modifying each one.
@@ -312,6 +346,24 @@ extension ParsedOptions {
     optionIndex.removeValue(forKey: option.spelling)
     if let group = option.group {
       groupIndex[group]?.removeAll { $0.option == option }
+    }
+  }
+
+  /// Remove all arguments of a given group from parsed options.
+  public mutating func eraseAllArguments(in group: Option.Group) {
+    for parsedOption in parsedOptions {
+      if parsedOption.option.group == group {
+        eraseArgument(parsedOption.option)
+      }
+    }
+  }
+
+  /// Remove all arguments with a .supplementaryOutput attribute
+  public mutating func eraseSupplementaryOutputs() {
+    for parsedOption in parsedOptions {
+      if parsedOption.option.attributes.contains(.supplementaryOutput) {
+        eraseArgument(parsedOption.option)
+      }
     }
   }
 

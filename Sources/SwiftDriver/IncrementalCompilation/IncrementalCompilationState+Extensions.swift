@@ -9,10 +9,17 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import TSCBasic
-import TSCUtility
-import Foundation
+
 import SwiftOptions
+import protocol Foundation.LocalizedError
+import class Foundation.JSONEncoder
+import class Foundation.JSONSerialization
+
+import class TSCBasic.DiagnosticsEngine
+import protocol TSCBasic.FileSystem
+import struct TSCBasic.Diagnostic
+import struct TSCBasic.ProcessResult
+import struct TSCBasic.ByteString
 
 /// In a separate file to ensure that ``IncrementalCompilationState/protectedState``
 /// can only be accessed via ``IncrementalCompilationState/blockingConcurrentMutation(_:)`` and
@@ -43,16 +50,12 @@ extension IncrementalCompilationState {
     let graph: ModuleDependencyGraph
     /// Information about the last known compilation, incl. the location of build artifacts such as the dependency graph.
     let buildRecordInfo: BuildRecordInfo
-    /// Record about existence and time of the last compile.
-    let maybeBuildRecord: BuildRecord?
-    /// A set of inputs invalidated by external chagnes.
+    /// Record about the compiled module's explicit module dependencies from a prior compile.
+    let upToDatePriorInterModuleDependencyGraph: InterModuleDependencyGraph?
+    /// A set of inputs invalidated by external changes.
     let inputsInvalidatedByExternals: TransitivelyInvalidatedSwiftSourceFileSet
     /// Compiler options related to incremental builds.
     let incrementalOptions: IncrementalCompilationState.Options
-    /// The last time this compilation was started. Used to compare against e.g. input file mod dates.
-    let buildStartTime: Date
-    /// The last time this compilation finished. Used to compare against output file mod dates
-    let buildEndTime: Date
   }
 }
 
@@ -175,8 +178,7 @@ extension IncrementalCompilationState {
       report(skipping: false, "No outputs")
       return false
     }
-    guard .distantPast < oldestOutputModTime
-    else {
+    guard .distantPast < oldestOutputModTime else {
       report(skipping: false, "Missing output", oldestOutput)
       return false
     }
@@ -189,28 +191,28 @@ extension IncrementalCompilationState {
     return true
   }
 
-  private func findOldestOutputForSkipping(postCompileJob: Job) -> (TypedVirtualPath, Date)? {
-    var oldestOutputAndModTime: (TypedVirtualPath, Date)? = nil
+  private func findOldestOutputForSkipping(postCompileJob: Job) -> (TypedVirtualPath, TimePoint)? {
+    var oldestOutputAndModTime: (TypedVirtualPath, TimePoint)? = nil
     for output in postCompileJob.outputs {
-      guard let outputModTime = modTime(output)
-      else {
-        oldestOutputAndModTime = (output, .distantPast)
-        break
+      guard let outputModTime = try? self.fileSystem.lastModificationTime(for: output.file) else {
+        return (output, .distantPast)
       }
-      oldestOutputAndModTime = oldestOutputAndModTime.map {
-        $0.1 < outputModTime ? $0 : (output, outputModTime)
+
+      if let candidate = oldestOutputAndModTime {
+        oldestOutputAndModTime = candidate.1 < outputModTime ? candidate : (output, outputModTime)
+      } else {
+        oldestOutputAndModTime = (output, outputModTime)
       }
-      ?? (output, outputModTime)
     }
     return oldestOutputAndModTime
   }
-  private func findAnInputOf( postCompileJob: Job, newerThan outputModTime: Date) -> TypedVirtualPath? {
+  private func findAnInputOf( postCompileJob: Job, newerThan outputModTime: TimePoint) -> TypedVirtualPath? {
     postCompileJob.inputs.first { input in
-      outputModTime < (modTime(input) ?? .distantFuture)
+      guard let modTime = try? self.fileSystem.lastModificationTime(for: input.file) else {
+        return false
+      }
+      return outputModTime < modTime
     }
-  }
-  private func modTime(_ path: TypedVirtualPath) -> Date? {
-    try? fileSystem.lastModificationTime(for: path.file)
   }
 }
 
@@ -250,7 +252,10 @@ extension IncrementalCompilationState {
         report(message, pathIfGiven?.file)
         return
       }
-      let output = outputFileMap.getOutput(inputFile: path.fileHandle, outputType: .object)
+      guard let output = try? outputFileMap.getOutput(inputFile: path.fileHandle, outputType: .object) else {
+        report(message, pathIfGiven?.file)
+        return
+      }
       let compiling = " {compile: \(VirtualPath.lookup(output).basename) <= \(input.basename)}"
       diagnosticEngine.emit(.remark_incremental_compilation(because: "\(message) \(compiling)"))
     }
@@ -274,12 +279,12 @@ extension IncrementalCompilationState {
     public func report(_ message: String) {
       diagnosticEngine.emit(.remark_incremental_compilation(because: message))
     }
-    
+
     /// Entry point for ``ExternalIntegrand``
     func report(_ message: String, _ integrand: ModuleDependencyGraph.ExternalIntegrand) {
       report(message, integrand.externalDependency)
     }
-    
+
     func report(_ message: String, _ fed: FingerprintedExternalDependency) {
       report(message, fed.externalDependency)
     }
@@ -288,6 +293,29 @@ extension IncrementalCompilationState {
       report("\(message): \(externalDependency.shortDescription)")
     }
 
+    // Emits a remark indicating a need for a dependency scanning invocation
+    func reportExplicitBuildMustReScan(_ why: String) {
+      report("Incremental build must re-run dependency scan: \(why)")
+    }
+
+    func reportExplicitDependencyOutOfDate(_ moduleName: String,
+                                           inputPath: String) {
+      report("Dependency module \(moduleName) is older than input file \(inputPath)")
+    }
+
+    func reportExplicitDependencyWillBeReBuilt(_ moduleOutputPath: String,
+                                               reason: String) {
+      report("Dependency module '\(moduleOutputPath)' will be re-built: \(reason)")
+    }
+
+    func reportPriorExplicitDependencyStale(_ moduleOutputPath: String,
+                                               reason: String) {
+      report("Dependency module '\(moduleOutputPath)' info is stale: \(reason)")
+    }
+
+    func reportExplicitDependencyReBuildSet(_ modules: [ModuleDependencyId]) {
+      report("Following explicit module dependencies will be re-built: [\(modules.map { $0.moduleNameForDiagnostic }.sorted().joined(separator: ", "))]")
+    }
 
     // Emits a remark indicating incremental compilation has been disabled.
     func reportDisablingIncrementalBuild(_ why: String) {
@@ -296,7 +324,7 @@ extension IncrementalCompilationState {
 
     // Emits a remark indicating incremental compilation has been disabled.
     //
-    // FIXME: This entrypoint exists for compatiblity with the legacy driver.
+    // FIXME: This entrypoint exists for compatibility with the legacy driver.
     // This message is not necessary, and we should migrate the tests.
     func reportIncrementalCompilationHasBeenDisabled(_ why: String) {
       report("Incremental compilation has been disabled, \(why)")
@@ -355,6 +383,10 @@ extension IncrementalCompilationState {
     /// that reads the dependency graph from a serialized format on disk instead
     /// of reading O(N) swiftdeps files.
     public static let readPriorsFromModuleDependencyGraph    = Options(rawValue: 1 << 5)
+
+    /// Enables additional handling of explicit module build artifacts:
+    /// Additional reading and writing of the inter-module dependency graph.
+    public static let explicitModuleBuild                    = Options(rawValue: 1 << 6)
   }
 }
 
@@ -374,27 +406,70 @@ extension IncrementalCompilationState {
     }
   }
 
-  func writeDependencyGraph(_ buildRecordInfo: BuildRecordInfo?) throws {
-    // If the cross-module build is not enabled, the status quo dictates we
-    // not emit this file.
-    guard info.isCrossModuleIncrementalBuildEnabled else {
-      return
-    }
-    guard
-      let recordInfo = buildRecordInfo
-    else {
-      throw WriteDependencyGraphError.noBuildRecordInfo
-    }
-    try blockingConcurrentMutationToProtectedState {
+  func writeDependencyGraph(
+    to path: VirtualPath,
+    _ buildRecord: BuildRecord
+  ) throws {
+    precondition(info.isCrossModuleIncrementalBuildEnabled)
+    try blockingConcurrentAccessOrMutationToProtectedState {
       try $0.writeGraph(
-        to: recordInfo.dependencyGraphPath,
+        to: path,
         on: info.fileSystem,
-        compilerVersion: recordInfo.actualSwiftVersion)
+        buildRecord: buildRecord)
     }
   }
-  
+
   @_spi(Testing) public static func removeDependencyGraphFile(_ driver: Driver) {
     if let path = driver.buildRecordInfo?.dependencyGraphPath {
+      try? driver.fileSystem.removeFileTree(path)
+    }
+  }
+}
+
+extension IncrementalCompilationState {
+  enum WriteInterModuleDependencyGraphError: LocalizedError {
+    case noDependencyGraph
+    var errorDescription: String? {
+      switch self {
+      case .noDependencyGraph:
+        return "No inter-module dependency graph present"
+      }
+    }
+  }
+
+  func writeInterModuleDependencyGraph(_ buildRecordInfo: BuildRecordInfo?) throws {
+    // If the explicit module build is not happening, there will not be a graph to write
+    guard info.explicitModuleBuild else {
+      return
+    }
+    guard let recordInfo = buildRecordInfo else {
+      throw WriteDependencyGraphError.noBuildRecordInfo
+    }
+    guard let interModuleDependencyGraph = self.upToDateInterModuleDependencyGraph else {
+      throw WriteInterModuleDependencyGraphError.noDependencyGraph
+    }
+    do {
+      let encoder = JSONEncoder()
+#if os(Linux) || os(Android)
+      encoder.outputFormatting = [.prettyPrinted]
+#else
+      if #available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *) {
+        encoder.outputFormatting = [.prettyPrinted, .withoutEscapingSlashes]
+      }
+#endif
+      let data = try encoder.encode(interModuleDependencyGraph)
+      try fileSystem.writeFileContents(recordInfo.interModuleDependencyGraphPath,
+                                       bytes: ByteString(data),
+                                       atomically: true)
+    } catch {
+      throw IncrementalCompilationState.WriteDependencyGraphError.couldNotWrite(
+        path: recordInfo.interModuleDependencyGraphPath, error: error)
+    }
+
+  }
+
+  @_spi(Testing) public static func removeInterModuleDependencyGraphFile(_ driver: Driver) {
+    if let path = driver.buildRecordInfo?.interModuleDependencyGraphPath {
       try? driver.fileSystem.removeFileTree(path)
     }
   }
@@ -420,7 +495,12 @@ extension OutputFileMap {
 // MARK: SourceFiles
 
 /// Handy information about the source files in the current invocation
-@_spi(Testing) public struct SourceFiles {
+///
+/// Usages of this structure are deprecated and should be removed on sight. For
+/// large driver jobs, it is extremely expensive both in terms of memory and
+/// compilation latency to instantiate as it rematerializes the entire input set
+/// multiple times.
+struct SourceFiles {
   /// The current (.swift) files in same order as the invocation
   let currentInOrder: [SwiftSourceFile]
 
@@ -433,10 +513,10 @@ extension OutputFileMap {
   /// The files that were in the previous but not in the current invocation
   let disappeared: [SwiftSourceFile]
 
-  init(inputFiles: [TypedVirtualPath], buildRecord: BuildRecord?) {
+  init(inputFiles: [TypedVirtualPath], buildRecord: BuildRecord) {
     self.currentInOrder = inputFiles.swiftSourceFiles
     self.currentSet = Set(currentInOrder)
-    guard let buildRecord = buildRecord else {
+    guard !buildRecord.inputInfos.isEmpty else {
       self.previousSet = Set()
       self.disappeared = []
       return

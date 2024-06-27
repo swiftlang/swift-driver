@@ -9,8 +9,10 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import TSCBasic
+
 import SwiftOptions
+
+import protocol TSCBasic.FileSystem
 
 extension Toolchain {
   // MARK: - Path computation
@@ -24,9 +26,14 @@ extension Toolchain {
     for targetInfo: FrontendTargetInfo,
     parsedOptions: inout ParsedOptions
   ) throws -> VirtualPath {
+    var platform = targetInfo.target.triple.platformName(conflatingDarwin: true)!
+    // compiler-rt moved these Android sanitizers into `lib/linux/` a couple
+    // years ago, llvm/llvm-project@a68ccba, so look for them there instead.
+    if platform == "android" {
+      platform = "linux"
+    }
     return VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
-      .appending(components: "clang", "lib",
-                 targetInfo.target.triple.platformName(conflatingDarwin: true)!)
+      .appending(components: "clang", "lib", platform)
   }
 
   func runtimeLibraryPaths(
@@ -44,7 +51,8 @@ extension Toolchain {
       result.append(path)
     }
 
-    if let sdkPath = sdkPath.map(VirtualPath.lookup) {
+    // Only Darwin places libraries directly in /sdk/usr/lib/swift/.
+    if triple.isDarwin, let sdkPath = sdkPath.map(VirtualPath.lookup) {
       // If we added the secondary resource dir, we also need the iOSSupport directory.
       if secondaryResourceDir != nil {
         result.append(sdkPath.appending(components: "System", "iOSSupport", "usr", "lib", "swift"))
@@ -54,19 +62,6 @@ extension Toolchain {
     }
 
     return result
-  }
-
-  func addLinkRuntimeLibrary(
-    named name: String,
-    to commandLine: inout [Job.ArgTemplate],
-    for targetInfo: FrontendTargetInfo,
-    parsedOptions: inout ParsedOptions
-  ) throws {
-    let path = try clangLibraryPath(
-      for: targetInfo,
-      parsedOptions: &parsedOptions)
-      .appending(component: name)
-    commandLine.appendPath(path)
   }
 
   func runtimeLibraryExists(
@@ -95,6 +90,19 @@ extension Toolchain {
       commandLine.appendFlag(match.option.spelling + match.argument.asSingle)
     }
   }
+
+  func addExtraClangLinkerArgs(
+    to commandLine: inout [Job.ArgTemplate],
+    parsedOptions: inout ParsedOptions
+  ) throws {
+    // Because we invoke `clang` as the linker executable, we must still
+    // use `-Xlinker` for linker-specific arguments.
+    for linkerOpt in parsedOptions.arguments(for: .Xlinker) {
+      commandLine.appendFlag(.Xlinker)
+      commandLine.appendFlag(linkerOpt.argument.asSingle)
+    }
+    try commandLine.appendAllArguments(.XclangLinker, from: &parsedOptions)
+  }
 }
 
 // MARK: - Common argument routines
@@ -111,28 +119,37 @@ extension DarwinToolchain {
 
     // Link compatibility libraries, if we're deploying back to OSes that
     // have an older Swift runtime.
-    func addArgsForBackDeployLib(_ libName: String) throws {
+    func addArgsForBackDeployLib(_ libName: String, forceLoad: Bool) throws {
       let backDeployLibPath = VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
         .appending(components: targetTriple.platformName() ?? "", libName)
       if try fileSystem.exists(backDeployLibPath) {
-        commandLine.append(.flag("-force_load"))
+        if forceLoad {
+          commandLine.append(.flag("-force_load"))
+        }
         commandLine.appendPath(backDeployLibPath)
       }
     }
 
-    for compatibilityLib in targetInfo.target.compatibilityLibraries {
-      let shouldLink: Bool
-      switch compatibilityLib.filter {
-      case .all:
-        shouldLink = true
-        break
+    let experimentalFeatures = parsedOptions.arguments(for: .enableExperimentalFeature)
+    let embeddedEnabled = experimentalFeatures.map(\.argument).map(\.asSingle).contains("Embedded")
 
-      case .executable:
-        shouldLink = linkerOutputType == .executable
-      }
+    if !embeddedEnabled {
+      for compatibilityLib in targetInfo.target.compatibilityLibraries {
+        let shouldLink: Bool
+        switch compatibilityLib.filter {
+        case .all:
+          shouldLink = true
+          break
 
-      if shouldLink {
-        try addArgsForBackDeployLib("lib" + compatibilityLib.libraryName + ".a")
+        case .executable:
+          shouldLink = linkerOutputType == .executable
+        }
+
+        if shouldLink {
+          // Old frontends don't set forceLoad at all; assume it's true in that case
+          try addArgsForBackDeployLib("lib" + compatibilityLib.libraryName + ".a",
+                                      forceLoad: compatibilityLib.forceLoad ?? true)
+        }
       }
     }
 
@@ -153,7 +170,7 @@ extension DarwinToolchain {
       parsedOptions: &parsedOptions,
       targetInfo: targetInfo
     )
-    for path in rpaths.paths(runtimeLibraryPaths: runtimePaths) {
+    for path in try rpaths.paths(runtimeLibraryPaths: runtimePaths) {
       commandLine.appendFlag("-rpath")
       commandLine.appendPath(path)
     }
@@ -221,12 +238,12 @@ extension DarwinToolchain {
       }
     }
 
-    func paths(runtimeLibraryPaths: [VirtualPath]) -> [VirtualPath] {
+    func paths(runtimeLibraryPaths: [VirtualPath]) throws -> [VirtualPath] {
       switch self {
       case .toolchain:
         return runtimeLibraryPaths
       case .os:
-        return [.absolute(.init("/usr/lib/swift"))]
+        return [.absolute(try .init(validating: "/usr/lib/swift"))]
       case .none:
         return []
       }

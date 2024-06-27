@@ -9,12 +9,24 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import TSCBasic
-import Foundation
+
+import struct Foundation.Data
+import struct Foundation.TimeInterval
+import class Dispatch.DispatchQueue
 
 #if canImport(Darwin)
 import Darwin
 #endif
+
+import enum TSCBasic.SystemError
+import func TSCBasic.resolveSymlinks
+import protocol TSCBasic.FileSystem
+import protocol TSCBasic.WritableByteStream
+import struct TSCBasic.AbsolutePath
+import struct TSCBasic.ByteString
+import struct TSCBasic.FileInfo
+import struct TSCBasic.RelativePath
+import var TSCBasic.localFileSystem
 
 /// A virtual path.
 public enum VirtualPath: Hashable {
@@ -90,7 +102,7 @@ public enum VirtualPath: Hashable {
     guard case .relative(let relativePath) = self else { return nil }
     return relativePath
   }
-  
+
   /// If the path is some kind of temporary file, returns the `RelativePath`
   /// representing its name.
   public var temporaryFileName: RelativePath? {
@@ -134,11 +146,11 @@ public enum VirtualPath: Hashable {
     case .absolute(let path):
       return .absolute(path.parentDirectory)
     case .relative(let path):
-      return .relative(RelativePath(path.dirname))
+      return .relative(try! RelativePath(validating: path.dirname))
     case .temporary(let path), .temporaryWithKnownContents(let path, _):
-      return .temporary(RelativePath(path.dirname))
+      return .temporary(try! RelativePath(validating: path.dirname))
     case .fileList(let path, _):
-      return .temporary(RelativePath(path.dirname))
+      return .temporary(try! RelativePath(validating: path.dirname))
     case .standardInput, .standardOutput:
       assertionFailure("Can't get directory of stdin/stdout")
       return self
@@ -187,18 +199,18 @@ public enum VirtualPath: Hashable {
   /// Returns the virtual path with an additional suffix appended to base name.
   ///
   /// This should not be used with `.standardInput` or `.standardOutput`.
-  public func appendingToBaseName(_ suffix: String) -> VirtualPath {
+  public func appendingToBaseName(_ suffix: String) throws -> VirtualPath {
     switch self {
     case let .absolute(path):
-      return .absolute(AbsolutePath(path.pathString + suffix))
+      return .absolute(try AbsolutePath(validating: path.pathString + suffix))
     case let .relative(path):
-      return .relative(RelativePath(path.pathString + suffix))
+      return .relative(try RelativePath(validating: path.pathString + suffix))
     case let .temporary(path):
-      return .temporary(RelativePath(path.pathString + suffix))
+      return .temporary(try RelativePath(validating: path.pathString + suffix))
     case let .temporaryWithKnownContents(path, contents):
-      return .temporaryWithKnownContents(RelativePath(path.pathString + suffix), contents)
+      return .temporaryWithKnownContents(try RelativePath(validating: path.pathString + suffix), contents)
     case let .fileList(path, content):
-      return .fileList(RelativePath(path.pathString + suffix), content)
+      return .fileList(try RelativePath(validating: path.pathString + suffix), content)
     case .standardInput, .standardOutput:
       assertionFailure("Can't append path component to standard in/out")
       return self
@@ -319,6 +331,11 @@ extension VirtualPath {
 
     public static let standardOutput = Handle(-1)
     public static let standardInput = Handle(-2)
+#if os(Windows)
+    public static let null = try! VirtualPath(path: "nul").intern()
+#else
+    public static let null = try! VirtualPath(path: "/dev/null").intern()
+#endif
   }
 
   /// An implementation of a concurrent path cache.
@@ -419,29 +436,29 @@ extension VirtualPath {
 /// Clients are still allowed to instantiate `.temporary` `VirtualPath` values directly because of our inability to specify
 /// enum case access control, but are discouraged from doing so.
 extension VirtualPath {
-  public static func createUniqueTemporaryFile(_ path: RelativePath) -> VirtualPath {
-    let uniquedRelativePath = getUniqueTemporaryPath(for: path)
+  public static func createUniqueTemporaryFile(_ path: RelativePath) throws -> VirtualPath {
+    let uniquedRelativePath = try getUniqueTemporaryPath(for: path)
     return .temporary(uniquedRelativePath)
   }
 
   public static func createUniqueTemporaryFileWithKnownContents(_ path: RelativePath, _ data: Data)
-  -> VirtualPath {
-    let uniquedRelativePath = getUniqueTemporaryPath(for: path)
+  throws -> VirtualPath {
+    let uniquedRelativePath = try getUniqueTemporaryPath(for: path)
     return .temporaryWithKnownContents(uniquedRelativePath, data)
   }
 
   public static func createUniqueFilelist(_ path: RelativePath, _ fileList: FileList)
-  -> VirtualPath {
-    let uniquedRelativePath = getUniqueTemporaryPath(for: path)
+  throws -> VirtualPath {
+    let uniquedRelativePath = try getUniqueTemporaryPath(for: path)
     return .fileList(uniquedRelativePath, fileList)
   }
 
-  private static func getUniqueTemporaryPath(for path: RelativePath) -> RelativePath {
+  private static func getUniqueTemporaryPath(for path: RelativePath) throws -> RelativePath {
     let uniquedBaseName = Self.temporaryFileStore.getUniqueFilename(for: path.basenameWithoutExt)
     // Avoid introducing the the leading dot
     let dirName = path.dirname == "." ? "" : path.dirname
     let fileExtension = path.extension.map { ".\($0)" } ?? ""
-    return RelativePath(dirName + uniquedBaseName + fileExtension)
+    return try RelativePath(validating: dirName + uniquedBaseName + fileExtension)
   }
 
   /// A cache of created temporary files
@@ -585,6 +602,8 @@ public struct TextualVirtualPath: Codable, Hashable {
       preconditionFailure("Path does not have a round-trippable textual representation")
     }
   }
+
+  internal var description: String { VirtualPath.lookup(path).description }
 }
 
 extension VirtualPath: CustomStringConvertible {
@@ -630,18 +649,18 @@ extension VirtualPath: CustomDebugStringConvertible {
 extension VirtualPath {
   /// Replace the extension of the given path with a new one based on the
   /// specified file type.
-  public func replacingExtension(with fileType: FileType) -> VirtualPath {
+  public func replacingExtension(with fileType: FileType) throws -> VirtualPath {
     switch self {
     case let .absolute(path):
-      return .absolute(AbsolutePath(path.pathString.withoutExt(path.extension).appendingFileTypeExtension(fileType)))
+      return .absolute(try AbsolutePath(validating: path.pathString.withoutExt(path.extension).appendingFileTypeExtension(fileType)))
     case let .relative(path):
-      return .relative(RelativePath(path.pathString.withoutExt(path.extension).appendingFileTypeExtension(fileType)))
+      return .relative(try RelativePath(validating: path.pathString.withoutExt(path.extension).appendingFileTypeExtension(fileType)))
     case let .temporary(path):
-      return .temporary(RelativePath(path.pathString.withoutExt(path.extension).appendingFileTypeExtension(fileType)))
+      return .temporary(try RelativePath(validating: path.pathString.withoutExt(path.extension).appendingFileTypeExtension(fileType)))
     case let .temporaryWithKnownContents(path, contents):
-      return .temporaryWithKnownContents(RelativePath(path.pathString.withoutExt(path.extension).appendingFileTypeExtension(fileType)), contents)
+      return .temporaryWithKnownContents(try RelativePath(validating: path.pathString.withoutExt(path.extension).appendingFileTypeExtension(fileType)), contents)
     case let .fileList(path, content):
-      return .fileList(RelativePath(path.pathString.withoutExt(path.extension).appendingFileTypeExtension(fileType)), content)
+      return .fileList(try RelativePath(validating: path.pathString.withoutExt(path.extension).appendingFileTypeExtension(fileType)), content)
     case .standardInput, .standardOutput:
       return self
     }
@@ -696,7 +715,7 @@ extension TSCBasic.FileSystem {
     }
   }
 
-  func readFileContents(_ path: VirtualPath) throws -> ByteString {
+  @_spi(Testing) public func readFileContents(_ path: VirtualPath) throws -> ByteString {
     try resolvingVirtualPath(path, apply: readFileContents)
   }
 
@@ -712,7 +731,7 @@ extension TSCBasic.FileSystem {
     }
   }
 
-  func removeFileTree(_ path: VirtualPath) throws {
+  @_spi(Testing) public func removeFileTree(_ path: VirtualPath) throws {
     try resolvingVirtualPath(path) { absolutePath in
       try self.removeFileTree(absolutePath)
     }
@@ -734,7 +753,7 @@ extension TSCBasic.FileSystem {
   /// - Parameter file: The path to a file.
   /// - Throws: `SystemError` if the underlying `stat` operation fails.
   /// - Returns: A `Date` value containing the last modification time.
-  public func lastModificationTime(for file: VirtualPath) throws -> Date {
+  public func lastModificationTime(for file: VirtualPath) throws -> TimePoint {
     try resolvingVirtualPath(file) { path in
       #if canImport(Darwin)
       var s = Darwin.stat()
@@ -742,8 +761,8 @@ extension TSCBasic.FileSystem {
       guard err == 0 else {
         throw SystemError.stat(errno, path.pathString)
       }
-      let ti = (TimeInterval(s.st_mtimespec.tv_sec) - kCFAbsoluteTimeIntervalSince1970) + (1.0e-9 * TimeInterval(s.st_mtimespec.tv_nsec))
-      return Date(timeIntervalSinceReferenceDate: ti)
+      return TimePoint(seconds: UInt64(s.st_mtimespec.tv_sec),
+                       nanoseconds: UInt32(s.st_mtimespec.tv_nsec))
       #else
       // `getFileInfo` is going to ask Foundation to stat this path, and
       // Foundation is always going to use `lstat` to do so. This is going to
@@ -751,8 +770,26 @@ extension TSCBasic.FileSystem {
       // retrieve the mod time of the underlying file. This makes build systems
       // that regenerate lots of symlinks but do not otherwise alter the
       // contents of files - like Bazel - quite happy.
-      let path = resolveSymlinks(path)
-      return try localFileSystem.getFileInfo(path).modTime
+      let path = try resolveSymlinks(path)
+      #if os(Windows)
+      // The NT epoch is 1601, so we need to add a correction factor to bridge
+      // between Foundation.Date's insistence on using the Mac epoch time of
+      // 2001 as its reference date.
+      //
+      // This factor is a coarse approximation of the difference between
+      // (Jan 1, 1970 at midnight GMT) and (Jan 1, 1601 at midnight GMT).
+      //
+      // DO NOT RELY ON THIS VALUE
+      //
+      // This whole thing needs to be replaced by APIs that traffic in values
+      // derived from uncorrected Windows clocks.
+      let correction: TimeInterval = 11_644_473_600.0
+      let unixReferenceDate = try localFileSystem.getFileInfo(path).modTime.timeIntervalSince1970
+      let interval: TimeInterval = unixReferenceDate + correction
+      #else
+      let interval: TimeInterval = try localFileSystem.getFileInfo(path).modTime.timeIntervalSince1970
+      #endif
+      return TimePoint(seconds: UInt64(interval.rounded(.down)), nanoseconds: 0)
       #endif
     }
   }

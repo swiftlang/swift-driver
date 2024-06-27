@@ -13,7 +13,6 @@
 import XCTest
 @_spi(Testing) import SwiftDriver
 import TSCBasic
-import TSCUtility
 
 class DependencyGraphSerializationTests: XCTestCase, ModuleDependencyGraphMocker {
   static let maxIndex = 12
@@ -23,19 +22,20 @@ class DependencyGraphSerializationTests: XCTestCase, ModuleDependencyGraphMocker
   ///
   /// Ensure that a round-trip fails when the minor version number changes
   func testSerializedVersionChangeDetection() throws {
-    let mockPath = VirtualPath.absolute(AbsolutePath("/module-dependency-graph"))
+    let mockPath = VirtualPath.absolute(try AbsolutePath(validating: "/module-dependency-graph"))
     let fs = InMemoryFileSystem()
     let graph = Self.mockGraphCreator.mockUpAGraph()
     let currentVersion = ModuleDependencyGraph.serializedGraphVersion
     let alteredVersion = currentVersion.withAlteredMinor
+
     try graph.blockingConcurrentAccessOrMutation {
       try graph.write(
         to: mockPath,
         on: fs,
-        compilerVersion: "Swift 99",
+        buildRecord: graph.buildRecord,
         mockSerializedGraphVersion: alteredVersion)
     }
- 
+
     do {
       let outputFileMap = OutputFileMap.mock(maxIndex: Self.maxIndex)
       let info = IncrementalCompilationState.IncrementalDependencyAndInputSetup.mock(outputFileMap: outputFileMap, fileSystem: fs)
@@ -55,19 +55,21 @@ class DependencyGraphSerializationTests: XCTestCase, ModuleDependencyGraphMocker
   }
 
   func roundTrip(_ originalGraph: ModuleDependencyGraph) throws {
-    let mockPath = VirtualPath.absolute(AbsolutePath("/module-dependency-graph"))
+    let mockPath = VirtualPath.absolute(try AbsolutePath(validating: "/module-dependency-graph"))
     let fs = InMemoryFileSystem()
+    let outputFileMap = OutputFileMap.mock(maxIndex: Self.maxIndex)
+
     try originalGraph.blockingConcurrentMutation {
-      try originalGraph.write(to: mockPath, on: fs, compilerVersion: "Swift 99")
+      try originalGraph.write(
+        to: mockPath, on: fs,
+        buildRecord: originalGraph.buildRecord)
     }
 
-    let outputFileMap = OutputFileMap.mock(maxIndex: Self.maxIndex)
     let info = IncrementalCompilationState.IncrementalDependencyAndInputSetup.mock(outputFileMap: outputFileMap, fileSystem: fs)
-    let deserializedGraph =  try info.blockingConcurrentAccessOrMutation {
-      try ModuleDependencyGraph.read(from: mockPath,
-                                     info: info)!
+    let deserializedGraph = try info.blockingConcurrentAccessOrMutation {
+      try XCTUnwrap(ModuleDependencyGraph.read(from: mockPath, info: info))
     }
- 
+
     let descsToCompare = [originalGraph, deserializedGraph].map {
       graph -> (nodes: Set<String>, uses: [String: Set<String>], feds: Set<String>) in
       var nodes = Set<String>()
@@ -97,7 +99,7 @@ class DependencyGraphSerializationTests: XCTestCase, ModuleDependencyGraphMocker
         case reload(index: Int, nodes: [MockDependencyKind: [String]], fingerprint: String? = nil)
       }
     }
-    
+
     let fixtures: [GraphFixture] = [
       GraphFixture(commands: []),
       GraphFixture(commands: [

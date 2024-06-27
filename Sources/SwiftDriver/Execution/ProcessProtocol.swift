@@ -10,8 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
-import Foundation
+import class TSCBasic.Process
+import struct TSCBasic.ProcessResult
+
+import class Foundation.FileHandle
+import struct Foundation.Data
 
 /// Abstraction for functionality that allows working with subprocesses.
 public protocol ProcessProtocol {

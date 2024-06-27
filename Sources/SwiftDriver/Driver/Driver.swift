@@ -9,21 +9,52 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import TSCBasic
-import TSCUtility
-import Foundation
 import SwiftOptions
+
+import class Dispatch.DispatchQueue
+import class TSCBasic.DiagnosticsEngine
+import class TSCBasic.UnknownLocation
+import enum TSCBasic.ProcessEnv
+import func TSCBasic.withTemporaryDirectory
+import protocol TSCBasic.DiagnosticData
+import protocol TSCBasic.FileSystem
+import protocol TSCBasic.OutputByteStream
+import struct TSCBasic.AbsolutePath
+import struct TSCBasic.ByteString
+import struct TSCBasic.Diagnostic
+import struct TSCBasic.FileInfo
+import struct TSCBasic.RelativePath
+import var TSCBasic.localFileSystem
+import var TSCBasic.stderrStream
+import var TSCBasic.stdoutStream
+
+extension Driver {
+  /// Stub Error for terminating the process.
+  public enum ErrorDiagnostics: Swift.Error {
+    case emitted
+  }
+}
+
+extension Driver.ErrorDiagnostics: CustomStringConvertible {
+  public var description: String {
+    switch self {
+    case .emitted:
+      return "errors were encountered"
+    }
+  }
+}
+
 
 /// The Swift driver.
 public struct Driver {
   public enum Error: Swift.Error, Equatable, DiagnosticData {
+    case unknownOrMissingSubcommand(String)
     case invalidDriverName(String)
     case invalidInput(String)
     case noInputFiles
     case invalidArgumentValue(String, String)
     case relativeFrontendPath(String)
     case subcommandPassedToDriver
-    case externalTargetDetailsAPIError
     case integratedReplRemoved
     case cannotSpecify_OForMultipleOutputs
     case conflictingOptions(Option, Option)
@@ -47,6 +78,8 @@ public struct Driver {
 
     public var description: String {
       switch self {
+      case .unknownOrMissingSubcommand(let subcommand):
+        return "unknown or missing subcommand '\(subcommand)'"
       case .invalidDriverName(let driverName):
         return "invalid driver name: \(driverName)"
       case .invalidInput(let input):
@@ -60,8 +93,6 @@ public struct Driver {
         return "relative frontend path: \(path)"
       case .subcommandPassedToDriver:
         return "subcommand passed to driver"
-      case .externalTargetDetailsAPIError:
-        return "Cannot specify both: externalTargetModulePathMap and externalTargetModuleDetailsMap"
       case .integratedReplRemoved:
         return "Compiler-internal integrated REPL has been removed; use the LLDB-enhanced REPL instead."
       case .cannotSpecify_OForMultipleOutputs:
@@ -113,6 +144,12 @@ public struct Driver {
     }
   }
 
+  /// Specific implementation of a diagnostics output type that can be used when initializing a new `Driver`.
+  public enum DiagnosticsOutput {
+    case engine(DiagnosticsEngine)
+    case handler(DiagnosticsEngine.DiagnosticsHandler)
+  }
+
   /// The set of environment variables that are visible to the driver and
   /// processes it launches. This is a hook for testing; in actual use
   /// it should be identical to the real environment.
@@ -122,7 +159,7 @@ public struct Driver {
   public let integratedDriver: Bool
 
   /// The file system which we should interact with.
-  let fileSystem: FileSystem
+  @_spi(Testing) public let fileSystem: FileSystem
 
   /// Diagnostic engine for emitting warnings, errors, etc.
   public let diagnosticEngine: DiagnosticsEngine
@@ -172,7 +209,7 @@ public struct Driver {
   @_spi(Testing) public let inputFiles: [TypedVirtualPath]
 
   /// The last time each input file was modified, recorded at the start of the build.
-  @_spi(Testing) public let recordedInputModificationDates: [TypedVirtualPath: Date]
+  @_spi(Testing) public let recordedInputModificationDates: [TypedVirtualPath: TimePoint]
 
   /// The mapping from input files to output files for each kind.
   let outputFileMap: OutputFileMap?
@@ -183,8 +220,10 @@ public struct Driver {
   /// Should use file lists for inputs (number of inputs exceeds `fileListThreshold`).
   let shouldUseInputFileList: Bool
 
-  /// VirtualPath for shared all sources file list. `nil` if unused.
-  @_spi(Testing) public let allSourcesFileList: VirtualPath?
+  /// VirtualPath for shared all sources file list. `nil` if unused. This is used as a cache for
+  /// the file list computed during CompileJob creation and only holds valid to be query by tests
+  /// after planning to build.
+  @_spi(Testing) public var allSourcesFileList: VirtualPath? = nil
 
   /// The mode in which the compiler will execute.
   @_spi(Testing) public let compilerMode: CompilerMode
@@ -213,36 +252,68 @@ public struct Driver {
   /// The debug information to produce.
   @_spi(Testing) public let debugInfo: DebugInfo
 
-  // The information about the module to produce.
+  /// The information about the module to produce.
   @_spi(Testing) public let moduleOutputInfo: ModuleOutputInfo
+
+  /// Name of the package containing a target module or file.
+  @_spi(Testing) public let packageName: String?
 
   /// Info needed to write and maybe read the build record.
   /// Only present when the driver will be writing the record.
   /// Only used for reading when compiling incrementally.
   @_spi(Testing) public let buildRecordInfo: BuildRecordInfo?
 
-  /// A build-record-relative path to the location of a serialized copy of the
-  /// driver's dependency graph.
-  ///
-  /// FIXME: This is a little ridiculous. We could probably just replace the
-  /// build record outright with a serialized format.
-  var driverDependencyGraphPath: VirtualPath? {
-    guard let recordInfo = self.buildRecordInfo else {
-      return nil
-    }
-    let filename = recordInfo.buildRecordPath.basenameWithoutExt
-    return recordInfo
-      .buildRecordPath
-      .parentDirectory
-      .appending(component: filename + ".priors")
-  }
-  
   /// Whether to consider incremental compilation.
   let shouldAttemptIncrementalCompilation: Bool
-  
+
+  /// CAS/Caching related options.
+  let enableCaching: Bool
+  let useClangIncludeTree: Bool
+
+  /// CAS instance used for compilation.
+  @_spi(Testing) public var cas: SwiftScanCAS? = nil
+
+  /// Is swift caching enabled.
+  lazy var isCachingEnabled: Bool = {
+    return enableCaching && isFeatureSupported(.compilation_caching)
+  }()
+
+  /// Scanner prefix mapping.
+  let scannerPrefixMap: [AbsolutePath: AbsolutePath]
+  let scannerPrefixMapSDK: AbsolutePath?
+  let scannerPrefixMapToolchain: AbsolutePath?
+  lazy var prefixMapping: [(AbsolutePath, AbsolutePath)] = {
+    var mapping: [(AbsolutePath, AbsolutePath)] = scannerPrefixMap.map {
+      return ($0.key, $0.value)
+    }
+    do {
+      guard isFrontendArgSupported(.scannerPrefixMap) else {
+        return []
+      }
+      if let sdkMapping = scannerPrefixMapSDK,
+         let sdkPath = absoluteSDKPath {
+        mapping.append((sdkPath, sdkMapping))
+      }
+      if let toolchainMapping = scannerPrefixMapToolchain {
+        let toolchainPath = try toolchain.executableDir.parentDirectory // usr
+                                                       .parentDirectory // toolchain
+        mapping.append((toolchainPath, toolchainMapping))
+      }
+      // The mapping needs to be sorted so the mapping is determinisitic.
+      // The sorting order is reversed so /tmp/tmp is preferred over /tmp in remapping.
+      return mapping.sorted { $0.0 > $1.0 }
+    } catch {
+      return mapping.sorted { $0.0 > $1.0 }
+    }
+  }()
+
   /// Code & data for incremental compilation. Nil if not running in incremental mode.
   /// Set during planning because needs the jobs to look at outputs.
   @_spi(Testing) public private(set) var incrementalCompilationState: IncrementalCompilationState? = nil
+
+  /// Nil if not running in explicit module build mode.
+  /// Set during planning.
+  var interModuleDependencyGraph: InterModuleDependencyGraph? = nil
 
   /// The path of the SDK.
   public var absoluteSDKPath: AbsolutePath? {
@@ -254,8 +325,7 @@ public struct Driver {
     case .absolute(let path):
       return path
     case .relative(let path):
-      let cwd = workingDirectory ?? fileSystem.currentWorkingDirectory
-      return cwd.map { AbsolutePath($0, path) }
+      return workingDirectory.map { AbsolutePath($0, path) }
     case .standardInput, .standardOutput, .temporary, .temporaryWithKnownContents, .fileList:
       fatalError("Frontend target information will never include a path of this type.")
     }
@@ -265,16 +335,32 @@ public struct Driver {
   let importedObjCHeader: VirtualPath.Handle?
 
   /// The path to the pch for the imported Objective-C header.
-  let bridgingPrecompiledHeader: VirtualPath.Handle?
+  lazy var bridgingPrecompiledHeader: VirtualPath.Handle? = {
+    let contextHash = try? explicitDependencyBuildPlanner?.getMainModuleContextHash()
+    return Self.computeBridgingPrecompiledHeader(&parsedOptions,
+                                                 compilerMode: compilerMode,
+                                                 importedObjCHeader: importedObjCHeader,
+                                                 outputFileMap: outputFileMap,
+                                                 contextHash: contextHash)
+  }()
 
   /// Path to the dependencies file.
   let dependenciesFilePath: VirtualPath.Handle?
-  
+
   /// Path to the references dependencies file.
   let referenceDependenciesPath: VirtualPath.Handle?
 
   /// Path to the serialized diagnostics file.
   let serializedDiagnosticsFilePath: VirtualPath.Handle?
+
+  /// Path to the serialized diagnostics file of the emit-module task.
+  let emitModuleSerializedDiagnosticsFilePath: VirtualPath.Handle?
+
+  /// Path to the discovered dependencies file of the emit-module task.
+  let emitModuleDependenciesFilePath: VirtualPath.Handle?
+
+  /// Path to emitted compile-time-known values.
+  let constValuesFilePath: VirtualPath.Handle?
 
   /// Path to the Objective-C generated header.
   let objcGeneratedHeaderPath: VirtualPath.Handle?
@@ -294,6 +380,9 @@ public struct Driver {
   /// Path to the Swift private interface file.
   let swiftPrivateInterfacePath: VirtualPath.Handle?
 
+  /// Path to the Swift package interface file.
+  let swiftPackageInterfacePath: VirtualPath.Handle?
+
   /// File type for the optimization record.
   let optimizationRecordFileType: FileType?
 
@@ -305,6 +394,9 @@ public struct Driver {
 
   /// Path to the module's digester baseline file.
   let digesterBaselinePath: VirtualPath.Handle?
+
+  /// Path to the emitted API descriptor file.
+  let apiDescriptorFilePath: VirtualPath.Handle?
 
   /// The mode the API digester should run in.
   let digesterMode: DigesterMode
@@ -329,6 +421,9 @@ public struct Driver {
   /// A collection of all the flags the selected toolchain's `swift-frontend` supports
   public let supportedFrontendFlags: Set<String>
 
+  /// A list of unknown driver flags that are recognizable to `swift-frontend`
+  public let savedUnknownDriverFlagsForSwiftFrontend: [String]
+
   /// A collection of all the features the selected toolchain's `swift-frontend` supports
   public let supportedFrontendFeatures: Set<String>
 
@@ -338,6 +433,7 @@ public struct Driver {
   @_spi(Testing)
   public enum KnownCompilerFeature: String {
     case emit_abi_descriptor = "emit-abi-descriptor"
+    case compilation_caching = "compilation-caching"
   }
 
   lazy var sdkPath: VirtualPath? = {
@@ -360,17 +456,24 @@ public struct Driver {
     guard isFeatureSupported(.emit_abi_descriptor) else {
       return nil
     }
+    // Emit the descriptor only on platforms where Library Evolution is supported,
+    // or opted-into explicitly.
+    guard targetTriple.isDarwin || parsedOptions.hasArgument(.enableLibraryEvolution) else {
+      return nil
+    }
     guard let moduleOutput = moduleOutputInfo.output else {
       return nil
     }
-    return TypedVirtualPath(file: VirtualPath.lookup(moduleOutput.outputPath)
-      .replacingExtension(with: .jsonABIBaseline).intern(), type: .jsonABIBaseline)
+    guard let path = try? VirtualPath.lookup(moduleOutput.outputPath).replacingExtension(with: .jsonABIBaseline) else {
+      return nil
+    }
+    return TypedVirtualPath(file: path.intern(), type: .jsonABIBaseline)
   }()
 
-  public func isFrontendArgSupported(_ opt: Option) -> Bool {
-    var current = opt.spelling
+  public static func isOptionFound(_ opt: String, allOpts: Set<String>) -> Bool {
+    var current = opt
     while(true) {
-      if supportedFrontendFlags.contains(current) {
+      if allOpts.contains(current) {
         return true
       }
       if current.starts(with: "-") {
@@ -381,9 +484,47 @@ public struct Driver {
     }
   }
 
+  public func isFrontendArgSupported(_ opt: Option) -> Bool {
+    return Driver.isOptionFound(opt.spelling, allOpts: supportedFrontendFlags)
+  }
+
   @_spi(Testing)
   public func isFeatureSupported(_ feature: KnownCompilerFeature) -> Bool {
     return supportedFrontendFeatures.contains(feature.rawValue)
+  }
+
+  public func getSwiftScanLibPath() throws -> AbsolutePath? {
+    return try toolchain.lookupSwiftScanLib()
+  }
+
+  @_spi(Testing)
+  public static func findBlocklists(RelativeTo execDir: AbsolutePath) throws ->  [AbsolutePath] {
+    // Expect to find all blocklists in such dir:
+    // .../XcodeDefault.xctoolchain/usr/local/lib/swift/blocklists
+    var results: [AbsolutePath] = []
+    let blockListDir = execDir.parentDirectory
+      .appending(components: "local", "lib", "swift", "blocklists")
+    if (localFileSystem.exists(blockListDir)) {
+      try localFileSystem.getDirectoryContents(blockListDir).forEach {
+        let currentFile = AbsolutePath(blockListDir, try VirtualPath(path: $0).relativePath!)
+        if currentFile.extension == "yml" || currentFile.extension == "yaml" {
+          results.append(currentFile)
+        }
+      }
+    }
+    return results
+  }
+
+  @_spi(Testing)
+  public static func findCompilerClientsConfigVersion(RelativeTo execDir: AbsolutePath) throws -> String? {
+    // Expect to find all blocklists in such dir:
+    // .../XcodeDefault.xctoolchain/usr/local/lib/swift/compilerClientsConfig_version.txt
+    let versionFilePath = execDir.parentDirectory
+      .appending(components: "local", "lib", "swift", "compilerClientsConfig_version.txt")
+    if (localFileSystem.exists(versionFilePath)) {
+      return try localFileSystem.readFileContents(versionFilePath).cString
+    }
+    return nil
   }
 
   /// Handler for emitting diagnostics to stderr.
@@ -391,25 +532,50 @@ public struct Driver {
     stdErrQueue.sync {
       let stream = stderrStream
       if !(diagnostic.location is UnknownLocation) {
-          stream <<< diagnostic.location.description <<< ": "
+          stream.send("\(diagnostic.location.description): ")
       }
 
       switch diagnostic.message.behavior {
       case .error:
-        stream <<< "error: "
+        stream.send("error: ")
       case .warning:
-        stream <<< "warning: "
+        stream.send("warning: ")
       case .note:
-        stream <<< "note: "
+        stream.send("note: ")
       case .remark:
-        stream <<< "remark: "
+        stream.send("remark: ")
       case .ignored:
           break
       }
 
-      stream <<< diagnostic.localizedDescription <<< "\n"
+      stream.send("\(diagnostic.localizedDescription)\n")
       stream.flush()
     }
+  }
+
+  @available(*, deprecated, renamed: "init(args:env:diagnosticsOutput:fileSystem:executor:integratedDriver:compilerExecutableDir:externalTargetModuleDetailsMap:interModuleDependencyOracle:)")
+  public init(
+    args: [String],
+    env: [String: String] = ProcessEnv.vars,
+    diagnosticsEngine: DiagnosticsEngine,
+    fileSystem: FileSystem = localFileSystem,
+    executor: DriverExecutor,
+    integratedDriver: Bool = true,
+    compilerExecutableDir: AbsolutePath? = nil,
+    externalTargetModuleDetailsMap: ExternalTargetModuleDetailsMap? = nil,
+    interModuleDependencyOracle: InterModuleDependencyOracle? = nil
+  ) throws {
+    try self.init(
+      args: args,
+      env: env,
+      diagnosticsOutput: .engine(diagnosticsEngine),
+      fileSystem: fileSystem,
+      executor: executor,
+      integratedDriver: integratedDriver,
+      compilerExecutableDir: compilerExecutableDir,
+      externalTargetModuleDetailsMap: externalTargetModuleDetailsMap,
+      interModuleDependencyOracle: interModuleDependencyOracle
+    )
   }
 
   /// Create the driver with the given arguments.
@@ -418,7 +584,7 @@ public struct Driver {
   ///   at the beginning.
   /// - Parameter env: The environment variables to use. This is a hook for testing;
   ///   in production, you should use the default argument, which copies the current environment.
-  /// - Parameter diagnosticsEngine: The diagnotic engine used by the driver to emit errors
+  /// - Parameter diagnosticsOutput: The diagnostics output implementation used by the driver to emit errors
   ///   and warnings.
   /// - Parameter fileSystem: The filesystem used by the driver to find resources/SDKs,
   ///   expand response files, etc. By default this is the local filesystem.
@@ -428,8 +594,6 @@ public struct Driver {
   ///   an executable or as a library.
   /// - Parameter compilerExecutableDir: Directory that contains the compiler executable to be used.
   ///   Used when in `integratedDriver` mode as a substitute for the driver knowing its executable path.
-  /// - Parameter externalTargetModulePathMap: DEPRECATED: A dictionary of external targets
-  ///   that are a part of the same build, mapping to filesystem paths of their module files.
   /// - Parameter externalTargetModuleDetailsMap: A dictionary of external targets that are a part of
   ///   the same build, mapping to a details value which includes a filesystem path of their
   ///   `.swiftmodule` and a flag indicating whether the external target is a framework.
@@ -438,13 +602,11 @@ public struct Driver {
   public init(
     args: [String],
     env: [String: String] = ProcessEnv.vars,
-    diagnosticsEngine: DiagnosticsEngine = DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler]),
+    diagnosticsOutput: DiagnosticsOutput = .engine(DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler])),
     fileSystem: FileSystem = localFileSystem,
     executor: DriverExecutor,
     integratedDriver: Bool = true,
     compilerExecutableDir: AbsolutePath? = nil,
-    // Deprecated in favour of the below `externalTargetModuleDetailsMap`
-    externalTargetModulePathMap: ExternalTargetModulePathMap? = nil,
     externalTargetModuleDetailsMap: ExternalTargetModuleDetailsMap? = nil,
     interModuleDependencyOracle: InterModuleDependencyOracle? = nil
   ) throws {
@@ -452,19 +614,17 @@ public struct Driver {
     self.fileSystem = fileSystem
     self.integratedDriver = integratedDriver
 
+    let diagnosticsEngine: DiagnosticsEngine
+    switch diagnosticsOutput {
+    case .engine(let engine):
+      diagnosticsEngine = engine
+    case .handler(let handler):
+      diagnosticsEngine = DiagnosticsEngine(handlers: [handler])
+    }
     self.diagnosticEngine = diagnosticsEngine
-    self.executor = executor
 
-    if externalTargetModulePathMap != nil && externalTargetModuleDetailsMap != nil {
-      throw Error.externalTargetDetailsAPIError
-    }
-    if let externalTargetPaths = externalTargetModulePathMap {
-      self.externalTargetModuleDetailsMap = externalTargetPaths.mapValues {
-        ExternalTargetModuleDetails(path: $0, isFramework: false)
-      }
-    } else if let externalTargetDetails = externalTargetModuleDetailsMap {
-      self.externalTargetModuleDetailsMap = externalTargetDetails
-    }
+    self.executor = executor
+    self.externalTargetModuleDetailsMap = externalTargetModuleDetailsMap
 
     if case .subcommand = try Self.invocationRunMode(forArgs: args).mode {
       throw Error.subcommandPassedToDriver
@@ -478,7 +638,7 @@ public struct Driver {
 
     self.driverKind = try Self.determineDriverKind(args: &args)
     self.optionTable = OptionTable()
-    self.parsedOptions = try optionTable.parse(Array(args), for: self.driverKind)
+    self.parsedOptions = try optionTable.parse(Array(args), for: self.driverKind, delayThrows: true)
     self.showJobLifecycle = parsedOptions.contains(.driverShowJobLifecycle)
 
     // Determine the compilation mode.
@@ -489,10 +649,10 @@ public struct Driver {
                                                                                         compilerMode: compilerMode)
 
     // Compute the working directory.
+    let cwd = fileSystem.currentWorkingDirectory
     workingDirectory = try parsedOptions.getLastArgument(.workingDirectory).map { workingDirectoryArg in
-      let cwd = fileSystem.currentWorkingDirectory
-      return try cwd.map{ AbsolutePath(workingDirectoryArg.asSingle, relativeTo: $0) } ?? AbsolutePath(validating: workingDirectoryArg.asSingle)
-    }
+      return try cwd.map{ try AbsolutePath(validating: workingDirectoryArg.asSingle, relativeTo: $0) } ?? AbsolutePath(validating: workingDirectoryArg.asSingle)
+    } ?? cwd
 
     // Apply the working directory to the parsed options.
     if let workingDirectory = self.workingDirectory {
@@ -514,16 +674,19 @@ public struct Driver {
           compilerMode: self.compilerMode, env: env,
           executor: self.executor, fileSystem: fileSystem,
           useStaticResourceDir: self.useStaticResourceDir,
+          workingDirectory: self.workingDirectory,
           compilerExecutableDir: compilerExecutableDir)
 
     // Compute the host machine's triple
     self.hostTriple =
       try Self.computeHostTriple(&self.parsedOptions, diagnosticsEngine: diagnosticEngine,
                                  toolchain: self.toolchain, executor: self.executor,
+                                 fileSystem: fileSystem,
+                                 workingDirectory: self.workingDirectory,
                                  swiftCompilerPrefixArgs: self.swiftCompilerPrefixArgs)
 
     // Classify and collect all of the input files.
-    let inputFiles = try Self.collectInputFiles(&self.parsedOptions, diagnosticsEngine: diagnosticsEngine)
+    let inputFiles = try Self.collectInputFiles(&self.parsedOptions, diagnosticsEngine: diagnosticsEngine, fileSystem: self.fileSystem)
     self.inputFiles = inputFiles
     self.recordedInputModificationDates = .init(uniqueKeysWithValues:
       Set(inputFiles).compactMap {
@@ -564,17 +727,12 @@ public struct Driver {
 
     self.fileListThreshold = try Self.computeFileListThreshold(&self.parsedOptions, diagnosticsEngine: diagnosticsEngine)
     self.shouldUseInputFileList = inputFiles.count > fileListThreshold
-    if shouldUseInputFileList {
-      let swiftInputs = inputFiles.filter(\.type.isPartOfSwiftCompilation)
-      self.allSourcesFileList = VirtualPath.createUniqueFilelist(RelativePath("sources"),
-                                                                 .list(swiftInputs.map(\.file)))
-    } else {
-      self.allSourcesFileList = nil
-    }
 
     self.lto = Self.ltoKind(&parsedOptions, diagnosticsEngine: diagnosticsEngine)
     // Figure out the primary outputs from the driver.
-    (self.compilerOutputType, self.linkerOutputType) = Self.determinePrimaryOutputs(&parsedOptions, driverKind: driverKind, diagnosticsEngine: diagnosticEngine)
+    (self.compilerOutputType, self.linkerOutputType) = 
+      Self.determinePrimaryOutputs(&parsedOptions, targetTriple: self.frontendTargetInfo.target.triple, 
+                                   driverKind: driverKind, diagnosticsEngine: diagnosticEngine)
 
     // Multithreading.
     self.numThreads = Self.determineNumThreads(&parsedOptions, compilerMode: compilerMode, diagnosticsEngine: diagnosticEngine)
@@ -585,7 +743,8 @@ public struct Driver {
       if let digesterMode = DigesterMode(rawValue: modeArg) {
         mode = digesterMode
       } else {
-        diagnosticsEngine.emit(Error.invalidArgumentValue(Option.digesterMode.spelling, modeArg))
+        diagnosticsEngine.emit(.error(Error.invalidArgumentValue(Option.digesterMode.spelling, modeArg)),
+                               location: nil)
       }
     }
     self.digesterMode = mode
@@ -595,6 +754,8 @@ public struct Driver {
                                fileSystem: fileSystem,
                                workingDirectory: workingDirectory,
                                diagnosticEngine: diagnosticEngine)
+    Self.validateEmitDependencyGraphArgs(&parsedOptions, diagnosticEngine: diagnosticEngine)
+    Self.validateValidateClangModulesOnceOptions(&parsedOptions, diagnosticEngine: diagnosticEngine)
     Self.validateParseableOutputArgs(&parsedOptions, diagnosticEngine: diagnosticEngine)
     Self.validateCompilationConditionArgs(&parsedOptions, diagnosticEngine: diagnosticEngine)
     Self.validateFrameworkSearchPathArgs(&parsedOptions, diagnosticEngine: diagnosticEngine)
@@ -603,10 +764,22 @@ public struct Driver {
     try toolchain.validateArgs(&parsedOptions,
                                targetTriple: self.frontendTargetInfo.target.triple,
                                targetVariantTriple: self.frontendTargetInfo.targetVariant?.triple,
+                               compilerOutputType: self.compilerOutputType,
                                diagnosticsEngine: diagnosticEngine)
 
     // Compute debug information output.
-    self.debugInfo = Self.computeDebugInfo(&parsedOptions, diagnosticsEngine: diagnosticEngine)
+    let defaultDwarfVersion = self.toolchain.getDefaultDwarfVersion(targetTriple: self.frontendTargetInfo.target.triple)
+    self.debugInfo = Self.computeDebugInfo(&parsedOptions,
+                                           defaultDwarfVersion: defaultDwarfVersion,
+                                           diagnosticsEngine: diagnosticEngine)
+
+    // Error if package-name is passed but the input is empty; if
+    // package-name is not passed but `package` decls exist, error
+    // will occur during the frontend type check.
+    self.packageName = parsedOptions.getLastArgument(.packageName)?.asSingle
+    if let packageName = packageName, packageName.isEmpty {
+      diagnosticsEngine.emit(.error_empty_package_name)
+    }
 
     // Determine the module we're building and whether/how the module file itself will be emitted.
     self.moduleOutputInfo = try Self.computeModuleInfo(
@@ -624,7 +797,7 @@ public struct Driver {
     self.buildRecordInfo = BuildRecordInfo(
       actualSwiftVersion: self.frontendTargetInfo.compilerVersion,
       compilerOutputType: compilerOutputType,
-      workingDirectory: self.workingDirectory ?? fileSystem.currentWorkingDirectory,
+      workingDirectory: self.workingDirectory,
       diagnosticEngine: diagnosticEngine,
       fileSystem: fileSystem,
       moduleOutputInfo: moduleOutputInfo,
@@ -634,18 +807,52 @@ public struct Driver {
       recordedInputModificationDates: recordedInputModificationDates)
 
     self.importedObjCHeader = try Self.computeImportedObjCHeader(&parsedOptions, compilerMode: compilerMode, diagnosticEngine: diagnosticEngine)
-    self.bridgingPrecompiledHeader = try Self.computeBridgingPrecompiledHeader(&parsedOptions,
-                                                                               compilerMode: compilerMode,
-                                                                               importedObjCHeader: importedObjCHeader,
-                                                                               outputFileMap: outputFileMap)
 
     self.supportedFrontendFlags =
-      try Self.computeSupportedCompilerArgs(of: self.toolchain, hostTriple: self.hostTriple,
-                                                parsedOptions: &self.parsedOptions,
-                                                diagnosticsEngine: diagnosticEngine,
-                                                fileSystem: fileSystem, executor: executor,
-                                                env: env)
+      try Self.computeSupportedCompilerArgs(of: self.toolchain,
+                                            parsedOptions: &self.parsedOptions,
+                                            diagnosticsEngine: diagnosticEngine,
+                                            fileSystem: fileSystem,
+                                            executor: executor)
+    let supportedFrontendFlagsLocal = self.supportedFrontendFlags
+    self.savedUnknownDriverFlagsForSwiftFrontend = try self.parsedOptions.saveUnknownFlags {
+      Driver.isOptionFound($0, allOpts: supportedFrontendFlagsLocal)
+    }
+    self.savedUnknownDriverFlagsForSwiftFrontend.forEach {
+      diagnosticsEngine.emit(.warning("save unknown driver flag \($0) as additional swift-frontend flag"),
+                             location: nil)
+    }
     self.supportedFrontendFeatures = try Self.computeSupportedCompilerFeatures(of: self.toolchain, env: env)
+
+    // Caching options.
+    let cachingEnabled = parsedOptions.hasArgument(.cacheCompileJob) || env.keys.contains("SWIFT_ENABLE_CACHING")
+    if cachingEnabled {
+      if !parsedOptions.hasArgument(.driverExplicitModuleBuild) {
+        diagnosticsEngine.emit(.warning("-cache-compile-job cannot be used without explicit module build, turn off caching"),
+                               location: nil)
+        self.enableCaching = false
+      } else if importedObjCHeader != nil, !parsedOptions.hasFlag(positive: .enableBridgingPch, negative: .disableBridgingPch, default: true) {
+        diagnosticsEngine.emit(.warning("-cache-compile-job cannot be used with -disable-bridging-pch, turn off caching"),
+                               location: nil)
+        self.enableCaching = false
+      } else {
+        self.enableCaching = true
+      }
+    } else {
+      self.enableCaching = false
+    }
+    self.useClangIncludeTree = !parsedOptions.hasArgument(.noClangIncludeTree) && !env.keys.contains("SWIFT_CACHING_USE_CLANG_CAS_FS")
+    self.scannerPrefixMap = try Self.computeScanningPrefixMapper(&parsedOptions)
+    if let sdkMapping =  parsedOptions.getLastArgument(.scannerPrefixMapSdk)?.asSingle {
+      self.scannerPrefixMapSDK = try AbsolutePath(validating: sdkMapping)
+    } else {
+      self.scannerPrefixMapSDK = nil
+    }
+    if let toolchainMapping = parsedOptions.getLastArgument(.scannerPrefixMapToolchain)?.asSingle {
+      self.scannerPrefixMapToolchain = try AbsolutePath(validating: toolchainMapping)
+    } else {
+      self.scannerPrefixMapToolchain = nil
+    }
 
     self.enabledSanitizers = try Self.parseSanitizerArgValues(
       &parsedOptions,
@@ -654,7 +861,9 @@ public struct Driver {
       targetInfo: frontendTargetInfo)
 
     Self.validateSanitizerAddressUseOdrIndicatorFlag(&parsedOptions, diagnosticEngine: diagnosticsEngine, addressSanitizerEnabled: enabledSanitizers.contains(.address))
-    
+
+    Self.validateSanitizeStableABI(&parsedOptions, diagnosticEngine: diagnosticsEngine, addressSanitizerEnabled: enabledSanitizers.contains(.address))
+
     Self.validateSanitizerRecoverArgValues(&parsedOptions, diagnosticEngine: diagnosticsEngine, enabledSanitizers: enabledSanitizers)
 
     Self.validateSanitizerCoverageArgs(&parsedOptions,
@@ -681,6 +890,30 @@ public struct Driver {
     self.serializedDiagnosticsFilePath = try Self.computeSupplementaryOutputPath(
         &parsedOptions, type: .diagnostics, isOutputOptions: [.serializeDiagnostics],
         outputPath: .serializeDiagnosticsPath,
+        compilerOutputType: compilerOutputType,
+        compilerMode: compilerMode,
+        emitModuleSeparately: emitModuleSeparately,
+        outputFileMap: self.outputFileMap,
+        moduleName: moduleOutputInfo.name)
+    self.emitModuleSerializedDiagnosticsFilePath = try Self.computeSupplementaryOutputPath(
+        &parsedOptions, type: .emitModuleDiagnostics, isOutputOptions: [.serializeDiagnostics],
+        outputPath: .emitModuleSerializeDiagnosticsPath,
+        compilerOutputType: compilerOutputType,
+        compilerMode: compilerMode,
+        emitModuleSeparately: emitModuleSeparately,
+        outputFileMap: self.outputFileMap,
+        moduleName: moduleOutputInfo.name)
+    self.emitModuleDependenciesFilePath = try Self.computeSupplementaryOutputPath(
+        &parsedOptions, type: .emitModuleDependencies, isOutputOptions: [.emitDependencies],
+        outputPath: .emitModuleDependenciesPath,
+        compilerOutputType: compilerOutputType,
+        compilerMode: compilerMode,
+        emitModuleSeparately: emitModuleSeparately,
+        outputFileMap: self.outputFileMap,
+        moduleName: moduleOutputInfo.name)
+    self.constValuesFilePath = try Self.computeSupplementaryOutputPath(
+        &parsedOptions, type: .swiftConstValues, isOutputOptions: [.emitConstValues],
+        outputPath: .emitConstValuesPath,
         compilerOutputType: compilerOutputType,
         compilerMode: compilerMode,
         emitModuleSeparately: emitModuleSeparately,
@@ -752,7 +985,7 @@ public struct Driver {
         emitModuleSeparately: emitModuleSeparately,
         outputFileMap: self.outputFileMap,
         moduleName: moduleOutputInfo.name)
-    self.swiftPrivateInterfacePath = try Self.computeSupplementaryOutputPath(
+    let givenPrivateInterfacePath = try Self.computeSupplementaryOutputPath(
         &parsedOptions, type: .privateSwiftInterface, isOutputOptions: [],
         outputPath: .emitPrivateModuleInterfacePath,
         compilerOutputType: compilerOutputType,
@@ -760,6 +993,43 @@ public struct Driver {
         emitModuleSeparately: emitModuleSeparately,
         outputFileMap: self.outputFileMap,
         moduleName: moduleOutputInfo.name)
+    let givenPackageInterfacePath = try Self.computeSupplementaryOutputPath(
+        &parsedOptions, type: .packageSwiftInterface, isOutputOptions: [],
+        outputPath: .emitPackageModuleInterfacePath,
+        compilerOutputType: compilerOutputType,
+        compilerMode: compilerMode,
+        emitModuleSeparately: emitModuleSeparately,
+        outputFileMap: self.outputFileMap,
+        moduleName: moduleOutputInfo.name)
+
+    // Always emitting private swift interfaces if public interfaces are emitted.'
+    // With the introduction of features like @_spi_available, we may print public
+    // and private interfaces differently even from the same codebase. For this reason,
+    // we should always print private interfaces so that we don’t mix the public interfaces
+    // with private Clang modules.
+    if let swiftInterfacePath = self.swiftInterfacePath,
+        givenPrivateInterfacePath == nil {
+      self.swiftPrivateInterfacePath = try VirtualPath.lookup(swiftInterfacePath)
+        .replacingExtension(with: .privateSwiftInterface).intern()
+    } else {
+      self.swiftPrivateInterfacePath = givenPrivateInterfacePath
+    }
+
+    if let packageNameInput = parsedOptions.getLastArgument(Option.packageName),
+        !packageNameInput.asSingle.isEmpty {
+      // Generate a package interface if built with `-package-name` required for decls
+      // with the `package` access level. The .package.swiftinterface contains package
+      // decls as well as SPI and public decls (superset of a private interface).
+      if let publicInterfacePath = self.swiftInterfacePath,
+         givenPackageInterfacePath == nil {
+        self.swiftPackageInterfacePath = try VirtualPath.lookup(publicInterfacePath)
+          .replacingExtension(with: .packageSwiftInterface).intern()
+      } else {
+        self.swiftPackageInterfacePath = givenPackageInterfacePath
+      }
+    } else {
+      self.swiftPackageInterfacePath = nil
+    }
 
     var optimizationRecordFileType = FileType.yamlOptimizationRecord
     if let argument = parsedOptions.getLastArgument(.saveOptimizationRecordEQ)?.asSingle {
@@ -783,6 +1053,27 @@ public struct Driver {
         emitModuleSeparately: emitModuleSeparately,
         outputFileMap: self.outputFileMap,
         moduleName: moduleOutputInfo.name)
+
+    var apiDescriptorDirectory: VirtualPath? = nil
+    if let apiDescriptorDirectoryEnvVar = env["TAPI_SDKDB_OUTPUT_PATH"] {
+        apiDescriptorDirectory = try VirtualPath(path: apiDescriptorDirectoryEnvVar)
+    } else if let ldTraceFileEnvVar = env["LD_TRACE_FILE"] {
+        apiDescriptorDirectory = try VirtualPath(path: ldTraceFileEnvVar).parentDirectory.appending(component: "SDKDB")
+    }
+    if let apiDescriptorDirectory = apiDescriptorDirectory {
+        self.apiDescriptorFilePath = apiDescriptorDirectory
+          .appending(component: "\(moduleOutputInfo.name).\(frontendTargetInfo.target.moduleTriple.triple).swift.sdkdb")
+          .intern()
+    } else {
+        self.apiDescriptorFilePath = try Self.computeSupplementaryOutputPath(
+            &parsedOptions, type: .jsonAPIDescriptor, isOutputOptions: [],
+            outputPath: .emitApiDescriptorPath,
+            compilerOutputType: compilerOutputType,
+            compilerMode: compilerMode,
+            emitModuleSeparately: emitModuleSeparately,
+            outputFileMap: self.outputFileMap,
+            moduleName: moduleOutputInfo.name)
+    }
 
     Self.validateDigesterArgs(&parsedOptions,
                               moduleOutputInfo: moduleOutputInfo,
@@ -870,7 +1161,8 @@ extension Driver {
                               diagnosticsEngine: DiagnosticsEngine) -> LTOKind? {
     guard let arg = parsedOptions.getLastArgument(.lto)?.asSingle else { return nil }
     guard let kind = LTOKind(rawValue: arg) else {
-      diagnosticsEngine.emit(.error_invalid_arg_value(arg: .lto, value: arg))
+      diagnosticsEngine.emit(.error_invalid_arg_value_with_allowed(
+        arg: .lto, value: arg, options: LTOKind.allCases.map { $0.rawValue }))
       return nil
     }
     return kind
@@ -894,7 +1186,8 @@ extension Driver {
         shouldComplain = self.inputFiles.filter { $0.type.isPartOfSwiftCompilation }.count > 1 && .singleCompile != compilerMode
       }
       if shouldComplain {
-        diagnosticEngine.emit(Error.cannotSpecify_OForMultipleOutputs)
+        diagnosticEngine.emit(.error(Error.cannotSpecify_OForMultipleOutputs),
+                              location: nil)
       }
     }
   }
@@ -968,15 +1261,114 @@ extension Driver {
     return tokens
   }
 
+  // https://docs.microsoft.com/en-us/previous-versions//17w5ykft(v=vs.85)?redirectedfrom=MSDN
+  private static func tokenizeWindowsResponseFile(_ content: String) -> [String] {
+    let whitespace: [Character] = [" ", "\t", "\r", "\n", "\0" ]
+
+    var content = content
+    var tokens: [String] = []
+    var token: String = ""
+    var quoted: Bool = false
+
+    while !content.isEmpty {
+      // Eat whitespace at the beginning
+      if token.isEmpty {
+        if let end = content.firstIndex(where: { !whitespace.contains($0) }) {
+          let count = content.distance(from: content.startIndex, to: end)
+          content.removeFirst(count)
+        }
+
+        // Stop if this was trailing whitespace.
+        if content.isEmpty { break }
+      }
+
+      // Treat whitespace, double quotes, and backslashes as special characters.
+      if let next = content.firstIndex(where: { (quoted ? ["\\", "\""] : [" ", "\t", "\r", "\n", "\0", "\\", "\""]).contains($0) }) {
+        let count = content.distance(from: content.startIndex, to: next)
+        token.append(contentsOf: content[..<next])
+        content.removeFirst(count)
+
+        switch content.first {
+        case " ", "\t", "\r", "\n", "\0":
+          tokens.append(token)
+          token = ""
+          content.removeFirst(1)
+
+        case "\\":
+          // Backslashes are interpreted in a special manner due to use as both
+          // a path separator and an escape character.  Consume runs of
+          // backslashes and following double quote if escaped.
+          //
+          //  - If an even number of backslashes is followed by a double quote,
+          //  one backslash is emitted for each pair, and the last double quote
+          //  remains unconsumed.  The quote will be processed as the start or
+          //  end of a quoted string by the tokenizer.
+          //
+          //  - If an odd number of backslashes is followed by a double quote,
+          //  one backslash is emitted for each pair, and a double quote is
+          //  emitted for the trailing backslash and quote pair.  The double
+          //  quote is consumed.
+          //
+          //  - Otherwise, backslashes are treated literally.
+          if let next = content.firstIndex(where: { $0 != "\\" }) {
+            let count = content.distance(from: content.startIndex, to: next)
+            if content[next] == "\"" {
+              token.append(String(repeating: "\\", count: count / 2))
+              content.removeFirst(count)
+
+              if count % 2 != 0 {
+                token.append("\"")
+                content.removeFirst(1)
+              }
+            } else {
+              token.append(String(repeating: "\\", count: count))
+              content.removeFirst(count)
+            }
+          } else {
+            token.append(String(repeating: "\\", count: content.count))
+            content.removeFirst(content.count)
+          }
+
+        case "\"":
+          content.removeFirst(1)
+
+          if quoted, content.first == "\"" {
+            // Consecutive double quotes inside a quoted string implies one quote
+            token.append("\"")
+            content.removeFirst(1)
+          }
+
+          quoted.toggle()
+
+        default:
+          fatalError("unexpected character '\(content.first!)'")
+        }
+      } else {
+        // Consume to end of content.
+        token.append(content)
+        content.removeFirst(content.count)
+        break
+      }
+    }
+
+    if !token.isEmpty { tokens.append(token) }
+    return tokens.filter { !$0.isEmpty }
+  }
+
   /// Tokenize each line of the response file, omitting empty lines.
   ///
   /// - Parameter content: response file's content to be tokenized.
   private static func tokenizeResponseFile(_ content: String) -> [String] {
-    #if !canImport(Darwin) && !os(Linux) && !os(Android) && !os(OpenBSD)
+    #if !canImport(Darwin) && !os(Linux) && !os(Android) && !os(OpenBSD) && !os(Windows)
       #warning("Response file tokenization unimplemented for platform; behavior may be incorrect")
     #endif
+#if os(Windows)
     return content.split { $0 == "\n" || $0 == "\r\n" }
-           .flatMap { tokenizeResponseFileLine($0) }
+                  .flatMap { tokenizeWindowsResponseFile(String($0)) }
+#else
+    return content.split { $0 == "\n" || $0 == "\r\n" }
+                  .flatMap { tokenizeResponseFileLine($0) }
+#endif
   }
 
   /// Resolves the absolute path for a response file.
@@ -999,7 +1391,10 @@ extension Driver {
   ) -> AbsolutePath? {
     let responseFile: AbsolutePath
     if let basePath = basePath {
-      responseFile = AbsolutePath(path, relativeTo: basePath)
+      guard let absolutePath = try? AbsolutePath(validating: path, relativeTo: basePath) else {
+          return nil
+      }
+      responseFile = absolutePath
     } else {
       guard let absolutePath = try? AbsolutePath(validating: path) else {
         return nil
@@ -1063,7 +1458,7 @@ extension Driver {
   }
 
   /// Expand response files in the input arguments and return a new argument list.
-  @_spi(Testing) public static func expandResponseFiles(
+  public static func expandResponseFiles(
     _ args: [String],
     fileSystem: FileSystem,
     diagnosticsEngine: DiagnosticsEngine
@@ -1089,7 +1484,7 @@ extension Driver {
     let execRelPath = args.removeFirst()
     var driverName = try VirtualPath(path: execRelPath).basenameWithoutExt
 
-    // Determine if the driver kind is being overriden.
+    // Determine if the driver kind is being overridden.
     let driverModeOption = "--driver-mode="
     if let firstArg = args.first, firstArg.hasPrefix(driverModeOption) {
       args.removeFirst()
@@ -1124,9 +1519,40 @@ extension Driver {
       return
     }
 
+    // If we're only supposed to explain a dependency on a given module, do so now.
+    if let explainModuleName = parsedOptions.getLastArgument(.explainModuleDependency) {
+      guard let dependencyPlanner = explicitDependencyBuildPlanner else {
+        fatalError("Cannot explain dependency without Explicit Build Planner")
+      }
+      guard let dependencyPaths = try dependencyPlanner.explainDependency(explainModuleName.asSingle) else {
+        diagnosticEngine.emit(.remark("No such module dependency found: '\(explainModuleName.asSingle)'"))
+        return
+      }
+      diagnosticEngine.emit(.remark("Module '\(moduleOutputInfo.name)' depends on '\(explainModuleName.asSingle)'"))
+      for path in dependencyPaths {
+        var pathString:String = ""
+        for (index, moduleId) in path.enumerated() {
+          switch moduleId {
+          case .swift(let moduleName):
+            pathString = pathString + "[" + moduleName + "]"
+          case .swiftPrebuiltExternal(let moduleName):
+            pathString = pathString + "[" + moduleName + "]"
+          case .clang(let moduleName):
+            pathString = pathString + "[" + moduleName + "](ObjC)"
+          case .swiftPlaceholder(_):
+            fatalError("Unexpected unresolved Placeholder module")
+          }
+          if index < path.count - 1 {
+            pathString = pathString + " -> "
+          }
+        }
+        diagnosticEngine.emit(.note(pathString))
+      }
+    }
+
     if parsedOptions.contains(.driverPrintOutputFileMap) {
       if let outputFileMap = self.outputFileMap {
-        stderrStream <<< outputFileMap.description
+        stderrStream.send(outputFileMap.description)
         stderrStream.flush()
       } else {
         diagnosticEngine.emit(.error_no_output_file_map_specified)
@@ -1203,14 +1629,17 @@ extension Driver {
       // Print the driver source version first before we print the compiler
       // versions.
       if inPlaceJob.kind == .versionRequest && !Driver.driverSourceVersion.isEmpty {
-        stderrStream <<< "swift-driver version: " <<< Driver.driverSourceVersion <<< " "
+        stderrStream.send("swift-driver version: \(Driver.driverSourceVersion) ")
+        if let blocklistVersion = try Driver.findCompilerClientsConfigVersion(RelativeTo: try toolchain.executableDir) {
+          stderrStream.send("\(blocklistVersion) ")
+        }
         stderrStream.flush()
       }
       // In verbose mode, print out the job
       if parsedOptions.contains(.v) {
         let arguments: [String] = try executor.resolver.resolveArgumentList(for: inPlaceJob,
-                                                                            forceResponseFiles: forceResponseFiles)
-        stdoutStream <<< arguments.map { $0.spm_shellEscaped() }.joined(separator: " ") <<< "\n"
+                                                                            useResponseFiles: forceResponseFiles ? .forced : .heuristic)
+        stdoutStream.send("\(arguments.map { $0.spm_shellEscaped() }.joined(separator: " "))\n")
         stdoutStream.flush()
       }
       try executor.execute(job: inPlaceJob,
@@ -1242,7 +1671,6 @@ extension Driver {
     return ToolExecutionDelegate(
       mode: mode,
       buildRecordInfo: buildRecordInfo,
-      incrementalCompilationState: incrementalCompilationState,
       showJobLifecycle: showJobLifecycle,
       argsResolver: executor.resolver,
       diagnosticEngine: diagnosticEngine)
@@ -1257,6 +1685,7 @@ extension Driver {
     try executor.execute(
       workload: .init(allJobs,
                       incrementalCompilationState,
+                      interModuleDependencyGraph,
                       continueBuildingAfterErrors: continueBuildingAfterErrors),
       delegate: jobExecutionDelegate,
       numParallelJobs: numParallelJobs ?? 1,
@@ -1268,35 +1697,82 @@ extension Driver {
     // In case the write fails, don't crash the build.
     // A mitigation to rdar://76359678.
     // If the write fails, import incrementality is lost, but it is not a fatal error.
-    if let incrementalCompilationState = self.incrementalCompilationState {
+    guard
+      let buildRecordInfo = self.buildRecordInfo,
+      let absPath = buildRecordInfo.buildRecordPath.absolutePath
+    else {
+      return
+    }
+
+    let buildRecord = buildRecordInfo.buildRecord(
+      jobs, self.incrementalCompilationState?.blockingConcurrentMutationToProtectedState{
+        $0.skippedCompilationInputs
+      })
+
+    if
+      let incrementalCompilationState = self.incrementalCompilationState,
+      incrementalCompilationState.info.isCrossModuleIncrementalBuildEnabled
+    {
       do {
-        try incrementalCompilationState.writeDependencyGraph(buildRecordInfo)
-      }
-      catch {
+        try incrementalCompilationState.writeDependencyGraph(to: buildRecordInfo.dependencyGraphPath, buildRecord)
+      } catch {
         diagnosticEngine.emit(
           .warning("next compile won't be incremental; could not write dependency graph: \(error.localizedDescription)"))
-          /// Ensure that a bogus dependency graph is not used next time.
-          buildRecordInfo?.removeBuildRecord()
-          return
+        /// Ensure that a bogus dependency graph is not used next time.
+        buildRecordInfo.removeBuildRecord()
+        buildRecordInfo.removeInterModuleDependencyGraph()
+        return
+      }
+      do {
+        try incrementalCompilationState.writeInterModuleDependencyGraph(buildRecordInfo)
+      } catch {
+        diagnosticEngine.emit(
+          .warning("next compile must run a full dependency scan; could not write inter-module dependency graph: \(error.localizedDescription)"))
+        buildRecordInfo.removeBuildRecord()
+        buildRecordInfo.removeInterModuleDependencyGraph()
+        return
+      }
+    } else {
+      // FIXME: This is all legacy code. Once the cross module incremental build
+      // becomes the default:
+      //
+      // 1) Delete this branch
+      // 2) Delete the parts of the incremental build that talk about anything
+      //    derived from `buildRecordPath`
+      // 3) Delete the Yams dependency.
+
+      // Before writing to the dependencies file path, preserve any previous file
+      // that may have been there. No error handling -- this is just a nicety, it
+      // doesn't matter if it fails.
+      // Added for the sake of compatibility with the legacy driver.
+      try? fileSystem.move(
+        from: absPath, to: absPath.appending(component: absPath.basename + "~"))
+
+      guard let contents = buildRecord.encode(diagnosticEngine: diagnosticEngine) else {
+        diagnosticEngine.emit(.warning_could_not_write_build_record(absPath))
+        return
+      }
+
+      do {
+        try fileSystem.writeFileContents(absPath,
+                                         bytes: ByteString(encodingAsUTF8: contents))
+      } catch {
+        diagnosticEngine.emit(.warning_could_not_write_build_record(absPath))
       }
     }
-    buildRecordInfo?.writeBuildRecord(
-      jobs,
-      incrementalCompilationState?.blockingConcurrentMutationToProtectedState{$0.skippedCompilationInputs})
   }
 
   private func printBindings(_ job: Job) {
-    stdoutStream <<< #"# ""# <<< targetTriple.triple
-    stdoutStream <<< #"" - ""# <<< job.tool.basename
-    stdoutStream <<< #"", inputs: ["#
-    stdoutStream <<< job.displayInputs.map { "\"" + $0.file.name + "\"" }.joined(separator: ", ")
+    stdoutStream.send(#"# ""#).send(targetTriple.triple)
+    stdoutStream.send(#"" - ""#).send(job.tool.basename)
+    stdoutStream.send(#"", inputs: ["#)
+    stdoutStream.send(job.displayInputs.map { "\"" + $0.file.name + "\"" }.joined(separator: ", "))
 
-    stdoutStream <<< "], output: {"
+    stdoutStream.send("], output: {")
 
-    stdoutStream <<< job.outputs.map { $0.type.name + ": \"" + $0.file.name + "\"" }.joined(separator: ", ")
+    stdoutStream.send(job.outputs.map { $0.type.name + ": \"" + $0.file.name + "\"" }.joined(separator: ", "))
 
-    stdoutStream <<< "}"
-    stdoutStream <<< "\n"
+    stdoutStream.send("}\n")
     stdoutStream.flush()
   }
 
@@ -1305,7 +1781,7 @@ extension Driver {
   /// The swift-driver doesn't have actions, so the logic here takes the jobs and tries
   /// to mimic the actions that would be created by the C++ driver and
   /// prints them in *hopefully* the same order.
-  private func printActions(_ jobs: [Job]) {
+  private mutating func printActions(_ jobs: [Job]) {
     defer {
       stdoutStream.flush()
     }
@@ -1367,19 +1843,19 @@ extension Driver {
       }
 
       // Print current Job
-      stdoutStream <<< nextId <<< ": " <<< job.kind.rawValue <<< ", {"
+      stdoutStream.send("\(nextId): ").send(job.kind.rawValue).send(", {")
       switch job.kind {
       // Don't sort for compile jobs. Puts pch last
       case .compile:
-        stdoutStream <<< inputIds.map(\.description).joined(separator: ", ")
+        stdoutStream.send(inputIds.map(\.description).joined(separator: ", "))
       default:
-        stdoutStream <<< inputIds.sorted().map(\.description).joined(separator: ", ")
+        stdoutStream.send(inputIds.sorted().map(\.description).joined(separator: ", "))
       }
       var typeName = job.outputs.first?.type.name
       if typeName == nil {
         typeName = "none"
       }
-      stdoutStream <<< "}, " <<< typeName! <<< "\n"
+      stdoutStream.send("}, \(typeName!)\n")
       jobIdMap[job] = nextId
       nextId += 1
     }
@@ -1387,16 +1863,16 @@ extension Driver {
 
   private static func printInputIfNew(_ input: TypedVirtualPath, inputIdMap: inout [TypedVirtualPath: UInt], nextId: inout UInt) {
     if inputIdMap[input] == nil {
-      stdoutStream <<< nextId <<< ": " <<< "input, "
-      stdoutStream <<< "\"" <<< input.file <<< "\", " <<< input.type <<< "\n"
+      stdoutStream.send("\(nextId): input, ")
+      stdoutStream.send("\"\(input.file)\", \(input.type)\n")
       inputIdMap[input] = nextId
       nextId += 1
     }
   }
 
   private func printVersion<S: OutputByteStream>(outputStream: inout S) throws {
-    outputStream <<< frontendTargetInfo.compilerVersion <<< "\n"
-    outputStream <<< "Target: \(frontendTargetInfo.target.triple.triple)\n"
+    outputStream.send("\(frontendTargetInfo.compilerVersion)\n")
+    outputStream.send("Target: \(frontendTargetInfo.target.triple.triple)\n")
     outputStream.flush()
   }
 }
@@ -1574,7 +2050,7 @@ extension Driver {
   /// Apply the given working directory to all paths in the parsed options.
   private static func applyWorkingDirectory(_ workingDirectory: AbsolutePath,
                                             to parsedOptions: inout ParsedOptions) throws {
-    parsedOptions.forEachModifying { parsedOption in
+    try parsedOptions.forEachModifying { parsedOption in
       // Only translate options whose arguments are paths.
       if !parsedOption.option.attributes.contains(.argumentIsPath) { return }
 
@@ -1587,12 +2063,12 @@ extension Driver {
         if arg == "-" {
           translatedArgument = parsedOption.argument
         } else {
-          translatedArgument = .single(AbsolutePath(arg, relativeTo: workingDirectory).pathString)
+          translatedArgument = .single(try AbsolutePath(validating: arg, relativeTo: workingDirectory).pathString)
         }
 
       case .multiple(let args):
-        translatedArgument = .multiple(args.map { arg in
-          AbsolutePath(arg, relativeTo: workingDirectory).pathString
+        translatedArgument = .multiple(try args.map { arg in
+          try AbsolutePath(validating: arg, relativeTo: workingDirectory).pathString
         })
       }
 
@@ -1607,10 +2083,11 @@ extension Driver {
   /// Collect all of the input files from the parsed options, translating them into input files.
   private static func collectInputFiles(
     _ parsedOptions: inout ParsedOptions,
-    diagnosticsEngine: DiagnosticsEngine
+    diagnosticsEngine: DiagnosticsEngine,
+    fileSystem: FileSystem
   ) throws -> [TypedVirtualPath] {
     var swiftFiles = [String: String]() // [Basename: Path]
-    return try parsedOptions.allInputs.map { input in
+    var paths: [TypedVirtualPath] = try parsedOptions.allInputs.map { input in
       // Standard input is assumed to be Swift code.
       if input == "-" {
         return TypedVirtualPath(file: .standardInput, type: .swift)
@@ -1626,13 +2103,13 @@ extension Driver {
       // FIXME: The object-file default is carried over from the existing
       // driver, but seems odd.
       let fileType = FileType(rawValue: fileExtension) ?? FileType.object
-      
+
       if fileType == .swift {
         let basename = inputFile.basename
         if let originalPath = swiftFiles[basename] {
           diagnosticsEngine.emit(.error_two_files_same_name(basename: basename, firstPath: originalPath, secondPath: input))
           diagnosticsEngine.emit(.note_explain_two_files_same_name)
-          throw Diagnostics.fatalError
+          throw ErrorDiagnostics.emitted
         } else {
           swiftFiles[basename] = input
         }
@@ -1640,11 +2117,35 @@ extension Driver {
 
       return TypedVirtualPath(file: inputHandle, type: fileType)
     }
+
+    if parsedOptions.hasArgument(.e) {
+      if let mainPath = swiftFiles["main.swift"] {
+        diagnosticsEngine.emit(.error_two_files_same_name(basename: "main.swift", firstPath: mainPath, secondPath: "-e"))
+        diagnosticsEngine.emit(.note_explain_two_files_same_name)
+        throw ErrorDiagnostics.emitted
+      }
+
+      try withTemporaryDirectory(dir: fileSystem.tempDirectory, removeTreeOnDeinit: false) { absPath in
+        let filePath = VirtualPath.absolute(absPath.appending(component: "main.swift"))
+
+        try fileSystem.writeFileContents(filePath) { file in
+          file.send(###"#sourceLocation(file: "-e", line: 1)\###n"###)
+          for option in parsedOptions.arguments(for: .e) {
+            file.send("\(option.argument.asSingle)\n")
+          }
+        }
+
+        paths.append(TypedVirtualPath(file: filePath.intern(), type: .swift))
+      }
+    }
+
+    return paths
   }
 
   /// Determine the primary compiler and linker output kinds.
   private static func determinePrimaryOutputs(
     _ parsedOptions: inout ParsedOptions,
+    targetTriple: Triple,
     driverKind: DriverKind,
     diagnosticsEngine: DiagnosticsEngine
   ) -> (FileType?, LinkOutputType?) {
@@ -1656,7 +2157,7 @@ extension Driver {
     if let outputOption = parsedOptions.getLast(in: .modes) {
       switch outputOption.option {
       case .emitExecutable:
-        if parsedOptions.contains(.static) {
+        if parsedOptions.contains(.static) && !targetTriple.supportsStaticExecutables {
           diagnosticsEngine.emit(.error_static_emit_executable_disallowed)
         }
         linkerOutputType = .executable
@@ -1705,8 +2206,8 @@ extension Driver {
       case .indexFile:
         compilerOutputType = .indexData
 
-      case .parse, .resolveImports, .typecheck, .dumpParse, .emitSyntax,
-           .printAst, .dumpTypeRefinementContexts, .dumpScopeMaps,
+      case .parse, .resolveImports, .typecheck,
+           .dumpParse, .printAst, .dumpTypeRefinementContexts, .dumpScopeMaps,
            .dumpInterfaceHash, .dumpTypeInfo, .verifyDebugInfo:
         compilerOutputType = nil
 
@@ -1763,11 +2264,11 @@ extension Diagnostic.Message {
   static var warn_ignore_embed_bitcode_marker: Diagnostic.Message {
     .warning("ignoring -embed-bitcode-marker since no object file is being generated")
   }
-  
+
   static func error_two_files_same_name(basename: String, firstPath: String, secondPath: String) -> Diagnostic.Message {
     .error("filename \"\(basename)\" used twice: '\(firstPath)' and '\(secondPath)'")
   }
-  
+
   static var note_explain_two_files_same_name: Diagnostic.Message {
     .note("filenames are used to distinguish private declarations with the same name")
   }
@@ -1849,7 +2350,9 @@ extension Diagnostic.Message {
 // Debug information
 extension Driver {
   /// Compute the level of debug information we are supposed to produce.
-  private static func computeDebugInfo(_ parsedOptions: inout ParsedOptions, diagnosticsEngine: DiagnosticsEngine) -> DebugInfo {
+  private static func computeDebugInfo(_ parsedOptions: inout ParsedOptions,
+                                       defaultDwarfVersion : UInt8,
+                                       diagnosticsEngine: DiagnosticsEngine) -> DebugInfo {
     var shouldVerify = parsedOptions.hasArgument(.verifyDebugInfo)
 
     for debugPrefixMap in parsedOptions.arguments(for: .debugPrefixMap) {
@@ -1857,6 +2360,14 @@ extension Driver {
       let parts = value.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
       if parts.count != 2 {
         diagnosticsEngine.emit(.error_opt_invalid_mapping(option: debugPrefixMap.option, value: value))
+      }
+    }
+
+    for filePrefixMap in parsedOptions.arguments(for: .filePrefixMap) {
+      let value = filePrefixMap.argument.asSingle
+      let parts = value.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
+      if parts.count != 2 {
+        diagnosticsEngine.emit(.error_opt_invalid_mapping(option: filePrefixMap.option, value: value))
       }
     }
 
@@ -1909,7 +2420,17 @@ extension Driver {
       diagnosticsEngine.emit(.error_argument_not_allowed_with(arg: fullNotAllowedOption, other: levelOption.spelling))
     }
 
-    return DebugInfo(format: format, level: level, shouldVerify: shouldVerify)
+    // Determine the DWARF version.
+    var dwarfVersion: UInt8 = defaultDwarfVersion
+    if let versionArg = parsedOptions.getLastArgument(.dwarfVersion) {
+      if let parsedVersion = UInt8(versionArg.asSingle), parsedVersion >= 2 && parsedVersion <= 5 {
+        dwarfVersion = parsedVersion
+      } else {
+        diagnosticsEngine.emit(.error_invalid_arg_value(arg: .dwarfVersion, value: versionArg.asSingle))
+      }
+    }
+
+    return DebugInfo(format: format, dwarfVersion: dwarfVersion, level: level, shouldVerify: shouldVerify)
   }
 
   /// Parses the set of `-sanitize={sanitizer}` arguments and returns all the
@@ -1942,14 +2463,15 @@ extension Driver {
         continue
       }
 
+      let stableAbi = sanitizer == .address && parsedOptions.contains(.sanitizeStableAbiEQ)
       // Support is determined by existence of the sanitizer library.
       // FIXME: Should we do this? This prevents cross-compiling with sanitizers
       //        enabled.
       var sanitizerSupported = try toolchain.runtimeLibraryExists(
-        for: sanitizer,
+        for: stableAbi ? .address_stable_abi : sanitizer,
         targetInfo: targetInfo,
         parsedOptions: &parsedOptions,
-        isShared: sanitizer != .fuzzer
+        isShared: sanitizer != .fuzzer && !stableAbi
       )
 
       if sanitizer == .thread {
@@ -2024,7 +2546,7 @@ extension Diagnostic.Message {
   static var verify_debug_info_requires_debug_option: Diagnostic.Message {
     .warning("ignoring '-verify-debug-info'; no debug info is being generated")
   }
-  
+
   static func warning_option_requires_sanitizer(currentOption: Option, currentOptionValue: String, sanitizerRequired: Sanitizer) -> Diagnostic.Message {
       .warning("option '\(currentOption.spelling)\(currentOptionValue)' has no effect when '\(sanitizerRequired)' sanitizer is disabled. Use \(Option.sanitizeEQ.spelling)\(sanitizerRequired) to enable the sanitizer")
   }
@@ -2054,32 +2576,6 @@ extension Driver {
     return ""
   }
 
-  /// Whether we are going to be building an executable.
-  ///
-  /// FIXME: Why "maybe"? Why isn't this all known in advance as captured in
-  /// linkerOutputType?
-  private static func maybeBuildingExecutable(
-    _ parsedOptions: inout ParsedOptions,
-    linkerOutputType: LinkOutputType?
-  ) -> Bool {
-    switch linkerOutputType {
-    case .executable:
-      return true
-
-    case .dynamicLibrary, .staticLibrary:
-      return false
-
-    default:
-      break
-    }
-
-    if parsedOptions.hasArgument(.parseAsLibrary, .parseStdlib) {
-      return false
-    }
-
-    return parsedOptions.allInputs.count == 1
-  }
-
   /// Determine how the module will be emitted and the name of the module.
   private static func computeModuleInfo(
     _ parsedOptions: inout ParsedOptions,
@@ -2107,7 +2603,7 @@ extension Driver {
       moduleOutputKind = .auxiliary
     } else if parsedOptions.hasArgument(.emitObjcHeader, .emitObjcHeaderPath,
                                         .emitModuleInterface, .emitModuleInterfacePath,
-                                        .emitPrivateModuleInterfacePath) {
+                                        .emitPrivateModuleInterfacePath, .emitPackageModuleInterfacePath) {
       // An option has been passed which requires whole-module knowledge, but we
       // don't have that. Generate a module, but treat it as an intermediate
       // output.
@@ -2152,10 +2648,9 @@ extension Driver {
 
     func fallbackOrDiagnose(_ error: Diagnostic.Message) {
       moduleNameIsFallback = true
-      if compilerOutputType == nil || maybeBuildingExecutable(&parsedOptions, linkerOutputType: linkerOutputType) {
+      if compilerOutputType == nil || !parsedOptions.hasArgument(.moduleName) {
         moduleName = "main"
-      }
-      else {
+      } else {
         diagnosticsEngine.emit(error)
         moduleName = "__bad__"
       }
@@ -2170,7 +2665,7 @@ extension Driver {
     // Retrieve and validate module aliases if passed in
     let moduleAliases = moduleAliasesFromInput(parsedOptions.arguments(for: [.moduleAlias]), with: moduleName, onError: diagnosticsEngine)
 
-    // If we're not emiting a module, we're done.
+    // If we're not emitting a module, we're done.
     if moduleOutputKind == nil {
       return ModuleOutputInfo(output: nil, name: moduleName, nameIsFallback: moduleNameIsFallback, aliases: moduleAliases)
     }
@@ -2196,12 +2691,12 @@ extension Driver {
         moduleOutputPath = try .init(path: moduleFilename)
       }
     } else {
-      moduleOutputPath = VirtualPath.createUniqueTemporaryFile(RelativePath(moduleName.appendingFileTypeExtension(.swiftModule)))
+      moduleOutputPath = try VirtualPath.createUniqueTemporaryFile(RelativePath(validating: moduleName.appendingFileTypeExtension(.swiftModule)))
     }
 
     // Use working directory if specified
     if let moduleRelative = moduleOutputPath.relativePath {
-      moduleOutputPath = Driver.useWorkingDirectory(moduleRelative, workingDirectory)
+      moduleOutputPath = try Driver.useWorkingDirectory(moduleRelative, workingDirectory)
     }
 
     switch moduleOutputKind! {
@@ -2232,7 +2727,7 @@ extension Driver {
       }
       return true
     }
-    
+
     var used = [""]
     for item in aliasArgs {
       let arg = item.argument.asSingle
@@ -2301,8 +2796,8 @@ extension Driver {
       // FIXME: TSC should provide a better utility for this.
       if let absPath = try? AbsolutePath(validating: sdkPath) {
         path = absPath
-      } else if let cwd = fileSystem.currentWorkingDirectory {
-        path = AbsolutePath(sdkPath, relativeTo: cwd)
+      } else if let cwd = fileSystem.currentWorkingDirectory, let absPath = try? AbsolutePath(validating: sdkPath, relativeTo: cwd) {
+        path = absPath
       } else {
         diagnosticsEngine.emit(.warning_no_such_sdk(sdkPath))
         return nil
@@ -2310,7 +2805,7 @@ extension Driver {
 
       if !fileSystem.exists(path) {
         diagnosticsEngine.emit(.warning_no_such_sdk(sdkPath))
-      } else if !(targetTriple?.isWindows ?? (defaultToolchainType == WindowsToolchain.self)) {
+      } else if (targetTriple?.isDarwin ?? (defaultToolchainType == DarwinToolchain.self)) {
         if isSDKTooOld(sdkPath: path, fileSystem: fileSystem,
                        diagnosticsEngine: diagnosticsEngine) {
           diagnosticsEngine.emit(.error_sdk_too_old(sdkPath))
@@ -2334,7 +2829,7 @@ extension Driver {
       diagnosticsEngine.emit(.warning_no_sdksettings_json(sdkPath.pathString))
       return false
     }
-    guard let sdkVersion = try? Version(versionString: sdkInfo.versionString, usesLenientParsing: true) else {
+    guard let sdkVersion = try? Version(string: sdkInfo.versionString, lenient: true) else {
       diagnosticsEngine.emit(.warning_fail_parse_sdk_ver(sdkInfo.versionString, sdkPath.pathString))
       return false
     }
@@ -2379,23 +2874,29 @@ extension Driver {
   static func computeBridgingPrecompiledHeader(_ parsedOptions: inout ParsedOptions,
                                                compilerMode: CompilerMode,
                                                importedObjCHeader: VirtualPath.Handle?,
-                                               outputFileMap: OutputFileMap?) throws -> VirtualPath.Handle? {
+                                               outputFileMap: OutputFileMap?,
+                                               contextHash: String?) -> VirtualPath.Handle? {
     guard compilerMode.supportsBridgingPCH,
       let input = importedObjCHeader,
       parsedOptions.hasFlag(positive: .enableBridgingPch, negative: .disableBridgingPch, default: true) else {
         return nil
     }
 
-    if let outputPath = outputFileMap?.existingOutput(inputFile: input, outputType: .pch) {
+    if let outputPath = try? outputFileMap?.existingOutput(inputFile: input, outputType: .pch) {
       return outputPath
     }
 
-    let inputFile = VirtualPath.lookup(input)
-    let pchFileName = inputFile.basenameWithoutExt.appendingFileTypeExtension(.pch)
-    if let outputDirectory = parsedOptions.getLastArgument(.pchOutputDir)?.asSingle {
-      return try VirtualPath(path: outputDirectory).appending(component: pchFileName).intern()
+    let pchFile : String
+    let baseName = VirtualPath.lookup(input).basenameWithoutExt
+    if let hash = contextHash {
+      pchFile = baseName + "-" + hash + ".pch"
     } else {
-      return VirtualPath.createUniqueTemporaryFile(RelativePath(pchFileName)).intern()
+      pchFile = baseName.appendingFileTypeExtension(.pch)
+    }
+    if let outputDirectory = parsedOptions.getLastArgument(.pchOutputDir)?.asSingle {
+      return try? VirtualPath(path: outputDirectory).appending(component: pchFile).intern()
+    } else {
+      return try? VirtualPath.temporary(RelativePath(validating: pchFile)).intern()
     }
   }
 }
@@ -2422,7 +2923,8 @@ extension Driver {
                                          diagnosticEngine: DiagnosticsEngine) {
     if parsedOptions.hasArgument(.suppressWarnings) &&
         parsedOptions.hasFlag(positive: .warningsAsErrors, negative: .noWarningsAsErrors, default: false) {
-      diagnosticEngine.emit(Error.conflictingOptions(.warningsAsErrors, .suppressWarnings))
+      diagnosticEngine.emit(.error(Error.conflictingOptions(.warningsAsErrors, .suppressWarnings)),
+                            location: nil)
     }
   }
 
@@ -2433,28 +2935,68 @@ extension Driver {
                                    diagnosticEngine: DiagnosticsEngine) {
     if moduleOutputInfo.output?.isTopLevel != true {
       for arg in parsedOptions.arguments(for: .emitDigesterBaseline, .emitDigesterBaselinePath, .compareToBaselinePath) {
-        diagnosticEngine.emit(Error.baselineGenerationRequiresTopLevelModule(arg.option.spelling))
+        diagnosticEngine.emit(.error(Error.baselineGenerationRequiresTopLevelModule(arg.option.spelling)),
+                              location: nil)
       }
     }
 
     if parsedOptions.hasArgument(.serializeBreakingChangesPath) && !parsedOptions.hasArgument(.compareToBaselinePath) {
-      diagnosticEngine.emit(Error.optionRequiresAnother(Option.serializeBreakingChangesPath.spelling,
-                                                        Option.compareToBaselinePath.spelling))
+      diagnosticEngine.emit(.error(Error.optionRequiresAnother(Option.serializeBreakingChangesPath.spelling,
+                                                               Option.compareToBaselinePath.spelling)),
+                            location: nil)
     }
     if parsedOptions.hasArgument(.digesterBreakageAllowlistPath) && !parsedOptions.hasArgument(.compareToBaselinePath) {
-      diagnosticEngine.emit(Error.optionRequiresAnother(Option.digesterBreakageAllowlistPath.spelling,
-                                                        Option.compareToBaselinePath.spelling))
+      diagnosticEngine.emit(.error(Error.optionRequiresAnother(Option.digesterBreakageAllowlistPath.spelling,
+                                                               Option.compareToBaselinePath.spelling)),
+                            location: nil)
     }
     if digesterMode == .abi && !parsedOptions.hasArgument(.enableLibraryEvolution) {
-      diagnosticEngine.emit(Error.optionRequiresAnother("\(Option.digesterMode.spelling) abi",
-                                                        Option.enableLibraryEvolution.spelling))
+      diagnosticEngine.emit(.error(Error.optionRequiresAnother("\(Option.digesterMode.spelling) abi",
+                                                               Option.enableLibraryEvolution.spelling)),
+                            location: nil)
     }
     if digesterMode == .abi && swiftInterfacePath == nil {
-      diagnosticEngine.emit(Error.optionRequiresAnother("\(Option.digesterMode.spelling) abi",
-                                                        Option.emitModuleInterface.spelling))
+      diagnosticEngine.emit(.error(Error.optionRequiresAnother("\(Option.digesterMode.spelling) abi",
+                                                               Option.emitModuleInterface.spelling)),
+                            location: nil)
     }
   }
 
+  static func validateValidateClangModulesOnceOptions(_ parsedOptions: inout ParsedOptions,
+                                                      diagnosticEngine: DiagnosticsEngine) {
+    // '-validate-clang-modules-once' requires '-clang-build-session-file'
+    if parsedOptions.hasArgument(.validateClangModulesOnce) &&
+        !parsedOptions.hasArgument(.clangBuildSessionFile) {
+      diagnosticEngine.emit(.error(Error.optionRequiresAnother(Option.validateClangModulesOnce.spelling,
+                                                               Option.clangBuildSessionFile.spelling)),
+                            location: nil)
+    }
+  }
+
+  static func validateEmitDependencyGraphArgs(_ parsedOptions: inout ParsedOptions,
+                                              diagnosticEngine: DiagnosticsEngine) {
+    // '-print-explicit-dependency-graph' requires '-explicit-module-build'
+    if parsedOptions.hasArgument(.printExplicitDependencyGraph) &&
+        !parsedOptions.hasArgument(.driverExplicitModuleBuild) {
+      diagnosticEngine.emit(.error(Error.optionRequiresAnother(Option.printExplicitDependencyGraph.spelling,
+                                                               Option.driverExplicitModuleBuild.spelling)),
+                            location: nil)
+    }
+    // '-explicit-dependency-graph-format=' requires '-print-explicit-dependency-graph'
+    if parsedOptions.hasArgument(.explicitDependencyGraphFormat) &&
+        !parsedOptions.hasArgument(.printExplicitDependencyGraph) {
+      diagnosticEngine.emit(.error(Error.optionRequiresAnother(Option.explicitDependencyGraphFormat.spelling,
+                                                               Option.printExplicitDependencyGraph.spelling)),
+                            location: nil)
+    }
+    // '-explicit-dependency-graph-format=' only supports values 'json' and 'dot'
+    if let formatArg = parsedOptions.getLastArgument(.explicitDependencyGraphFormat)?.asSingle {
+      if formatArg != "json" && formatArg != "dot" {
+        diagnosticEngine.emit(.error_unsupported_argument(argument: formatArg,
+                                                          option: .explicitDependencyGraphFormat))
+      }
+    }
+  }
 
   static func validateProfilingArgs(_ parsedOptions: inout ParsedOptions,
                                     fileSystem: FileSystem,
@@ -2462,15 +3004,19 @@ extension Driver {
                                     diagnosticEngine: DiagnosticsEngine) {
     if parsedOptions.hasArgument(.profileGenerate) &&
         parsedOptions.hasArgument(.profileUse) {
-      diagnosticEngine.emit(Error.conflictingOptions(.profileGenerate, .profileUse))
+      diagnosticEngine.emit(.error(Error.conflictingOptions(.profileGenerate, .profileUse)),
+                            location: nil)
     }
 
     if let profileArgs = parsedOptions.getLastArgument(.profileUse)?.asMultiple,
-       let workingDirectory = workingDirectory ?? fileSystem.currentWorkingDirectory {
+       let workingDirectory = workingDirectory {
       for profilingData in profileArgs {
-        if !fileSystem.exists(AbsolutePath(profilingData,
-                                           relativeTo: workingDirectory)) {
-          diagnosticEngine.emit(Error.missingProfilingData(profilingData))
+        if let path = try? AbsolutePath(validating: profilingData,
+                                          relativeTo: workingDirectory) {
+          if !fileSystem.exists(path) {
+            diagnosticEngine.emit(.error(Error.missingProfilingData(profilingData)),
+                                  location: nil)
+          }
         }
       }
     }
@@ -2480,7 +3026,8 @@ extension Driver {
                                           diagnosticEngine: DiagnosticsEngine) {
     if parsedOptions.contains(.parseableOutput) &&
         parsedOptions.contains(.useFrontendParseableOutput) {
-      diagnosticEngine.emit(Error.conflictingOptions(.parseableOutput, .useFrontendParseableOutput))
+      diagnosticEngine.emit(.error(Error.conflictingOptions(.parseableOutput, .useFrontendParseableOutput)),
+                            location: nil)
     }
   }
 
@@ -2490,9 +3037,11 @@ extension Driver {
       if arg.contains("=") {
         diagnosticEngine.emit(.warning_cannot_assign_to_compilation_condition(name: arg))
       } else if arg.hasPrefix("-D") {
-        diagnosticEngine.emit(Error.conditionalCompilationFlagHasRedundantPrefix(arg))
+        diagnosticEngine.emit(.error(Error.conditionalCompilationFlagHasRedundantPrefix(arg)),
+                              location: nil)
       } else if !arg.sd_isSwiftIdentifier {
-        diagnosticEngine.emit(Error.conditionalCompilationFlagIsNotValidIdentifier(arg))
+        diagnosticEngine.emit(.error(Error.conditionalCompilationFlagIsNotValidIdentifier(arg)),
+                              location: nil)
       }
     }
   }
@@ -2527,8 +3076,16 @@ extension Driver {
         diagnosticsEngine.emit(.error_hermetic_seal_requires_lto)
       }
     }
+
+    if parsedOptions.hasArgument(.explicitAutoLinking) {
+      if !parsedOptions.hasArgument(.driverExplicitModuleBuild) {
+        diagnosticsEngine.emit(.error(Error.optionRequiresAnother(Option.explicitAutoLinking.spelling,
+                                                                  Option.driverExplicitModuleBuild.spelling)),
+                              location: nil)
+      }
+    }
   }
-  
+
   private static func validateSanitizerAddressUseOdrIndicatorFlag(
     _ parsedOptions: inout ParsedOptions,
     diagnosticEngine: DiagnosticsEngine,
@@ -2539,7 +3096,18 @@ extension Driver {
         .warning_option_requires_sanitizer(currentOption: .sanitizeAddressUseOdrIndicator, currentOptionValue: "", sanitizerRequired: .address))
     }
   }
-  
+
+  private static func validateSanitizeStableABI(
+          _ parsedOptions: inout ParsedOptions,
+          diagnosticEngine: DiagnosticsEngine,
+          addressSanitizerEnabled: Bool
+          ) {
+      if (parsedOptions.hasArgument(.sanitizeStableAbiEQ) && !addressSanitizerEnabled) {
+          diagnosticEngine.emit(
+                  .warning_option_requires_sanitizer(currentOption: .sanitizeStableAbiEQ, currentOptionValue: "", sanitizerRequired: .address))
+      }
+  }
+
   /// Validates the set of `-sanitize-recover={sanitizer}` arguments
   private static func validateSanitizerRecoverArgValues(
     _ parsedOptions: inout ParsedOptions,
@@ -2563,14 +3131,14 @@ extension Driver {
           .error_invalid_arg_value(arg: .sanitizeRecoverEQ, value: arg))
         continue
       }
-      
+
       // only -sanitize-recover=address is supported
       if sanitizer != .address {
         diagnosticEngine.emit(
           .error_unsupported_argument(argument: arg, option: .sanitizeRecoverEQ))
         continue
       }
-      
+
       if !enabledSanitizers.contains(sanitizer) {
         diagnosticEngine.emit(
           .warning_option_requires_sanitizer(currentOption: .sanitizeRecoverEQ, currentOptionValue: arg, sanitizerRequired: sanitizer))
@@ -2585,7 +3153,7 @@ extension Driver {
     for arg in parsedOptions.arguments(for: .sanitizeCoverageEQ).flatMap(\.argument.asMultiple) {
       if ["func", "bb", "edge"].contains(arg) {
         foundRequiredArg = true
-      } else if !["indirect-calls", "trace-bb", "trace-cmp", "8bit-counters", "trace-pc", "trace-pc-guard"].contains(arg) {
+      } else if !["indirect-calls", "trace-bb", "trace-cmp", "8bit-counters", "trace-pc", "trace-pc-guard","pc-table","inline-8bit-counters"].contains(arg) {
         diagnosticsEngine.emit(.error_unsupported_argument(argument: arg, option: .sanitizeCoverageEQ))
       }
 
@@ -2602,9 +3170,9 @@ extension Driver {
 }
 
 extension Triple {
-  func toolchainType(_ diagnosticsEngine: DiagnosticsEngine) throws -> Toolchain.Type {
+  @_spi(Testing) public func toolchainType(_ diagnosticsEngine: DiagnosticsEngine) throws -> Toolchain.Type {
     switch os {
-    case .darwin, .macosx, .ios, .tvos, .watchos:
+    case .darwin, .macosx, .ios, .tvos, .watchos, .visionos:
       return DarwinToolchain.self
     case .linux:
       return GenericUnixToolchain.self
@@ -2614,9 +3182,16 @@ extension Triple {
       return WebAssemblyToolchain.self
     case .win32:
       return WindowsToolchain.self
+    case .noneOS:
+        switch self.vendor {
+        case .apple:
+            return DarwinToolchain.self
+        default:
+            return GenericUnixToolchain.self
+        }
     default:
       diagnosticsEngine.emit(.error_unknown_target(triple))
-      throw Diagnostics.fatalError
+      throw Driver.ErrorDiagnostics.emitted
     }
   }
 }
@@ -2636,18 +3211,19 @@ extension Driver {
     diagnosticsEngine: DiagnosticsEngine,
     toolchain: Toolchain,
     executor: DriverExecutor,
+    fileSystem: FileSystem,
+    workingDirectory: AbsolutePath?,
     swiftCompilerPrefixArgs: [String]) throws -> Triple {
 
     let frontendOverride = try FrontendOverride(&parsedOptions, diagnosticsEngine)
     frontendOverride.setUpForTargetInfo(toolchain)
     defer { frontendOverride.setUpForCompilation(toolchain) }
-    return try executor.execute(
-      job: toolchain.printTargetInfoJob(target: nil, targetVariant: nil,
-                                        swiftCompilerPrefixArgs:
-                                          frontendOverride.prefixArgsForTargetInfo),
-      capturingJSONOutputAs: FrontendTargetInfo.self,
-      forceResponseFiles: false,
-      recordedInputModificationDates: [:]).target.triple
+    return try Self.computeTargetInfo(target: nil, targetVariant: nil,
+                                      swiftCompilerPrefixArgs: frontendOverride.prefixArgsForTargetInfo,
+                                      toolchain: toolchain, fileSystem: fileSystem,
+                                      workingDirectory: workingDirectory,
+                                      diagnosticsEngine: diagnosticsEngine,
+                                      executor: executor).target.triple
   }
 
   static func computeToolchain(
@@ -2658,6 +3234,7 @@ extension Driver {
     executor: DriverExecutor,
     fileSystem: FileSystem,
     useStaticResourceDir: Bool,
+    workingDirectory: AbsolutePath?,
     compilerExecutableDir: AbsolutePath?
   ) throws -> (Toolchain, FrontendTargetInfo, [String]) {
     let explicitTarget = (parsedOptions.getLastArgument(.target)?.asSingle)
@@ -2701,18 +3278,17 @@ extension Driver {
 
     // Query the frontend for target information.
     do {
-      var info: FrontendTargetInfo = try executor.execute(
-        job: toolchain.printTargetInfoJob(
-          target: explicitTarget, targetVariant: explicitTargetVariant,
-          sdkPath: sdkPath, resourceDirPath: resourceDirPath,
-          runtimeCompatibilityVersion:
-            parsedOptions.getLastArgument(.runtimeCompatibilityVersion)?.asSingle,
-          useStaticResourceDir: useStaticResourceDir,
-          swiftCompilerPrefixArgs: frontendOverride.prefixArgsForTargetInfo
-        ),
-        capturingJSONOutputAs: FrontendTargetInfo.self,
-        forceResponseFiles: false,
-        recordedInputModificationDates: [:])
+      var info: FrontendTargetInfo =
+        try Self.computeTargetInfo(target: explicitTarget, targetVariant: explicitTargetVariant,
+                                   sdkPath: sdkPath, resourceDirPath: resourceDirPath,
+                                   runtimeCompatibilityVersion:
+                                     parsedOptions.getLastArgument(.runtimeCompatibilityVersion)?.asSingle,
+                                   useStaticResourceDir: useStaticResourceDir,
+                                   swiftCompilerPrefixArgs: frontendOverride.prefixArgsForTargetInfo,
+                                   toolchain: toolchain, fileSystem: fileSystem,
+                                   workingDirectory: workingDirectory,
+                                   diagnosticsEngine: diagnosticsEngine,
+                                   executor: executor)
 
       // Parse the runtime compatibility version. If present, it will override
       // what is reported by the frontend.
@@ -2844,7 +3420,7 @@ extension Driver {
     // If this is a single-file compile and there is an entry in the
     // output file map, use that.
     if compilerMode.isSingleCompilation,
-        let singleOutputPath = outputFileMap?.existingOutputForSingleInput(
+        let singleOutputPath = try outputFileMap?.existingOutputForSingleInput(
             outputType: type) {
       return singleOutputPath
     }
@@ -2853,9 +3429,24 @@ extension Driver {
     // primary output type is a .swiftmodule and we are using the emit-module-separately
     // flow, then also consider single output paths specified in the output file-map.
     if compilerOutputType == .swiftModule && emitModuleSeparately,
-       let singleOutputPath = outputFileMap?.existingOutputForSingleInput(
+       let singleOutputPath = try outputFileMap?.existingOutputForSingleInput(
            outputType: type) {
       return singleOutputPath
+    }
+
+    // Emit-module serialized diagnostics are always specified as a single-output
+    // file
+    if type == .emitModuleDiagnostics,
+       let singleOutputPath = try outputFileMap?.existingOutputForSingleInput(
+           outputType: type) {
+      return singleOutputPath
+    }
+
+    // Emit-module discovered dependencies are always specified as a single-output
+    // file
+    if type == .emitModuleDependencies,
+       let path = try outputFileMap?.existingOutputForSingleInput(outputType: type) {
+      return path
     }
 
     // If there is an output argument, derive the name from there.
@@ -2873,10 +3464,20 @@ extension Driver {
         .intern()
     }
 
+    // If an explicit path is not provided by the output file map, attempt to
+    // synthesize a path from the master swift dependency path.  This is
+    // important as we may otherwise emit this file at the location where the
+    // driver was invoked, which is normally the root of the package.
+    if let path = try outputFileMap?.existingOutputForSingleInput(outputType: .swiftDeps) {
+      return VirtualPath.lookup(path)
+                  .parentDirectory
+                  .appending(component: "\(moduleName).\(type.rawValue)")
+                  .intern()
+    }
     return try VirtualPath.intern(path: moduleName.appendingFileTypeExtension(type))
   }
 
-  /// Determine if the build system has created a Project/ directory for auxilary outputs.
+  /// Determine if the build system has created a Project/ directory for auxiliary outputs.
   static func computeProjectDirectoryPath(moduleOutputPath: VirtualPath.Handle?,
                                           fileSystem: FileSystem) -> VirtualPath.Handle? {
     let potentialProjectDirectory = moduleOutputPath
@@ -2984,7 +3585,7 @@ extension Driver {
     // If this is a single-file compile and there is an entry in the
     // output file map, use that.
     if compilerMode.isSingleCompilation,
-        let singleOutputPath = outputFileMap?.existingOutputForSingleInput(
+        let singleOutputPath = try outputFileMap?.existingOutputForSingleInput(
           outputType: type) {
       return singleOutputPath
     }
@@ -3003,7 +3604,7 @@ extension Driver {
         parentPath = VirtualPath.lookup(moduleOutputPath).parentDirectory
       }
 
-      return parentPath
+      return try parentPath
         .appending(component: VirtualPath.lookup(moduleOutputPath).basename)
         .replacingExtension(with: type)
         .intern()
@@ -3015,5 +3616,48 @@ extension Driver {
     }
 
     return try VirtualPath.intern(path: moduleName.appendingFileTypeExtension(type))
+  }
+}
+
+// CAS and Caching.
+extension Driver {
+  mutating func getCASPluginPath() throws -> AbsolutePath? {
+    if let pluginPath = parsedOptions.getLastArgument(.casPluginPath)?.asSingle {
+      return try AbsolutePath(validating: pluginPath.description)
+    }
+    return try toolchain.lookupToolchainCASPluginLib()
+  }
+
+  mutating func getOnDiskCASPath() throws -> AbsolutePath? {
+    if let casPathOpt = parsedOptions.getLastArgument(.casPath)?.asSingle {
+      return try AbsolutePath(validating: casPathOpt.description)
+    }
+    return nil;
+  }
+
+  mutating func getCASPluginOptions() throws -> [(String, String)] {
+    var options : [(String, String)] = []
+    for opt in parsedOptions.arguments(for: .casPluginOption) {
+      let pluginArg = opt.argument.asSingle.split(separator: "=", maxSplits: 1)
+      if pluginArg.count != 2 {
+        throw Error.invalidArgumentValue(Option.casPluginOption.spelling, opt.argument.asSingle)
+      }
+      options.append((String(pluginArg[0]), String(pluginArg[1])))
+    }
+    return options
+  }
+
+  static func computeScanningPrefixMapper(_ parsedOptions: inout ParsedOptions) throws -> [AbsolutePath: AbsolutePath] {
+    var mapping: [AbsolutePath: AbsolutePath] = [:]
+    for opt in parsedOptions.arguments(for: .scannerPrefixMap) {
+      let pluginArg = opt.argument.asSingle.split(separator: "=", maxSplits: 1)
+      if pluginArg.count != 2 {
+        throw Error.invalidArgumentValue(Option.scannerPrefixMap.spelling, opt.argument.asSingle)
+      }
+      let key = try AbsolutePath(validating: String(pluginArg[0]))
+      let value = try AbsolutePath(validating: String(pluginArg[1]))
+      mapping[key] = value
+    }
+    return mapping
   }
 }

@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
+import struct TSCBasic.RelativePath
 
 extension Driver {
   mutating func mergeModuleJob(inputs providedInputs: [TypedVirtualPath],
@@ -26,11 +26,11 @@ extension Driver {
     // Input file list.
     if shouldUseInputFileList {
       commandLine.appendFlag(.filelist)
-      let fileList = VirtualPath.createUniqueFilelist(RelativePath("inputs"),
-                                                      .list(inputsFromOutputs.map { $0.file }))
+      let fileList = try VirtualPath.createUniqueFilelist(RelativePath(validating: "inputs"),
+                                                          .list(inputsFromOutputs.map { $0.file }))
       commandLine.appendPath(fileList)
       inputs.append(contentsOf: inputsFromOutputs)
-      
+
       for input in providedInputs {
         assert(input.type == .swiftModule)
         commandLine.append(.path(input.file))
@@ -54,15 +54,12 @@ extension Driver {
     commandLine.appendFlag(.disableDiagnosticPasses)
     commandLine.appendFlag(.disableSilPerfOptzns)
 
-    try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs, bridgingHeaderHandling: .parsed)
+    try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs, kind: .mergeModule, bridgingHeaderHandling: .parsed)
     // FIXME: Add MSVC runtime library flags
 
-    addCommonModuleOptions(commandLine: &commandLine, outputs: &outputs, isMergeModule: true)
+    try addCommonModuleOptions(commandLine: &commandLine, outputs: &outputs, isMergeModule: true)
 
-    try commandLine.appendLast(.emitSymbolGraph, from: &parsedOptions)
-    try commandLine.appendLast(.emitSymbolGraphDir, from: &parsedOptions)
-    try commandLine.appendLast(.includeSpiSymbols, from: &parsedOptions)
-    try commandLine.appendLast(.symbolGraphMinimumAccessLevel, from: &parsedOptions)
+    try addCommonSymbolGraphOptions(commandLine: &commandLine)
 
     // Propagate the disable flag for cross-module incremental builds
     // if necessary. Note because we're interested in *disabling* this feature,
@@ -86,12 +83,11 @@ extension Driver {
     return Job(
       moduleName: moduleOutputInfo.name,
       kind: .mergeModule,
-      tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
+      tool: try toolchain.resolvedTool(.swiftCompiler),
       commandLine: commandLine,
       inputs: inputs,
       primaryInputs: [],
-      outputs: outputs,
-      supportsResponseFiles: true
+      outputs: outputs
     )
   }
 }

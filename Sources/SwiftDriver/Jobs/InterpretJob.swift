@@ -27,7 +27,7 @@ extension Driver {
       commandLine.appendFlag(.disableObjcAttrRequiresFoundationModule)
     }
 
-    try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs)
+    try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs, kind: .interpret)
     // FIXME: MSVC runtime flags
 
     try commandLine.appendLast(.parseSil, from: &parsedOptions)
@@ -44,14 +44,13 @@ extension Driver {
     return Job(
       moduleName: moduleOutputInfo.name,
       kind: .interpret,
-      tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
+      tool: try toolchain.resolvedTool(.swiftCompiler),
       commandLine: commandLine,
       inputs: inputs,
       primaryInputs: [],
       outputs: [],
       extraEnvironment: extraEnvironment,
-      requiresInPlaceExecution: true,
-      supportsResponseFiles: true
+      requiresInPlaceExecution: true
     )
   }
 }

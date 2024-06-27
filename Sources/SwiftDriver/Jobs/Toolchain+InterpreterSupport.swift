@@ -9,8 +9,7 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-//
-import TSCBasic
+
 import SwiftOptions
 
 extension Toolchain {
@@ -44,7 +43,8 @@ extension DarwinToolchain {
 
     addPathEnvironmentVariableIfNeeded("DYLD_FRAMEWORK_PATH", to: &envVars,
                                        currentEnv: env, option: .F,
-                                       parsedOptions: &parsedOptions)
+                                       parsedOptions: &parsedOptions,
+                                       extraPaths: ["/System/Library/Frameworks"])
 
     return envVars
   }

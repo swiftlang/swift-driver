@@ -14,14 +14,14 @@ import TSCBasic
 
 
 #if os(macOS)
-internal func bundleRoot() -> AbsolutePath {
+internal func bundleRoot() throws -> AbsolutePath {
     for bundle in Bundle.allBundles where bundle.bundlePath.hasSuffix(".xctest") {
-        return AbsolutePath(bundle.bundlePath).parentDirectory
+      return try AbsolutePath(validating: bundle.bundlePath).parentDirectory
     }
     fatalError()
 }
 
-private let packageDirectory = AbsolutePath(#file).parentDirectory.parentDirectory.parentDirectory
+private let packageDirectory = try! AbsolutePath(validating: #file).parentDirectory.parentDirectory.parentDirectory
 
 // The "default" here means lit.py will be invoked as an executable, while otherwise let's use
 // python 3 explicitly.
@@ -31,7 +31,7 @@ func makeDriverSymlinks(
   in tempDir: AbsolutePath,
   with swiftBuildDir: AbsolutePath? = nil
 ) throws -> (swift: AbsolutePath, swiftc: AbsolutePath) {
-  let binDir = bundleRoot()
+  let binDir = try bundleRoot()
   let driver = binDir.appending(component: "swift-driver")
 
   let tempBinDir = tempDir.appending(components: "bin")
@@ -84,7 +84,7 @@ final class IntegrationTests: IntegrationTestCase {
       let buildPath = path.appending(component: "build")
       let args = [
         "swift", "build", "--package-path", packageDirectory.pathString,
-        "--build-path", buildPath.pathString
+        "--scratch-path", buildPath.pathString
       ]
       let extraEnv = [ "SWIFT_EXEC": compiler.pathString]
 
@@ -95,7 +95,7 @@ final class IntegrationTests: IntegrationTestCase {
         environment: ProcessEnv.vars.merging(extraEnv) { $1 }
       )
 
-      XCTAssertTrue(localFileSystem.isExecutableFile(buildPath.appending(RelativePath("debug/swift-driver"))), result)
+      XCTAssertTrue(localFileSystem.isExecutableFile(try AbsolutePath(validating: "debug/swift-driver", relativeTo: buildPath)), result)
     }
   #endif
   }
@@ -126,10 +126,6 @@ final class IntegrationTests: IntegrationTestCase {
     try runLitTests(suite: "test", "Driver")
   }
 
-  func testLitDriverDependenciesTests() throws {
-    try runLitTests(suite: "test", "Driver", "Dependencies")
-  }
-
   func testLitDriverValidationTests() throws {
     guard ProcessEnv.vars.keys.contains("SWIFT_DRIVER_ENABLE_FAILING_INTEGRATION_TESTS") else {
       throw XCTSkip("Not all Driver validation-tests supported")
@@ -150,7 +146,7 @@ final class IntegrationTests: IntegrationTestCase {
     }
     try self.runLitTests(suite: "test", "stdlib")
   }
-  
+
   func testLitSymbolGraphFrontendTest() throws {
     try runLitTests(suite: "test", "SymbolGraph", "EmitWhileBuilding.swift")
   }
@@ -173,8 +169,8 @@ final class IntegrationTests: IntegrationTestCase {
       // you've cloned this package into a Swift compiler working directory,
       // that means it'll be the directory with build/, llvm/, swift/, and
       // swift-driver/ in it.
-      let litConfigDir = AbsolutePath(
-        litConfigPathString,
+      let litConfigDir = try AbsolutePath(
+        validating: litConfigPathString,
         relativeTo: swiftRootDir
       )
 
@@ -224,6 +220,7 @@ final class IntegrationTests: IntegrationTestCase {
       let extraEnv = [
         "SWIFT": swift.pathString,
         "SWIFTC": swiftc.pathString,
+        "SWIFT_FORCE_TEST_NEW_DRIVER": "1",
         "SWIFT_DRIVER_SWIFT_EXEC": swiftFile.pathString,
         "SWIFT_DRIVER_SWIFT_FRONTEND_EXEC": frontendFile.pathString,
         "LC_ALL": "en_US.UTF-8"

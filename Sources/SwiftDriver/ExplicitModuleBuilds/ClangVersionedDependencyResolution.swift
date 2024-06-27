@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
+import func TSCBasic.determineTempDirectory
 
 /// A map from a module identifier to a set of module dependency graphs
 /// Used to compute distinct graphs corresponding to different target versions for a given clang module
@@ -178,7 +178,7 @@ private extension InterModuleDependencyGraph {
 
   /// Update the set of all PCMArgs against which a given clang module was re-scanned
   mutating func updateCapturedPCMArgClangDependencies(using pcmArgSetMap:
-                                                        [ModuleDependencyId : Set<[String]>]
+                                                      [ModuleDependencyId : Set<[String]>]
   ) throws {
     for (moduleId, newPCMArgs) in pcmArgSetMap {
       guard let moduleInfo = modules[moduleId] else {

@@ -9,7 +9,7 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import TSCBasic
+
 import Dispatch
 
 /// A filename from another module
@@ -27,13 +27,13 @@ import Dispatch
       self.fileName = fileName
       self.fileNameString = fileName.lookup(in: t)
   }
-  
+
   static var dummy: Self {
     MockIncrementalCompilationSynchronizer.withInternedStringTable { t in
       return Self(fileName: ".".intern(in: t), t)
     }
   }
-  
+
   public static func ==(lhs: ExternalDependency, rhs: ExternalDependency) -> Bool {
     lhs.fileName == rhs.fileName
   }
@@ -183,7 +183,7 @@ public struct DependencyKey {
     ///
     /// A "dynamic member lookup" is the Swift frontend's term for lookups that
     /// occur against instances of `AnyObject`. Because an `AnyObject` node
-    /// behaves like `id` in that it can recieve any kind of Objective-C
+    /// behaves like `id` in that it can receive any kind of Objective-C
     /// message, the compiler takes care to log these names separately.
     ///
     /// The `name` parameter is the human-readable base name of the Swift method
@@ -381,16 +381,16 @@ public func isInIncreasingOrder(_ lhs: DependencyKey.Designator,
     let (.nominal(ln), .nominal(rn)),
     let (.potentialMember(ln), .potentialMember(rn)):
     return f(ln) < f(rn)
-    
+
   case let (.externalDepend(ld), .externalDepend(rd)):
     return ld < rd
-    
+
   case let (.member(lc, ln), .member(rc, rn)):
     return lc == rc ? f(ln) < f(rn) : f(lc) < f(rc)
-    
+
   default: break
   }
-  
+
   /// Preserves the ordering that obtained before interned strings were introduced.
   func kindOrdering(_ d: DependencyKey.Designator) -> Int {
     switch d {

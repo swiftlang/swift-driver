@@ -1,4 +1,4 @@
-//===--- MultiJobExecutor.swift - Builtin DriverExecutor implementation ---===//
+//===- SwiftDriverExecutor.swift - Builtin DriverExecutor implementation --===//
 //
 // This source file is part of the Swift.org open source project
 //
@@ -11,8 +11,15 @@
 //===----------------------------------------------------------------------===//
 
 import SwiftDriver
-import TSCBasic
-import Foundation
+import class Foundation.FileHandle
+
+import class TSCBasic.DiagnosticsEngine
+import class TSCBasic.Process
+import class TSCBasic.ProcessSet
+import enum TSCBasic.ProcessEnv
+import func TSCBasic.exec
+import protocol TSCBasic.FileSystem
+import struct TSCBasic.ProcessResult
 
 public final class SwiftDriverExecutor: DriverExecutor {
   let diagnosticsEngine: DiagnosticsEngine
@@ -34,9 +41,10 @@ public final class SwiftDriverExecutor: DriverExecutor {
 
   public func execute(job: Job,
                       forceResponseFiles: Bool = false,
-                      recordedInputModificationDates: [TypedVirtualPath: Date] = [:]) throws -> ProcessResult {
+                      recordedInputModificationDates: [TypedVirtualPath: TimePoint] = [:]) throws -> ProcessResult {
+    let useResponseFiles : ResponseFileHandling = forceResponseFiles ? .forced : .heuristic
     let arguments: [String] = try resolver.resolveArgumentList(for: job,
-                                                               forceResponseFiles: forceResponseFiles)
+                                                               useResponseFiles: useResponseFiles)
 
     try job.verifyInputsNotModified(since: recordedInputModificationDates,
                                     fileSystem: fileSystem)
@@ -66,7 +74,7 @@ public final class SwiftDriverExecutor: DriverExecutor {
                       delegate: JobExecutionDelegate,
                       numParallelJobs: Int = 1,
                       forceResponseFiles: Bool = false,
-                      recordedInputModificationDates: [TypedVirtualPath: Date] = [:]
+                      recordedInputModificationDates: [TypedVirtualPath: TimePoint] = [:]
   ) throws {
     let llbuildExecutor = MultiJobExecutor(
       workload: workload,
@@ -86,7 +94,8 @@ public final class SwiftDriverExecutor: DriverExecutor {
   }
 
   public func description(of job: Job, forceResponseFiles: Bool) throws -> String {
-    let (args, usedResponseFile) = try resolver.resolveArgumentList(for: job, forceResponseFiles: forceResponseFiles)
+    let useResponseFiles : ResponseFileHandling = forceResponseFiles ? .forced : .heuristic
+    let (args, usedResponseFile) = try resolver.resolveArgumentList(for: job, useResponseFiles: useResponseFiles)
     var result = args.map { $0.spm_shellEscaped() }.joined(separator: " ")
 
     if usedResponseFile {

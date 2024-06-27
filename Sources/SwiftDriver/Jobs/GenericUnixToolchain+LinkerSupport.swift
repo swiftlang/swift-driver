@@ -9,31 +9,13 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import TSCBasic
+
 import SwiftOptions
 
+import func TSCBasic.lookupExecutablePath
+import struct TSCBasic.AbsolutePath
+
 extension GenericUnixToolchain {
-  private func defaultLinker(for targetTriple: Triple) -> String? {
-    if targetTriple.os == .openbsd || targetTriple.environment == .android {
-      return "lld"
-    }
-
-    switch targetTriple.arch {
-    case .arm, .aarch64, .armeb, .thumb, .thumbeb:
-      // BFD linker has issues wrt relocation of the protocol conformance
-      // section on these targets, it also generates COPY relocations for
-      // final executables, as such, unless specified, we default to gold
-      // linker.
-      return "gold"
-    case .x86, .x86_64, .ppc64, .ppc64le, .systemz:
-      // BFD linker has issues wrt relocations against protected symbols.
-      return "gold"
-    default:
-      // Otherwise, use the default BFD linker.
-      return ""
-    }
-  }
-
   private func majorArchitectureName(for triple: Triple) -> String {
     // The concept of a "major" arch name only applies to Linux triples
     guard triple.os == .linux else { return triple.archName }
@@ -44,6 +26,7 @@ extension GenericUnixToolchain {
     //       'armv6', so just take a brute-force approach
     if triple.archName.contains("armv7") { return "armv7" }
     if triple.archName.contains("armv6") { return "armv6" }
+    if triple.archName.contains("armv5") { return "armv5" }
     return triple.archName
   }
 
@@ -57,7 +40,7 @@ extension GenericUnixToolchain {
     lto: LTOKind?,
     sanitizers: Set<Sanitizer>,
     targetInfo: FrontendTargetInfo
-  ) throws -> AbsolutePath {
+  ) throws -> ResolvedTool {
     let targetTriple = targetInfo.target.triple
     switch linkerOutputType {
     case .dynamicLibrary:
@@ -65,24 +48,15 @@ extension GenericUnixToolchain {
       commandLine.appendFlag("-shared")
       fallthrough
     case .executable:
-        // Select the linker to use.
-      var linker: String?
-      if let arg = parsedOptions.getLastArgument(.useLd) {
-        linker = arg.asSingle
+      // Select the linker to use.
+      if let arg = parsedOptions.getLastArgument(.useLd)?.asSingle {
+        commandLine.appendFlag("-fuse-ld=\(arg)")
       } else if lto != nil {
-        linker = "lld"
-      } else {
-        linker = defaultLinker(for: targetTriple)
+        commandLine.appendFlag("-fuse-ld=lld")
       }
 
-      if let linker = linker {
-        #if os(Haiku)
-        // For now, passing -fuse-ld on Haiku doesn't work as swiftc doesn't
-        // recognise it. Passing -use-ld= as the argument works fine.
-        commandLine.appendFlag("-use-ld=\(linker)")
-        #else
-        commandLine.appendFlag("-fuse-ld=\(linker)")
-        #endif
+      if let arg = parsedOptions.getLastArgument(.ldPath)?.asSingle {
+        commandLine.append(.joinedOptionAndPath("--ld-path=", try VirtualPath(path: arg)))
       }
 
       // Configure the toolchain.
@@ -102,13 +76,23 @@ extension GenericUnixToolchain {
       // Windows rather than msvcprt).  When C++ interop is enabled, we will need to
       // surface this via a driver flag.  For now, opt for the simpler approach of
       // just using `clang` and avoid a dependency on the C++ runtime.
-      var clangPath = try getToolPath(.clang)
+      var cxxCompatEnabled = parsedOptions.hasArgument(.enableExperimentalCxxInterop)
+      if let cxxInteropMode = parsedOptions.getLastArgument(.cxxInteroperabilityMode) {
+        if cxxInteropMode.asSingle == "swift-5.9" {
+          cxxCompatEnabled = true
+        }
+      }
+
+      let clangTool: Tool = cxxCompatEnabled ? .clangxx : .clang
+      var clangPath = try getToolPath(clangTool)
       if let toolsDirPath = parsedOptions.getLastArgument(.toolsDirectory) {
         // FIXME: What if this isn't an absolute path?
         let toolsDir = try AbsolutePath(validating: toolsDirPath.asSingle)
 
         // If there is a clang in the toolchain folder, use that instead.
-        if let tool = lookupExecutablePath(filename: "clang", searchPaths: [toolsDir]) {
+        if let tool = lookupExecutablePath(filename: cxxCompatEnabled
+                                                        ? "clang++" : "clang",
+                                           searchPaths: [toolsDir]) {
           clangPath = tool
         }
 
@@ -128,11 +112,13 @@ extension GenericUnixToolchain {
       let staticExecutable = parsedOptions.hasFlag(positive: .staticExecutable,
                                                    negative: .noStaticExecutable,
                                                   default: false)
+      let isEmbeddedEnabled = parsedOptions.isEmbeddedEnabled
+
       let toolchainStdlibRpath = parsedOptions
                                  .hasFlag(positive: .toolchainStdlibRpath,
                                           negative: .noToolchainStdlibRpath,
                                           default: true)
-      let hasRuntimeArgs = !(staticStdlib || staticExecutable)
+      let hasRuntimeArgs = !(staticStdlib || staticExecutable || isEmbeddedEnabled)
 
       let runtimePaths = try runtimeLibraryPaths(
         for: targetInfo,
@@ -141,8 +127,16 @@ extension GenericUnixToolchain {
         isShared: hasRuntimeArgs
       )
 
-      if hasRuntimeArgs && targetTriple.environment != .android &&
-          toolchainStdlibRpath {
+      // An exception is made for native Android environments like the Termux
+      // app as they build and run natively like a Unix environment on Android,
+      // so add the stdlib RPATH by default there.
+      #if os(Android)
+      let addRpath = true
+      #else
+      let addRpath = targetTriple.environment != .android
+      #endif
+
+      if hasRuntimeArgs && addRpath && toolchainStdlibRpath {
         // FIXME: We probably shouldn't be adding an rpath here unless we know
         //        ahead of time the standard library won't be copied.
         for path in runtimePaths {
@@ -153,13 +147,15 @@ extension GenericUnixToolchain {
         }
       }
 
-      let swiftrtPath = VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
-        .appending(
-          components: targetTriple.platformName() ?? "",
-          String(majorArchitectureName(for: targetTriple)),
-          "swiftrt.o"
-        )
-      commandLine.appendPath(swiftrtPath)
+      if !isEmbeddedEnabled && !parsedOptions.hasArgument(.nostartfiles) {
+        let swiftrtPath = VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
+          .appending(
+            components: targetTriple.platformName() ?? "",
+            String(majorArchitectureName(for: targetTriple)),
+            "swiftrt.o"
+          )
+        commandLine.appendPath(swiftrtPath)
+      }
 
       // If we are linking statically, we need to add all
       // dependencies to a library search group to resolve
@@ -221,7 +217,9 @@ extension GenericUnixToolchain {
         linkFilePath = linkFilePath?.appending(component: "static-stdlib-args.lnk")
       } else {
         linkFilePath = nil
-        commandLine.appendFlag("-lswiftCore")
+        if !isEmbeddedEnabled {
+          commandLine.appendFlag("-lswiftCore")
+        }
       }
 
       if let linkFile = linkFilePath {
@@ -229,6 +227,11 @@ extension GenericUnixToolchain {
           fatalError("\(linkFile) not found")
         }
         commandLine.append(.responseFilePath(linkFile))
+      }
+
+      // Pass down an optimization level
+      if let optArg = mapOptimizationLevelToClangArg(from: &parsedOptions) {
+        commandLine.appendFlag(optArg)
       }
 
       // Explicitly pass the target to the linker
@@ -280,18 +283,12 @@ extension GenericUnixToolchain {
         from: &parsedOptions
       )
       addLinkedLibArgs(to: &commandLine, parsedOptions: &parsedOptions)
-      // Because we invoke `clang` as the linker executable, we must still
-      // use `-Xlinker` for linker-specific arguments.
-      for linkerOpt in parsedOptions.arguments(for: .Xlinker) {
-        commandLine.appendFlag(.Xlinker)
-        commandLine.appendFlag(linkerOpt.argument.asSingle)
-      }
-      try commandLine.appendAllArguments(.XclangLinker, from: &parsedOptions)
+      try addExtraClangLinkerArgs(to: &commandLine, parsedOptions: &parsedOptions)
 
       // This should be the last option, for convenience in checking output.
       commandLine.appendFlag(.o)
       commandLine.appendPath(outputFile)
-      return clangPath
+      return try resolvedTool(clangTool, pathOverride: clangPath)
     case .staticLibrary:
       // We're using 'ar' as a linker
       commandLine.appendFlag("crs")
@@ -303,9 +300,9 @@ extension GenericUnixToolchain {
                          }.map { .path($0.file) })
       if targetTriple.environment == .android {
         // Always use the LTO archiver llvm-ar for Android
-        return try getToolPath(.staticLinker(.llvmFull))
+        return try resolvedTool(.staticLinker(.llvmFull))
       } else {
-        return try getToolPath(.staticLinker(lto))
+        return try resolvedTool(.staticLinker(lto))
       }
     }
 

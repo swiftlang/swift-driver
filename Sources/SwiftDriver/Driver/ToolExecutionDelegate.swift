@@ -9,7 +9,6 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import TSCBasic
 
 #if canImport(Darwin)
 import Darwin.C
@@ -18,9 +17,17 @@ import ucrt
 import WinSDK
 #elseif canImport(Glibc)
 import Glibc
+#elseif canImport(Musl)
+import Musl
 #else
 #error("Missing libc or equivalent")
 #endif
+
+import class TSCBasic.DiagnosticsEngine
+import struct TSCBasic.Diagnostic
+import struct TSCBasic.ProcessResult
+import var TSCBasic.stderrStream
+import var TSCBasic.stdoutStream
 
 /// Delegate for printing execution information on the command-line.
 @_spi(Testing) public final class ToolExecutionDelegate: JobExecutionDelegate {
@@ -42,7 +49,6 @@ import Glibc
 
   public let mode: Mode
   public let buildRecordInfo: BuildRecordInfo?
-  public let incrementalCompilationState: IncrementalCompilationState?
   public let showJobLifecycle: Bool
   public let diagnosticEngine: DiagnosticsEngine
   public var anyJobHadAbnormalExit: Bool = false
@@ -53,13 +59,11 @@ import Glibc
 
   @_spi(Testing) public init(mode: ToolExecutionDelegate.Mode,
                              buildRecordInfo: BuildRecordInfo?,
-                             incrementalCompilationState: IncrementalCompilationState?,
                              showJobLifecycle: Bool,
                              argsResolver: ArgsResolver,
                              diagnosticEngine: DiagnosticsEngine) {
     self.mode = mode
     self.buildRecordInfo = buildRecordInfo
-    self.incrementalCompilationState = incrementalCompilationState
     self.showJobLifecycle = showJobLifecycle
     self.diagnosticEngine = diagnosticEngine
     self.argsResolver = argsResolver
@@ -74,7 +78,7 @@ import Glibc
     case .regular, .silent:
       break
     case .verbose:
-      stdoutStream <<< arguments.map { $0.spm_shellEscaped() }.joined(separator: " ") <<< "\n"
+      stdoutStream.send("\(arguments.map { $0.spm_shellEscaped() }.joined(separator: " "))\n")
       stdoutStream.flush()
     case .parsableOutput:
       let messages = constructJobBeganMessages(job: job, arguments: arguments, pid: pid)
@@ -109,7 +113,7 @@ import Glibc
       let output = (try? result.utf8Output() + result.utf8stderrOutput()) ?? ""
       if !output.isEmpty {
         Driver.stdErrQueue.sync {
-          stderrStream <<< output
+          stderrStream.send(output)
           stderrStream.flush()
         }
       }
@@ -164,8 +168,13 @@ import Glibc
     // FIXME: Do we need to do error handling here? Can this even fail?
     guard let json = try? message.toJSON() else { return }
     Driver.stdErrQueue.sync {
-      stderrStream <<< json.count <<< "\n"
-      stderrStream <<< String(data: json, encoding: .utf8)! <<< "\n"
+      stderrStream.send(
+        """
+        \(json.count)
+        \(String(data: json, encoding: .utf8)!)
+
+        """
+      )
       stderrStream.flush()
     }
   }

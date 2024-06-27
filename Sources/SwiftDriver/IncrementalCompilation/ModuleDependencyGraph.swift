@@ -10,17 +10,23 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
-import TSCBasic
-import TSCUtility
 import SwiftOptions
 
+import protocol TSCBasic.FileSystem
+import struct TSCBasic.ByteString
+import class Dispatch.DispatchQueue
+import struct Foundation.TimeInterval
 
 // MARK: - ModuleDependencyGraph
 
 /// Holds all the dependency relationships in this module, and declarations in other modules that
-/// are dependended-upon.
+/// are depended-upon.
 /*@_spi(Testing)*/ public final class ModuleDependencyGraph: InternedStringTableHolder {
+  /// The build record information associated with this module dependency graph.
+  ///
+  /// This data reflects the result of the _prior_ compilation. Consult
+  /// ``BuildRecordInfo`` for data from the in-flight compilation session.
+  @_spi(Testing) public let buildRecord: BuildRecord
 
   /// Supports finding nodes in two ways.
   @_spi(Testing) public var nodeFinder: NodeFinder
@@ -34,28 +40,34 @@ import SwiftOptions
   /// For debugging, something to write out files for visualizing graphs
   var dotFileWriter: DependencyGraphDotFileWriter?
 
-  @_spi(Testing) public var phase: Phase {
-    willSet { mutationSafetyPrecondition() }
+  @_spi(Testing) public fileprivate(set) var phase: Phase
+
+  @_spi(Testing) public func setPhase(to newPhase: Phase) {
+    mutationSafetyPrecondition()
+    self.phase = newPhase
   }
 
   /// The phase when the graph was created. Used to help diagnose later failures
   let creationPhase: Phase
 
   fileprivate var currencyCache: ExternalDependencyCurrencyCache
-  
+
   /// To speed all the node insertions and lookups, intern all the strings.
   /// Put them here because it matches the concurrency constraints; just as modifications to this graph
   /// are serialized, so must all the mods to this table be.
   @_spi(Testing) public let internedStringTable: InternedStringTable
 
-  private init(_ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup,
-               _ phase: Phase,
-              _ internedStringTable: InternedStringTable,
-              _ nodeFinder: NodeFinder,
-              _ fingerprintedExternalDependencies: Set<FingerprintedExternalDependency>
+  private init(
+    _ buildRecord: BuildRecord,
+    _ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup,
+    _ phase: Phase,
+    _ internedStringTable: InternedStringTable,
+    _ nodeFinder: NodeFinder,
+    _ fingerprintedExternalDependencies: Set<FingerprintedExternalDependency>
   ) {
+    self.buildRecord = buildRecord
     self.currencyCache = ExternalDependencyCurrencyCache(
-      info.fileSystem, buildStartTime: info.buildStartTime)
+      info.fileSystem, buildStartTime: buildRecord.buildStartTime)
     self.info = info
     self.dotFileWriter = info.emitDependencyDotFileAfterEveryImport
       ? DependencyGraphDotFileWriter(info)
@@ -67,43 +79,50 @@ import SwiftOptions
     self.fingerprintedExternalDependencies = fingerprintedExternalDependencies
   }
 
-  private convenience init(_ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup,
-              _ phase: Phase
+  private convenience init(
+    _ buildRecord: BuildRecord,
+    _ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup,
+    _ phase: Phase
   ) {
     assert(phase != .updatingFromAPrior,
            "If updating from prior, should be supplying more ingredients")
-    self.init(info, phase, InternedStringTable(info.incrementalCompilationQueue),
+    self.init(buildRecord, info, phase, InternedStringTable(info.incrementalCompilationQueue),
               NodeFinder(),
               Set())
   }
-  
+
   public static func createFromPrior(
+    _ buildRecord: BuildRecord,
     _ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup,
     _ internedStringTable: InternedStringTable,
     _ nodeFinder: NodeFinder,
     _ fingerprintedExternalDependencies: Set<FingerprintedExternalDependency>
   ) -> Self {
-    self.init(info,
+    self.init(buildRecord,
+              info,
               .updatingFromAPrior,
               internedStringTable,
               nodeFinder,
               fingerprintedExternalDependencies)
   }
-  
+
   public static func createForBuildingFromSwiftDeps(
+    _ buildRecord: BuildRecord,
     _ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup
   ) -> Self {
-    self.init(info, .buildingFromSwiftDeps)
+    self.init(buildRecord, info, .buildingFromSwiftDeps)
   }
   public static func createForBuildingAfterEachCompilation(
+    _ buildRecord: BuildRecord,
     _ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup
   ) -> Self {
-    self.init(info, .buildingAfterEachCompilation)
+    self.init(buildRecord, info, .buildingAfterEachCompilation)
   }
   public static func createForSimulatingCleanBuild(
+    _ buildRecord: BuildRecord,
     _ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup
   ) -> Self {
-    self.init(info, .updatingAfterCompilation)
+    self.init(buildRecord, info, .updatingAfterCompilation)
   }
 }
 
@@ -161,10 +180,10 @@ extension ModuleDependencyGraph {
     input: SwiftSourceFile
   ) -> TransitivelyInvalidatedSwiftSourceFileSet? {
     // do not try to read swiftdeps of a new input
-    if info.sourceFiles.isANewInput(input) {
+    guard self.buildRecord.inputInfos[input.typedFile.file] != nil else {
       return TransitivelyInvalidatedSwiftSourceFileSet()
     }
-    return collectInputsRequiringCompilationAfterProcessing(input: input)
+    return self.collectInputsRequiringCompilationAfterProcessing(input: input)
   }
 }
 
@@ -233,7 +252,7 @@ extension ModuleDependencyGraph {
   ///
   /// - Parameter input: The file that has just been compiled
   /// - Returns: The input files that must be compiled now that `input` has been compiled.
-  /// These may include inptus that do not need compilation because this build already compiled them.
+  /// These may include inputs that do not need compilation because this build already compiled them.
   /// In case of an error, such as a missing entry in the `OutputFileMap`, nil is returned.
   @_spi(Testing) public func collectInputsRequiringCompilation(
     byCompiling input: SwiftSourceFile
@@ -244,7 +263,7 @@ extension ModuleDependencyGraph {
 
 // MARK: - Scheduling either wave
 extension ModuleDependencyGraph {
-  
+
   /// Given nodes that are invalidated, find all the affected inputs that must be recompiled.
   ///
   /// - Parameter nodes: A set of graph nodes for changed declarations.
@@ -275,7 +294,7 @@ extension ModuleDependencyGraph {
   ///
   /// - Parameters:
   ///   - fingerprintedExternalDependency: the dependency to trace
-  ///   - why: why the dependecy must be traced
+  ///   - why: why the dependency must be traced
   /// - Returns: any nodes that directly use (depend upon) that external dependency.
   /// As an optimization, only return the nodes that have not been already traced, because the traced nodes
   /// will have already been used to schedule jobs to run.
@@ -318,7 +337,7 @@ extension ModuleDependencyGraph {
       // to preserve legacy behavior cancel whole thing
       info.diagnosticEngine.emit(
         .remark_incremental_compilation_has_been_disabled(
-          because: "malformed dependencies file '\(dependencySource.fileToRead(info: info)?.file.name ?? "none?!")'"))
+          because: "malformed dependencies file '\((try? dependencySource.fileToRead(info: info))?.file.name ?? "none?!")'"))
       return nil
     }
     let invalidatedNodes = Integrator.integrate(
@@ -346,8 +365,8 @@ extension ModuleDependencyGraph {
     for invalidatedInput in collectInputsUsingInvalidated(nodes: directlyInvalidatedNodes) {
       guard info.isPartOfBuild(invalidatedInput)
       else {
-        info.diagnosticEngine.emit(
-          warning: "Failed to find source file '\(invalidatedInput.typedFile.file.basename)' in command line, recovering with a full rebuild. Next build will be incremental.")
+        info.diagnosticEngine.emit(.warning("Failed to find source file '\(invalidatedInput.typedFile.file.basename)' in command line, recovering with a full rebuild. Next build will be incremental."),
+                                   location: nil)
         return nil
       }
       invalidatedInputs.insert(invalidatedInput)
@@ -389,7 +408,7 @@ extension ModuleDependencyGraph {
     }
   }
 
-  /// Find the nodes *directly* invaliadated by some external dependency
+  /// Find the nodes *directly* invalidated by some external dependency
   ///
   /// This function does not do the transitive closure; that is left to the callers.
   func findNodesInvalidated(
@@ -425,20 +444,19 @@ extension ModuleDependencyGraph {
     precondition(self.phase != .buildingFromSwiftDeps)
 
     guard let whyIntegrate = whyIncrementallyFindNodesInvalidated(by: integrand) else {
-      info.reporter?.report("Ignoring unchanged existing external incremental dependency", integrand)
       return DirectlyInvalidatedNodeSet()
     }
     mutationSafetyPrecondition()
     return integrateIncrementalImport(of: integrand.externalDependency, whyIntegrate)
            ?? indiscriminatelyFindNodesInvalidated(by: integrand, .couldNotRead)
   }
-  
+
   /// In order to report what happened in a sensible order, reify the reason for indiscriminately invalidating.
   private enum WhyIndiscriminatelyInvalidate: CustomStringConvertible {
     case incrementalImportsIsDisabled
     case missingFingerprint
     case couldNotRead
-    
+
     var description: String {
       switch self {
       case .incrementalImportsIsDisabled: return "Incremental imports are disabled"
@@ -479,16 +497,17 @@ extension ModuleDependencyGraph {
   ///
   /// - Parameter fed: The external dependency, with fingerprint and origin info to be integrated
   /// - Returns: nil if no integration is needed, or else why the integration is happening
-  private func whyIncrementallyFindNodesInvalidated(by integrand: ExternalIntegrand
+  private func whyIncrementallyFindNodesInvalidated(
+    by integrand: ExternalIntegrand
   ) -> ExternalDependency.InvalidationReason? {
     accessSafetyPrecondition()
-   switch integrand {
-   case .new:
+    switch integrand {
+    case .new:
       return .added
-   case .old where self.currencyCache.isCurrent(integrand.externalDependency.externalDependency):
+    case .old where self.currencyCache.isCurrent(integrand.externalDependency.externalDependency):
       // The most current version is already in the graph
       return nil
-   case .old:
+    case .old:
       return .newer
     }
   }
@@ -551,10 +570,10 @@ extension ModuleDependencyGraph {
   /// it must be scheduled for recompilation. Thus invalidation happens for every dependent input file.
   fileprivate struct ExternalDependencyCurrencyCache {
     private let fileSystem: FileSystem
-    private let buildStartTime: Date
+    private let buildStartTime: TimePoint
     private var currencyCache = [ExternalDependency: Bool]()
 
-    init(_ fileSystem: FileSystem, buildStartTime: Date) {
+    init(_ fileSystem: FileSystem, buildStartTime: TimePoint) {
       self.fileSystem = fileSystem
       self.buildStartTime = buildStartTime
     }
@@ -610,10 +629,11 @@ extension ModuleDependencyGraph {
   /// - WARNING: You *must* increment the minor version number when making any
   ///            changes to the underlying serialization format.
   ///
-  /// - Minor number 1: Don't serialize the `inputDepedencySourceMap`
+  /// - Minor number 1: Don't serialize the `inputDependencySourceMap`
   /// - Minor number 2: Use `.swift` files instead of `.swiftdeps` in ``DependencySource``
   /// - Minor number 3: Use interned strings, including for fingerprints and use empty dependency source file for no DependencySource
-  @_spi(Testing) public static let serializedGraphVersion = Version(1, 3, 0)
+  /// - Minor number 4: Absorb the data in the ``BuildRecord`` into the module dependency graph.
+  @_spi(Testing) public static let serializedGraphVersion = Version(1, 4, 0)
 
   /// The IDs of the records used by the module dependency graph.
   fileprivate enum RecordID: UInt64 {
@@ -623,6 +643,8 @@ extension ModuleDependencyGraph {
     case useIDNode          = 4
     case externalDepNode    = 5
     case identifierNode     = 6
+    case buildRecord        = 7
+    case inputInfo          = 8
 
     /// The human-readable name of this record.
     ///
@@ -643,6 +665,10 @@ extension ModuleDependencyGraph {
         return "EXTERNAL_DEP_NODE"
       case .identifierNode:
         return "IDENTIFIER_NODE"
+      case .buildRecord:
+        return "BUILD_RECORD"
+      case .inputInfo:
+        return "INPUT_INFO"
       }
     }
   }
@@ -653,6 +679,7 @@ extension ModuleDependencyGraph {
     case malformedMetadataRecord
     case mismatchedSerializedGraphVersion(expected: Version, read: Version)
     case unexpectedMetadataRecord
+    case unexpectedBuildRecord
     case malformedFingerprintRecord
     case malformedIdentifierRecord
     case malformedModuleDepGraphNodeRecord
@@ -660,18 +687,16 @@ extension ModuleDependencyGraph {
     case malforedUseIDRecord
     case malformedMapRecord
     case malformedExternalDepNodeRecord
+    case malformedBuildRecord
+    case malformedInputInfo
     case unknownRecord
     case unexpectedSubblock
     case bogusNameOrContext
     case unknownKind
     case unknownDependencySourceExtension
-    case timeTravellingPriors(priorsModTime: Date,
-                              buildStartTime: Date,
-                              priorsTimeIntervalSinceStart: TimeInterval)
-    
+
     fileprivate init(forMalformed kind: RecordID) {
       switch kind {
-        
       case .metadata:
         self = .malformedMetadataRecord
       case .moduleDepGraphNode:
@@ -684,6 +709,10 @@ extension ModuleDependencyGraph {
         self = .malformedExternalDepNodeRecord
       case .identifierNode:
         self = .malformedIdentifierRecord
+      case .buildRecord:
+        self = .malformedBuildRecord
+      case .inputInfo:
+        self = .malformedInputInfo
       }
     }
   }
@@ -720,6 +749,11 @@ extension ModuleDependencyGraph {
       var majorVersion: UInt64?
       var minorVersion: UInt64?
       var compilerVersionString: String?
+      var argsHash: String?
+      var buildStartTime: TimePoint = .distantPast
+      var buildEndTime: TimePoint = .distantFuture
+      var inputInfos: [VirtualPath: InputInfo] = [:]
+      var expectedInputInfos: Int = 0
 
       private var currentDefKey: DependencyKey? = nil
       private var nodeUses: [(DependencyKey, Int)] = []
@@ -731,9 +765,9 @@ extension ModuleDependencyGraph {
       /// `Array` supports the deserialization of the def-use links by mapping index to node.
       /// The optionality of the contents lets the ``ModuleDependencyGraph/isForRemovedInput`` check to be cached.
       public private(set) var potentiallyUsedNodes: [Node?] = []
-      
+
       private var nodeFinder = NodeFinder()
-      
+
       var incrementalCompilationQueue: DispatchQueue {
         info.incrementalCompilationQueue
       }
@@ -742,14 +776,22 @@ extension ModuleDependencyGraph {
         self.info = info
         self.internedStringTable = InternedStringTable(info.incrementalCompilationQueue)
       }
-      
+
       private var fileSystem: FileSystem {
         info.fileSystem
       }
 
       func finalizeGraph() -> ModuleDependencyGraph {
         mutationSafetyPrecondition()
-        let graph = ModuleDependencyGraph.createFromPrior(info,
+        let record = BuildRecord(
+          argsHash: self.argsHash!,
+          swiftVersion: self.compilerVersionString!,
+          buildStartTime: self.buildStartTime,
+          buildEndTime: self.buildEndTime,
+          inputInfos: self.inputInfos)
+        assert(self.inputInfos.count == self.expectedInputInfos)
+        let graph = ModuleDependencyGraph.createFromPrior(record,
+                                                          info,
                                                           internedStringTable,
                                                           nodeFinder,
                                                           fingerprintedExternalDependencies)
@@ -789,10 +831,10 @@ extension ModuleDependencyGraph {
         assert(oldNode == nil,
                "Integrated the same node twice: \(oldNode!), \(newNode)")
       }
-      
+
       /// Determine whether (deserialized) node was for a definition in a source file that is no longer part of the build.
       ///
-      /// If the priors were read from an invocation containing a subsuequently removed input,
+      /// If the priors were read from an invocation containing a subsequently removed input,
       /// the nodes defining decls from that input must be culled.
       ///
       /// - Parameter node: The (deserialized) node to test.
@@ -805,14 +847,14 @@ extension ModuleDependencyGraph {
         }
         return !info.isPartOfBuild(SwiftSourceFile(dependencySource.typedFile))
       }
-      
+
       mutating func visit(record: BitcodeElement.Record) throws {
         guard let kind = RecordID(rawValue: record.id) else {
           throw ReadError.unknownRecord
         }
-        
+
         var malformedError: ReadError {.init(forMalformed: kind)}
-        
+
         func stringIndex(field i: Int) throws -> Int {
           let u = record.fields[i]
           guard u < UInt64(internedStringTable.count) else {
@@ -851,18 +893,57 @@ extension ModuleDependencyGraph {
           guard self.majorVersion == nil, self.minorVersion == nil, self.compilerVersionString == nil else {
             throw ReadError.unexpectedMetadataRecord
           }
-          guard record.fields.count == 3,
-                case .blob(let compilerVersionBlob) = record.payload
-          else { throw malformedError }
+          guard
+            record.fields.count == 3,
+            case .blob(let compilerVersionBlob) = record.payload
+          else {
+            throw malformedError
+          }
 
           self.majorVersion = record.fields[0]
           self.minorVersion = record.fields[1]
           let stringCount = record.fields[2]
           internedStringTable.reserveCapacity(Int(stringCount))
           self.compilerVersionString = String(decoding: compilerVersionBlob, as: UTF8.self)
-        case .moduleDepGraphNode:
-           guard record.fields.count == 6
+        case .buildRecord:
+          guard self.argsHash == nil, self.buildStartTime == .distantPast, self.buildEndTime == .distantFuture else {
+            throw ReadError.unexpectedBuildRecord
+          }
+          guard
+            record.fields.count == 7,
+            case .blob(let argHashBlob) = record.payload
           else {
+            throw malformedError
+          }
+          self.buildStartTime = TimePoint(
+            lower: UInt32(record.fields[0]),
+            upper: UInt32(record.fields[1]),
+            nanoseconds: UInt32(record.fields[2]))
+          self.buildEndTime = TimePoint(
+            lower: UInt32(record.fields[3]),
+            upper: UInt32(record.fields[4]),
+            nanoseconds: UInt32(record.fields[5]))
+          self.expectedInputInfos = Int(record.fields[6])
+          self.argsHash = String(decoding: argHashBlob, as: UTF8.self)
+        case .inputInfo:
+          guard
+            record.fields.count == 5,
+            let path = try nonemptyInternedString(field: 4)
+          else {
+            throw malformedError
+          }
+          let modTime = TimePoint(
+            lower: UInt32(record.fields[0]),
+            upper: UInt32(record.fields[1]),
+            nanoseconds: UInt32(record.fields[2]))
+          let status = try InputInfo.Status(code: UInt32(record.fields[3]))
+          let pathString = path.lookup(in: internedStringTable)
+          let pathHandle = try VirtualPath.intern(path: pathString)
+          self.inputInfos[VirtualPath.lookup(pathHandle)] = InputInfo(
+            status: status,
+            previousModTime: modTime)
+        case .moduleDepGraphNode:
+          guard record.fields.count == 6 else {
             throw malformedError
           }
           let key = try dependencyKey(kindCodeField: 0,
@@ -923,7 +1004,7 @@ extension ModuleDependencyGraph {
         }
       }
     }
-    
+
     var visitor = Visitor(info)
     try Bitcode.read(bytes: data, using: &visitor)
     guard let major = visitor.majorVersion,
@@ -954,38 +1035,7 @@ extension ModuleDependencyGraph {
     guard try info.fileSystem.exists(path) else {
       return nil
     }
-    try ensurePriorsCreatedDuringPriorBuild(at: path, info: info)
     return try info.fileSystem.readFileContents(path)
-  }
-
-  /// Check that the file containing the saved `ModuleDependencyGraph` was created during the
-  /// previous build, and thus reflects the final state of that graph for the previous build.
-  ///
-  /// This check ensures that any differences in imported `swiftmodule`s will be accurately detected.
-  /// In the normal course of events, a stale priors file should not exist.
-  /// However, in the case of unforeseen circumstances, stale priors might be possible.
-  /// For the cost of one stat on the priors file, we get to cover that case, and prevent potential future problems.
-  /// Ideally, the priors would be merged into the build record. Until that happens, do this check.
-  /// - Parameters:
-  ///   - path: the path of the priors file
-  ///   - info: holds file file system, etc, for the check
-  /// - Returns: nothing, but throws ``ModuleDependencyGraph/ReadError/timeTravellingPriors``
-  /// if the file was not created at the right time.
-  fileprivate static func ensurePriorsCreatedDuringPriorBuild(
-    at path: VirtualPath,
-    info: IncrementalCompilationState.IncrementalDependencyAndInputSetup) throws {
-    let buildStartTime = info.buildStartTime
-    guard let priorsModTime = try? info.fileSystem.lastModificationTime(for: path)
-    else {
-      return
-    }
-    let priorsTimeIntervalSinceStart = priorsModTime.timeIntervalSince(buildStartTime)
-    // CI seems to emit identical times; I'm not sure why. So compare to -1.
-    guard -1.0 <= priorsTimeIntervalSinceStart else {
-      throw ReadError.timeTravellingPriors(priorsModTime: priorsModTime,
-                                           buildStartTime: buildStartTime,
-                                           priorsTimeIntervalSinceStart: priorsTimeIntervalSinceStart)
-    }
   }
 }
 
@@ -1015,11 +1065,11 @@ extension ModuleDependencyGraph {
   @_spi(Testing) public func write(
     to path: VirtualPath,
     on fileSystem: FileSystem,
-    compilerVersion: String,
+    buildRecord: BuildRecord,
     mockSerializedGraphVersion: Version? = nil
   ) throws {
     let data = ModuleDependencyGraph.Serializer.serialize(
-      self, compilerVersion,
+      self, buildRecord,
       mockSerializedGraphVersion ?? Self.serializedGraphVersion)
 
     do {
@@ -1034,7 +1084,7 @@ extension ModuleDependencyGraph {
 
   @_spi(Testing) public final class Serializer: InternedStringTableHolder {
     public let internedStringTable: InternedStringTable
-    let compilerVersion: String
+    let buildRecord: BuildRecord
     let serializedGraphVersion: Version
     let stream = BitstreamWriter()
     private var abbreviations = [RecordID: Bitstream.AbbreviationID]()
@@ -1042,10 +1092,10 @@ extension ModuleDependencyGraph {
     private var lastNodeID: Int = 0
 
     private init(internedStringTable: InternedStringTable,
-                 compilerVersion: String,
+                 buildRecord: BuildRecord,
                  serializedGraphVersion: Version) {
       self.internedStringTable = internedStringTable
-      self.compilerVersion = compilerVersion
+      self.buildRecord = buildRecord
       self.serializedGraphVersion = serializedGraphVersion
     }
 
@@ -1085,6 +1135,8 @@ extension ModuleDependencyGraph {
         self.emitRecordID(.useIDNode)
         self.emitRecordID(.externalDepNode)
         self.emitRecordID(.identifierNode)
+        self.emitRecordID(.buildRecord)
+        self.emitRecordID(.inputInfo)
       }
     }
 
@@ -1095,7 +1147,33 @@ extension ModuleDependencyGraph {
         $0.append(serializedGraphVersion.minorForWriting)
         $0.append(min(UInt(internedStringTable.count), UInt(UInt32.max)))
       },
-      blob: self.compilerVersion)
+      blob: self.buildRecord.swiftVersion)
+    }
+
+    private func writeBuildRecord() {
+      self.stream.writeRecord(self.abbreviations[.buildRecord]!, {
+        $0.append(RecordID.buildRecord)
+        $0.append(self.buildRecord.buildStartTime)
+        $0.append(self.buildRecord.buildEndTime)
+        $0.append(UInt32(self.buildRecord.inputInfos.count))
+      },
+      blob: self.buildRecord.argsHash)
+
+      let sortedInputInfo = self.buildRecord.inputInfos.sorted {
+        $0.key.name < $1.key.name
+      }
+
+      for (input, inputInfo) in sortedInputInfo {
+        let inputID = input.name.intern(in: self.internedStringTable)
+        let pathID = self.lookupIdentifierCode(for: inputID)
+
+        self.stream.writeRecord(self.abbreviations[.inputInfo]!) {
+          $0.append(RecordID.inputInfo)
+          $0.append(inputInfo.previousModTime)
+          $0.append(inputInfo.status.code)
+          $0.append(pathID)
+        }
+      }
     }
 
     private func lookupIdentifierCode(for string: InternedString?) -> UInt32 {
@@ -1110,6 +1188,14 @@ extension ModuleDependencyGraph {
     private func populateCaches(from graph: ModuleDependencyGraph) {
       graph.nodeFinder.forEachNode { node in
         self.cacheNodeID(for: node)
+      }
+
+      let sortedInputInfo = self.buildRecord.inputInfos.sorted {
+        $0.key.name < $1.key.name
+      }
+
+      for (input, _) in sortedInputInfo {
+        _ = input.name.intern(in: self.internedStringTable)
       }
 
       for str in internedStringTable.strings {
@@ -1130,7 +1216,7 @@ extension ModuleDependencyGraph {
         // dependency name
         .vbr(chunkBitWidth: 13),
       ]
-      
+
       self.abbreviate(.metadata, [
         .literal(RecordID.metadata.rawValue),
         // Major version
@@ -1141,6 +1227,38 @@ extension ModuleDependencyGraph {
         .fixed(bitWidth: 32),
         // Frontend version
         .blob,
+      ])
+      self.abbreviate(.buildRecord, [
+        .literal(RecordID.buildRecord.rawValue),
+        // Build start time seconds - lower bits
+        .fixed(bitWidth: 32),
+        // Build start time seconds - upper bits
+        .fixed(bitWidth: 32),
+        // Build start time nanoseconds
+        .fixed(bitWidth: 32),
+        // Build end time seconds - lower bits
+        .fixed(bitWidth: 32),
+        // Build end time seconds - upper bits
+        .fixed(bitWidth: 32),
+        // Build end time nanoseconds
+        .fixed(bitWidth: 32),
+        // Expected input count
+        .fixed(bitWidth: 32),
+        // Argument hash
+        .blob,
+      ])
+      self.abbreviate(.inputInfo, [
+        .literal(RecordID.inputInfo.rawValue),
+        // Known modification time seconds - lower bits
+        .fixed(bitWidth: 32),
+        // Known modification time seconds - upper bits
+        .fixed(bitWidth: 32),
+        // Known modification time nanoseconds
+        .fixed(bitWidth: 32),
+        // Input status
+        .fixed(bitWidth: 3),
+        // path ID
+        .vbr(chunkBitWidth: 13),
       ])
       self.abbreviate(.moduleDepGraphNode,
         [Bitstream.Abbreviation.Operand.literal(RecordID.moduleDepGraphNode.rawValue)] +
@@ -1182,13 +1300,13 @@ extension ModuleDependencyGraph {
 
     public static func serialize(
       _ graph: ModuleDependencyGraph,
-      _ compilerVersion: String,
+      _ buildRecord: BuildRecord,
       _ serializedGraphVersion: Version
     ) -> ByteString {
       graph.accessSafetyPrecondition()
       let serializer = Serializer(
         internedStringTable: graph.internedStringTable,
-        compilerVersion: compilerVersion,
+        buildRecord: buildRecord,
         serializedGraphVersion: serializedGraphVersion)
       serializer.emitSignature()
       serializer.writeBlockInfoBlock()
@@ -1199,7 +1317,9 @@ extension ModuleDependencyGraph {
         serializer.writeMetadata()
 
         serializer.populateCaches(from: graph)
-        
+
+        serializer.writeBuildRecord()
+
         func write(key: DependencyKey, to buffer: inout BitstreamWriter.RecordBuffer) {
           buffer.append(key.designator.code)
           buffer.append(key.aspect.code)
@@ -1362,5 +1482,61 @@ fileprivate extension Version {
     let r = UInt32(Int64(minor))
     assert(Int(r) == Int(minor))
     return r
+  }
+}
+
+fileprivate extension BitstreamWriter.RecordBuffer {
+  mutating func append(_ time: TimePoint) {
+    func split(_ value: UInt64) -> (UInt32, UInt32) {
+      let lowerHalf = UInt32((value & 0x0000_0000_FFFF_FFFF))
+      let upperHalf = UInt32((value & 0xFFFF_FFFF_0000_0000) >> 32)
+      return (lowerHalf, upperHalf)
+    }
+    let (lower, upper) = split(time.seconds.littleEndian)
+    self.append(lower)
+    self.append(upper)
+    let nanos = time.nanoseconds.littleEndian
+    self.append(nanos)
+  }
+}
+
+fileprivate extension TimePoint {
+  init(
+    lower: UInt32,
+    upper: UInt32,
+    nanoseconds: UInt32
+  ) {
+    let seconds = UInt64(lower) | (UInt64(upper) << 32)
+    self.init(seconds: seconds, nanoseconds: nanoseconds)
+  }
+}
+
+fileprivate extension InputInfo.Status {
+  init(code: UInt32) throws {
+    switch code {
+    case 0:
+      self = .upToDate
+    case 1:
+      self = .needsNonCascadingBuild
+    case 2:
+      self = .needsCascadingBuild
+    case 3:
+      self = .newlyAdded
+    default:
+      throw ModuleDependencyGraph.ReadError.unknownKind
+    }
+  }
+
+  var code: UInt32 {
+    switch self {
+    case .upToDate:
+      return 0
+    case .needsNonCascadingBuild:
+      return 1
+    case .needsCascadingBuild:
+      return 2
+    case .newlyAdded:
+      return 3
+    }
   }
 }

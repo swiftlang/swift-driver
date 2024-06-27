@@ -955,7 +955,7 @@ extension ModuleDependencyGraph {
   -> [Int]
   {
     blockingConcurrentAccessOrMutation {
-      phase = .updatingAfterCompilation
+        setPhase(to: .updatingAfterCompilation)
     }
     let directlyInvalidatedNodes = getInvalidatedNodesForSimulatedLoad(
       swiftDepsIndex,
@@ -963,12 +963,12 @@ extension ModuleDependencyGraph {
       interfaceHash,
       includePrivateDeps: includePrivateDeps,
       hadCompilationError: hadCompilationError)
-    
+
     return collectInputsUsingInvalidated(nodes: directlyInvalidatedNodes)
       .map { $0.mockID }
   }
 
-  
+
   func getInvalidatedNodesForSimulatedLoad(
     _ swiftDepsIndex: Int,
     _ dependencyDescriptions: [MockDependencyKind: [String]],
@@ -981,7 +981,7 @@ extension ModuleDependencyGraph {
       let dependencySource = DependencySource(input, internedStringTable)
       let interfaceHash =
       interfaceHashIfPresent ?? dependencySource.interfaceHashForMockDependencySource
-      
+
       let sfdg = SourceFileDependencyGraphMocker.mock(
         includePrivateDeps: includePrivateDeps,
         hadCompilationError: hadCompilationError,
@@ -989,7 +989,7 @@ extension ModuleDependencyGraph {
         interfaceHash: interfaceHash,
         dependencyDescriptions,
         in: internedStringTable)
-      
+
       return Integrator.integrate(from: sfdg,
                                   dependencySource: DependencySource(input, internedStringTable),
                                   into: self)
@@ -1157,7 +1157,7 @@ fileprivate struct SourceFileDependencyGraphMocker: InternedStringTableHolder {
     // But, if an arc is added for this, then *any* change that causes
     // a same-named interface to be dirty will dirty this implementation,
     // even if that interface is in another file.
-    // Therefor no such arc is added here, and any dirtying of either
+    // Therefore no such arc is added here, and any dirtying of either
     // the interface or implementation of this declaration will cause
     // the driver to recompile this source file.
     return nodePair
@@ -1301,7 +1301,7 @@ fileprivate struct SourceFileDependencyGraphMocker: InternedStringTableHolder {
     }()
     dh.add(def.sequenceNumber)
   }
-  
+
   private mutating func fixupDependencies() {
     for (useSequenceNumber, depHolder) in dependencyAccumulator.enumerated() {
       if let depHolder = depHolder {
@@ -1451,7 +1451,7 @@ extension Job {
                                       type: .swift)
     try! self.init(moduleName: "nothing",
                    kind: .compile,
-                   tool: VirtualPath(path: ""),
+                   tool: ResolvedTool(path: try AbsolutePath(validating: "/dummy"), supportsResponseFiles: false),
                    commandLine: [],
                    inputs:  [input],
                    primaryInputs: [input],
@@ -1473,7 +1473,7 @@ fileprivate extension DependencyKey.Designator {
     }
     let context = contextAndName.context?.intern(in: t)
     let    name = contextAndName.name?   .intern(in: t)
-    
+
     switch kind {
     case .topLevel:
       mustBeAbsent(context)

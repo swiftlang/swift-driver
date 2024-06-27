@@ -13,7 +13,7 @@ public struct OptionTable {
   public init() { }
 
   /// Retrieve the options.
-  public var options: [Option] = Option.allOptions + Option.extraOptions
+  public var options: [Option] = Option.allOptions
   public lazy var groupMap: [Option.Group: [Option]] = {
     var map = [Option.Group: [Option]]()
     for opt in options {
@@ -75,7 +75,7 @@ extension OptionTable {
         case .joined, .commaJoined:
           displayName += option.metaVar ?? "<value>"
 
-        case .separate, .remaining, .joinedOrSeparate:
+        case .separate, .remaining, .joinedOrSeparate, .multiArg:
           displayName += " " + (option.metaVar ?? "<value>")
       }
 

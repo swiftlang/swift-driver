@@ -10,8 +10,21 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
+import class Foundation.NSLock
+
+import func TSCBasic.withTemporaryDirectory
+import protocol TSCBasic.FileSystem
+import struct TSCBasic.AbsolutePath
+import struct TSCBasic.SHA256
+
 @_implementationOnly import Yams
+
+/// How the resolver is to handle usage of response files
+public enum ResponseFileHandling {
+  case forced
+  case disabled
+  case heuristic
+}
 
 /// Resolver for a job's argument template.
 public final class ArgsResolver {
@@ -25,7 +38,7 @@ public final class ArgsResolver {
   // FIXME: We probably need a dedicated type for this...
   private let temporaryDirectory: VirtualPath
 
-  private let lock = Lock()
+  private let lock = NSLock()
 
   public init(fileSystem: FileSystem, temporaryDirectory: VirtualPath? = nil) throws {
     self.pathMapping = [:]
@@ -37,59 +50,75 @@ public final class ArgsResolver {
       // FIXME: withTemporaryDirectory uses FileManager.default, need to create a FileSystem.temporaryDirectory api.
       let tmpDir: AbsolutePath = try withTemporaryDirectory(removeTreeOnDeinit: false) { path in
         // FIXME: TSC removes empty directories even when removeTreeOnDeinit is false. This seems like a bug.
-        try fileSystem.writeFileContents(path.appending(component: ".keep-directory")) { $0 <<< "" }
+        try fileSystem.writeFileContents(path.appending(component: ".keep-directory")) { $0.send("") }
         return path
       }
       self.temporaryDirectory = .absolute(tmpDir)
     }
   }
 
-  public func resolveArgumentList(for job: Job, forceResponseFiles: Bool,
-                                  quotePaths: Bool = false) throws -> [String] {
-    let (arguments, _) = try resolveArgumentList(for: job, forceResponseFiles: forceResponseFiles,
-                                                 quotePaths: quotePaths)
+  public func resolveArgumentList(for job: Job, useResponseFiles: ResponseFileHandling = .heuristic)
+  throws -> [String] {
+    let (arguments, _) = try resolveArgumentList(for: job, useResponseFiles: useResponseFiles)
     return arguments
   }
 
-  public func resolveArgumentList(for job: Job, forceResponseFiles: Bool,
-                                  quotePaths: Bool = false) throws -> ([String], usingResponseFile: Bool) {
-    let tool = try resolve(.path(job.tool), quotePaths: quotePaths)
-    var arguments = [tool] + (try job.commandLine.map { try resolve($0, quotePaths: quotePaths) })
+  public func resolveArgumentList(for job: Job, useResponseFiles: ResponseFileHandling = .heuristic)
+  throws -> ([String], usingResponseFile: Bool) {
+    let tool = try resolve(.path(job.tool))
+    var arguments = [tool] + (try resolveArgumentList(for: job.commandLine))
     let usingResponseFile = try createResponseFileIfNeeded(for: job, resolvedArguments: &arguments,
-                                                           forceResponseFiles: forceResponseFiles)
+                                                           useResponseFiles: useResponseFiles)
     return (arguments, usingResponseFile)
   }
 
+  public func resolveArgumentList(for commandLine: [Job.ArgTemplate]) throws -> [String] {
+    return try commandLine.map { try resolve($0) }
+  }
+
+  @available(*, deprecated, message: "use resolveArgumentList(for:,useResponseFiles:,quotePaths:)")
+  public func resolveArgumentList(for job: Job, forceResponseFiles: Bool,
+                                  quotePaths: Bool = false) throws -> [String] {
+    let useResponseFiles: ResponseFileHandling = forceResponseFiles ? .forced : .heuristic
+    return try resolveArgumentList(for: job, useResponseFiles: useResponseFiles)
+  }
+
+  @available(*, deprecated, message: "use resolveArgumentList(for:,useResponseFiles:,quotePaths:)")
+  public func resolveArgumentList(for job: Job, forceResponseFiles: Bool,
+                                  quotePaths: Bool = false) throws -> ([String], usingResponseFile: Bool) {
+    let useResponseFiles: ResponseFileHandling = forceResponseFiles ? .forced : .heuristic
+    return try resolveArgumentList(for: job, useResponseFiles: useResponseFiles)
+  }
+
   /// Resolve the given argument.
-  public func resolve(_ arg: Job.ArgTemplate,
-                      quotePaths: Bool = false) throws -> String {
+  public func resolve(_ arg: Job.ArgTemplate) throws -> String {
     switch arg {
     case .flag(let flag):
       return flag
 
     case .path(let path):
       return try lock.withLock {
-        return try unsafeResolve(path: path, quotePaths: quotePaths)
+        return try unsafeResolve(path: path)
       }
 
     case .responseFilePath(let path):
-      return "@\(try resolve(.path(path), quotePaths: quotePaths))"
+      return "@\(try resolve(.path(path)))"
 
     case let .joinedOptionAndPath(option, path):
-      return option + (try resolve(.path(path), quotePaths: quotePaths))
+      return option + (try resolve(.path(path)))
 
     case let .squashedArgumentList(option: option, args: args):
       return try option + args.map {
-        try resolve($0, quotePaths: quotePaths)
+        try resolve($0)
       }.joined(separator: " ")
     }
   }
 
   /// Needs to be done inside of `lock`. Marked unsafe to make that more obvious.
-  private func unsafeResolve(path: VirtualPath, quotePaths: Bool) throws -> String {
+  private func unsafeResolve(path: VirtualPath) throws -> String {
     // If there was a path mapping, use it.
     if let actualPath = pathMapping[path] {
-      return quotePaths ? "'\(actualPath)'" : actualPath
+      return actualPath
     }
 
     // Return the path from the temporary directory if this is a temporary file.
@@ -113,13 +142,13 @@ public final class ArgsResolver {
 
       let result = actualPath.name
       pathMapping[path] = result
-      return quotePaths ? "'\(result)'" : result
+      return result
     }
 
     // Otherwise, return the path.
     let result = path.name
     pathMapping[path] = result
-    return quotePaths ? "'\(result)'" : result
+    return result
   }
 
   private func createFileList(path: VirtualPath, contents: [VirtualPath]) throws {
@@ -127,7 +156,7 @@ public final class ArgsResolver {
     if let absPath = path.absolutePath {
       try fileSystem.writeFileContents(absPath) { out in
         for path in contents {
-          try! out <<< unsafeResolve(path: path, quotePaths: false) <<< "\n"
+          try! out.send("\(unsafeResolve(path: path))\n")
         }
       }
     }
@@ -142,13 +171,13 @@ public final class ArgsResolver {
       // and the frontend (llvm) only seems to support implicit block format.
       try fileSystem.writeFileContents(absPath) { out in
         for (input, map) in outputFileMap.entries {
-          out <<< quoteAndEscape(path: VirtualPath.lookup(input)) <<< ":"
+          out.send("\(quoteAndEscape(path: VirtualPath.lookup(input))):")
           if map.isEmpty {
-            out <<< " {}\n"
+            out.send(" {}\n")
           } else {
-            out <<< "\n"
+            out.send("\n")
             for (type, output) in map {
-              out <<< "  " <<< type.name <<< ": " <<< quoteAndEscape(path: VirtualPath.lookup(output)) <<< "\n"
+              out.send("  \(type.name): \(quoteAndEscape(path: VirtualPath.lookup(output)))\n")
             }
           }
         }
@@ -157,7 +186,7 @@ public final class ArgsResolver {
   }
 
   private func quoteAndEscape(path: VirtualPath) -> String {
-    let inputNode = Node.scalar(Node.Scalar(try! unsafeResolve(path: path, quotePaths: false),
+    let inputNode = Node.scalar(Node.Scalar(try! unsafeResolve(path: path),
                                             Tag(.str), .doubleQuoted))
     // Width parameter of -1 sets preferred line-width to unlimited so that no extraneous
     // line-breaks will be inserted during serialization.
@@ -166,20 +195,32 @@ public final class ArgsResolver {
     return string.trimmingCharacters(in: .whitespacesAndNewlines)
   }
 
-  private func createResponseFileIfNeeded(for job: Job, resolvedArguments: inout [String], forceResponseFiles: Bool) throws -> Bool {
+  private func createResponseFileIfNeeded(for job: Job, resolvedArguments: inout [String], useResponseFiles: ResponseFileHandling) throws -> Bool {
+    func quote(_ string: String) -> String {
+      return "\"\(String(string.flatMap { ["\\", "\""].contains($0) ? "\\\($0)" : "\($0)" }))\""
+    }
+    guard useResponseFiles != .disabled else {
+      return false
+    }
+
+    let forceResponseFiles = useResponseFiles == .forced
     if forceResponseFiles ||
       (job.supportsResponseFiles && !commandLineFitsWithinSystemLimits(path: resolvedArguments[0], args: resolvedArguments)) {
       assert(!forceResponseFiles || job.supportsResponseFiles,
              "Platform does not support response files for job: \(job)")
       // Match the integrated driver's behavior, which uses response file names of the form "arguments-[0-9a-zA-Z].resp".
-      let responseFilePath = temporaryDirectory.appending(component: "arguments-\(abs(job.hashValue)).resp")
+      let hash = SHA256().hash(resolvedArguments.joined(separator: " ")).hexadecimalRepresentation
+      let responseFilePath = temporaryDirectory.appending(component: "arguments-\(hash).resp")
 
       // FIXME: Need a way to support this for distributed build systems...
       if let absPath = responseFilePath.absolutePath {
+        // Adopt the same technique as clang -
+        //   Wrap all arguments in double quotes to ensure that both Unix and
+        //   Windows tools understand the response file.
         try fileSystem.writeFileContents(absPath) {
-          $0 <<< resolvedArguments[1...].map{ $0.spm_shellEscaped() }.joined(separator: "\n")
+          $0.send(resolvedArguments[2...].map { quote($0) }.joined(separator: "\n"))
         }
-        resolvedArguments = [resolvedArguments[0], "@\(absPath.pathString)"]
+        resolvedArguments = [resolvedArguments[0], resolvedArguments[1], "@\(absPath.pathString)"]
       }
 
       return true
@@ -194,4 +235,14 @@ public final class ArgsResolver {
       try fileSystem.removeFileTree(absPath)
     }
   }
+}
+
+fileprivate extension NSLock {
+    /// NOTE: Keep in sync with SwiftPM's 'Sources/Basics/NSLock+Extensions.swift'
+    /// Execute the given block while holding the lock.
+    func withLock<T> (_ body: () throws -> T) rethrows -> T {
+        lock()
+        defer { unlock() }
+        return try body()
+    }
 }

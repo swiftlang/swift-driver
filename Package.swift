@@ -1,6 +1,5 @@
-// swift-tools-version:5.1
-// In order to support users running on the latest Xcodes, please ensure that
-// Package@swift-5.5.swift is kept in sync with this file.
+// swift-tools-version:5.7
+
 import PackageDescription
 import class Foundation.ProcessInfo
 
@@ -8,14 +7,14 @@ let macOSPlatform: SupportedPlatform
 if let deploymentTarget = ProcessInfo.processInfo.environment["SWIFTPM_MACOS_DEPLOYMENT_TARGET"] {
     macOSPlatform = .macOS(deploymentTarget)
 } else {
-    macOSPlatform = .macOS(.v10_15)
+    macOSPlatform = .macOS(.v12)
 }
 
 let package = Package(
   name: "swift-driver",
   platforms: [
     macOSPlatform,
-    .iOS(.v13),
+    .iOS(.v15),
   ],
   products: [
     .executable(
@@ -44,31 +43,42 @@ let package = Package(
   targets: [
 
     /// C modules wrapper for _InternalLibSwiftScan.
-    .target(name: "CSwiftScan"),
+    .target(name: "CSwiftScan",
+            exclude: [ "CMakeLists.txt" ]),
 
     /// The driver library.
     .target(
       name: "SwiftDriver",
-      dependencies: ["SwiftOptions", "SwiftToolsSupport-auto",
-                     "CSwiftScan", "Yams"],
-      exclude: ["CMakeLists.txt", "SwiftDriver.docc"]),
+      dependencies: [
+        "SwiftOptions",
+        .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
+        "CSwiftScan",
+        .product(name: "Yams", package: "yams"),
+      ],
+      exclude: ["CMakeLists.txt"]),
 
     /// The execution library.
     .target(
       name: "SwiftDriverExecution",
-      dependencies: ["SwiftDriver", "SwiftToolsSupport-auto"],
+      dependencies: [
+        "SwiftDriver",
+        .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core")
+      ],
       exclude: ["CMakeLists.txt"]),
 
     /// Driver tests.
     .testTarget(
       name: "SwiftDriverTests",
-      dependencies: ["SwiftDriver", "SwiftDriverExecution", "swift-driver",
-                     "TestUtilities"]),
+      dependencies: ["SwiftDriver", "SwiftDriverExecution", "TestUtilities"]),
 
     /// IncrementalImport tests
     .testTarget(
       name: "IncrementalImportTests",
-      dependencies: ["IncrementalTestFramework", "TestUtilities", "SwiftToolsSupport-auto"]),
+      dependencies: [
+        "IncrementalTestFramework",
+        "TestUtilities",
+        .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
+      ]),
 
     .target(
       name: "IncrementalTestFramework",
@@ -86,61 +96,76 @@ let package = Package(
     /// The options library.
     .target(
       name: "SwiftOptions",
-      dependencies: ["SwiftToolsSupport-auto"],
+      dependencies: [
+        .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
+      ],
       exclude: ["CMakeLists.txt"]),
     .testTarget(
       name: "SwiftOptionsTests",
       dependencies: ["SwiftOptions"]),
 
     /// The primary driver executable.
-    .target(
+    .executableTarget(
       name: "swift-driver",
       dependencies: ["SwiftDriverExecution", "SwiftDriver"],
       exclude: ["CMakeLists.txt"]),
 
     /// The help executable.
-    .target(
+    .executableTarget(
       name: "swift-help",
-      dependencies: ["SwiftOptions", "ArgumentParser", "SwiftToolsSupport-auto"],
+      dependencies: [
+        "SwiftOptions",
+        .product(name: "ArgumentParser", package: "swift-argument-parser"),
+        .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
+      ],
       exclude: ["CMakeLists.txt"]),
 
     /// The help executable.
-    .target(
+    .executableTarget(
       name: "swift-build-sdk-interfaces",
       dependencies: ["SwiftDriver", "SwiftDriverExecution"],
       exclude: ["CMakeLists.txt"]),
 
     /// The `makeOptions` utility (for importing option definitions).
-    .target(
+    .executableTarget(
       name: "makeOptions",
-      dependencies: []),
+      dependencies: [],
+      // Do not enforce checks for LLVM's ABI-breaking build settings.
+      // makeOptions runtime uses some header-only code from LLVM's ADT classes,
+      // but we do not want to link libSupport into the executable.
+      cxxSettings: [.unsafeFlags(["-DLLVM_DISABLE_ABI_BREAKING_CHECKS_ENFORCING=1"])]),
   ],
-  cxxLanguageStandard: .cxx14
+  cxxLanguageStandard: .cxx17
 )
 
 if ProcessInfo.processInfo.environment["SWIFT_DRIVER_LLBUILD_FWK"] == nil {
     if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         package.dependencies += [
-            .package(url: "https://github.com/apple/swift-llbuild.git", .branch("main")),
+            .package(url: "https://github.com/apple/swift-llbuild.git", branch: "main"),
+        ]
+        package.targets.first(where: { $0.name == "SwiftDriverExecution" })!.dependencies += [
+            .product(name: "llbuildSwift", package: "swift-llbuild"),
         ]
     } else {
         // In Swift CI, use a local path to llbuild to interoperate with tools
         // like `update-checkout`, which control the sources externally.
         package.dependencies += [
-            .package(path: "../llbuild"),
+            .package(name: "llbuild", path: "../llbuild"),
+        ]
+        package.targets.first(where: { $0.name == "SwiftDriverExecution" })!.dependencies += [
+            .product(name: "llbuildSwift", package: "llbuild"),
         ]
     }
-    package.targets.first(where: { $0.name == "SwiftDriverExecution" })!.dependencies += ["llbuildSwift"]
 }
 
 if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
   package.dependencies += [
-    .package(url: "https://github.com/apple/swift-tools-support-core.git", .branch("main")),
-    .package(url: "https://github.com/jpsim/Yams.git", .upToNextMinor(from: "4.0.0")),
+    .package(url: "https://github.com/apple/swift-tools-support-core.git", branch: "main"),
+    .package(url: "https://github.com/jpsim/Yams.git", .upToNextMinor(from: "5.0.0")),
     // The 'swift-argument-parser' version declared here must match that
     // used by 'swift-package-manager' and 'sourcekit-lsp'. Please coordinate
     // dependency version changes here with those projects.
-    .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.0.1")),
+    .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.2.2")),
     ]
 } else {
     package.dependencies += [

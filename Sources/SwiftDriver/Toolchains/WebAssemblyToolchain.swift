@@ -1,4 +1,4 @@
-//===-------- WebAssemblyToolchain.swift - Swift WASM Toolchain -----------===//
+//===-------- WebAssemblyToolchain.swift - Swift Wasm Toolchain -----------===//
 //
 // This source file is part of the Swift.org open source project
 //
@@ -9,8 +9,13 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import TSCBasic
+
 import SwiftOptions
+
+import struct TSCBasic.AbsolutePath
+import protocol TSCBasic.DiagnosticData
+import protocol TSCBasic.FileSystem
+import var TSCBasic.localFileSystem
 
 /// Toolchain for WebAssembly-based systems.
 public final class WebAssemblyToolchain: Toolchain {
@@ -19,6 +24,7 @@ public final class WebAssemblyToolchain: Toolchain {
     case dynamicLibrariesUnsupportedForTarget(String)
     case sanitizersUnsupportedForTarget(String)
     case profilingUnsupportedForTarget(String)
+    case missingExternalDependency(String)
 
     public var description: String {
       switch self {
@@ -30,6 +36,8 @@ public final class WebAssemblyToolchain: Toolchain {
         return "sanitizers are unsupported for target '\(triple)'"
       case .profilingUnsupportedForTarget(let triple):
         return "profiling is unsupported for target '\(triple)'"
+      case .missingExternalDependency(let dependency):
+        return "missing external dependency '\(dependency)'"
       }
     }
   }
@@ -64,7 +72,7 @@ public final class WebAssemblyToolchain: Toolchain {
     case .executable:
       return moduleName
     case .dynamicLibrary:
-      // WASM doesn't support dynamic libraries yet, but we'll report the error later.
+      // Wasm doesn't support dynamic libraries yet, but we'll report the error later.
       return ""
     case .staticLibrary:
       return "lib\(moduleName).a"
@@ -87,16 +95,15 @@ public final class WebAssemblyToolchain: Toolchain {
     switch tool {
     case .swiftCompiler:
       return try lookup(executable: "swift-frontend")
-    case .staticLinker(nil):
-      return try lookup(executable: "ar")
-    case .staticLinker(.llvmFull),
-         .staticLinker(.llvmThin):
+    case .staticLinker:
       return try lookup(executable: "llvm-ar")
     case .dynamicLinker:
       // FIXME: This needs to look in the tools_directory first.
       return try lookup(executable: "clang")
     case .clang:
       return try lookup(executable: "clang")
+    case .clangxx:
+      return try lookup(executable: "clang++")
     case .swiftAutolinkExtract:
       return try lookup(executable: "swift-autolink-extract")
     case .dsymutil:
@@ -125,6 +132,8 @@ public final class WebAssemblyToolchain: Toolchain {
   }
 
   public var shouldStoreInvocationInDebugInfo: Bool { false }
+
+  public var globalDebugPathRemapping: String? { nil }
 
   public func runtimeLibraryName(
     for sanitizer: Sanitizer,

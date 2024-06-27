@@ -11,8 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import Dispatch
-import TSCBasic
-import TSCUtility
 import SwiftOptions
 
 /// An instance of `IncrementalCompilationState` encapsulates the data necessary
@@ -22,7 +20,7 @@ import SwiftOptions
 /// using it as an oracle to discover the jobs to execute as the incremental
 /// build progresses. After a job completes, call
 /// `protectedState.collectJobsDiscoveredToBeNeededAfterFinishing(job:)`
-/// to both update the incremental state and recieve an array of jobs that
+/// to both update the incremental state and receive an array of jobs that
 /// need to be executed in response.
 ///
 /// Jobs become "unstuck" as their inputs become available, or may be discovered
@@ -34,7 +32,7 @@ import SwiftOptions
 /// The public API surface of this class is thread safe, but not re-entrant.
 /// FIXME: This should be an actor.
 public final class IncrementalCompilationState {
-    
+
   /// State needed for incremental compilation that can change during a run and must be protected from
   /// concurrent mutation and access. Concurrent accesses are OK.
   private var protectedState: ProtectedState
@@ -45,9 +43,10 @@ public final class IncrementalCompilationState {
 
   /// Jobs to run *after* the last compile, for instance, link-editing.
   public let jobsAfterCompiles: [Job]
-  
+
   public let info: IncrementalCompilationState.IncrementalDependencyAndInputSetup
 
+  internal let upToDateInterModuleDependencyGraph: InterModuleDependencyGraph?
 
   // MARK: - Creating IncrementalCompilationState
   /// Return nil if not compiling incrementally
@@ -60,30 +59,36 @@ public final class IncrementalCompilationState {
       ? Reporter(diagnosticEngine: driver.diagnosticEngine,
                  outputFileMap: driver.outputFileMap)
       : nil
-    
+
     reporter?.reportOnIncrementalImports(
       initialState.incrementalOptions.contains(.enableCrossModuleIncrementalBuild))
 
-    let firstWave =
-      try FirstWaveComputer(initialState: initialState, jobsInPhases: jobsInPhases,
-                            driver: driver, reporter: reporter).compute(batchJobFormer: &driver)
+    let firstWave = try FirstWaveComputer(
+      initialState: initialState,
+      jobsInPhases: jobsInPhases,
+      driver: driver,
+      interModuleDependencyGraph: driver.interModuleDependencyGraph,
+      reporter: reporter)
+      .compute(batchJobFormer: &driver)
 
     self.info = initialState.graph.info
+    self.upToDateInterModuleDependencyGraph = driver.interModuleDependencyGraph
     self.protectedState = ProtectedState(
       skippedCompileGroups: firstWave.initiallySkippedCompileGroups,
       initialState.graph,
+      jobsInPhases.allJobs.first(where: {$0.kind == .generatePCH}),
       &driver)
     self.mandatoryJobsInOrder = firstWave.mandatoryJobsInOrder
     self.jobsAfterCompiles = jobsInPhases.afterCompiles
   }
-  
+
   /// Allow concurrent access to while preventing mutation of ``IncrementalCompilationState/protectedState``
   public func blockingConcurrentMutationToProtectedState<R>(
     _ fn: (ProtectedState) throws -> R
   ) rethrows -> R {
     try blockingConcurrentMutation {try fn(protectedState)}
   }
-  
+
   /// Block any other threads from doing anything to  or observing `protectedState`.
   public func blockingConcurrentAccessOrMutationToProtectedState<R>(
     _ fn: (inout ProtectedState) throws -> R

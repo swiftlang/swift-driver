@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift.org open source project
 //
-// Copyright (c) 2020 Apple Inc. and the Swift project authors
+// Copyright (c) 2020-2022 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See https://swift.org/LICENSE.txt for license information
@@ -10,8 +10,12 @@
 //
 //===----------------------------------------------------------------------===//
 import SwiftOptions
-import TSCBasic
 import ArgumentParser
+
+import enum TSCBasic.ProcessEnv
+import func TSCBasic.exec
+import class TSCBasic.Process
+import var TSCBasic.localFileSystem
 
 enum HelpTopic: ExpressibleByArgument, CustomStringConvertible {
   case driver(DriverKind)
@@ -43,7 +47,7 @@ enum HelpTopic: ExpressibleByArgument, CustomStringConvertible {
 }
 
 enum Subcommand: String, CaseIterable {
-  case build, package, run, test
+  case build, package, run, test, repl
 
   var description: String {
     switch self {
@@ -55,6 +59,8 @@ enum Subcommand: String, CaseIterable {
       return "Run a program from a package"
     case .test:
       return "Run package tests"
+    case .repl:
+      return "Experiment with Swift code interactively"
     }
   }
 }
@@ -107,12 +113,7 @@ struct SwiftHelp: ParsableCommand {
       print("  \(plainBold)swift \(command.rawValue)\(plain)\(padding)    \(command.description)")
     }
 
-    // `repl` not included in `Subcommand`, also print it here.
-    do {
-      let padding = String(repeating: " ", count: maxSubcommandNameLength - "repl".count)
-      print("  \(plainBold)swift repl\(plain)\(padding)    Experiment with Swift code interactively")
-    }
-
+    print("\n  Use \(plainBold)`swift --version`\(plain) for Swift version information.")
     print("\n  Use \(plainBold)`swift --help`\(plain) for descriptions of available options and flags.")
     print("\n  Use \(plainBold)`swift help <subcommand>`\(plain) for more information about a subcommand.")
     print()
@@ -123,11 +124,27 @@ struct SwiftHelp: ParsableCommand {
     switch topic {
     case .driver(let kind):
       driverOptionTable.printHelp(driverKind: kind, includeHidden: showHidden)
-      printIntro()
+      if kind == .interactive {
+        printIntro()
+      }
+    case .subcommand(.repl):
+        print("""
+        USAGE: swift repl <options>
+
+          The Swift REPL runs code interactively with LLDB.
+          For most purposes, you can just run `swift repl`.
+
+        OPTIONS:
+          This mode takes optional Swift Frontend arguments: see `swift --help`.
+        """)
     case .subcommand(let subcommand):
       // Try to find the subcommand adjacent to the help tool.
       // If we didn't find the tool there, let the OS search for it.
-      let execName = "swift-\(subcommand)"
+#if os(Windows)
+      let execName = "swift-\(subcommand.rawValue).exe"
+#else
+      let execName = "swift-\(subcommand.rawValue)"
+#endif
       let subcommandPath = Process.findExecutable(
         CommandLine.arguments[0])?
         .parentDirectory

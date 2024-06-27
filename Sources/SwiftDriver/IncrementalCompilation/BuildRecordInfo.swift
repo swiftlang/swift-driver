@@ -10,9 +10,18 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
-import TSCBasic
+import struct Foundation.Data
+import class Foundation.JSONDecoder
+
+import class TSCBasic.DiagnosticsEngine
+import protocol TSCBasic.FileSystem
+import struct TSCBasic.AbsolutePath
+import struct TSCBasic.ByteString
+import struct TSCBasic.ProcessResult
+import struct TSCBasic.SHA256
+
 import SwiftOptions
+import class Dispatch.DispatchQueue
 
 /// Holds information required to read and write the build record (aka
 /// compilation record).
@@ -37,9 +46,10 @@ import SwiftOptions
   let fileSystem: FileSystem
   let currentArgsHash: String
   @_spi(Testing) public let actualSwiftVersion: String
-  @_spi(Testing) public let timeBeforeFirstJob: Date
+  @_spi(Testing) public let timeBeforeFirstJob: TimePoint
   let diagnosticEngine: DiagnosticsEngine
-  let compilationInputModificationDates: [TypedVirtualPath: Date]
+  let compilationInputModificationDates: [TypedVirtualPath: TimePoint]
+  private var explicitModuleDependencyGraph: InterModuleDependencyGraph? = nil
 
   private var finishedJobResults = [JobResult]()
   // A confinement queue that protects concurrent access to the
@@ -52,9 +62,9 @@ import SwiftOptions
     fileSystem: FileSystem,
     currentArgsHash: String,
     actualSwiftVersion: String,
-    timeBeforeFirstJob: Date,
+    timeBeforeFirstJob: TimePoint,
     diagnosticEngine: DiagnosticsEngine,
-    compilationInputModificationDates: [TypedVirtualPath: Date])
+    compilationInputModificationDates: [TypedVirtualPath: TimePoint])
   {
     self.buildRecordPath = buildRecordPath
     self.fileSystem = fileSystem
@@ -64,7 +74,6 @@ import SwiftOptions
     self.diagnosticEngine = diagnosticEngine
     self.compilationInputModificationDates = compilationInputModificationDates
   }
-
 
   convenience init?(
     actualSwiftVersion: String,
@@ -76,10 +85,10 @@ import SwiftOptions
     outputFileMap: OutputFileMap?,
     incremental: Bool,
     parsedOptions: ParsedOptions,
-    recordedInputModificationDates: [TypedVirtualPath: Date]
+    recordedInputModificationDates: [TypedVirtualPath: TimePoint]
   ) {
     // Cannot write a buildRecord without a path.
-    guard let buildRecordPath = Self.computeBuildRecordPath(
+    guard let buildRecordPath = try? Self.computeBuildRecordPath(
             outputFileMap: outputFileMap,
             incremental: incremental,
             compilerOutputType: compilerOutputType,
@@ -99,7 +108,7 @@ import SwiftOptions
       fileSystem: fileSystem,
       currentArgsHash: currentArgsHash,
       actualSwiftVersion: actualSwiftVersion,
-      timeBeforeFirstJob: Date(),
+      timeBeforeFirstJob: .now(),
       diagnosticEngine: diagnosticEngine,
       compilationInputModificationDates: compilationInputModificationDates)
    }
@@ -109,8 +118,7 @@ import SwiftOptions
     var parsedOptions = parsedOptionsArg
     let hashInput = parsedOptions
       .filter { $0.option.affectsIncrementalBuild && $0.option.kind != .input}
-      .map { $0.option.spelling }
-      .sorted()
+      .map { $0.description } // The description includes the spelling of the option itself and, if present, its argument(s).
       .joined()
     return SHA256().hash(hashInput).hexadecimalRepresentation
   }
@@ -122,14 +130,14 @@ import SwiftOptions
     compilerOutputType: FileType?,
     workingDirectory: AbsolutePath?,
     diagnosticEngine: DiagnosticsEngine
-  ) -> VirtualPath? {
+  ) throws -> VirtualPath? {
     // FIXME: This should work without an output file map. We should have
     // another way to specify a build record and where to put intermediates.
     guard let ofm = outputFileMap else {
       return nil
     }
     guard let partialBuildRecordPath =
-            ofm.existingOutputForSingleInput(outputType: .swiftDeps)
+            try ofm.existingOutputForSingleInput(outputType: .swiftDeps)
     else {
       if incremental {
         diagnosticEngine.emit(.warning_incremental_requires_build_record_entry)
@@ -148,15 +156,8 @@ import SwiftOptions
   ///   - skippedInputs: All primary inputs that were not compiled because the
   ///                    incremental build plan determined they could be
   ///                    skipped.
-  func writeBuildRecord(_ jobs: [Job], _ skippedInputs: Set<TypedVirtualPath>?) {
-    guard let absPath = buildRecordPath.absolutePath else {
-      diagnosticEngine.emit(
-        .warning_could_not_write_build_record_not_absolutePath(buildRecordPath))
-      return
-    }
-    preservePreviousBuildRecord(absPath)
-
-    let buildRecord = self.confinementQueue.sync {
+  @_spi(Testing) public func buildRecord(_ jobs: [Job], _ skippedInputs: Set<TypedVirtualPath>?) -> BuildRecord {
+    return self.confinementQueue.sync {
       BuildRecord(
         jobs: jobs,
         finishedJobResults: finishedJobResults,
@@ -165,19 +166,7 @@ import SwiftOptions
         actualSwiftVersion: actualSwiftVersion,
         argsHash: currentArgsHash,
         timeBeforeFirstJob: timeBeforeFirstJob,
-        timeAfterLastJob: Date())
-    }
-
-    guard let contents = buildRecord.encode(currentArgsHash: currentArgsHash,
-                                            diagnosticEngine: diagnosticEngine)
-    else {
-      return
-    }
-    do {
-      try fileSystem.writeFileContents(absPath,
-                                       bytes: ByteString(encodingAsUTF8: contents))
-    } catch {
-      diagnosticEngine.emit(.warning_could_not_write_build_record(absPath))
+        timeAfterLastJob: .now())
     }
   }
 
@@ -188,56 +177,27 @@ import SwiftOptions
     try? fileSystem.removeFileTree(absPath)
   }
 
-  /// Before writing to the dependencies file path, preserve any previous file
-  /// that may have been there. No error handling -- this is just a nicety, it
-  /// doesn't matter if it fails.
-  /// Added for the sake of compatibility with the legacy driver.
-  private func preservePreviousBuildRecord(_ oldPath: AbsolutePath) {
-    let newPath = oldPath.withTilde()
-    try? fileSystem.move(from: oldPath, to: newPath)
+  func removeInterModuleDependencyGraph() {
+    guard let absPath = interModuleDependencyGraphPath.absolutePath else {
+      return
+    }
+    try? fileSystem.removeFileTree(absPath)
   }
 
-
-// TODO: Incremental too many names, buildRecord BuildRecord outofdatemap
-  func populateOutOfDateBuildRecord(
-    inputFiles: [TypedVirtualPath],
+  func readPriorInterModuleDependencyGraph(
     reporter: IncrementalCompilationState.Reporter?
-  ) -> BuildRecord? {
-    let contents: String
+  ) -> InterModuleDependencyGraph? {
+    let decodedGraph: InterModuleDependencyGraph
     do {
-      contents = try fileSystem.readFileContents(buildRecordPath).cString
-     } catch {
-      reporter?.report("Incremental compilation could not read build record at ", buildRecordPath)
-      reporter?.reportDisablingIncrementalBuild("could not read build record")
+      let contents = try fileSystem.readFileContents(interModuleDependencyGraphPath).cString
+      decodedGraph = try JSONDecoder().decode(InterModuleDependencyGraph.self,
+                                              from: Data(contents.utf8))
+    } catch {
       return nil
     }
-    func failedToReadOutOfDateMap(_ reason: String? = nil) {
-      let why = "malformed build record file\(reason.map {" " + $0} ?? "")"
-      reporter?.report(
-        "Incremental compilation has been disabled due to \(why)", buildRecordPath)
-      reporter?.reportDisablingIncrementalBuild(why)
-    }
-    guard let outOfDateBuildRecord = BuildRecord(contents: contents,
-                                                 failedToReadOutOfDateMap: failedToReadOutOfDateMap)
-    else {
-      return nil
-    }
-    guard actualSwiftVersion == outOfDateBuildRecord.swiftVersion
-    else {
-      let why = "compiler version mismatch. Compiling with: \(actualSwiftVersion). Previously compiled with: \(outOfDateBuildRecord.swiftVersion)"
-      // mimic legacy
-      reporter?.reportIncrementalCompilationHasBeenDisabled("due to a " + why)
-      reporter?.reportDisablingIncrementalBuild(why)
-      return nil
-    }
-    guard outOfDateBuildRecord.argsHash.map({ $0 == currentArgsHash }) ?? true else {
-      let why = "different arguments were passed to the compiler"
-      // mimic legacy
-      reporter?.reportIncrementalCompilationHasBeenDisabled("because " + why)
-      reporter?.reportDisablingIncrementalBuild(why)
-      return nil
-    }
-    return outOfDateBuildRecord
+    reporter?.report("Read inter-module dependency graph", interModuleDependencyGraphPath)
+
+    return decodedGraph
   }
 
   func jobFinished(job: Job, result: ProcessResult) {
@@ -258,14 +218,17 @@ import SwiftOptions
       .appending(component: filename + ".priors")
   }
 
+  /// A build-record-relative path to the location of a serialized copy of the
+  /// driver's inter-module dependency graph.
+  var interModuleDependencyGraphPath: VirtualPath {
+    let filename = buildRecordPath.basenameWithoutExt
+    return buildRecordPath
+      .parentDirectory
+      .appending(component: filename + ".moduledeps")
+  }
+
   /// Directory to emit dot files into
   var dotFileDirectory: VirtualPath {
     buildRecordPath.parentDirectory
-  }
-}
-
-fileprivate extension AbsolutePath {
-  func withTilde() -> Self {
-    parentDirectory.appending(component: basename + "~")
   }
 }

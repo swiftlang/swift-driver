@@ -19,14 +19,14 @@ final class SwiftDriverTests: XCTestCase {
       // Parse each kind of option
       let results = try options.parse([
         "input1", "-color-diagnostics", "-Ifoo", "-I", "bar spaces",
-        "-I=wibble", "input2", "-module-name", "main",
+        "-I=wibble", "input2", "-module-name", "main", "-package-name", "mypkg",
         "-sanitize=a,b,c", "--", "-foo", "-bar"], for: .batch)
 #if os(Windows)
       XCTAssertEqual(results.description,
-                     #"input1 -color-diagnostics -I foo -I "bar spaces" -I=wibble input2 -module-name main -sanitize=a,b,c -- -foo -bar"#)
+                     #"input1 -color-diagnostics -I foo -I "bar spaces" -I=wibble input2 -module-name main -package-name mypkg -sanitize=a,b,c -- -foo -bar"#)
 #else
       XCTAssertEqual(results.description,
-                     "input1 -color-diagnostics -I foo -I 'bar spaces' -I=wibble input2 -module-name main -sanitize=a,b,c -- -foo -bar")
+                     "input1 -color-diagnostics -I foo -I 'bar spaces' -I=wibble input2 -module-name main -package-name mypkg -sanitize=a,b,c -- -foo -bar")
 #endif
     }
 
@@ -34,6 +34,20 @@ final class SwiftDriverTests: XCTestCase {
     let options = OptionTable()
     let results = try options.parse(["--", "input1", "input2"], for: .batch)
     XCTAssertEqual(results.description, "-- input1 input2")
+  }
+
+  func testParsingMultiArg() throws {
+    var options = OptionTable()
+    let two = Option("-two", .multiArg, attributes: [], numArgs: 2)
+    let three = Option("-three", .multiArg, attributes: [], numArgs: 3)
+    options.addNewOption(two)
+    options.addNewOption(three)
+    let results = try options.parse(["-two", "1", "2", "-three", "1", "2", "3", "-two", "2", "3"], for: .batch)
+    XCTAssertEqual(results.description, "-two 1 2 -three 1 2 3 -two 2 3")
+    // Check not enough arguments are passed.
+    XCTAssertThrowsError(try options.parse(["-two", "1"], for: .batch)) { error in
+      XCTAssertEqual(error as? OptionParseError, .missingArgument(index: 0, argument: "-two"))
+    }
   }
 
   func testParseErrors() {
@@ -64,6 +78,14 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(error as? OptionParseError, .missingArgument(index: 0, argument: "-module-name"))
     }
 
+    XCTAssertThrowsError(try options.parse(["-package-name"], for: .batch)) { error in
+      XCTAssertEqual(error as? OptionParseError, .missingArgument(index: 0, argument: "-package-name"))
+    }
+
+    XCTAssertThrowsError(try options.parse(["-package-name"], for: .interactive)) { error in
+      XCTAssertEqual(error as? OptionParseError, .missingArgument(index: 0, argument: "-package-name"))
+    }
+
     XCTAssertThrowsError(try options.parse(["-o"], for: .interactive)) { error in
       XCTAssertEqual(error as? OptionParseError, .unsupportedOption(index: 0, argument: "-o", option: .o, currentDriverKind: .interactive))
     }
@@ -76,4 +98,10 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(error as? OptionParseError, .unknownOption(index: 0, argument: "--invalid"))
     }
   }
+}
+
+extension OptionTable {
+    mutating func addNewOption(_ opt: Option) {
+        options.append(opt)
+    }
 }

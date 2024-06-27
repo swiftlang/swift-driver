@@ -1,24 +1,42 @@
 # Swift Compiler Driver
 
 
-Swift's compiler driver is a program that coordinates the compilation of Swift source code into various compiled results: executables, libraries, object files, Swift modules and interfaces, etc. It is the program one invokes from the command line to build Swift code (i.e., `swift` or `swiftc`) and is often invoked on the developer's behalf by a build system such as the [Swift Package Manager (SwiftPM)](https://github.com/apple/swift-package-manager) or Xcode's build system.
+Swift's compiler driver is a program that coordinates the compilation of Swift source code into various compiled results: executables, libraries, object files, Swift modules and interfaces, etc. It is the program one invokes from the command line to build Swift code (i.e., `swift` or `swiftc`) and is often invoked on the developer's behalf by a build system such as the [Swift Package Manager (SwiftPM)](https://github.com/swiftlang/swift-package-manager) or Xcode's build system.
 
 The `swift-driver` project is a new implementation of the Swift compiler driver that is intended to replace the [existing driver](https://github.com/apple/swift/tree/main/lib/Driver) with a more extensible, maintainable, and robust code base. The specific goals of this project include:
 
 * A maintainable, robust, and flexible Swift code base
 * Library-based architecture that allows better integration with build tools
-* Leverage existing Swift build technologies ([SwiftPM](https://github.com/apple/swift-package-manager), [llbuild](https://github.com/apple/swift-llbuild))
+* Leverage existing Swift build technologies ([SwiftPM](https://github.com/swiftlang/swift-package-manager), [llbuild](https://github.com/apple/swift-llbuild))
 * A platform for experimenting with more efficient build models for Swift, including compile servers and unifying build graphs across different driver invocations
 
 ## Getting Started
 
 **Note:** Currently, swift-driver is only compatible with trunk development snapshots from [swift.org](https://swift.org/download/#snapshots).
 
-The preferred way to build `swift-driver` is to use the Swift package manager:
+The preferred way to build `swift-driver` is to use the Swift package manager.
+
+On most platforms you can build using:
 
 ```
 $ swift build
 ```
+
+However, on Windows, some additional work must be done by the developer.
+
+Due to the default version of swift-tools-support-core that `Package.resolved` references, we must first update the package dependencies.
+
+```
+swift package update
+```
+
+Then, we can build the package using:
+
+```cmd
+swift build -Xcc -I -Xcc "%SystemDrive%\Library\sqlite-3.38.0\usr\include" -Xlinker -L -Xlinker "%SystemDrive%\Library\sqlite-3.38.0\usr\lib" -Xlinker "%SDKROOT%\usr\lib\swift\windows\x86_64\swiftCore.lib"
+```
+
+Because SQLite3 is a system library dependency, and there is no singular header and library search path, the developer must specify that.  The path to SQLite3 may need to be adjusted if the library is not located at the specified location. Additionally, because Swift Package Manager does not differentiate between C/C++ and Swift targets and uses the Swift driver as the linker driver we must link in the Swift runtime into all targets manually.
 
 To use `swift-driver` in place of the existing Swift driver, create a symbolic link from `swift` and `swiftc` to `swift-driver`:
 
@@ -138,7 +156,7 @@ $ apt-get install libncurses-dev
 be found, e.g.:
 
 ```
-$ swift build -Xcc -I/path/to/build/Ninja-ReleaseAssert/swift-.../include --product makeOptions
+$ swift build -Xcc -I/path/to/build/Ninja-Release/swift-.../include -Xcc -I/path/to/build/Ninja-Release/llvm-.../include -Xcc -I/path/to/source/llvm-project/llvm/include --product makeOptions
 ```
 
 Then, run `makeOptions` and redirect the output to overwrite `Options.swift`:
@@ -164,7 +182,7 @@ The goal of the new Swift driver is to provide a drop-in replacement for the exi
 * Platform support
   * [x] Teach the `DarwinToolchain` to also handle iOS, tvOS, watchOS
   * [x] Fill out the `GenericUnixToolchain` toolchain to get it working
-  * [ ] Implement a `WindowsToolchain`
+  * [x] Implement a `WindowsToolchain`
   * [x] Implement proper tokenization for response files
 * Compilation modes
   * [x] Batch mode
@@ -188,3 +206,14 @@ The goal of the new Swift driver is to provide a drop-in replacement for the exi
 * Integration
   * [x] Teach the Swift compiler's [`build-script`](https://github.com/apple/swift/blob/main/utils/build-script) to build `swift-driver`.
   * [x] Building on the above, teach the Swift compiler's [`build-toolchain`](https://github.com/apple/swift/blob/main/utils/build-toolchain) to install `swift-driver` as the primary driver so we can test full toolchains with the new driver
+
+### Build all Swift interfaces from an SDK
+Based on libSwiftDriver, `swift-build-sdk-interfaces`  is a tool to batch build all Swift textual interfaces (`.swiftinterface`) from an SDK into binary modules (`.swiftmodule`). As an example, the following command finds all Swift textual interface from the MacOSX SDK, builds all of them into binary modules, and outputs module-specific error logs into the given directory.
+
+`
+$SDKROOT=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk SWIFT_EXEC=/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc swift-build-sdk-interfaces -o /tmp/outputs -v -log-path /tmp/logs`
+
+* *SDKROOT*: an env var to specify the SDK to work on
+* *SWIFT_EXEC*: teach `swift-build-sdk-interfaces` about where to find the Swift compiler to use
+* *-O*: the output directory for all binary modules built from textual interfaces
+* *-log-path*: where to dump log files when fatal error happens

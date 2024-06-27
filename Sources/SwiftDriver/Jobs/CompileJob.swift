@@ -9,8 +9,10 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import TSCBasic
+
 import SwiftOptions
+
+import struct TSCBasic.RelativePath
 
 extension Driver {
   /// Add the appropriate compile mode option to the command line for a compile job.
@@ -26,8 +28,8 @@ extension Driver {
     }
   }
 
-  mutating func computeIndexUnitOutput(for input: TypedVirtualPath, outputType: FileType, topLevel: Bool) -> TypedVirtualPath? {
-    if let path = outputFileMap?.existingOutput(inputFile: input.fileHandle, outputType: .indexUnitOutputPath) {
+  mutating func computeIndexUnitOutput(for input: TypedVirtualPath, outputType: FileType, topLevel: Bool) throws -> TypedVirtualPath? {
+    if let path = try outputFileMap?.existingOutput(inputFile: input.fileHandle, outputType: .indexUnitOutputPath) {
       return TypedVirtualPath(file: path, type: outputType)
     }
     if topLevel {
@@ -40,8 +42,8 @@ extension Driver {
   }
 
   mutating func computePrimaryOutput(for input: TypedVirtualPath, outputType: FileType,
-                                        isTopLevel: Bool) -> TypedVirtualPath {
-    if let path = outputFileMap?.existingOutput(inputFile: input.fileHandle, outputType: outputType) {
+                                        isTopLevel: Bool) throws -> TypedVirtualPath {
+    if let path = try outputFileMap?.existingOutput(inputFile: input.fileHandle, outputType: outputType) {
       return TypedVirtualPath(file: path, type: outputType)
     }
 
@@ -64,10 +66,10 @@ extension Driver {
     }
 
     if !isTopLevel {
-      return TypedVirtualPath(file: VirtualPath.createUniqueTemporaryFile(.init(baseName.appendingFileTypeExtension(outputType))).intern(),
+      return TypedVirtualPath(file: try VirtualPath.createUniqueTemporaryFile(.init(validating: baseName.appendingFileTypeExtension(outputType))).intern(),
                               type: outputType)
     }
-    return TypedVirtualPath(file: useWorkingDirectory(.init(baseName.appendingFileTypeExtension(outputType))).intern(), type: outputType)
+    return TypedVirtualPath(file: try useWorkingDirectory(try .init(validating: baseName.appendingFileTypeExtension(outputType))).intern(), type: outputType)
   }
 
   /// Is this compile job top-level
@@ -89,11 +91,14 @@ extension Driver {
       }
     case .swiftModule:
       return compilerMode.isSingleCompilation && moduleOutputInfo.output?.isTopLevel ?? false
-    case .swift, .image, .dSYM, .dependencies, .autolink, .swiftDocumentation, .swiftInterface,
-         .privateSwiftInterface, .swiftSourceInfoFile, .diagnostics, .objcHeader, .swiftDeps,
-         .remap, .tbd, .moduleTrace, .yamlOptimizationRecord, .bitstreamOptimizationRecord, .pcm,
-         .pch, .clangModuleMap, .jsonCompilerFeatures, .jsonTargetInfo, .jsonSwiftArtifacts,
-         .indexUnitOutputPath, .modDepCache, .jsonAPIBaseline, .jsonABIBaseline, nil:
+    case .swift, .image, .dSYM, .dependencies, .emitModuleDependencies, .autolink,
+         .swiftDocumentation, .swiftInterface, .privateSwiftInterface, .packageSwiftInterface, .swiftSourceInfoFile,
+         .diagnostics, .emitModuleDiagnostics, .objcHeader, .swiftDeps, .remap, .tbd,
+         .moduleTrace, .yamlOptimizationRecord, .bitstreamOptimizationRecord, .pcm, .pch,
+         .clangModuleMap, .jsonCompilerFeatures, .jsonTargetInfo, .jsonSwiftArtifacts,
+         .indexUnitOutputPath, .modDepCache, .jsonAPIBaseline, .jsonABIBaseline,
+         .swiftConstValues, .jsonAPIDescriptor, .moduleSummary, .moduleSemanticInfo,
+         .cachedDiagnostics, nil:
       return false
     }
   }
@@ -107,22 +112,27 @@ extension Driver {
                                  inputOutputMap: inout [TypedVirtualPath: [TypedVirtualPath]],
                                  outputType: FileType?,
                                  commandLine: inout [Job.ArgTemplate])
-  -> ([TypedVirtualPath], [TypedVirtualPath]) {
-    let useInputFileList: Bool
-    if let allSourcesFileList = allSourcesFileList {
-      useInputFileList = true
+  throws -> ([TypedVirtualPath], [TypedVirtualPath]) {
+    let useInputFileList = shouldUseInputFileList
+    if let sourcesFileList = allSourcesFileList {
       commandLine.appendFlag(.filelist)
-      commandLine.appendPath(allSourcesFileList)
-    } else {
-      useInputFileList = false
+      commandLine.appendPath(sourcesFileList)
+    } else if shouldUseInputFileList {
+      let swiftInputs = inputFiles.filter(\.type.isPartOfSwiftCompilation)
+      let remappedSourcesFileList = try VirtualPath.createUniqueFilelist(RelativePath(validating: "sources"),
+                                                                         .list(swiftInputs.map{ return remapPath($0.file) }))
+      // Remember the filelist created.
+      self.allSourcesFileList = remappedSourcesFileList
+      commandLine.appendFlag(.filelist)
+      commandLine.appendPath(remappedSourcesFileList)
     }
 
     let usePrimaryInputFileList = primaryInputs.count > fileListThreshold
     if usePrimaryInputFileList {
       // primary file list
       commandLine.appendFlag(.primaryFilelist)
-      let fileList = VirtualPath.createUniqueFilelist(RelativePath("primaryInputs"),
-                                                      .list(primaryInputs.map(\.file)))
+      let fileList = try VirtualPath.createUniqueFilelist(RelativePath(validating: "primaryInputs"),
+                                                          .list(primaryInputs.map{ return remapPath($0.file) }))
       commandLine.appendPath(fileList)
     }
 
@@ -162,12 +172,11 @@ extension Driver {
       let isPrimary = usesPrimaryFileInputs && primaryInputFiles.contains(input)
       if isPrimary {
         if !usePrimaryInputFileList {
-          commandLine.appendFlag(.primaryFile)
-          commandLine.appendPath(input.file)
+          try addPathOption(option: .primaryFile, path: input.file, to:&commandLine)
         }
       } else {
         if !useInputFileList {
-          commandLine.appendPath(input.file)
+          try addPathArgument(input.file, to: &commandLine)
         }
       }
 
@@ -175,13 +184,13 @@ extension Driver {
       // add an output for the input.
       if let outputType = outputType,
         isPrimary || (!usesPrimaryFileInputs && isMultithreaded && outputType.isAfterLLVM) {
-        let output = computePrimaryOutput(for: input,
-                                          outputType: outputType,
-                                          isTopLevel: isTopLevel)
+        let output = try computePrimaryOutput(for: input,
+                                              outputType: outputType,
+                                              isTopLevel: isTopLevel)
         primaryOutputs.append(output)
         inputOutputMap[input] = [output]
 
-        if let indexUnitOut = computeIndexUnitOutput(for: input, outputType: outputType, topLevel: isTopLevel) {
+        if let indexUnitOut = try computeIndexUnitOutput(for: input, outputType: outputType, topLevel: isTopLevel) {
           indexUnitOutputDiffers = true
           primaryIndexUnitOutputs.append(indexUnitOut)
         } else {
@@ -194,13 +203,13 @@ extension Driver {
     if let outputType = outputType,
        !usesPrimaryFileInputs && !(isMultithreaded && outputType.isAfterLLVM) {
       let input = TypedVirtualPath(file: OutputFileMap.singleInputKey, type: inputs[firstSwiftInput].type)
-      let output = computePrimaryOutput(for: input,
-                                        outputType: outputType,
-                                        isTopLevel: isTopLevel)
+      let output = try computePrimaryOutput(for: input,
+                                            outputType: outputType,
+                                            isTopLevel: isTopLevel)
       primaryOutputs.append(output)
       inputOutputMap[input] = [output]
 
-      if let indexUnitOut = computeIndexUnitOutput(for: input, outputType: outputType, topLevel: isTopLevel) {
+      if let indexUnitOut = try computeIndexUnitOutput(for: input, outputType: outputType, topLevel: isTopLevel) {
         indexUnitOutputDiffers = true
         primaryIndexUnitOutputs.append(indexUnitOut)
       } else {
@@ -221,6 +230,7 @@ extension Driver {
   mutating func compileJob(primaryInputs: [TypedVirtualPath],
                            outputType: FileType?,
                            addJobOutputs: ([TypedVirtualPath]) -> Void,
+                           pchCompileJob: Job?,
                            emitModuleTrace: Bool)
   throws -> Job {
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
@@ -241,12 +251,12 @@ extension Driver {
     }
 
     let (primaryOutputs, primaryIndexUnitOutputs) =
-      addCompileInputs(primaryInputs: primaryInputs,
-                       indexFilePath: indexFilePath,
-                       inputs: &inputs,
-                       inputOutputMap: &inputOutputMap,
-                       outputType: outputType,
-                       commandLine: &commandLine)
+      try addCompileInputs(primaryInputs: primaryInputs,
+                           indexFilePath: indexFilePath,
+                           inputs: &inputs,
+                           inputOutputMap: &inputOutputMap,
+                           outputType: outputType,
+                           commandLine: &commandLine)
     outputs += primaryOutputs
 
     // FIXME: optimization record arguments are added before supplementary outputs
@@ -279,8 +289,17 @@ extension Driver {
       commandLine.appendFlag(.disableObjcAttrRequiresFoundationModule)
     }
 
-    try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs)
+    try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs, kind: .compile)
+
     // FIXME: MSVC runtime flags
+
+    if Driver.canDoCrossModuleOptimization(parsedOptions: &parsedOptions) &&
+       // For historical reasons, -cross-module-optimization turns on "aggressive" CMO
+       // which is different from "default" CMO.
+       !parsedOptions.hasArgument(.CrossModuleOptimization) {
+      assert(!emitModuleSeparately, "Cannot emit module separately with cross-module-optimization")
+      commandLine.appendFlag("-enable-default-cmo")
+    }
 
     if parsedOptions.hasArgument(.parseAsLibrary, .emitLibrary) {
       commandLine.appendFlag(.parseAsLibrary)
@@ -297,8 +316,8 @@ extension Driver {
     // Add primary outputs.
     if primaryOutputs.count > fileListThreshold {
       commandLine.appendFlag(.outputFilelist)
-      let fileList = VirtualPath.createUniqueFilelist(RelativePath("outputs"),
-                                                      .list(primaryOutputs.map { $0.file }))
+      let fileList = try VirtualPath.createUniqueFilelist(RelativePath(validating: "outputs"),
+                                                          .list(primaryOutputs.map { $0.file }))
       commandLine.appendPath(fileList)
     } else {
       for primaryOutput in primaryOutputs {
@@ -311,8 +330,8 @@ extension Driver {
     if !primaryIndexUnitOutputs.isEmpty {
       if primaryIndexUnitOutputs.count > fileListThreshold {
         commandLine.appendFlag(.indexUnitOutputPathFilelist)
-        let fileList = VirtualPath.createUniqueFilelist(RelativePath("index-unit-outputs"),
-                                                        .list(primaryIndexUnitOutputs.map { $0.file }))
+        let fileList = try VirtualPath.createUniqueFilelist(RelativePath(validating: "index-unit-outputs"),
+                                                            .list(primaryIndexUnitOutputs.map { $0.file }))
         commandLine.appendPath(fileList)
       } else {
         for primaryIndexUnitOutput in primaryIndexUnitOutputs {
@@ -335,6 +354,8 @@ extension Driver {
       if !parsedOptions.contains(.indexIgnoreSystemModules) {
         commandLine.appendFlag(.indexSystemModules)
       }
+      try commandLine.appendLast(.indexIgnoreClangModules, from: &parsedOptions)
+      try commandLine.appendLast(.indexIncludeLocals, from: &parsedOptions)
     }
 
     if parsedOptions.contains(.debugInfoStoreInvocation) ||
@@ -342,20 +363,24 @@ extension Driver {
       commandLine.appendFlag(.debugInfoStoreInvocation)
     }
 
+    if let map = toolchain.globalDebugPathRemapping {
+      commandLine.appendFlag(.debugPrefixMap)
+      commandLine.appendFlag(map)
+    }
+
     try commandLine.appendLast(.trackSystemDependencies, from: &parsedOptions)
     try commandLine.appendLast(.CrossModuleOptimization, from: &parsedOptions)
-    try commandLine.appendLast(.disableAutolinkingRuntimeCompatibility, from: &parsedOptions)
+    try commandLine.appendLast(.ExperimentalPerformanceAnnotations, from: &parsedOptions)
+
     try commandLine.appendLast(.runtimeCompatibilityVersion, from: &parsedOptions)
+    try commandLine.appendLast(.disableAutolinkingRuntimeCompatibility, from: &parsedOptions)
     try commandLine.appendLast(.disableAutolinkingRuntimeCompatibilityDynamicReplacements, from: &parsedOptions)
     try commandLine.appendLast(.disableAutolinkingRuntimeCompatibilityConcurrency, from: &parsedOptions)
+
     try commandLine.appendLast(.checkApiAvailabilityOnly, from: &parsedOptions)
 
-    if compilerMode.isSingleCompilation {
-      try commandLine.appendLast(.emitSymbolGraph, from: &parsedOptions)
-      try commandLine.appendLast(.emitSymbolGraphDir, from: &parsedOptions)
-    }
-    try commandLine.appendLast(.includeSpiSymbols, from: &parsedOptions)
-    try commandLine.appendLast(.symbolGraphMinimumAccessLevel, from: &parsedOptions)
+    try addCommonSymbolGraphOptions(commandLine: &commandLine,
+                                    includeGraph: compilerMode.isSingleCompilation)
 
     addJobOutputs(outputs)
 
@@ -364,6 +389,7 @@ extension Driver {
       let pchInput = TypedVirtualPath(file: pchPath, type: .pch)
       inputs.append(pchInput)
     }
+    try addBridgingHeaderPCHCacheKeyArguments(commandLine: &commandLine, pchCompileJob: pchCompileJob)
 
     let displayInputs : [TypedVirtualPath]
     if case .singleCompile = compilerMode {
@@ -371,18 +397,36 @@ extension Driver {
     } else {
       displayInputs = primaryInputs
     }
+    // The cache key for compilation is created one per input file, and each cache key contains all the output
+    // files for that specific input file. All the module level output files are attached to the cache key for
+    // the first input file. Only the input files that produce the output will have a cache key. This behavior
+    // needs to match the cache key creation logic in swift-frontend.
+    let cacheContributingInputs = inputs.enumerated().reduce(into: [(TypedVirtualPath, Int)]()) { result, input in
+      guard input.element.type == .swift else { return }
+      let singleInputKey = TypedVirtualPath(file: OutputFileMap.singleInputKey, type: .swift)
+      if inputOutputMap[singleInputKey] != nil {
+        // If singleInputKey exists, that means only the first swift file produces outputs.
+        if result.isEmpty {
+          result.append((input.element, input.offset))
+        }
+      } else if !inputOutputMap[input.element, default: []].isEmpty {
+        // Otherwise, add all the inputs that produce output.
+        result.append((input.element, input.offset))
+      }
+    }
+    let cacheKeys = try computeOutputCacheKeyForJob(commandLine: commandLine, inputs: cacheContributingInputs)
 
     return Job(
       moduleName: moduleOutputInfo.name,
       kind: .compile,
-      tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
+      tool: try toolchain.resolvedTool(.swiftCompiler),
       commandLine: commandLine,
       displayInputs: displayInputs,
       inputs: inputs,
       primaryInputs: primaryInputs,
       outputs: outputs,
-      inputOutputMap: inputOutputMap,
-      supportsResponseFiles: true
+      outputCacheKeys: cacheKeys,
+      inputOutputMap: inputOutputMap
     )
   }
 }
@@ -438,11 +482,14 @@ extension FileType {
     case .jsonCompilerFeatures:
       return .emitSupportedFeatures
 
-    case .swift, .dSYM, .autolink, .dependencies, .swiftDocumentation, .pcm,
-         .diagnostics, .objcHeader, .image, .swiftDeps, .moduleTrace, .tbd,
-         .yamlOptimizationRecord, .bitstreamOptimizationRecord, .swiftInterface,
-         .privateSwiftInterface, .swiftSourceInfoFile, .clangModuleMap, .jsonSwiftArtifacts,
-         .indexUnitOutputPath, .modDepCache, .jsonAPIBaseline, .jsonABIBaseline:
+    case .swift, .dSYM, .autolink, .dependencies, .emitModuleDependencies,
+         .swiftDocumentation, .pcm, .diagnostics, .emitModuleDiagnostics,
+         .objcHeader, .image, .swiftDeps, .moduleTrace, .tbd, .yamlOptimizationRecord,
+         .bitstreamOptimizationRecord, .swiftInterface, .privateSwiftInterface, .packageSwiftInterface,
+         .swiftSourceInfoFile, .clangModuleMap, .jsonSwiftArtifacts,
+         .indexUnitOutputPath, .modDepCache, .jsonAPIBaseline, .jsonABIBaseline,
+         .swiftConstValues, .jsonAPIDescriptor, .moduleSummary, .moduleSemanticInfo,
+         .cachedDiagnostics:
       fatalError("Output type can never be a primary output")
     }
   }

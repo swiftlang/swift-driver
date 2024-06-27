@@ -10,8 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
-import Foundation
+import struct TSCBasic.ProcessResult
+
+import struct Foundation.Data
+import class Foundation.JSONDecoder
+import var Foundation.EXIT_SUCCESS
 
 /// A type that is capable of executing compilation jobs on some underlying
 /// build service.
@@ -22,15 +25,16 @@ public protocol DriverExecutor {
   @discardableResult
   func execute(job: Job,
                forceResponseFiles: Bool,
-               recordedInputModificationDates: [TypedVirtualPath: Date]) throws -> ProcessResult
-  
+               recordedInputModificationDates: [TypedVirtualPath: TimePoint]) throws -> ProcessResult
+
   /// Execute multiple jobs, tracking job status using the provided execution delegate.
   /// Pass in the `IncrementalCompilationState` to allow for incremental compilation.
+  /// Pass in the `InterModuleDependencyGraph` to allow for module dependency tracking.
   func execute(workload: DriverExecutorWorkload,
                delegate: JobExecutionDelegate,
                numParallelJobs: Int,
                forceResponseFiles: Bool,
-               recordedInputModificationDates: [TypedVirtualPath: Date]
+               recordedInputModificationDates: [TypedVirtualPath: TimePoint]
   ) throws
 
   /// Execute multiple jobs, tracking job status using the provided execution delegate.
@@ -38,7 +42,7 @@ public protocol DriverExecutor {
                delegate: JobExecutionDelegate,
                numParallelJobs: Int,
                forceResponseFiles: Bool,
-               recordedInputModificationDates: [TypedVirtualPath: Date]
+               recordedInputModificationDates: [TypedVirtualPath: TimePoint]
   ) throws
 
   /// Launch a process with the given command line and report the result.
@@ -55,20 +59,24 @@ public struct DriverExecutorWorkload {
     case all([Job])
     case incremental(IncrementalCompilationState)
   }
+
   public let kind: Kind
+  public let interModuleDependencyGraph: InterModuleDependencyGraph?
 
   public init(_ allJobs: [Job],
-       _ incrementalCompilationState: IncrementalCompilationState?,
-       continueBuildingAfterErrors: Bool
-  ) {
-      self.continueBuildingAfterErrors = continueBuildingAfterErrors
-      self.kind = incrementalCompilationState
-        .map {.incremental($0)}
-        ?? .all(allJobs)
+              _ incrementalCompilationState: IncrementalCompilationState?,
+              _ interModuleDependencyGraph: InterModuleDependencyGraph?,
+              continueBuildingAfterErrors: Bool) {
+    self.continueBuildingAfterErrors = continueBuildingAfterErrors
+    self.kind = incrementalCompilationState
+      .map {.incremental($0)}
+      ?? .all(allJobs)
+    self.interModuleDependencyGraph = interModuleDependencyGraph
   }
 
-  static public func all(_ jobs: [Job]) -> Self {
-    .init(jobs, nil, continueBuildingAfterErrors: false)
+  static public func all(_ jobs: [Job],
+                         _ interModuleDependencyGraph: InterModuleDependencyGraph? = nil) -> Self {
+    .init(jobs, nil, interModuleDependencyGraph, continueBuildingAfterErrors: false)
   }
 }
 
@@ -83,11 +91,11 @@ extension DriverExecutor {
   func execute<T: Decodable>(job: Job,
                              capturingJSONOutputAs outputType: T.Type,
                              forceResponseFiles: Bool,
-                             recordedInputModificationDates: [TypedVirtualPath: Date]) throws -> T {
+                             recordedInputModificationDates: [TypedVirtualPath: TimePoint]) throws -> T {
     let result = try execute(job: job,
                              forceResponseFiles: forceResponseFiles,
                              recordedInputModificationDates: recordedInputModificationDates)
-    
+
     if (result.exitStatus != .terminated(code: EXIT_SUCCESS)) {
       let returnCode = Self.computeReturnCode(exitStatus: result.exitStatus)
       throw JobExecutionError.jobFailedWithNonzeroExitCode(returnCode, try result.utf8stderrOutput())
@@ -108,10 +116,10 @@ extension DriverExecutor {
     delegate: JobExecutionDelegate,
     numParallelJobs: Int,
     forceResponseFiles: Bool,
-    recordedInputModificationDates: [TypedVirtualPath: Date]
+    recordedInputModificationDates: [TypedVirtualPath: TimePoint]
   ) throws {
     try execute(
-      workload: .all(jobs),
+      workload: .all(jobs, nil),
       delegate: delegate,
       numParallelJobs: numParallelJobs,
       forceResponseFiles: forceResponseFiles,
@@ -138,7 +146,7 @@ extension DriverExecutor {
 public protocol JobExecutionDelegate {
   /// Called when a job starts executing.
   func jobStarted(job: Job, arguments: [String], pid: Int)
-  
+
   /// Called when a job finished.
   func jobFinished(job: Job, result: ProcessResult, pid: Int)
 

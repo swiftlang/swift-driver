@@ -9,8 +9,12 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import TSCBasic
+
 import SwiftOptions
+
+import func TSCBasic.lookupExecutablePath
+import protocol TSCBasic.FileSystem
+import struct TSCBasic.AbsolutePath
 
 extension WebAssemblyToolchain {
   public func addPlatformSpecificLinkerArgs(
@@ -23,7 +27,7 @@ extension WebAssemblyToolchain {
     lto: LTOKind?,
     sanitizers: Set<Sanitizer>,
     targetInfo: FrontendTargetInfo
-  ) throws -> AbsolutePath {
+  ) throws -> ResolvedTool {
     let targetTriple = targetInfo.target.triple
     switch linkerOutputType {
     case .dynamicLibrary:
@@ -37,6 +41,10 @@ extension WebAssemblyToolchain {
       // Select the linker to use.
       if let linkerArg = parsedOptions.getLastArgument(.useLd)?.asSingle {
         commandLine.appendFlag("-fuse-ld=\(linkerArg)")
+      }
+
+      if let arg = parsedOptions.getLastArgument(.ldPath)?.asSingle {
+        commandLine.append(.joinedOptionAndPath("--ld-path=", try VirtualPath(path: arg)))
       }
 
       // Configure the toolchain.
@@ -65,6 +73,10 @@ extension WebAssemblyToolchain {
         if let tool = lookupExecutablePath(filename: "clang", searchPaths: [toolsDir]) {
           clangPath = tool
         }
+
+        // Look for binutils in the toolchain folder.
+        commandLine.appendFlag("-B")
+        commandLine.appendPath(toolsDir)
       }
 
       guard !parsedOptions.hasArgument(.noStaticStdlib, .noStaticExecutable) else {
@@ -78,13 +90,15 @@ extension WebAssemblyToolchain {
         isShared: false
       )
 
-      let swiftrtPath = VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
-        .appending(
-          components: targetTriple.platformName() ?? "",
-          targetTriple.archName,
-          "swiftrt.o"
-        )
-      commandLine.appendPath(swiftrtPath)
+      if !parsedOptions.hasArgument(.nostartfiles) {
+        let swiftrtPath = VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
+          .appending(
+            components: targetTriple.platformName() ?? "",
+            targetTriple.archName,
+            "swiftrt.o"
+          )
+        commandLine.appendPath(swiftrtPath)
+      }
 
       let inputFiles: [Job.ArgTemplate] = inputs.compactMap { input in
         // Autolink inputs are handled specially
@@ -109,25 +123,39 @@ extension WebAssemblyToolchain {
         commandLine.appendPath(path)
       }
 
-      // Link the standard library.
-      let linkFilePath: VirtualPath = VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
-        .appending(
-          components: targetTriple.platformName() ?? "",
-          "static-executable-args.lnk"
-        )
-
+      // Link the standard library and dependencies.
+      let linkFilePath: VirtualPath =
+          VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
+              .appending(components: targetTriple.platformName() ?? "",
+                                     "static-executable-args.lnk")
       guard try fileSystem.exists(linkFilePath) else {
-        fatalError("\(linkFilePath) not found")
+        throw Error.missingExternalDependency(linkFilePath.name)
       }
       commandLine.append(.responseFilePath(linkFilePath))
+
+      // Pass down an optimization level
+      if let optArg = mapOptimizationLevelToClangArg(from: &parsedOptions) {
+        commandLine.appendFlag(optArg)
+      }
 
       // Explicitly pass the target to the linker
       commandLine.appendFlag("--target=\(targetTriple.triple)")
 
+      // WebAssembly doesn't reserve low addresses as its ABI. But without
+      // "extra inhabitants" of the pointer representation, runtime performance
+      // and memory footprint are significantly degraded. So we reserve the
+      // low addresses to use them as extra inhabitants by telling the lowest
+      // valid address to the linker.
+      // The value of lowest valid address, called "global base", must be always
+      // synchronized with `SWIFT_ABI_WASM32_LEAST_VALID_POINTER` defined in
+      // apple/swift's runtime library.
+      commandLine.appendFlag(.Xlinker)
+      commandLine.appendFlag("--global-base=4096")
+
       // Delegate to Clang for sanitizers. It will figure out the correct linker
       // options.
       guard sanitizers.isEmpty else {
-        fatalError("WebAssembly does not support sanitizers, but a runtime library was found")
+        throw Error.sanitizersUnsupportedForTarget(targetTriple.triple)
       }
 
       guard !parsedOptions.hasArgument(.profileGenerate) else {
@@ -145,20 +173,19 @@ extension WebAssemblyToolchain {
         from: &parsedOptions
       )
       addLinkedLibArgs(to: &commandLine, parsedOptions: &parsedOptions)
-      try commandLine.appendAllArguments(.Xlinker, from: &parsedOptions)
-      try commandLine.appendAllArguments(.XclangLinker, from: &parsedOptions)
+      try addExtraClangLinkerArgs(to: &commandLine, parsedOptions: &parsedOptions)
 
         // This should be the last option, for convenience in checking output.
       commandLine.appendFlag(.o)
       commandLine.appendPath(outputFile)
-      return clangPath
+      return try resolvedTool(.clang, pathOverride: clangPath)
     case .staticLibrary:
       // We're using 'ar' as a linker
       commandLine.appendFlag("crs")
       commandLine.appendPath(outputFile)
 
       commandLine.append(contentsOf: inputs.map { .path($0.file) })
-      return try getToolPath(.staticLinker(lto))
+      return try resolvedTool(.staticLinker(lto))
     }
   }
 }

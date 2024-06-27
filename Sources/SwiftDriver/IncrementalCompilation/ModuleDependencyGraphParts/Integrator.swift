@@ -10,8 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
-
 extension ModuleDependencyGraph {
 
   // MARK: Integrator - state & creation
@@ -51,7 +49,7 @@ extension ModuleDependencyGraph {
       .findNodes(for: .known(dependencySource))
         ?? [:]
     }
-    
+
     var reporter: IncrementalCompilationState.Reporter? {
       destination.info.reporter
     }

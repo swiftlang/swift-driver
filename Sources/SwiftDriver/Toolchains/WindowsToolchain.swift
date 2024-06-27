@@ -10,8 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
 import SwiftOptions
+
+import class TSCBasic.DiagnosticsEngine
+import protocol TSCBasic.DiagnosticData
+import protocol TSCBasic.FileSystem
+import struct TSCBasic.AbsolutePath
+import var TSCBasic.localFileSystem
 
 extension WindowsToolchain {
   public enum ToolchainValidationError: Error, DiagnosticData {
@@ -64,25 +69,27 @@ extension WindowsToolchain.ToolchainValidationError {
   private func lookupToolPath(_ tool: Tool) throws -> AbsolutePath {
     switch tool {
     case .swiftAPIDigester:
-      return try lookup(executable: "swift-api-digester.exe")
+      return try lookup(executable: "swift-api-digester")
     case .swiftCompiler:
-      return try lookup(executable: "swift-frontend.exe")
+      return try lookup(executable: "swift-frontend")
     case .staticLinker:
-      return try lookup(executable: "llvm-ar.exe")
+      return try lookup(executable: "lld-link")
     case .dynamicLinker:
-      return try lookup(executable: "clang.exe")
+      return try lookup(executable: "clang")
     case .clang:
-      return try lookup(executable: "clang.exe")
+      return try lookup(executable: "clang")
+    case .clangxx:
+      return try lookup(executable: "clang++")
     case .swiftAutolinkExtract:
-      return try lookup(executable: "swift-autolink-extract.exe")
+      return try lookup(executable: "swift-autolink-extract")
     case .lldb:
-      return try lookup(executable: "lldb.exe")
+      return try lookup(executable: "lldb")
     case .dsymutil:
-      return try lookup(executable: "llvm-dsymutil.exe")
+      return try lookup(executable: "llvm-dsymutil")
     case .dwarfdump:
-      return try lookup(executable: "llvm-dwarfdump.exe")
+      return try lookup(executable: "llvm-dwarfdump")
     case .swiftHelp:
-      return try lookup(executable: "swift-help.exe")
+      return try lookup(executable: "swift-help")
     }
   }
 
@@ -94,8 +101,8 @@ extension WindowsToolchain.ToolchainValidationError {
     toolPaths.removeValue(forKey: tool)
   }
 
-  public func sdkStdlib(sdk: AbsolutePath) -> AbsolutePath {
-    sdk.appending(RelativePath("usr/lib/swift"))
+  public func sdkStdlib(sdk: AbsolutePath) throws -> AbsolutePath {
+    try AbsolutePath(validating: "usr/lib/swift", relativeTo: sdk)
   }
 
   public func makeLinkerOutputFilename(moduleName: String, type: LinkOutputType) -> String {
@@ -107,21 +114,9 @@ extension WindowsToolchain.ToolchainValidationError {
   }
 
   public func defaultSDKPath(_ target: Triple?) throws -> AbsolutePath? {
-    // The SDKROOT environment always takes precedent.  If SDKROOT is undefined,
-    // but we have DEVELOPER_DIR defined and a valid triple, compose the SDK
-    // root relative to the DEVELOPER_DIR.  The SDKs are always laid out as
-    // `[DeveloperDir]\Platforms\[OS].platform\Developer\SDKs\[OS].sdk`,
-    // allowing us to locate it relative to the DEVELOPER_DIR environment
-    // variable.
-
     // TODO(compnerd): replicate the SPM processing of the SDKInfo.plist
     if let SDKROOT = env["SDKROOT"] {
-      return AbsolutePath(SDKROOT)
-    } else if let DEVELOPER_DIR = env["DEVELOPER_DIR"], let os = target?.os?.rawValue {
-      // FIXME(compnerd) we should capitalise the OS name, e.g. windows ->
-      // Windows; we get away with this for now as Windows has a
-      // case-insensitive file system.
-      return AbsolutePath("\(DEVELOPER_DIR)\\Platforms\\\(os).platform\\Developer\\SDKs\\\(os).sdk")
+      return try AbsolutePath(validating: SDKROOT)
     }
     return nil
   }
@@ -129,6 +124,8 @@ extension WindowsToolchain.ToolchainValidationError {
   public var shouldStoreInvocationInDebugInfo: Bool {
     !env["RC_DEBUG_OPTIONS", default: ""].isEmpty
   }
+
+  public var globalDebugPathRemapping: String? { nil }
 
   public func runtimeLibraryName(for sanitizer: Sanitizer, targetTriple: Triple,
                                  isShared: Bool) throws -> String {
@@ -138,6 +135,7 @@ extension WindowsToolchain.ToolchainValidationError {
 
   public func validateArgs(_ parsedOptions: inout ParsedOptions,
                            targetTriple: Triple, targetVariantTriple: Triple?,
+                           compilerOutputType: FileType?,
                            diagnosticEngine: DiagnosticsEngine) throws {
     // TODO(compnerd) validate any options we can
   }

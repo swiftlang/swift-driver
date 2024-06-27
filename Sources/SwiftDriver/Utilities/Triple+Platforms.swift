@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift.org open source project
 //
-// Copyright (c) 2014 - 2019 Apple Inc. and the Swift project authors
+// Copyright (c) 2014 - 2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See https://swift.org/LICENSE.txt for license information
@@ -31,6 +31,9 @@ public enum DarwinPlatform: Hashable {
 
   /// watchOS, corresponding to the `watchos` OS name.
   case watchOS(EnvironmentWithoutCatalyst)
+
+  /// visionOS, corresponding to the `visionos` OS name.
+  case visionOS(EnvironmentWithoutCatalyst)
 
   /// The most general form of environment information attached to a
   /// `DarwinPlatform`.
@@ -76,6 +79,34 @@ public enum DarwinPlatform: Hashable {
     case .watchOS:
     guard let withoutCatalyst = environment.withoutCatalyst else { return nil }
       return .watchOS(withoutCatalyst)
+    case .visionOS:
+      guard let withoutCatalyst = environment.withoutCatalyst else { return nil }
+      return .visionOS(withoutCatalyst)
+    }
+  }
+
+  public var platformDisplayName: String {
+    switch self {
+    case .macOS:
+      return "macOS"
+    case .iOS(.device):
+      return "iOS"
+    case .iOS(.simulator):
+      return "iOS Simulator"
+    case .iOS(.catalyst):
+      return "Mac Catalyst"
+    case .tvOS(.device):
+      return "tvOS"
+    case .tvOS(.simulator):
+      return "tvOS Simulator"
+    case .watchOS(.device):
+      return "watchOS"
+    case .watchOS(.simulator):
+      return "watchOS Simulator"
+    case .visionOS(.device):
+      return "visionOS"
+    case .visionOS(.simulator):
+      return "visionOS Simulator"
     }
   }
 
@@ -99,6 +130,10 @@ public enum DarwinPlatform: Hashable {
       return "watchos"
     case .watchOS(.simulator):
       return "watchsimulator"
+    case .visionOS(.device):
+      return "xros"
+    case .visionOS(.simulator):
+      return "xrsimulator"
     }
   }
 
@@ -121,6 +156,10 @@ public enum DarwinPlatform: Hashable {
       return "watchos"
     case .watchOS(.simulator):
       return "watchos-simulator"
+    case .visionOS(.device):
+      return "xros"
+    case .visionOS(.simulator):
+      return "xros-simulator"
     }
   }
 
@@ -144,6 +183,10 @@ public enum DarwinPlatform: Hashable {
       return "watchos"
     case .watchOS(.simulator):
       return "watchossim"
+    case .visionOS(.device):
+      return "xros"
+    case .visionOS(.simulator):
+      return "xrossim"
     }
   }
 }
@@ -176,6 +219,8 @@ extension Triple {
       return _iOSVersion
     case .watchOS:
       return _watchOSVersion
+    case .visionOS:
+      return _visionOSVersion
     }
   }
 
@@ -202,6 +247,8 @@ extension Triple {
       return .watchOS(makeEnvironment())
     case .tvos:
       return .tvOS(makeEnvironment())
+    case .visionos:
+      return .visionOS(makeEnvironment())
     default:
       return nil
     }
@@ -212,7 +259,7 @@ extension Triple {
     precondition(self.isDarwin)
     switch darwinPlatform! {
     case .macOS:
-      // The integrated driver falls back to `osVersion` for ivalid macOS
+      // The integrated driver falls back to `osVersion` for invalid macOS
       // versions, this decision might be worth revisiting.
       let macVersion = _macOSVersion ?? osVersion
       // The first deployment of arm64 for macOS is version 11
@@ -251,6 +298,8 @@ extension Triple {
       }
 
       return osVersion
+    case .visionOS(_):
+      return _visionOSVersion
     }
   }
 
@@ -264,14 +313,25 @@ extension Triple {
     switch os {
     case nil:
       fatalError("unknown OS")
-    case .darwin, .macosx, .ios, .tvos, .watchos:
+    case .darwin, .macosx, .ios, .tvos, .watchos, .visionos:
       guard let darwinPlatform = darwinPlatform else {
         fatalError("unsupported darwin platform kind?")
       }
       return conflatingDarwin ? "darwin" : darwinPlatform.platformName
 
     case .linux:
-      return environment == .android ? "android" : "linux"
+      switch environment {
+      case .musl where vendor == .swift:
+        // The triple for linux-static is <arch>-swift-linux-musl, to distinguish
+        // it from a "normal" musl set-up (ala Alpine).
+        return "linux-static"
+      case .musl, .musleabihf, .musleabi:
+        return "musl"
+      case .android:
+        return "android"
+      default:
+        return "linux"
+      }
     case .freeBSD:
       return "freebsd"
     case .openbsd:
@@ -293,6 +353,8 @@ extension Triple {
       return "haiku"
     case .wasi:
       return "wasi"
+    case .noneOS:
+      return nil
 
     // Explicitly spell out the remaining cases to force a compile error when
     // Triple updates
@@ -312,18 +374,19 @@ extension Triple {
   /// `tripleVersion >= featureVersion`.
   ///
   /// - SeeAlso: `Triple.supports(_:)`
-  public struct FeatureAvailability {
-    
-    public enum Availability {
+  public struct FeatureAvailability: Sendable {
+
+    public enum Availability: Sendable {
       case unavailable
       case available(since: Version)
       case availableInAllVersions
     }
-    
+
     public let macOS: Availability
     public let iOS: Availability
     public let tvOS: Availability
     public let watchOS: Availability
+    public var visionOS: Availability
 
     // TODO: We should have linux, windows, etc.
     public let nonDarwin: Bool
@@ -342,22 +405,14 @@ extension Triple {
       self.tvOS = tvOS
       self.watchOS = watchOS
       self.nonDarwin = nonDarwin
+      self.visionOS = iOS
     }
 
-    /// Describes the availability of a feature that is supported on multiple platforms,
-    /// but is tied to a particular version.
-    ///
-    /// If `tvOS` availability is omitted, it will be set to be the same as `iOS`.
-    public init(
-      macOS: Availability,
-      iOS: Availability,
-      watchOS: Availability,
-      nonDarwin: Bool = false
-    ) {
-      self.init(macOS: macOS, iOS: iOS, tvOS: iOS, watchOS: watchOS,
-                nonDarwin: nonDarwin)
+    public func withVisionOS(_ visionOS: Availability) -> FeatureAvailability {
+      var res = self
+      res.visionOS = visionOS
+      return res
     }
-
     /// Returns the version when the feature was introduced on the specified Darwin
     /// platform, or `.unavailable` if the feature has not been introduced there.
     public subscript(darwinPlatform: DarwinPlatform) -> Availability {
@@ -370,6 +425,8 @@ extension Triple {
         return tvOS
       case .watchOS:
         return watchOS
+      case .visionOS:
+        return visionOS
       }
     }
   }
@@ -380,7 +437,7 @@ extension Triple {
     guard let darwinPlatform = darwinPlatform else {
       return feature.nonDarwin
     }
-    
+
     switch feature[darwinPlatform] {
     case .unavailable:
       return false
@@ -404,6 +461,7 @@ extension Triple.FeatureAvailability {
   static let nativeARC = Self(
     macOS: .available(since: Triple.Version(10, 11, 0)),
     iOS: .available(since: Triple.Version(9, 0, 0)),
+    tvOS: .available(since: Triple.Version(9, 0, 0)),
     watchOS: .availableInAllVersions
   )
   // When updating the versions listed here, please record the most recent

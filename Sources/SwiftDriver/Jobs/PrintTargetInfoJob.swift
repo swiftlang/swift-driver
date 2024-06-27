@@ -10,6 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+import protocol TSCBasic.FileSystem
+import class Foundation.JSONDecoder
+import struct TSCBasic.AbsolutePath
+import class TSCBasic.DiagnosticsEngine
+
 /// Swift versions are major.minor.
 struct SwiftVersion {
   var major: Int
@@ -72,6 +77,7 @@ public struct FrontendTargetInfo: Codable {
 
     let libraryName: String
     let filter: Filter
+    let forceLoad: Bool?
   }
 
   struct Target: Codable {
@@ -119,14 +125,14 @@ extension FrontendTargetInfo {
 }
 
 extension Toolchain {
-  func printTargetInfoJob(target: Triple?,
-                          targetVariant: Triple?,
-                          sdkPath: VirtualPath? = nil,
-                          resourceDirPath: VirtualPath? = nil,
-                          runtimeCompatibilityVersion: String? = nil,
-                          requiresInPlaceExecution: Bool = false,
-                          useStaticResourceDir: Bool = false,
-                          swiftCompilerPrefixArgs: [String]) throws -> Job {
+  @_spi(Testing) public func printTargetInfoJob(target: Triple?,
+                                                targetVariant: Triple?,
+                                                sdkPath: VirtualPath? = nil,
+                                                resourceDirPath: VirtualPath? = nil,
+                                                runtimeCompatibilityVersion: String? = nil,
+                                                requiresInPlaceExecution: Bool = false,
+                                                useStaticResourceDir: Bool = false,
+                                                swiftCompilerPrefixArgs: [String]) throws -> Job {
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
     commandLine.append(contentsOf: [.flag("-frontend"),
                                     .flag("-print-target-info")])
@@ -163,14 +169,101 @@ extension Toolchain {
     return Job(
       moduleName: "",
       kind: .printTargetInfo,
-      tool: .absolute(try getToolPath(.swiftCompiler)),
+      tool: try resolvedTool(.swiftCompiler),
       commandLine: commandLine,
       displayInputs: [],
       inputs: [],
       primaryInputs: [],
       outputs: [.init(file: .standardOutput, type: .jsonTargetInfo)],
-      requiresInPlaceExecution: requiresInPlaceExecution,
-      supportsResponseFiles: false
+      requiresInPlaceExecution: requiresInPlaceExecution
     )
+  }
+}
+
+extension Driver {
+  @_spi(Testing) public static func queryTargetInfoInProcess(of toolchain: Toolchain,
+                                                             fileSystem: FileSystem,
+                                                             workingDirectory: AbsolutePath?,
+                                                             invocationCommand: [String]) throws -> FrontendTargetInfo? {
+    let optionalSwiftScanLibPath = try toolchain.lookupSwiftScanLib()
+    if let swiftScanLibPath = optionalSwiftScanLibPath,
+       fileSystem.exists(swiftScanLibPath) {
+      let libSwiftScanInstance = try SwiftScan(dylib: swiftScanLibPath)
+      if libSwiftScanInstance.canQueryTargetInfo() {
+        let cwd = try workingDirectory ?? fileSystem.tempDirectory
+        let compilerExecutablePath = try toolchain.resolvedTool(.swiftCompiler).path
+        let targetInfoData =
+          try libSwiftScanInstance.queryTargetInfoJSON(workingDirectory: cwd,
+                                                       compilerExecutablePath: compilerExecutablePath,
+                                                       invocationCommand: invocationCommand)
+        do {
+          return try JSONDecoder().decode(FrontendTargetInfo.self, from: targetInfoData)
+        } catch let decodingError as DecodingError {
+          let stringToDecode = String(data: targetInfoData, encoding: .utf8)
+          let errorDesc: String
+          switch decodingError {
+            case let .typeMismatch(type, context):
+              errorDesc = "type mismatch: \(type), path: \(context.codingPath)"
+            case let .valueNotFound(type, context):
+              errorDesc = "value missing: \(type), path: \(context.codingPath)"
+            case let .keyNotFound(key, context):
+              errorDesc = "key missing: \(key), path: \(context.codingPath)"
+           case let .dataCorrupted(context):
+              errorDesc = "data corrupted at path: \(context.codingPath)"
+            @unknown default:
+              errorDesc = "unknown decoding error"
+          }
+          throw Error.unableToDecodeFrontendTargetInfo(
+            stringToDecode,
+            invocationCommand,
+            errorDesc)
+        }
+      }
+    }
+    return nil
+  }
+
+  static func computeTargetInfo(target: Triple?,
+                                targetVariant: Triple?,
+                                sdkPath: VirtualPath? = nil,
+                                resourceDirPath: VirtualPath? = nil,
+                                runtimeCompatibilityVersion: String? = nil,
+                                requiresInPlaceExecution: Bool = false,
+                                useStaticResourceDir: Bool = false,
+                                swiftCompilerPrefixArgs: [String],
+                                toolchain: Toolchain,
+                                fileSystem: FileSystem,
+                                workingDirectory: AbsolutePath?,
+                                diagnosticsEngine: DiagnosticsEngine,
+                                executor: DriverExecutor) throws -> FrontendTargetInfo {
+    let frontendTargetInfoJob =
+      try toolchain.printTargetInfoJob(target: target, targetVariant: targetVariant,
+                                       sdkPath: sdkPath, resourceDirPath: resourceDirPath,
+                                       runtimeCompatibilityVersion: runtimeCompatibilityVersion,
+                                       requiresInPlaceExecution: requiresInPlaceExecution,
+                                       useStaticResourceDir: useStaticResourceDir,
+                                       swiftCompilerPrefixArgs: swiftCompilerPrefixArgs)
+    var command = try Self.itemizedJobCommand(of: frontendTargetInfoJob,
+                                              useResponseFiles: .disabled,
+                                              using: executor.resolver)
+    Self.sanitizeCommandForLibScanInvocation(&command)
+
+    do {
+      if let targetInfo =
+          try Self.queryTargetInfoInProcess(of: toolchain, fileSystem: fileSystem,
+                                            workingDirectory: workingDirectory,
+                                            invocationCommand: command) {
+        return targetInfo
+      }
+    } catch {
+      diagnosticsEngine.emit(.remark_inprocess_target_info_query_failed(error.localizedDescription))
+    }
+
+    // Fallback: Invoke `swift-frontend -print-target-info` and decode the output
+    return try executor.execute(
+      job: frontendTargetInfoJob,
+      capturingJSONOutputAs: FrontendTargetInfo.self,
+      forceResponseFiles: false,
+      recordedInputModificationDates: [:])
   }
 }

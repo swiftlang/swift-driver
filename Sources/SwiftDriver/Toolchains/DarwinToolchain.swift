@@ -9,10 +9,18 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import TSCBasic
-import TSCUtility
-import Foundation
+
 import SwiftOptions
+
+import struct Foundation.Data
+import class Foundation.JSONDecoder
+
+import protocol TSCBasic.FileSystem
+import protocol TSCBasic.DiagnosticData
+import class TSCBasic.DiagnosticsEngine
+import struct TSCBasic.AbsolutePath
+import struct TSCBasic.Diagnostic
+import var TSCBasic.localFileSystem
 
 /// Toolchain for Darwin-based platforms, such as macOS and iOS.
 ///
@@ -63,13 +71,15 @@ public final class DarwinToolchain: Toolchain {
     case .swiftCompiler:
       return try lookup(executable: "swift-frontend")
     case .dynamicLinker:
-      return try lookup(executable: "ld")
+      return try lookup(executable: "clang")
     case .staticLinker:
       return try lookup(executable: "libtool")
     case .dsymutil:
       return try lookup(executable: "dsymutil")
     case .clang:
       return try lookup(executable: "clang")
+    case .clangxx:
+      return try lookup(executable: "clang++")
     case .swiftAutolinkExtract:
       return try lookup(executable: "swift-autolink-extract")
     case .lldb:
@@ -92,8 +102,8 @@ public final class DarwinToolchain: Toolchain {
   }
 
   /// Path to the StdLib inside the SDK.
-  public func sdkStdlib(sdk: AbsolutePath) -> AbsolutePath {
-    sdk.appending(RelativePath("usr/lib/swift"))
+  public func sdkStdlib(sdk: AbsolutePath) throws -> AbsolutePath {
+    try AbsolutePath(validating: "usr/lib/swift", relativeTo: sdk)
   }
 
   public func makeLinkerOutputFilename(moduleName: String, type: LinkOutputType) -> String {
@@ -116,8 +126,8 @@ public final class DarwinToolchain: Toolchain {
       let result = try executor.checkNonZeroExit(
         args: "xcrun", "-sdk", "macosx", "--show-sdk-path",
         environment: env
-      ).spm_chomp()
-      return AbsolutePath(result)
+      ).trimmingCharacters(in: .whitespacesAndNewlines)
+      return try AbsolutePath(validating: result)
     }
 
     return nil
@@ -126,6 +136,16 @@ public final class DarwinToolchain: Toolchain {
   public var shouldStoreInvocationInDebugInfo: Bool {
     // This matches the behavior in Clang.
     !(env["RC_DEBUG_OPTIONS"]?.isEmpty ?? true)
+  }
+
+  public var globalDebugPathRemapping: String? {
+    // This matches the behavior in Clang.
+    if let map = env["RC_DEBUG_PREFIX_MAP"] {
+      if map.contains("=") {
+        return map
+      }
+    }
+    return nil
   }
 
   public func runtimeLibraryName(
@@ -141,18 +161,18 @@ public final class DarwinToolchain: Toolchain {
   }
 
   public enum ToolchainValidationError: Error, DiagnosticData {
-    case osVersionBelowMinimumDeploymentTarget(String)
+    case osVersionBelowMinimumDeploymentTarget(platform: DarwinPlatform, version: Triple.Version)
     case argumentNotSupported(String)
-    case iOSVersionAboveMaximumDeploymentTarget(Int)
+    case invalidDeploymentTargetForIR(platform: DarwinPlatform, version: Triple.Version, archName: String)
     case unsupportedTargetVariant(variant: Triple)
     case darwinOnlySupportsLibCxx
 
     public var description: String {
       switch self {
-      case .osVersionBelowMinimumDeploymentTarget(let target):
-        return "Swift requires a minimum deployment target of \(target)"
-      case .iOSVersionAboveMaximumDeploymentTarget(let version):
-        return "iOS \(version) does not support 32-bit programs"
+      case .osVersionBelowMinimumDeploymentTarget(let platform, let version):
+        return "Swift requires a minimum deployment target of \(platform.platformDisplayName) \(version.description)"
+      case .invalidDeploymentTargetForIR(let platform, let version, let archName):
+        return "\(platform.platformDisplayName) \(version.description) and above does not support emitting binaries or IR for \(archName)"
       case .unsupportedTargetVariant(variant: let variant):
         return "unsupported '\(variant.isiOS ? "-target-variant" : "-target")' value '\(variant.triple)'; use 'ios-macabi' instead"
       case .argumentNotSupported(let argument):
@@ -166,6 +186,7 @@ public final class DarwinToolchain: Toolchain {
   public func validateArgs(_ parsedOptions: inout ParsedOptions,
                            targetTriple: Triple,
                            targetVariantTriple: Triple?,
+                           compilerOutputType: FileType?,
                            diagnosticsEngine: DiagnosticsEngine) throws {
     // On non-darwin hosts, libArcLite won't be found and a warning will be emitted
     // Guard for the sake of tests running on all platforms
@@ -176,7 +197,8 @@ public final class DarwinToolchain: Toolchain {
                                       diagnosticsEngine: diagnosticsEngine)
     #endif
     // Validating apple platforms deployment targets.
-    try validateDeploymentTarget(&parsedOptions, targetTriple: targetTriple)
+    try validateDeploymentTarget(&parsedOptions, targetTriple: targetTriple,
+                                 compilerOutputType: compilerOutputType)
     if let targetVariantTriple = targetVariantTriple,
        !targetTriple.isValidForZipperingWithTriple(targetVariantTriple) {
       throw ToolchainValidationError.unsupportedTargetVariant(variant: targetVariantTriple)
@@ -197,31 +219,58 @@ public final class DarwinToolchain: Toolchain {
     }
   }
 
-  func validateDeploymentTarget(_ parsedOptions: inout ParsedOptions,
-                                targetTriple: Triple) throws {
-    // Check minimum supported OS versions.
-    if targetTriple.isMacOSX,
-       targetTriple.version(for: .macOS) < Triple.Version(10, 9, 0) {
-      throw ToolchainValidationError.osVersionBelowMinimumDeploymentTarget("OS X 10.9")
+  public func getDefaultDwarfVersion(targetTriple: Triple) -> UInt8 {
+    // Default to DWARF 2 on OS X 10.10 / iOS 8 and lower.
+    // Default to DWARF 4 on OS X 10.11 - macOS 14 / iOS - iOS 17.
+    if (targetTriple.isMacOSX && targetTriple.version(for: .macOS) < Triple.Version(10, 11, 0)) ||
+        (targetTriple.isiOS && targetTriple.version(
+            for: .iOS(targetTriple._isSimulatorEnvironment ? .simulator : .device)) < Triple.Version(9, 0, 0)) {
+      return 2;
     }
-    // tvOS triples are also iOS, so check it first.
-    else if targetTriple.isTvOS,
-            targetTriple.version(for: .tvOS(.device)) < Triple.Version(9, 0, 0) {
-      throw ToolchainValidationError.osVersionBelowMinimumDeploymentTarget("tvOS 9.0")
-    } else if targetTriple.isiOS {
-      if targetTriple.version(for: .iOS(.device)) < Triple.Version(7, 0, 0) {
-        throw ToolchainValidationError.osVersionBelowMinimumDeploymentTarget("iOS 7")
+    if (targetTriple.isMacOSX && targetTriple.version(for: .macOS) < Triple.Version(15, 0, 0)) ||
+        (targetTriple.isiOS && targetTriple.version(
+            for: .iOS(targetTriple._isSimulatorEnvironment ? .simulator : .device)) < Triple.Version(18, 0, 0)) ||
+        (targetTriple.isTvOS && targetTriple.version(
+            for: .tvOS(targetTriple._isSimulatorEnvironment ? .simulator : .device)) < Triple.Version(18, 0, 0)) ||
+        (targetTriple.isWatchOS && targetTriple.version(
+            for: .watchOS(targetTriple._isSimulatorEnvironment ? .simulator : .device)) < Triple.Version(11, 0, 0)) ||
+        (targetTriple.isVisionOS && targetTriple.version(
+            for: .visionOS(targetTriple._isSimulatorEnvironment ? .simulator : .device)) < Triple.Version(2, 0, 0)){
+      return 4
+    }
+    return 5
+  }
+
+  func validateDeploymentTarget(_ parsedOptions: inout ParsedOptions,
+                                targetTriple: Triple, compilerOutputType: FileType?) throws {
+    guard let os = targetTriple.os else {
+      return
+    }
+
+    // Check minimum supported OS versions. Note that Mac Catalyst falls into the iOS device case. The driver automatically uplevels the deployment target to iOS >= 13.1.
+    let minVersions: [Triple.OS: (DarwinPlatform, Triple.Version)] = [
+      .macosx: (.macOS, Triple.Version(10, 9, 0)),
+      .ios: (.iOS(targetTriple._isSimulatorEnvironment ? .simulator : .device), Triple.Version(7, 0, 0)),
+      .tvos: (.tvOS(targetTriple._isSimulatorEnvironment ? .simulator : .device), Triple.Version(9, 0, 0)),
+      .watchos: (.watchOS(targetTriple._isSimulatorEnvironment ? .simulator : .device), Triple.Version(2, 0, 0)),
+      .visionos: (.visionOS(targetTriple._isSimulatorEnvironment ? .simulator : .device), Triple.Version(1, 0, 0))
+    ]
+    if let (platform, minVersion) = minVersions[os], targetTriple.version(for: platform) < minVersion {
+      throw ToolchainValidationError.osVersionBelowMinimumDeploymentTarget(platform: platform, version: minVersion)
+    }
+
+    // Check 32-bit deprecation. Exclude watchOS's arm64_32, which is 32-bit but not deprecated.
+    if targetTriple.arch?.is32Bit == true && compilerOutputType != .swiftModule && targetTriple.arch != .aarch64_32 {
+      let minVersions: [Triple.OS: (DarwinPlatform, Triple.Version)] = [
+        .ios: (.iOS(targetTriple._isSimulatorEnvironment ? .simulator : .device), Triple.Version(11, 0, 0)),
+        .watchos: (.watchOS(targetTriple._isSimulatorEnvironment ? .simulator : .device), targetTriple._isSimulatorEnvironment ? Triple.Version(7, 0, 0) : Triple.Version(9, 0, 0)),
+      ]
+      if let (platform, minVersion) = minVersions[os], targetTriple.version(for: platform) >= minVersion {
+        throw ToolchainValidationError.invalidDeploymentTargetForIR(platform: platform, version: minVersion, archName: targetTriple.archName)
       }
-      if targetTriple.arch?.is32Bit == true,
-         targetTriple.version(for: .iOS(.device)) >= Triple.Version(11, 0, 0) {
-        throw ToolchainValidationError.iOSVersionAboveMaximumDeploymentTarget(targetTriple.version(for: .iOS(.device)).major)
-      }
-    } else if targetTriple.isWatchOS,
-              targetTriple.version(for: .watchOS(.device)) < Triple.Version(2, 0, 0) {
-      throw ToolchainValidationError.osVersionBelowMinimumDeploymentTarget("watchOS 2.0")
     }
   }
-    
+
   func validateLinkObjcRuntimeARCLiteLib(_ parsedOptions: inout ParsedOptions,
                                            targetTriple: Triple,
                                            diagnosticsEngine: DiagnosticsEngine) {
@@ -253,6 +302,8 @@ public final class DarwinToolchain: Toolchain {
       case watchsimulator
       case appletvos
       case appletvsimulator
+      case visionos = "xros"
+      case visionsimulator = "xrsimulator"
       case unknown
     }
 
@@ -270,12 +321,12 @@ public final class DarwinToolchain: Toolchain {
         let mappingDict = try keyedContainer.decode([String: String].self, forKey: .macOSToCatalystMapping)
         self.macOSToCatalystMapping = [:]
         try mappingDict.forEach { key, value in
-          guard let newKey = try? Version(versionString: key, usesLenientParsing: true) else {
+          guard let newKey = try? Version(string: key, lenient: true) else {
             throw DecodingError.dataCorruptedError(forKey: .macOSToCatalystMapping,
                                                    in: keyedContainer,
                                                    debugDescription: "Malformed version string")
           }
-          guard let newValue = try? Version(versionString: value, usesLenientParsing: true) else {
+          guard let newValue = try? Version(string: value, lenient: true) else {
             throw DecodingError.dataCorruptedError(forKey: .macOSToCatalystMapping,
                                                    in: keyedContainer,
                                                    debugDescription: "Malformed version string")
@@ -296,7 +347,7 @@ public final class DarwinToolchain: Toolchain {
       let canonicalName = try keyedContainer.decode(String.self, forKey: .canonicalName)
       self.platformKind = SDKPlatformKind.allCases.first { canonicalName.hasPrefix($0.rawValue) } ?? SDKPlatformKind.unknown
       self.canonicalName = canonicalName
-      guard let version = try? Version(versionString: versionString, usesLenientParsing: true) else {
+      guard let version = try? Version(string: versionString, lenient: true) else {
         throw DecodingError.dataCorruptedError(forKey: .version,
                                                in: keyedContainer,
                                                debugDescription: "Malformed version string")
@@ -315,7 +366,7 @@ public final class DarwinToolchain: Toolchain {
         // For the Mac Catalyst environment, we have a macOS SDK with a macOS
         // SDK version. Map that to the corresponding iOS version number to pass
         // down to the linker.
-        return versionMap.macOSToCatalystMapping[version.withoutBuildNumbers] ?? Version(0, 0, 0)
+        return versionMap.macOSToCatalystMapping[version] ?? Version(0, 0, 0)
       }
       return version
     }
@@ -345,7 +396,7 @@ public final class DarwinToolchain: Toolchain {
     commandLine: inout [Job.ArgTemplate],
     inputs: inout [TypedVirtualPath],
     frontendTargetInfo: FrontendTargetInfo,
-    driver: Driver
+    driver: inout Driver
   ) throws {
     guard let sdkPath = frontendTargetInfo.sdkPath?.path,
           let sdkInfo = getTargetSDKInfo(sdkPath: sdkPath) else { return }
@@ -358,8 +409,7 @@ public final class DarwinToolchain: Toolchain {
       commandLine.append(.flag(sdkInfo.sdkVersion(for: targetVariantTriple).sdkVersionString))
     }
 
-    if driver.isFrontendArgSupported(.targetSdkName) &&
-       env["ENABLE_RESTRICT_SWIFTMODULE_SDK"] != nil {
+    if driver.isFrontendArgSupported(.targetSdkName) {
       commandLine.append(.flag(Option.targetSdkName.spelling))
       commandLine.append(.flag(sdkInfo.canonicalName))
     }
@@ -376,6 +426,53 @@ public final class DarwinToolchain: Toolchain {
         .appending(component: "macosx").appending(component: "prebuilt-modules")
         .appending(component: sdkInfo.versionString))
     }
+
+    // Pass down -clang-target.
+    // If not specified otherwise, we should use the same triple as -target
+    if !driver.parsedOptions.hasArgument(.disableClangTarget) &&
+        driver.isFrontendArgSupported(.clangTarget) &&
+        driver.parsedOptions.contains(.driverExplicitModuleBuild) {
+      // The common target triple for all Clang dependencies of this compilation,
+      // both direct and transitive is computed as:
+      // 1. An explicitly-specified `-clang-target` argument to this driver invocation
+      // 2. (On Darwin) The target triple of the selected SDK
+      let clangTargetTriple: String
+      if let explicitClangTripleArg = driver.parsedOptions.getLastArgument(.clangTarget)?.asSingle {
+        clangTargetTriple = explicitClangTripleArg
+      } else {
+        let currentTriple = frontendTargetInfo.target.triple
+        let sdkVersionedOSString = currentTriple.osNameUnversioned + sdkInfo.sdkVersion(for: currentTriple).sdkVersionString
+        clangTargetTriple = currentTriple.triple.replacingOccurrences(of: currentTriple.osName, with: sdkVersionedOSString)
+      }
+
+      commandLine.appendFlag(.clangTarget)
+      commandLine.appendFlag(clangTargetTriple)
+    }
+
+    if driver.isFrontendArgSupported(.externalPluginPath) {
+      // Determine the platform path. For simulator platforms, look into the
+      // corresponding device platform instance.
+      let origPlatformPath = VirtualPath.lookup(sdkPath)
+        .parentDirectory
+        .parentDirectory
+        .parentDirectory
+      let platformPath: VirtualPath
+      if let simulatorRange = origPlatformPath.basename.range(of: "Simulator.platform") {
+        let devicePlatform = origPlatformPath.basename.replacingCharacters(in: simulatorRange, with: "OS.platform")
+        platformPath = origPlatformPath.parentDirectory.appending(component: devicePlatform)
+      } else {
+        platformPath = origPlatformPath
+      }
+
+      // Default paths for compiler plugins within the platform (accessed via that
+      // platform's plugin server).
+      let platformPathRoot = platformPath.appending(components: "Developer", "usr")
+      commandLine.appendFlag(.externalPluginPath)
+      commandLine.appendFlag("\(platformPathRoot.pluginPath.name)#\(platformPathRoot.pluginServerPath.name)")
+
+      commandLine.appendFlag(.externalPluginPath)
+      commandLine.appendFlag("\(platformPathRoot.localPluginPath.name)#\(platformPathRoot.pluginServerPath.name)")
+    }
   }
 }
 
@@ -390,9 +487,37 @@ extension Diagnostic.Message {
 
 private extension Version {
   var sdkVersionString: String {
-    if patch == 0 && prereleaseIdentifiers.isEmpty && buildMetadataIdentifiers.isEmpty {
+    if patch == 0 && prerelease.isEmpty && metadata.isEmpty {
       return "\(major).\(minor)"
     }
     return self.description
+  }
+}
+
+extension VirtualPath {
+  // Given a virtual path pointing into a toolchain/SDK/platform, produce the
+  // path to `swift-plugin-server`.
+  fileprivate var pluginServerPath: VirtualPath {
+#if os(Windows)
+    self.appending(components: "bin", "swift-plugin-server.exe")
+#else
+    self.appending(components: "bin", "swift-plugin-server")
+#endif
+  }
+
+  // Given a virtual path pointing into a toolchain/SDK/platform, produce the
+  // path to the plugins.
+  var pluginPath: VirtualPath {
+#if os(Windows)
+    self.appending(components: "bin")
+#else
+    self.appending(components: "lib", "swift", "host", "plugins")
+#endif
+  }
+
+  // Given a virtual path pointing into a toolchain/SDK/platform, produce the
+  // path to the plugins.
+  var localPluginPath: VirtualPath {
+    self.appending(component: "local").pluginPath
   }
 }

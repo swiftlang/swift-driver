@@ -10,21 +10,26 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
 import TSCBasic
+import SwiftDriver
+import struct Foundation.URL
 
-extension String {
-  public func escaped() -> Self {
-#if os(Windows)
-    return self.replacingOccurrences(of: "\\", with: "\\\\")
-#else
-    return self
-#endif
+extension AbsolutePath {
+  public func nativePathString(escaped: Bool) -> String {
+    return URL(fileURLWithPath: self.pathString).withUnsafeFileSystemRepresentation {
+      let repr: String = String(cString: $0!)
+      if escaped { return repr.replacingOccurrences(of: "\\", with: "\\\\") }
+      return repr
+    }
   }
+}
 
-  public func nativePathString() -> Self {
-    return URL(fileURLWithPath: self).withUnsafeFileSystemRepresentation {
-      String(cString: $0!)
+extension VirtualPath {
+  public func nativePathString(escaped: Bool) -> String {
+    return URL(fileURLWithPath: self.description).withUnsafeFileSystemRepresentation {
+      let repr: String = String(cString: $0!)
+      if escaped { return repr.replacingOccurrences(of: "\\", with: "\\\\") }
+      return repr
     }
   }
 }

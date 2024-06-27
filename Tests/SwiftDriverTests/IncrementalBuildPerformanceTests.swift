@@ -1,10 +1,9 @@
 // Created by David Ungar on 7/28/21.
-// 
+//
 
 import XCTest
 @_spi(Testing) import SwiftDriver
 import TSCBasic
-import TSCUtility
 
 class IncrementalBuildPerformanceTests: XCTestCase {
   enum WhatToMeasure { case readingSwiftDeps, writing, readingPriors }
@@ -39,7 +38,7 @@ class IncrementalBuildPerformanceTests: XCTestCase {
       throw XCTSkip()
 #else
 
-    let packageRootPath = AbsolutePath(#file)
+    let packageRootPath = try AbsolutePath(validating: #file)
       .parentDirectory
       .parentDirectory
       .parentDirectory
@@ -66,11 +65,11 @@ class IncrementalBuildPerformanceTests: XCTestCase {
   ///    - limit: the maximum number of swiftdeps files to process.
   func test(swiftDepsDirectory: String, atMost limit: Int = .max, _ whatToMeasure: WhatToMeasure) throws {
     let (outputFileMap, inputs) = try createOFMAndInputs(swiftDepsDirectory, atMost: limit)
-    
+
     let info = IncrementalCompilationState.IncrementalDependencyAndInputSetup
       .mock(options: [], outputFileMap: outputFileMap)
-    
-    let g = ModuleDependencyGraph.createForSimulatingCleanBuild(info)
+
+    let g = ModuleDependencyGraph.createForSimulatingCleanBuild(info.buildRecordInfo.buildRecord([], []), info)
     g.blockingConcurrentAccessOrMutation {
       switch whatToMeasure {
       case .readingSwiftDeps:
@@ -80,14 +79,14 @@ class IncrementalBuildPerformanceTests: XCTestCase {
         measure {
           _ = ModuleDependencyGraph.Serializer.serialize(
             g,
-            "mock compiler version",
+            g.buildRecord,
             ModuleDependencyGraph.serializedGraphVersion)
         }
       case .readingPriors:
         readSwiftDeps(for: inputs, into: g)
         let data = ModuleDependencyGraph.Serializer.serialize(
           g,
-          "mock compiler version",
+          g.buildRecord,
           ModuleDependencyGraph.serializedGraphVersion)
         measure {
           try? XCTAssertNoThrow(ModuleDependencyGraph.deserialize(data, info: info))
@@ -102,7 +101,7 @@ class IncrementalBuildPerformanceTests: XCTestCase {
   ) throws -> (OutputFileMap, [SwiftSourceFile]) {
     let workingDirectory = localFileSystem.currentWorkingDirectory!
     let swiftDepsDirPath = try VirtualPath.init(path: swiftDepsDirectory).resolvedRelativePath(base: workingDirectory).absolutePath!
-    let withoutExtensions: ArraySlice<Substring> = try! localFileSystem.getDirectoryContents(swiftDepsDirPath)
+    let withoutExtensions: ArraySlice<Substring> = try localFileSystem.getDirectoryContents(swiftDepsDirPath)
       .compactMap {
         fileName -> Substring? in
         guard let suffixRange = fileName.range(of: ".swiftdeps"),
@@ -139,7 +138,7 @@ class IncrementalBuildPerformanceTests: XCTestCase {
       invalidatedInputs.formUnion(g.collectInputsRequiringCompilation(byCompiling: primaryInput)!)
     }
     .subtracting(inputs) // have already compiled these
-    
+
     XCTAssertEqual(result.count, 0, "Should be no invalid inputs left")
   }
 }

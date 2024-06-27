@@ -10,8 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
-import TSCBasic
+import struct TSCBasic.ProcessResult
 
 /// Contains information about the current status of an input to the incremental
 /// build.
@@ -24,9 +23,9 @@ import TSCBasic
   /// The current status of the input file.
   /*@_spi(Testing)*/ public let status: Status
   /// The last known modification time of this input.
-  /*@_spi(Testing)*/ public let previousModTime: Date
+  /*@_spi(Testing)*/ public let previousModTime: TimePoint
 
-  /*@_spi(Testing)*/ public init(status: Status, previousModTime: Date) {
+  /*@_spi(Testing)*/ public init(status: Status, previousModTime: TimePoint) {
     self.status = status
     self.previousModTime = previousModTime
   }
@@ -115,22 +114,4 @@ fileprivate extension ProcessResult {
     }
     return false
   }
-}
-
-// MARK: - reading
-public extension InputInfo {
-  init?(tag: String, previousModTime: Date,
-        failedToReadOutOfDateMap: (String) -> Void
-  ) {
-    guard let status = Status(identifier: tag) else {
-      failedToReadOutOfDateMap("no previous build state in build record")
-      return nil
-    }
-    self.init(status: status, previousModTime: previousModTime)
-  }
-}
-
-// MARK: - writing
-extension InputInfo {
-  var tag: String { status.identifier }
 }

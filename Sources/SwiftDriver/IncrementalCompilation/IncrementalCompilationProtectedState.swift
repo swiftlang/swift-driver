@@ -11,10 +11,9 @@
 //===----------------------------------------------------------------------===//
 
 import Dispatch
-import TSCBasic
-import TSCUtility
 import SwiftOptions
 
+import protocol TSCBasic.FileSystem
 
 extension IncrementalCompilationState {
   /// Encapsulates the data necessary to make incremental build scheduling decisions and protects it from concurrent access.
@@ -24,7 +23,7 @@ extension IncrementalCompilationState {
     /// This state is modified during the incremental build. All accesses must
     /// be protected by the confinement queue.
     fileprivate var skippedCompileGroups: [TypedVirtualPath: CompileJobGroup]
-    
+
     /// Sadly, has to be `var` for formBatchedJobs
     ///
     /// After initialization, mutating accesses to the driver must be protected by
@@ -34,20 +33,23 @@ extension IncrementalCompilationState {
     /// The oracle for deciding what depends on what. Applies to this whole module.
     /// fileprivate in order to control concurrency.
     fileprivate let moduleDependencyGraph: ModuleDependencyGraph
-    
+
+    fileprivate let jobCreatingPch: Job?
     fileprivate let reporter: Reporter?
-    
+
     init(skippedCompileGroups: [TypedVirtualPath: CompileJobGroup],
          _ moduleDependencyGraph: ModuleDependencyGraph,
+         _ jobCreatingPch: Job?,
          _ driver: inout Driver) {
       self.skippedCompileGroups = skippedCompileGroups
       self.moduleDependencyGraph = moduleDependencyGraph
       self.reporter = moduleDependencyGraph.info.reporter
+      self.jobCreatingPch = jobCreatingPch
       self.driver = driver
     }
   }
 }
-  
+
 extension IncrementalCompilationState.ProtectedState: IncrementalCompilationSynchronizer {
   public var incrementalCompilationQueue: DispatchQueue {
     moduleDependencyGraph.incrementalCompilationQueue
@@ -62,9 +64,9 @@ extension IncrementalCompilationState.ProtectedState {
     mutationSafetyPrecondition()
     // batch in here to protect the Driver from concurrent access
     return try collectUnbatchedJobsDiscoveredToBeNeededAfterFinishing(job: finishedJob)
-      .map {try driver.formBatchedJobs($0, showJobLifecycle: driver.showJobLifecycle)}
+      .map {try driver.formBatchedJobs($0, showJobLifecycle: driver.showJobLifecycle, jobCreatingPch: jobCreatingPch)}
   }
-  
+
   /// Remember a job (group) that is before a compile or a compile itself.
   /// `job` just finished. Update state, and return the skipped compile job (groups) that are now known to be needed.
   /// If no more compiles are needed, return nil.
@@ -76,7 +78,7 @@ extension IncrementalCompilationState.ProtectedState {
       let invalidatedInputs = collectInputsInvalidatedByRunning(finishedJob)
       assert(invalidatedInputs.isDisjoint(with: finishedJob.primarySwiftSourceFiles),
              "Primaries should not overlap secondaries.")
-      
+
       if let reporter = self.reporter {
         for input in invalidatedInputs {
           reporter.report(
@@ -85,7 +87,7 @@ extension IncrementalCompilationState.ProtectedState {
       }
       return try getUnbatchedJobs(for: invalidatedInputs)
     }
-  
+
   /// After `job` finished find out which inputs must compiled that were not known to need compilation before
   fileprivate mutating func collectInputsInvalidatedByRunning(_ job: Job)-> Set<SwiftSourceFile> {
     mutationSafetyPrecondition()
@@ -99,7 +101,7 @@ extension IncrementalCompilationState.ProtectedState {
     }
     .subtracting(job.primarySwiftSourceFiles) // have already compiled these
   }
-  
+
   // "Mutating" because it mutates the graph, which may be a struct someday
   fileprivate mutating func collectInputsInvalidated(
     byCompiling input: SwiftSourceFile
@@ -112,7 +114,7 @@ extension IncrementalCompilationState.ProtectedState {
       "Failed to read some dependencies source; compiling everything", input)
     return TransitivelyInvalidatedSwiftSourceFileSet(skippedCompileGroups.keys.swiftSourceFiles)
   }
-  
+
   /// Find the jobs that now must be run that were not originally known to be needed.
   fileprivate mutating func getUnbatchedJobs(
     for invalidatedInputs: Set<SwiftSourceFile>
@@ -133,7 +135,7 @@ extension IncrementalCompilationState.ProtectedState {
     }
   }
 }
-  
+
 
 // MARK: - After the build
 extension IncrementalCompilationState.ProtectedState {
@@ -148,14 +150,14 @@ extension IncrementalCompilationState.ProtectedState {
       .flatMap {$0.allJobs()}
   }
 
-  @_spi(Testing) public func writeGraph(to path: VirtualPath,
+  func writeGraph(to path: VirtualPath,
                   on fs: FileSystem,
-                  compilerVersion: String,
+                  buildRecord: BuildRecord,
                   mockSerializedGraphVersion: Version? = nil
   ) throws {
     accessSafetyPrecondition()
     try moduleDependencyGraph.write(to: path, on: fs,
-                                    compilerVersion: compilerVersion,
+                                    buildRecord: buildRecord,
                                     mockSerializedGraphVersion: mockSerializedGraphVersion)
   }
 }

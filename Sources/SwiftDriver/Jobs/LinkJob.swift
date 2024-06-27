@@ -9,32 +9,38 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import TSCBasic
+
+import struct TSCBasic.AbsolutePath
+import struct TSCBasic.RelativePath
 
 extension Driver {
   internal var relativeOutputFileForImage: RelativePath {
-    if inputFiles.count == 1 && moduleOutputInfo.nameIsFallback && inputFiles[0].file != .standardInput {
-      return RelativePath(inputFiles[0].file.basenameWithoutExt)
-    }
+    get throws {
+      if inputFiles.count == 1 && moduleOutputInfo.nameIsFallback && inputFiles[0].file != .standardInput {
+        return try RelativePath(validating: inputFiles[0].file.basenameWithoutExt)
+      }
 
-    let outputName =
+      let outputName =
       toolchain.makeLinkerOutputFilename(moduleName: moduleOutputInfo.name,
                                          type: linkerOutputType!)
-    return RelativePath(outputName)
+      return try RelativePath(validating: outputName)
+    }
   }
 
   /// Compute the output file for an image output.
   internal var outputFileForImage: VirtualPath {
-    return useWorkingDirectory(relativeOutputFileForImage)
+    get throws {
+      return try useWorkingDirectory(relativeOutputFileForImage)
+    }
   }
 
-  func useWorkingDirectory(_ relative: RelativePath) -> VirtualPath {
-    return Driver.useWorkingDirectory(relative, workingDirectory)
+  func useWorkingDirectory(_ relative: RelativePath) throws -> VirtualPath {
+    return try Driver.useWorkingDirectory(relative, workingDirectory)
   }
 
-  static func useWorkingDirectory(_ relative: RelativePath, _ workingDirectory: AbsolutePath?) -> VirtualPath {
+  static func useWorkingDirectory(_ relative: RelativePath, _ workingDirectory: AbsolutePath?) throws -> VirtualPath {
     if let wd = workingDirectory {
-      return .absolute(AbsolutePath(relative.pathString, relativeTo: wd))
+      return .absolute(try AbsolutePath(validating: relative.pathString, relativeTo: wd))
     }
     return .relative(relative)
   }
@@ -48,11 +54,16 @@ extension Driver {
     if let output = parsedOptions.getLastArgument(.o) {
       outputFile = try VirtualPath(path: output.asSingle)
     } else {
-      outputFile = outputFileForImage
+      outputFile = try outputFileForImage
+    }
+
+    if let gccToolchain = parsedOptions.getLastArgument(.gccToolchain) {
+        commandLine.appendFlag(.XclangLinker)
+        commandLine.appendFlag("--gcc-toolchain=\(gccToolchain.asSingle)")
     }
 
     // Defer to the toolchain for platform-specific linking
-    let toolPath = try toolchain.addPlatformSpecificLinkerArgs(
+    let linkTool = try toolchain.addPlatformSpecificLinkerArgs(
       to: &commandLine,
       parsedOptions: &parsedOptions,
       linkerOutputType: linkerOutputType!,
@@ -64,11 +75,14 @@ extension Driver {
       targetInfo: frontendTargetInfo
     )
 
-    // TODO: some, but not all, linkers support response files.
+    if parsedOptions.hasArgument(.explicitAutoLinking) {
+      try explicitDependencyBuildPlanner?.getLinkLibraryLoadCommandFlags(&commandLine)
+    }
+
     return Job(
       moduleName: moduleOutputInfo.name,
       kind: .link,
-      tool: .absolute(toolPath),
+      tool: linkTool,
       commandLine: commandLine,
       displayInputs: inputs,
       inputs: inputs,

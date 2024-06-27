@@ -30,9 +30,9 @@ internal extension SwiftScan {
     var resultGraph = InterModuleDependencyGraph(mainModuleName: mainModuleName)
     // Turn the `swiftscan_dependency_set_t` into an array of `swiftscan_dependency_info_t`
     // references we can iterate through in order to construct `ModuleInfo` objects.
-    let moduleRefArrray = Array(UnsafeBufferPointer(start: dependencySetRef.pointee.modules,
+    let moduleRefArray = Array(UnsafeBufferPointer(start: dependencySetRef.pointee.modules,
                                                     count: Int(dependencySetRef.pointee.count)))
-    for moduleRefOrNull in moduleRefArrray {
+    for moduleRefOrNull in moduleRefArray {
       guard let moduleRef = moduleRefOrNull else {
         throw DependencyScanningError.missingField("dependency_set_t.modules[_]")
       }
@@ -64,10 +64,10 @@ internal extension SwiftScan {
     var resultMap: [ModuleDependencyId: [InterModuleDependencyGraph]] = [:]
     let resultGraphRefArray = Array(UnsafeBufferPointer(start: batchResultRef.results,
                                                         count: Int(batchResultRef.count)))
-    // Note, respective indeces of the batch scan input and the returned result must be aligned.
+    // Note, respective indices of the batch scan input and the returned result must be aligned.
     for (index, resultGraphRefOrNull) in resultGraphRefArray.enumerated() {
       guard let resultGraphRef = resultGraphRefOrNull else {
-        throw DependencyScanningError.dependencyScanFailed
+        throw DependencyScanningError.dependencyScanFailed("Unable to produce dependency graph from batch scan result")
       }
       let decodedGraph = try constructGraph(from: resultGraphRef, moduleAliases: moduleAliases)
 
@@ -120,25 +120,53 @@ private extension SwiftScan {
       directDependencies = nil
     }
 
+    var linkLibraries: [LinkLibraryInfo] = []
+    if supportsLinkLibraries {
+      let linkLibrarySetRefOrNull = api.swiftscan_module_info_get_link_libraries(moduleInfoRef)
+      guard let linkLibrarySetRef = linkLibrarySetRefOrNull else {
+        throw DependencyScanningError.missingField("dependency_graph.link_libraries")
+      }
+      // Turn the `swiftscan_dependency_set_t` into an array of `swiftscan_dependency_info_t`
+      // references we can iterate through in order to construct `ModuleInfo` objects.
+      let linkLibraryRefArray = Array(UnsafeBufferPointer(start: linkLibrarySetRef.pointee.link_libraries,
+                                                          count: Int(linkLibrarySetRef.pointee.count)))
+      for linkLibraryRefOrNull in linkLibraryRefArray {
+        guard let linkLibraryRef = linkLibraryRefOrNull else {
+          throw DependencyScanningError.missingField("dependency_set_t.link_libraries[_]")
+        }
+        linkLibraries.append(try constructLinkLibrayInfo(from: linkLibraryRef))
+      }
+    }
+
     guard let moduleDetailsRef = api.swiftscan_module_info_get_details(moduleInfoRef) else {
       throw DependencyScanningError.missingField("modules[\(moduleId)].details")
     }
-    let details = try constructModuleDetails(from: moduleDetailsRef)
+    let details = try constructModuleDetails(from: moduleDetailsRef,
+                                             moduleAliases: moduleAliases)
 
     return (moduleId, ModuleInfo(modulePath: modulePath, sourceFiles: sourceFiles,
                                  directDependencies: directDependencies,
+                                 linkLibraries: linkLibraries,
                                  details: details))
+  }
+
+  func constructLinkLibrayInfo(from linkLibraryInfoRef: swiftscan_link_library_info_t) throws -> LinkLibraryInfo {
+    return LinkLibraryInfo(linkName: try toSwiftString(api.swiftscan_link_library_info_get_link_name(linkLibraryInfoRef)),
+                             isFramework: api.swiftscan_link_library_info_get_is_framework(linkLibraryInfoRef),
+                             shouldForceLoad: api.swiftscan_link_library_info_get_should_force_load(linkLibraryInfoRef))
   }
 
   /// From a reference to a binary-format module info details object info returned by libSwiftScan,
   /// construct an instance of an `ModuleInfo`.Details as used by the driver.
   /// The object returned by libSwiftScan is a union so ensure to execute dependency-specific queries.
-  func constructModuleDetails(from moduleDetailsRef: swiftscan_module_details_t)
+  func constructModuleDetails(from moduleDetailsRef: swiftscan_module_details_t,
+                              moduleAliases: [String: String]?)
   throws -> ModuleInfo.Details {
     let moduleKind = api.swiftscan_module_detail_get_kind(moduleDetailsRef)
     switch moduleKind {
       case SWIFTSCAN_DEPENDENCY_INFO_SWIFT_TEXTUAL:
-        return .swift(try constructSwiftTextualModuleDetails(from: moduleDetailsRef))
+        return .swift(try constructSwiftTextualModuleDetails(from: moduleDetailsRef,
+                                                             moduleAliases: moduleAliases))
       case SWIFTSCAN_DEPENDENCY_INFO_SWIFT_BINARY:
         return .swiftPrebuiltExternal(try constructSwiftBinaryModuleDetails(from: moduleDetailsRef))
       case SWIFTSCAN_DEPENDENCY_INFO_SWIFT_PLACEHOLDER:
@@ -151,7 +179,8 @@ private extension SwiftScan {
   }
 
   /// Construct a `SwiftModuleDetails` from a `swiftscan_module_details_t` reference
-  func constructSwiftTextualModuleDetails(from moduleDetailsRef: swiftscan_module_details_t)
+  func constructSwiftTextualModuleDetails(from moduleDetailsRef: swiftscan_module_details_t,
+                                          moduleAliases: [String: String]?)
   throws -> SwiftModuleDetails {
     let moduleInterfacePath =
       try getOptionalPathDetail(from: moduleDetailsRef,
@@ -165,9 +194,24 @@ private extension SwiftScan {
     let bridgingSourceFiles =
       try getOptionalPathArrayDetail(from: moduleDetailsRef,
                                      using: api.swiftscan_swift_textual_detail_get_bridging_source_files)
+    let bridgingHeaderDependencies =
+      try getOptionalStringArrayDetail(from: moduleDetailsRef,
+                                       using: api.swiftscan_swift_textual_detail_get_bridging_module_dependencies)
+    let bridgingHeader: BridgingHeader?
+    if let resolvedBridgingHeaderPath = bridgingHeaderPath {
+      bridgingHeader = BridgingHeader(path: resolvedBridgingHeaderPath,
+                                      sourceFiles: bridgingSourceFiles ?? [],
+                                      moduleDependencies: bridgingHeaderDependencies ?? [])
+    } else {
+      bridgingHeader = nil
+    }
+
     let commandLine =
       try getOptionalStringArrayDetail(from: moduleDetailsRef,
                                        using: api.swiftscan_swift_textual_detail_get_command_line)
+    let bridgingPchCommandLine = supportsBridgingHeaderPCHCommand ?
+      try getOptionalStringArrayDetail(from: moduleDetailsRef,
+                                       using: api.swiftscan_swift_textual_detail_get_bridging_pch_command_line) : nil
     let extraPcmArgs =
       try getStringArrayDetail(from: moduleDetailsRef,
                                using: api.swiftscan_swift_textual_detail_get_extra_pcm_args,
@@ -176,15 +220,30 @@ private extension SwiftScan {
       try getOptionalStringDetail(from: moduleDetailsRef,
                           using: api.swiftscan_swift_textual_detail_get_context_hash)
     let isFramework = api.swiftscan_swift_textual_detail_get_is_framework(moduleDetailsRef)
+    let moduleCacheKey = supportsCaching ?  try getOptionalStringDetail(from: moduleDetailsRef,
+                                                     using: api.swiftscan_swift_textual_detail_get_module_cache_key) : nil
+
+    // Decode all dependencies of this module
+    let swiftOverlayDependencies: [ModuleDependencyId]?
+    if supportsSeparateSwiftOverlayDependencies,
+       let encodedOverlayDepsRef = api.swiftscan_swift_textual_detail_get_swift_overlay_dependencies(moduleDetailsRef) {
+      let encodedOverlayDependencies = try toSwiftStringArray(encodedOverlayDepsRef.pointee)
+      swiftOverlayDependencies =
+        try encodedOverlayDependencies.map { try decodeModuleNameAndKind(from: $0, moduleAliases: moduleAliases) }
+    } else {
+      swiftOverlayDependencies = nil
+    }
 
     return SwiftModuleDetails(moduleInterfacePath: moduleInterfacePath,
                               compiledModuleCandidates: compiledModuleCandidates,
-                              bridgingHeaderPath: bridgingHeaderPath,
-                              bridgingSourceFiles: bridgingSourceFiles,
+                              bridgingHeader: bridgingHeader,
                               commandLine: commandLine,
+                              bridgingPchCommandLine : bridgingPchCommandLine,
                               contextHash: contextHash,
                               extraPcmArgs: extraPcmArgs,
-                              isFramework: isFramework)
+                              isFramework: isFramework,
+                              swiftOverlayDependencies: swiftOverlayDependencies,
+                              moduleCacheKey: moduleCacheKey)
   }
 
   /// Construct a `SwiftPrebuiltExternalModuleDetails` from a `swiftscan_module_details_t` reference
@@ -200,9 +259,41 @@ private extension SwiftScan {
     let moduleSourceInfoPath =
       try getOptionalPathDetail(from: moduleDetailsRef,
                                 using: api.swiftscan_swift_binary_detail_get_module_source_info_path)
-    return try SwiftPrebuiltExternalModuleDetails(compiledModulePath: compiledModulePath,
-                                                  moduleDocPath: moduleDocPath,
-                                                  moduleSourceInfoPath: moduleSourceInfoPath)
+
+    let headerDependencies: [TextualVirtualPath]?
+    if supportsBinaryModuleHeaderDependencies {
+      headerDependencies = try getOptionalPathArrayDetail(from: moduleDetailsRef,
+                                                          using: api.swiftscan_swift_binary_detail_get_header_dependencies)
+    } else if supportsBinaryModuleHeaderDependency,
+              let header = try getOptionalPathDetail(from: moduleDetailsRef,
+                                                     using: api.swiftscan_swift_binary_detail_get_header_dependency) {
+      headerDependencies = [header]
+    } else {
+      headerDependencies = nil
+    }
+
+    let isFramework: Bool
+    if hasBinarySwiftModuleIsFramework {
+      isFramework = api.swiftscan_swift_binary_detail_get_is_framework(moduleDetailsRef)
+    } else {
+      isFramework = false
+    }
+
+    let headerDependencyModuleDependencies: [ModuleDependencyId]? =
+      hasBinarySwiftModuleHeaderModuleDependencies ?
+        try getOptionalStringArrayDetail(from: moduleDetailsRef,
+                                         using: api.swiftscan_swift_binary_detail_get_header_dependency_module_dependencies)?.map { .clang($0) } : nil
+
+    let moduleCacheKey = supportsCaching ? try getOptionalStringDetail(from: moduleDetailsRef,
+                                                     using: api.swiftscan_swift_binary_detail_get_module_cache_key) : nil
+
+    return SwiftPrebuiltExternalModuleDetails(compiledModulePath: compiledModulePath,
+                                              moduleDocPath: moduleDocPath,
+                                              moduleSourceInfoPath: moduleSourceInfoPath,
+                                              headerDependencyPaths: headerDependencies,
+                                              headerDependencyModuleDependencies: headerDependencyModuleDependencies,
+                                              isFramework: isFramework,
+                                              moduleCacheKey: moduleCacheKey)
   }
 
   /// Construct a `SwiftPlaceholderModuleDetails` from a `swiftscan_module_details_t` reference
@@ -243,16 +334,19 @@ private extension SwiftScan {
     } else {
       capturedPCMArgs = nil
     }
+    let moduleCacheKey = supportsCaching ? try getOptionalStringDetail(from: moduleDetailsRef,
+                                                     using: api.swiftscan_clang_detail_get_module_cache_key) : nil
 
     return ClangModuleDetails(moduleMapPath: moduleMapPath,
                               contextHash: contextHash,
                               commandLine: commandLine,
-                              capturedPCMArgs: capturedPCMArgs)
+                              capturedPCMArgs: capturedPCMArgs,
+                              moduleCacheKey: moduleCacheKey)
   }
 }
 
 internal extension SwiftScan {
-  /// Convert a `swiftscan_string_ref_t` reference to a Swfit `String`, assuming the reference is to a valid string
+  /// Convert a `swiftscan_string_ref_t` reference to a Swift `String`, assuming the reference is to a valid string
   /// (non-null)
   func toSwiftString(_ string_ref: swiftscan_string_ref_t) throws -> String {
     if string_ref.length == 0 {
@@ -267,25 +361,25 @@ internal extension SwiftScan {
                   encoding: String.Encoding.utf8, freeWhenDone: false)!
   }
 
-  /// Convert a `swiftscan_string_set_t` reference to a Swfit `[String]`, assuming the individual string references
+  /// Convert a `swiftscan_string_set_t` reference to a Swift `[String]`, assuming the individual string references
   /// are to a valid strings (non-null)
   func toSwiftStringArray(_ string_set: swiftscan_string_set_t) throws -> [String] {
     var result: [String] = []
-    let stringRefArrray = Array(UnsafeBufferPointer(start: string_set.strings,
+    let stringRefArray = Array(UnsafeBufferPointer(start: string_set.strings,
                                                     count: Int(string_set.count)))
-    for stringRef in stringRefArrray {
+    for stringRef in stringRefArray {
       result.append(try toSwiftString(stringRef))
     }
     return result
   }
 
-  /// Convert a `swiftscan_string_set_t` reference to a Swfit `Set<String>`, assuming the individual string references
+  /// Convert a `swiftscan_string_set_t` reference to a Swift `Set<String>`, assuming the individual string references
   /// are to a valid strings (non-null)
   func toSwiftStringSet(_ string_set: swiftscan_string_set_t) throws -> Set<String> {
     var result = Set<String>()
-    let stringRefArrray = Array(UnsafeBufferPointer(start: string_set.strings,
+    let stringRefArray = Array(UnsafeBufferPointer(start: string_set.strings,
                                                     count: Int(string_set.count)))
-    for stringRef in stringRefArrray {
+    for stringRef in stringRefArray {
       result.insert(try toSwiftString(stringRef))
     }
     return result

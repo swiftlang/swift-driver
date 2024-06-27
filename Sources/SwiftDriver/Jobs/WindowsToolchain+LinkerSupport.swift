@@ -10,8 +10,23 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
 import SwiftOptions
+
+import func TSCBasic.lookupExecutablePath
+import struct TSCBasic.AbsolutePath
+
+private func architecture(for triple: Triple) -> String {
+  // The concept of a "major" arch name only applies to Linux triples
+  guard triple.os == .linux else { return triple.archName }
+
+  // HACK: We don't wrap LLVM's ARM target architecture parsing, and we should
+  //       definitely not try to port it. This check was only normalizing
+  //       "armv7a/armv7r" and similar variants for armv6 to 'armv7' and
+  //       'armv6', so just take a brute-force approach
+  if triple.archName.contains("armv7") { return "armv7" }
+  if triple.archName.contains("armv6") { return "armv6" }
+  return triple.archName
+}
 
 extension WindowsToolchain {
   public func addPlatformSpecificLinkerArgs(to commandLine: inout [Job.ArgTemplate],
@@ -23,8 +38,38 @@ extension WindowsToolchain {
                                             lto: LTOKind?,
                                             sanitizers: Set<Sanitizer>,
                                             targetInfo: FrontendTargetInfo)
-      throws -> AbsolutePath {
-    var clang = try getToolPath(.clang)
+    throws -> ResolvedTool {
+    // Special case static linking as clang cannot drive the operation.
+    if linkerOutputType == .staticLibrary {
+      let librarian: String
+      switch parsedOptions.getLastArgument(.useLd)?.asSingle {
+      case .none:
+        librarian = lto == nil ? "link" : "lld-link"
+      case .some("lld"), .some("lld.exe"), .some("lld-link"), .some("lld-link.exe"):
+        librarian = "lld-link"
+      case let .some(linker):
+        librarian = linker
+      }
+
+      commandLine.appendFlag("/LIB")
+      commandLine.appendFlag("/NOLOGO")
+      commandLine.appendFlag("/OUT:\(outputFile.name.spm_shellEscaped())")
+
+      let types: [FileType] = lto == nil ? [.object] : [.object, .llvmBitcode]
+      commandLine.append(contentsOf: inputs.lazy.filter { types.contains($0.type) }
+                                                .map { .path($0.file) })
+
+      return try resolvedTool(.staticLinker(lto), pathOverride: lookup(executable: librarian))
+    }
+
+    var cxxCompatEnabled = parsedOptions.hasArgument(.enableExperimentalCxxInterop)
+    if let cxxInteropMode = parsedOptions.getLastArgument(.cxxInteroperabilityMode) {
+      if cxxInteropMode.asSingle == "swift-5.9" {
+        cxxCompatEnabled = true
+      }
+    }
+    let clangTool: Tool = cxxCompatEnabled ? .clangxx : .clang
+    var clang = try getToolPath(clangTool)
 
     let targetTriple = targetInfo.target.triple
     if !targetTriple.triple.isEmpty {
@@ -34,7 +79,7 @@ extension WindowsToolchain {
 
     switch linkerOutputType {
     case .staticLibrary:
-      break
+      fatalError(".staticLibrary should not be reached")
     case .dynamicLibrary:
       commandLine.appendFlag("-shared")
     case .executable:
@@ -54,10 +99,14 @@ extension WindowsToolchain {
     }
 
     // Select the linker to use.
-    if let arg = parsedOptions.getLastArgument(.useLd) {
-      commandLine.appendFlag("-fuse-ld=\(arg.asSingle)")
+    if let arg = parsedOptions.getLastArgument(.useLd)?.asSingle {
+      commandLine.appendFlag("-fuse-ld=\(arg)")
     } else if lto != nil {
       commandLine.appendFlag("-fuse-ld=lld")
+    }
+
+    if let arg = parsedOptions.getLastArgument(.ldPath)?.asSingle {
+      commandLine.append(.joinedOptionAndPath("--ld-path=", try VirtualPath(path: arg)))
     }
 
     switch lto {
@@ -83,13 +132,29 @@ extension WindowsToolchain {
 
     // Since Windows has separate libraries per architecture, link against the
     // architecture specific version of the static library.
-    commandLine.appendFlag(.L)
-    commandLine.appendPath(VirtualPath.lookup(targetInfo.runtimeLibraryImportPaths.last!.path))
+    for libpath in targetInfo.runtimeLibraryImportPaths {
+      commandLine.appendFlag(.L)
+      commandLine.appendPath(VirtualPath.lookup(libpath.path))
+    }
 
-    // FIXME(compnerd) figure out how to ensure that the SDK relative path is
-    // the last one
-    commandLine.appendPath(VirtualPath.lookup(targetInfo.runtimeLibraryImportPaths.last!.path)
-                              .appending(component: "swiftrt.obj"))
+    if !parsedOptions.hasArgument(.nostartfiles) {
+      // Locate the Swift registration helper by honouring any explicit
+      // `-resource-dir`, `-sdk`, or the `SDKROOT` environment variable, and
+      // finally falling back to the target information.
+      let rsrc: VirtualPath
+      if let resourceDir = parsedOptions.getLastArgument(.resourceDir) {
+        rsrc = try VirtualPath(path: resourceDir.asSingle)
+      } else if let sdk = parsedOptions.getLastArgument(.sdk)?.asSingle ?? env["SDKROOT"], !sdk.isEmpty {
+        rsrc = try VirtualPath(path: AbsolutePath(validating: sdk)
+                                        .appending(components: "usr", "lib", "swift",
+                                                   targetTriple.platformName() ?? "",
+                                                   architecture(for: targetTriple))
+                                        .pathString)
+      } else {
+        rsrc = VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
+      }
+      commandLine.appendPath(rsrc.appending(component: "swiftrt.obj"))
+    }
 
     commandLine.append(contentsOf: inputs.compactMap { (input: TypedVirtualPath) -> Job.ArgTemplate? in
       switch input.type {
@@ -118,6 +183,11 @@ extension WindowsToolchain {
       commandLine.appendFlag("-stdlib=\(stdlib.asSingle)")
     }
 
+    // Pass down an optimization level
+    if let optArg = mapOptimizationLevelToClangArg(from: &parsedOptions) {
+      commandLine.appendFlag(optArg)
+    }
+
     // FIXME(compnerd) render asan/ubsan runtime link for executables
 
     if parsedOptions.contains(.profileGenerate) {
@@ -127,12 +197,7 @@ extension WindowsToolchain {
       commandLine.appendFlag("-lclang_rt.profile")
     }
 
-    for option in parsedOptions.arguments(for: .Xlinker) {
-      commandLine.appendFlag(.Xlinker)
-      commandLine.appendFlag(option.argument.asSingle)
-    }
-    // TODO(compnerd) is there a separate equivalent to OPT_linker_option_group?
-    try commandLine.appendAllArguments(.XclangLinker, from: &parsedOptions)
+    try addExtraClangLinkerArgs(to: &commandLine, parsedOptions: &parsedOptions)
 
     if parsedOptions.contains(.v) {
       commandLine.appendFlag("-v")
@@ -144,6 +209,6 @@ extension WindowsToolchain {
     addLinkedLibArgs(to: &commandLine, parsedOptions: &parsedOptions)
 
     // TODO(compnerd) handle static libraries
-    return clang
+    return try resolvedTool(clangTool, pathOverride: clang)
   }
 }

@@ -67,7 +67,9 @@ enum ModuleDependenciesInputs {
                 "-remove-preceeding-explicit-module-build-incompatible-options",
                 "-fno-implicit-modules",
                 "-emit-module",
-                "-fmodule-name=c_simd"
+                "-fmodule-name=c_simd",
+                "-o",
+                "<replace-me>"
               ]
             }
           }
@@ -90,6 +92,12 @@ enum ModuleDependenciesInputs {
               "contextHash": "2WMED1WFU2S4M",
               "commandLine": [
                 "-compile-module-from-interface",
+                "-explicit-interface-module-build",
+                "-disable-implicit-swift-modules",
+                "-Xcc",
+                "-fno-implicit-modules",
+                "-Xcc",
+                "-fno-implicit-module-maps",
                 "-target",
                 "x86_64-apple-macosx10.15",
                 "-sdk",
@@ -119,6 +127,10 @@ enum ModuleDependenciesInputs {
                 "-swift-version",
                 "5",
                 "-O",
+                "-Xcc",
+                "-fmodule-file=SwiftShims=SwiftShims.pcm",
+                "-Xcc",
+                "-fmodule-map-file=/Volumes/Compiler/build/Ninja-RelWithDebInfoAssert/swift-macosx-x86_64/lib/swift/shims/module.modulemap",
                 "-enforce-exclusivity=unchecked",
                 "-module-name",
                 "Swift"
@@ -155,6 +167,16 @@ enum ModuleDependenciesInputs {
               "contextHash": "1PC0P8MX6CFZA",
               "commandLine": [
                 "-compile-module-from-interface",
+                "-explicit-interface-module-build",
+                "-disable-implicit-swift-modules",
+                "-Xcc",
+                "-fno-implicit-modules",
+                "-Xcc",
+                "-fno-implicit-module-maps",
+                "-candidate-module-file",
+                "/dummy/path2/SwiftOnoneSupport.swiftmodule",
+                "-candidate-module-file",
+                "/dummy/path1/SwiftOnoneSupport.swiftmodule",
                 "-target",
                 "x86_64-apple-macosx10.15",
                 "-sdk",
@@ -185,6 +207,11 @@ enum ModuleDependenciesInputs {
                 "5",
                 "-O",
                 "-enforce-exclusivity=unchecked",
+                "-swift-module-file=Swift=Swift.swiftmodule",
+                "-Xcc",
+                "-fmodule-file=SwiftShims=SwiftShims.pcm",
+                "-Xcc",
+                "-fmodule-map-file=/Volumes/Compiler/build/Ninja-RelWithDebInfoAssert/swift-macosx-x86_64/lib/swift/shims/module.modulemap",
                 "-module-name",
                 "SwiftOnoneSupport"
               ],
@@ -398,15 +425,15 @@ enum ModuleDependenciesInputs {
   static var simpleDependencyGraphInput: String {
     """
     {
-      "mainModuleName": "main",
+      "mainModuleName": "simpleTestModule",
       "modules": [
         {
-          "swift": "main"
+          "swift": "simpleTestModule"
         },
         {
-          "modulePath": "main.swiftmodule",
+          "modulePath": "simpleTestModule.swiftmodule",
           "sourceFiles": [
-            "/main/main.swift"
+            "/main/simpleTestModule.swift"
           ],
           "directDependencies": [
             {
@@ -447,6 +474,23 @@ enum ModuleDependenciesInputs {
           }
         },
         {
+          "swiftPrebuiltExternal" : "K"
+        },
+        {
+          "modulePath" : "/tmp/K.swiftmodule",
+          "directDependencies" : [
+            {
+              "swift": "A"
+            },
+          ],
+          "details" : {
+            "swiftPrebuiltExternal": {
+              "compiledModulePath": "/tmp/K.swiftmodule",
+              "isFramework": false
+            }
+          }
+        },
+        {
           "swift": "A"
         },
         {
@@ -462,6 +506,112 @@ enum ModuleDependenciesInputs {
               "extraPcmArgs": [
                 "-Xcc",
                 "-fapinotes-swift-version=5"
+              ]
+            }
+          }
+        }
+      ]
+    }
+    """
+  }
+
+  static var simpleDependencyGraphInputWithSwiftOverlayDep: String {
+    """
+    {
+      "mainModuleName": "simpleTestModule",
+      "modules": [
+        {
+          "swift": "A"
+        },
+        {
+          "modulePath": "A.swiftmodule",
+          "sourceFiles": [
+          ],
+          "directDependencies": [
+            {
+              "clang": "B"
+            }
+          ],
+          "details": {
+            "swift": {
+              "moduleInterfacePath": "A.swiftmodule/A.swiftinterface",
+              "isFramework": false,
+              "extraPcmArgs": [
+                "-Xcc",
+                "-fapinotes-swift-version=5"
+              ],
+              "swiftOverlayDependencies": [
+                {
+                  "swift": "B"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "swift": "simpleTestModule"
+        },
+        {
+          "modulePath": "simpleTestModule.swiftmodule",
+          "sourceFiles": [
+            "/main/simpleTestModule.swift"
+          ],
+          "directDependencies": [
+            {
+              "swift": "A"
+            },
+          ],
+          "details": {
+            "swift": {
+              "isFramework": false,
+              "extraPcmArgs": [
+                "-Xcc",
+                "-fapinotes-swift-version=5"
+              ]
+            }
+          }
+        },
+        {
+          "swift" : "B"
+        },
+        {
+          "modulePath" : "B.swiftmodule",
+          "sourceFiles": [
+          ],
+          "directDependencies" : [
+    
+          ],
+          "details" : {
+            "swift" : {
+              "moduleInterfacePath": "B.swiftmodule/B.swiftinterface",
+              "isFramework": false,
+              "extraPcmArgs": [
+                "-Xcc",
+                "-fapinotes-swift-version=5"
+              ],
+            }
+          }
+        },
+        {
+          "clang": "B"
+        },
+        {
+          "modulePath": "B.pcm",
+          "sourceFiles": [
+            "/B/module.map",
+            "/B/include/b.h"
+          ],
+          "directDependencies": [
+          ],
+          "details": {
+            "clang": {
+              "moduleMapPath": "/B/module.map",
+              "contextHash": "2QEMRLNY63H2N",
+              "commandLine": [
+                "-remove-preceeding-explicit-module-build-incompatible-options",
+                "-fno-implicit-modules",
+                "-emit-module",
+                "-fmodule-name=c_simd"
               ]
             }
           }

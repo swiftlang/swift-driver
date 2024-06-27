@@ -16,7 +16,7 @@
 
   /// Reverse index used to make value removal more efficient.
   private var reverseIndex: Dictionary<Value, Set<Key>> = [:]
-  
+
   public typealias Element = (Key, Set<Value>)
   public typealias Index = Dictionary<Key, Set<Value>>.Index
 

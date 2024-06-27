@@ -9,8 +9,10 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import TSCBasic
+
 import SwiftOptions
+
+import struct TSCBasic.AbsolutePath
 
 /// Utilities for manipulating a list of command line arguments, including
 /// constructing one from a set of ParsedOptions.
@@ -54,7 +56,7 @@ extension Array where Element == Job.ArgTemplate {
   /// Append an option's spelling to the command line arguments.
   mutating func appendFlag(_ option: Option) {
     switch option.kind {
-    case .flag, .joinedOrSeparate, .remaining, .separate:
+    case .flag, .joinedOrSeparate, .remaining, .separate, .multiArg:
       break
     case .commaJoined, .input, .joined:
       fatalError("Option cannot be appended as a flag: \(option)")
@@ -93,7 +95,7 @@ extension Array where Element == Job.ArgTemplate {
       assert(!option.attributes.contains(.argumentIsPath))
       appendFlag(option.spelling + argument.asMultiple.joined(separator: ","))
 
-    case .remaining:
+    case .remaining, .multiArg:
       appendFlag(option.spelling)
       for arg in argument.asMultiple {
         try appendSingleArgument(option: option, argument: arg)
@@ -192,5 +194,22 @@ extension Array where Element == Job.ArgTemplate {
         return (option + args.joinedUnresolvedArguments).spm_shellEscaped()
       }
     }.joined(separator: " ")
+  }
+
+  public var stringArray: [String] {
+    return self.map {
+      switch $0 {
+        case .flag(let string):
+          return string
+        case .path(let path):
+          return path.name
+      case .responseFilePath(let path):
+        return "@\(path.name)"
+      case let .joinedOptionAndPath(option, path):
+        return option + path.name
+      case let .squashedArgumentList(option, args):
+        return option + args.joinedUnresolvedArguments
+      }
+    }
   }
 }

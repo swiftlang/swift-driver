@@ -9,7 +9,8 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import TSCBasic
+
+import class TSCBasic.DiagnosticsEngine
 
 // MARK: - DependencySource
 /// Points to the source of dependencies, i.e. the file read to obtain the information.
@@ -19,20 +20,20 @@ public struct DependencySource: Hashable, CustomStringConvertible {
   public let typedFile: TypedVirtualPath
   /// Keep this for effiencient lookups into the ``ModuleDependencyGraph``
   public let internedFileName: InternedString
-  
+
   init(typedFile: TypedVirtualPath, internedFileName: InternedString) {
     assert( typedFile.type == .swift ||
             typedFile.type == .swiftModule)
     self.typedFile = typedFile
     self.internedFileName = internedFileName
   }
-  
+
   public init(_ swiftSourceFile: SwiftSourceFile, _ t: InternedStringTable) {
     let typedFile = swiftSourceFile.typedFile
     self.init(typedFile: typedFile,
               internedFileName: typedFile.file.name.intern(in: t))
   }
-  
+
   init?(ifAppropriateFor file: VirtualPath.Handle,
         internedString: InternedString) {
     let ext = VirtualPath.lookup(file).extension
@@ -52,7 +53,7 @@ public struct DependencySource: Hashable, CustomStringConvertible {
   public var description: String {
     typedFile.file.externalDependencyPathDescription
   }
-  
+
   public func hash(into hasher: inout Hasher) {
     hasher.combine(internedFileName)
   }
@@ -69,7 +70,7 @@ extension DependencySource {
     info: IncrementalCompilationState.IncrementalDependencyAndInputSetup,
     internedStringTable: InternedStringTable
   ) -> SourceFileDependencyGraph? {
-    guard let fileToRead = fileToRead(info: info) else {return nil}
+    guard let fileToRead = try? fileToRead(info: info) else {return nil}
     do {
       info.reporter?.report("Reading dependencies from \(description)")
       return try SourceFileDependencyGraph.read(from: fileToRead,
@@ -88,10 +89,10 @@ extension DependencySource {
   /// - Returns: The corresponding swiftdeps file for a swift file, or the swiftmodule file for an incremental imports source.
   public func fileToRead(
     info: IncrementalCompilationState.IncrementalDependencyAndInputSetup
-  ) -> TypedVirtualPath? {
+  ) throws -> TypedVirtualPath? {
     typedFile.type != .swift
     ? typedFile
-    : info.outputFileMap.getSwiftDeps(for: typedFile, diagnosticEngine: info.diagnosticEngine)
+    : try info.outputFileMap.getSwiftDeps(for: typedFile, diagnosticEngine: info.diagnosticEngine)
   }
 }
 
@@ -100,9 +101,9 @@ extension OutputFileMap {
   fileprivate func getSwiftDeps(
     for sourceFile: TypedVirtualPath,
     diagnosticEngine: DiagnosticsEngine
-  ) -> TypedVirtualPath? {
+  ) throws -> TypedVirtualPath? {
     assert(sourceFile.type == FileType.swift)
-    guard let swiftDepsHandle = existingOutput(inputFile: sourceFile.fileHandle,
+    guard let swiftDepsHandle = try existingOutput(inputFile: sourceFile.fileHandle,
                                              outputType: .swiftDeps)
     else {
       // The legacy driver fails silently here.

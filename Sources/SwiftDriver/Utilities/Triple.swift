@@ -32,7 +32,7 @@
 ///
 /// This is a port of https://github.com/apple/swift-llvm/blob/stable/include/llvm/ADT/Triple.h
 @dynamicMemberLookup
-public struct Triple {
+public struct Triple: Sendable {
   /// `Triple` proxies predicates from `Triple.OS`, returning `false` for an unknown OS.
   public subscript(dynamicMember predicate: KeyPath<OS, Bool>) -> Bool {
     os?[keyPath: predicate] ?? false
@@ -60,7 +60,7 @@ public struct Triple {
   public let objectFormat: ObjectFormat?
 
   /// Represents a version that may be present in the target triple.
-  public struct Version: Equatable, Comparable, CustomStringConvertible {
+  public struct Version: Equatable, Comparable, CustomStringConvertible, Sendable {
     public static let zero = Version(0, 0, 0)
 
     public var major: Int
@@ -126,7 +126,7 @@ public struct Triple {
         parser.components.resize(toCount: 4, paddingWith: "")
         parser.components[2] = "windows"
         if parsedEnv?.value.environment == nil {
-          if let objectFormat = parsedEnv?.value.objectFormat, objectFormat != .coff {
+          if let objectFormat = parsedEnv?.value.objectFormat {
             parser.components[3] = Substring(objectFormat.name)
           } else {
             parser.components[3] = "msvc"
@@ -415,7 +415,7 @@ extension Triple {
     }
   }
 
-  public enum Arch: String, CaseIterable {
+  public enum Arch: String, CaseIterable, Decodable, Sendable {
     /// ARM (little endian): arm, armv.*, xscale
     case arm
     // ARM (big endian): armeb
@@ -438,6 +438,8 @@ extension Triple {
     case bpfeb
     /// Hexagon: hexagon
     case hexagon
+    // M68k: Motorola 680x0 family
+    case m68k
     /// MIPS: mips, mipsallegrex, mipsr6
     case mips
     /// MIPSEL: mipsel, mipsallegrexe, mipsr6el
@@ -518,6 +520,8 @@ extension Triple {
     case renderscript32
     // 64-bit RenderScript
     case renderscript64
+    // Xtensa instruction set
+    case xtensa
 
     static func parse(_ archName: Substring) -> Triple.Arch? {
       switch archName {
@@ -561,6 +565,8 @@ extension Triple {
         return .thumbeb
       case "avr":
         return .avr
+      case "m68k":
+        return .m68k
       case "msp430":
         return .msp430
       case "mips", "mipseb", "mipsallegrex", "mipsisa32r6", "mipsr6":
@@ -629,6 +635,8 @@ extension Triple {
         return .renderscript32
       case "renderscript64":
         return .renderscript64
+      case "xtensa":
+        return .xtensa
 
       case _ where archName.hasPrefix("arm") || archName.hasPrefix("thumb") || archName.hasPrefix("aarch64"):
         return parseARMArch(archName)
@@ -700,14 +708,14 @@ extension Triple {
         arch = nil
       }
 
-      let cannonicalArchName = cannonicalARMArchName(from: archName)
+      let canonicalArchName = canonicalARMArchName(from: archName)
 
-      if cannonicalArchName.isEmpty {
+      if canonicalArchName.isEmpty {
         return nil
       }
 
       // Thumb only exists in v4+
-      if ISA == .thumb && (cannonicalArchName.hasPrefix("v2") || cannonicalArchName.hasPrefix("v3")) {
+      if ISA == .thumb && (canonicalArchName.hasPrefix("v2") || canonicalArchName.hasPrefix("v3")) {
           return nil
       }
 
@@ -729,7 +737,7 @@ extension Triple {
     // (iwmmxt|xscale)(eb)? is also permitted. If the former, return
     // "v.+", if the latter, return unmodified string, minus 'eb'.
     // If invalid, return empty string.
-    fileprivate static func cannonicalARMArchName<S: StringProtocol>(from arch: S) -> String {
+    fileprivate static func canonicalARMArchName<S: StringProtocol>(from arch: S) -> String {
       var name = Substring(arch)
 
       func dropPrefix(_ prefix: String) {
@@ -818,7 +826,7 @@ extension Triple {
       case .arc, .arm, .armeb, .hexagon, .le32, .mips, .mipsel, .nvptx,
            .ppc, .r600, .riscv32, .sparc, .sparcel, .tce, .tcele, .thumb,
            .thumbeb, .x86, .xcore, .amdil, .hsail, .spir, .kalimba,.lanai,
-           .shave, .wasm32, .renderscript32, .aarch64_32:
+           .shave, .wasm32, .renderscript32, .aarch64_32, .m68k, .xtensa:
         return 32
 
       case .aarch64, .aarch64e, .aarch64_be, .amdgcn, .bpfel, .bpfeb, .le64, .mips64,
@@ -833,11 +841,11 @@ extension Triple {
 // MARK: - Parse SubArch
 
 extension Triple {
-  public enum SubArch: Hashable {
+  public enum SubArch: Hashable, Sendable {
 
-    public enum ARM {
+    public enum ARM: Sendable {
 
-      public enum Profile {
+      public enum Profile: Sendable {
         case a, r, m
       }
 
@@ -905,13 +913,13 @@ extension Triple {
       }
     }
 
-    public enum Kalimba {
+    public enum Kalimba: Sendable {
       case v3
       case v4
       case v5
     }
 
-    public enum MIPS {
+    public enum MIPS: Sendable {
       case r6
     }
 
@@ -925,7 +933,7 @@ extension Triple {
         return .mips(.r6)
       }
 
-      let armSubArch = Triple.Arch.cannonicalARMArchName(from: component)
+      let armSubArch = Triple.Arch.canonicalARMArchName(from: component)
 
       if armSubArch.isEmpty {
         switch component {
@@ -963,19 +971,19 @@ extension Triple {
         return .arm(.v6k)
       case "v6kz":
         return .arm(.v6kz)
-      case "v6-m":
+      case "v6m", "v6-m":
         return .arm(.v6m)
       case "v6t2":
         return .arm(.v6t2)
-      case "v7-a":
+      case "v7a", "v7-a":
         return .arm(.v7)
       case "v7k":
         return .arm(.v7k)
-      case "v7-m":
+      case "v7m", "v7-m":
         return .arm(.v7m)
-      case "v7e-m":
+      case "v7em", "v7e-m":
         return .arm(.v7em)
-      case "v7-r":
+      case "v7r", "v7-r":
         return .arm(.v7r)
       case "v7s":
         return .arm(.v7s)
@@ -1011,7 +1019,7 @@ extension Triple {
 // MARK: - Parse Vendor
 
 extension Triple {
-  public enum Vendor: String, CaseIterable, TripleComponent {
+  public enum Vendor: String, CaseIterable, TripleComponent, Sendable {
     case apple
     case pc
     case scei
@@ -1028,6 +1036,7 @@ extension Triple {
     case mesa
     case suse
     case openEmbedded = "oe"
+    case swift
 
     fileprivate static func parse(_ component: Substring) -> Triple.Vendor? {
       switch component {
@@ -1063,6 +1072,8 @@ extension Triple {
         return .suse
       case "oe":
         return .openEmbedded
+      case "swift":
+        return .swift
       default:
         return nil
       }
@@ -1073,7 +1084,7 @@ extension Triple {
 // MARK: - Parse OS
 
 extension Triple {
-  public enum OS: String, CaseIterable, TripleComponent {
+  public enum OS: String, CaseIterable, TripleComponent, Sendable {
     case ananas
     case cloudABI = "cloudabi"
     case darwin
@@ -1109,6 +1120,8 @@ extension Triple {
     case hurd
     case wasi
     case emscripten
+    case visionos = "xros"
+    case noneOS // 'OS' suffix purely to avoid name clash with Optional.none
 
     var name: String {
       return rawValue
@@ -1188,6 +1201,10 @@ extension Triple {
         return .wasi
       case _ where os.hasPrefix("emscripten"):
         return .emscripten
+      case _ where os.hasPrefix("none"):
+        return .noneOS
+      case _ where os.hasPrefix("xros"):
+        return .visionos
       default:
         return nil
       }
@@ -1244,7 +1261,7 @@ extension Triple {
     }
   }
 
-  public enum Environment: String, CaseIterable, Equatable {
+  public enum Environment: String, CaseIterable, Equatable, Sendable {
     case eabihf
     case eabi
     case elfv1
@@ -1340,7 +1357,7 @@ extension Triple {
 // MARK: - Parse Object Format
 
 extension Triple {
-  public enum ObjectFormat {
+  public enum ObjectFormat: Sendable {
     case coff
     case elf
     case macho
@@ -1391,6 +1408,7 @@ extension Triple {
         case .kalimba: fallthrough
         case .le32: fallthrough
         case .le64: fallthrough
+        case .m68k: fallthrough
         case .mips: fallthrough
         case .mips64: fallthrough
         case .mips64el: fallthrough
@@ -1414,7 +1432,8 @@ extension Triple {
         case .tce: fallthrough
         case .tcele: fallthrough
         case .thumbeb: fallthrough
-        case .xcore:
+        case .xcore: fallthrough
+        case .xtensa:
           return .elf
 
         case .ppc, .ppc64:
@@ -1479,9 +1498,14 @@ extension Triple.OS {
     self == .watchos
   }
 
+  public var isVisionOS: Bool {
+    self == .visionos
+  }
+
+
   /// isOSDarwin - Is this a "Darwin" OS (OS X, iOS, or watchOS).
   public var isDarwin: Bool {
-    isMacOSX || isiOS || isWatchOS
+    isMacOSX || isiOS || isWatchOS || isVisionOS
   }
 }
 
@@ -1590,8 +1614,7 @@ extension Triple {
       if version.major < 10 {
         return nil
       }
-
-    case .ios, .tvos, .watchos:
+    case .ios, .tvos, .watchos, .visionos:
        // Ignore the version from the triple.  This is only handled because the
        // the clang driver combines OS X and IOS support into a common Darwin
        // toolchain that wants to know the OS X version number even when targeting
@@ -1624,6 +1647,8 @@ extension Triple {
         version.major = arch == .aarch64 ? 7 : 5
       }
       return version
+    case .visionos:
+      return Version(15, 0, 0)
     case .watchos:
       fatalError("conflicting triple info")
     default:
@@ -1651,6 +1676,24 @@ extension Triple {
       }
       return version
     case .ios:
+      fatalError("conflicting triple info")
+    default:
+      fatalError("unexpected OS for Darwin triple")
+    }
+  }
+
+  public var _visionOSVersion: Version {
+    switch os {
+    case .darwin, .macosx:
+      return Version(1, 0, 0)
+    case .visionos, .ios:
+      var version = self.osVersion
+      // Default to 1.0
+      if version.major == 0 {
+        version.major = 1
+      }
+      return version
+    case .watchos:
       fatalError("conflicting triple info")
     default:
       fatalError("unexpected OS for Darwin triple")
@@ -1700,5 +1743,24 @@ fileprivate extension Array {
     } else if desiredCount < count {
       removeLast(count - desiredCount)
     }
+  }
+}
+
+// MARK: - Fully static Linux support
+
+extension Triple {
+  /// Returns `true` if this is the triple for Swift's fully statically
+  /// linked Linux target.
+  var isFullyStaticLinux: Bool {
+    self.vendor == .swift && self.environment == .musl
+  }
+
+  /// Returns `true` if a given triple supports producing fully
+  /// statically linked executables by providing `-static` flag to
+  /// the linker. This implies statically linking platform's libc,
+  /// and of those that Swift supports currently only Musl allows
+  /// that reliably.
+  var supportsStaticExecutables: Bool {
+    self.isFullyStaticLinux
   }
 }

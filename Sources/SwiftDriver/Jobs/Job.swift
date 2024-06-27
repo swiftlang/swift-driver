@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
-import Foundation
+import protocol TSCBasic.DiagnosticData
+import protocol TSCBasic.FileSystem
 
 /// A job represents an individual subprocess that should be invoked during compilation.
 public struct Job: Codable, Equatable, Hashable {
@@ -28,6 +28,7 @@ public struct Job: Codable, Equatable, Hashable {
 
     /// Generate a compiled Clang module.
     case generatePCM = "generate-pcm"
+    case compileModuleFromInterface = "compile-module-from-interface"
     case dumpPCM = "dump-pcm"
     case interpret
     case repl
@@ -45,7 +46,7 @@ public struct Job: Codable, Equatable, Hashable {
   }
 
   public enum ArgTemplate: Equatable, Hashable {
-    /// Represents a command-line flag that is substitued as-is.
+    /// Represents a command-line flag that is substituted as-is.
     case flag(String)
 
     /// Represents a virtual path on disk.
@@ -100,35 +101,39 @@ public struct Job: Codable, Equatable, Hashable {
   /// The kind of job.
   public var kind: Kind
 
+  /// The Cache Key for the compilation. It is a dictionary from input file to its output cache key.
+  public var outputCacheKeys: [TypedVirtualPath: String]
+
   /// A map from a primary input to all of its corresponding outputs
   private var compileInputOutputMap: [TypedVirtualPath : [TypedVirtualPath]]
 
   public init(
     moduleName: String,
     kind: Kind,
-    tool: VirtualPath,
+    tool: ResolvedTool,
     commandLine: [ArgTemplate],
     displayInputs: [TypedVirtualPath]? = nil,
     inputs: [TypedVirtualPath],
     primaryInputs: [TypedVirtualPath],
     outputs: [TypedVirtualPath],
+    outputCacheKeys: [TypedVirtualPath: String] = [:],
     inputOutputMap: [TypedVirtualPath : [TypedVirtualPath]] = [:],
     extraEnvironment: [String: String] = [:],
-    requiresInPlaceExecution: Bool = false,
-    supportsResponseFiles: Bool = false
+    requiresInPlaceExecution: Bool = false
   ) {
     self.moduleName = moduleName
     self.kind = kind
-    self.tool = tool
+    self.tool = .absolute(tool.path)
     self.commandLine = commandLine
     self.displayInputs = displayInputs ?? []
     self.inputs = inputs
     self.primaryInputs = primaryInputs
     self.outputs = outputs
+    self.outputCacheKeys = outputCacheKeys
     self.compileInputOutputMap = inputOutputMap
     self.extraEnvironment = extraEnvironment
     self.requiresInPlaceExecution = requiresInPlaceExecution
-    self.supportsResponseFiles = supportsResponseFiles
+    self.supportsResponseFiles = tool.supportsResponseFiles
   }
 
   public var primarySwiftSourceFiles: [SwiftSourceFile] { primaryInputs.swiftSourceFiles }
@@ -146,7 +151,7 @@ extension Job {
     }
   }
 
-  public func verifyInputsNotModified(since recordedInputModificationDates: [TypedVirtualPath: Date], fileSystem: FileSystem) throws {
+  public func verifyInputsNotModified(since recordedInputModificationDates: [TypedVirtualPath: TimePoint], fileSystem: FileSystem) throws {
     for input in inputs {
       if let recordedModificationTime = recordedInputModificationDates[input],
          try fileSystem.lastModificationTime(for: input.file) != recordedModificationTime {
@@ -167,9 +172,13 @@ extension Job {
 
 extension Job : CustomStringConvertible {
   public var description: String {
+    func join(_ parts: String?...) -> String {
+      return parts.compactMap { $0 }.joined(separator: " ")
+    }
+
     switch kind {
     case .compile:
-        return "Compiling \(moduleName) \(displayInputs.first?.file.basename ?? "")"
+        return join("Compiling \(moduleName)", displayInputs.first?.file.basename)
 
     case .mergeModule:
         return "Merging module \(moduleName)"
@@ -186,8 +195,11 @@ extension Job : CustomStringConvertible {
     case .emitModule:
         return "Emitting module for \(moduleName)"
 
+    case .compileModuleFromInterface:
+        return "Compiling Swift module \(moduleName)"
+
     case .generatePCH:
-        return "Compiling bridging header \(displayInputs.first?.file.basename ?? "")"
+        return join("Compiling bridging header", displayInputs.first?.file.basename)
 
     case .moduleWrap:
       return "Wrapping Swift module \(moduleName)"
@@ -196,10 +208,10 @@ extension Job : CustomStringConvertible {
         return "Compiling Clang module \(moduleName)"
 
     case .dumpPCM:
-        return "Dump information about Clang module \(displayInputs.first?.file.name ?? "")"
+        return join("Dump information about Clang module", displayInputs.first?.file.name)
 
     case .interpret:
-        return "Interpreting \(displayInputs.first?.file.name ?? "")"
+        return join("Interpreting", displayInputs.first?.file.name)
 
     case .repl:
         return "Executing Swift REPL"
@@ -217,7 +229,7 @@ extension Job : CustomStringConvertible {
         return "Swift help"
 
     case .backend:
-      return "Embedding bitcode for \(moduleName) \(displayInputs.first?.file.basename ?? "")"
+      return join("Embedding bitcode for \(moduleName)", displayInputs.first?.file.basename)
 
     case .emitSupportedFeatures:
       return "Emitting supported Swift compiler features"
@@ -226,7 +238,7 @@ extension Job : CustomStringConvertible {
       return "Scanning dependencies for module \(moduleName)"
 
     case .verifyModuleInterface:
-      return "Verifying emitted module interface for module \(moduleName)"
+      return join("Verifying emitted module interface", displayInputs.first?.file.basename)
 
     case .generateAPIBaseline:
       return "Generating API baseline file for module \(moduleName)"
@@ -256,7 +268,7 @@ extension Job.Kind {
   /// Whether this job kind uses the Swift frontend.
   public var isSwiftFrontend: Bool {
     switch self {
-    case .backend, .compile, .mergeModule, .emitModule, .generatePCH,
+    case .backend, .compile, .mergeModule, .emitModule, .compileModuleFromInterface, .generatePCH,
         .generatePCM, .dumpPCM, .interpret, .repl, .printTargetInfo,
         .versionRequest, .emitSupportedFeatures, .scanDependencies, .verifyModuleInterface:
         return true
@@ -272,11 +284,26 @@ extension Job.Kind {
     switch self {
     case .compile:
       return true
-    case .backend, .mergeModule, .emitModule, .generatePCH,
+    case .backend, .mergeModule, .emitModule, .generatePCH, .compileModuleFromInterface,
          .generatePCM, .dumpPCM, .interpret, .repl, .printTargetInfo,
          .versionRequest, .autolinkExtract, .generateDSYM,
          .help, .link, .verifyDebugInfo, .scanDependencies,
          .emitSupportedFeatures, .moduleWrap, .verifyModuleInterface,
+         .generateAPIBaseline, .generateABIBaseline, .compareAPIBaseline,
+         .compareABIBaseline:
+      return false
+    }
+  }
+
+  /// Whether this job supports caching.
+  public var supportCaching: Bool {
+    switch self {
+    case .compile, .emitModule, .generatePCH, .compileModuleFromInterface,
+         .generatePCM, .verifyModuleInterface:
+      return true
+    case .backend, .mergeModule, .dumpPCM, .interpret, .repl, .printTargetInfo,
+         .versionRequest, .autolinkExtract, .generateDSYM, .help, .link,
+         .verifyDebugInfo, .scanDependencies, .emitSupportedFeatures, .moduleWrap,
          .generateAPIBaseline, .generateABIBaseline, .compareAPIBaseline,
          .compareABIBaseline:
       return false

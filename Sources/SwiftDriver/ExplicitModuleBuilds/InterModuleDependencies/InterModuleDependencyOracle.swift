@@ -10,7 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
+import protocol TSCBasic.FileSystem
+import struct TSCBasic.AbsolutePath
+import struct Foundation.Data
+import var TSCBasic.localFileSystem
+
 import Dispatch
 
 // An inter-module dependency oracle, responsible for responding to queries about
@@ -28,56 +32,61 @@ import Dispatch
 /// An abstraction of a cache and query-engine of inter-module dependencies
 public class InterModuleDependencyOracle {
   /// Allow external clients to instantiate the oracle
-  public init() {}
+  /// - Parameter scannerRequiresPlaceholderModules: Configures this driver's/oracle's scanner invocations to
+  /// specify external module dependencies to be treated as placeholders. This is required in contexts
+  /// where the dependency scanning action is invoked for a module which depends on another module
+  /// that is part of the same build but has not yet been built. Treating it as a placeholder
+  /// will allow the scanning action to not fail when it fails to detect this dependency on
+  /// the filesystem. For example, SwiftPM plans all targets belonging to a package before *any* of them
+  /// are built. So this setting is meant to be used there. In contexts where planning a module
+  /// necessarily means all of its dependencies have already been built this is not necessary.
+  public init(scannerRequiresPlaceholderModules: Bool = false) {
+    self.scannerRequiresPlaceholderModules = scannerRequiresPlaceholderModules
+  }
 
   @_spi(Testing) public func getDependencies(workingDirectory: AbsolutePath,
                                              moduleAliases: [String: String]? = nil,
-                                             commandLine: [String])
+                                             commandLine: [String],
+                                             diagnostics: inout [ScannerDiagnosticPayload])
   throws -> InterModuleDependencyGraph {
     precondition(hasScannerInstance)
-    return try queue.sync {
-      return try swiftScanLibInstance!.scanDependencies(workingDirectory: workingDirectory,
-                                                        moduleAliases: moduleAliases,
-                                                       invocationCommand: commandLine)
-    }
+    return try swiftScanLibInstance!.scanDependencies(workingDirectory: workingDirectory,
+                                                      moduleAliases: moduleAliases,
+                                                      invocationCommand: commandLine,
+                                                      diagnostics: &diagnostics)
   }
 
   @_spi(Testing) public func getBatchDependencies(workingDirectory: AbsolutePath,
                                                   moduleAliases: [String: String]? = nil,
                                                   commandLine: [String],
-                                                  batchInfos: [BatchScanModuleInfo])
+                                                  batchInfos: [BatchScanModuleInfo],
+                                                  diagnostics: inout [ScannerDiagnosticPayload])
   throws -> [ModuleDependencyId: [InterModuleDependencyGraph]] {
     precondition(hasScannerInstance)
-    return try queue.sync {
-      return try swiftScanLibInstance!.batchScanDependencies(workingDirectory: workingDirectory,
-                                                             moduleAliases: moduleAliases,
-                                                            invocationCommand: commandLine,
-                                                            batchInfos: batchInfos)
-    }
+    return try swiftScanLibInstance!.batchScanDependencies(workingDirectory: workingDirectory,
+                                                           moduleAliases: moduleAliases,
+                                                           invocationCommand: commandLine,
+                                                           batchInfos: batchInfos,
+                                                           diagnostics: &diagnostics)
   }
 
   @_spi(Testing) public func getImports(workingDirectory: AbsolutePath,
                                         moduleAliases: [String: String]? = nil,
-                                             commandLine: [String])
+                                        commandLine: [String],
+                                        diagnostics: inout [ScannerDiagnosticPayload])
   throws -> InterModuleDependencyImports {
     precondition(hasScannerInstance)
-    return try queue.sync {
-      return try swiftScanLibInstance!.preScanImports(workingDirectory: workingDirectory,
-                                                      moduleAliases: moduleAliases,
-                                                      invocationCommand: commandLine)
-    }
+    return try swiftScanLibInstance!.preScanImports(workingDirectory: workingDirectory,
+                                                    moduleAliases: moduleAliases,
+                                                    invocationCommand: commandLine,
+                                                    diagnostics: &diagnostics)
   }
 
   /// Given a specified toolchain path, locate and instantiate an instance of the SwiftScan library
-  /// Returns True if a library instance exists (either verified or newly-created).
-  @_spi(Testing) public func verifyOrCreateScannerInstance(fileSystem: FileSystem,
-                                                           swiftScanLibPath: AbsolutePath)
-  throws -> Bool {
+  public func verifyOrCreateScannerInstance(fileSystem: FileSystem,
+                                            swiftScanLibPath: AbsolutePath) throws {
     return try queue.sync {
       if swiftScanLibInstance == nil {
-        guard fileSystem.exists(swiftScanLibPath) else {
-          return false
-        }
         swiftScanLibInstance = try SwiftScan(dylib: swiftScanLibPath)
       } else {
         guard swiftScanLibInstance!.path == swiftScanLibPath else {
@@ -85,7 +94,6 @@ public class InterModuleDependencyOracle {
           .scanningLibraryInvocationMismatch(swiftScanLibInstance!.path, swiftScanLibPath)
         }
       }
-      return true
     }
   }
 
@@ -117,6 +125,90 @@ public class InterModuleDependencyOracle {
     }
   }
 
+  @_spi(Testing) public func supportsBinaryFrameworkDependencies() throws -> Bool {
+    guard let swiftScan = swiftScanLibInstance else {
+      fatalError("Attempting to query supported scanner API with no scanner instance.")
+    }
+    return swiftScan.hasBinarySwiftModuleIsFramework
+  }
+
+  @_spi(Testing) public func supportsBinaryModuleHeaderModuleDependencies() throws -> Bool {
+    guard let swiftScan = swiftScanLibInstance else {
+      fatalError("Attempting to query supported scanner API with no scanner instance.")
+    }
+    return swiftScan.hasBinarySwiftModuleHeaderModuleDependencies
+  }
+
+  @_spi(Testing) public func supportsScannerDiagnostics() throws -> Bool {
+    guard let swiftScan = swiftScanLibInstance else {
+      fatalError("Attempting to query supported scanner API with no scanner instance.")
+    }
+    return swiftScan.supportsScannerDiagnostics
+  }
+
+  @_spi(Testing) public func supportsBinaryModuleHeaderDependencies() throws -> Bool {
+    guard let swiftScan = swiftScanLibInstance else {
+      fatalError("Attempting to query supported scanner API with no scanner instance.")
+    }
+    return swiftScan.supportsBinaryModuleHeaderDependencies || swiftScan.supportsBinaryModuleHeaderDependency
+  }
+
+  @_spi(Testing) public func supportsBridgingHeaderPCHCommand() throws -> Bool {
+    guard let swiftScan = swiftScanLibInstance else {
+      fatalError("Attempting to query supported scanner API with no scanner instance.")
+    }
+    return swiftScan.supportsBridgingHeaderPCHCommand
+  }
+
+  @_spi(Testing) public func supportsPerScanDiagnostics() throws -> Bool {
+    guard let swiftScan = swiftScanLibInstance else {
+      fatalError("Attempting to query supported scanner API with no scanner instance.")
+    }
+    return swiftScan.canQueryPerScanDiagnostics
+  }
+
+  @_spi(Testing) public func supportsDiagnosticSourceLocations() throws -> Bool {
+    guard let swiftScan = swiftScanLibInstance else {
+      fatalError("Attempting to query supported scanner API with no scanner instance.")
+    }
+    return swiftScan.supportsDiagnosticSourceLocations
+  }
+
+  @_spi(Testing) public func supportsLinkLibraries() throws -> Bool {
+    guard let swiftScan = swiftScanLibInstance else {
+      fatalError("Attempting to query supported scanner API with no scanner instance.")
+    }
+    return swiftScan.supportsLinkLibraries
+  }
+
+  @_spi(Testing) public func getScannerDiagnostics() throws -> [ScannerDiagnosticPayload]? {
+    guard let swiftScan = swiftScanLibInstance else {
+      fatalError("Attempting to reset scanner cache with no scanner instance.")
+    }
+    guard swiftScan.supportsScannerDiagnostics else {
+      return nil
+    }
+    let diags = try swiftScan.queryScannerDiagnostics()
+    try swiftScan.resetScannerDiagnostics()
+    return diags.isEmpty ? nil : diags
+  }
+
+  public func getOrCreateCAS(pluginPath: AbsolutePath?, onDiskPath: AbsolutePath?, pluginOptions: [(String, String)]) throws -> SwiftScanCAS {
+    guard let swiftScan = swiftScanLibInstance else {
+      fatalError("Attempting to reset scanner cache with no scanner instance.")
+    }
+    // Use synchronized queue to avoid creating multiple OnDisk CAS at the same location as that will leave to synchronization issues.
+    return try queue.sync {
+      let casOpt = CASConfig(onDiskPath: onDiskPath, pluginPath: pluginPath, pluginOptions: pluginOptions)
+      if let cas = createdCASMap[casOpt] {
+        return cas
+      }
+      let cas = try swiftScan.createCAS(pluginPath: pluginPath?.pathString, onDiskPath: onDiskPath?.pathString, pluginOptions: pluginOptions)
+      createdCASMap[casOpt] = cas
+      return cas
+    }
+  }
+
   private var hasScannerInstance: Bool { self.swiftScanLibInstance != nil }
 
   /// Queue to sunchronize accesses to the scanner
@@ -124,5 +216,31 @@ public class InterModuleDependencyOracle {
 
   /// A reference to an instance of the compiler's libSwiftScan shared library
   private var swiftScanLibInstance: SwiftScan? = nil
+
+  internal let scannerRequiresPlaceholderModules: Bool
+
+  internal struct CASConfig: Hashable, Equatable {
+    static func == (lhs: InterModuleDependencyOracle.CASConfig, rhs: InterModuleDependencyOracle.CASConfig) -> Bool {
+      return lhs.onDiskPath == rhs.onDiskPath &&
+             lhs.pluginPath == rhs.pluginPath &&
+             lhs.pluginOptions.elementsEqual(rhs.pluginOptions, by: ==)
+    }
+
+    func hash(into hasher: inout Hasher) {
+      hasher.combine(onDiskPath)
+      hasher.combine(pluginPath)
+      for opt in pluginOptions {
+        hasher.combine(opt.0)
+        hasher.combine(opt.1)
+      }
+    }
+
+    let onDiskPath: AbsolutePath?
+    let pluginPath: AbsolutePath?
+    let pluginOptions: [(String, String)]
+  }
+
+  /// Storing the CAS created via CASConfig.
+  internal var createdCASMap: [CASConfig: SwiftScanCAS] = [:]
 }
 

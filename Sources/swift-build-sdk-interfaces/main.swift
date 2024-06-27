@@ -11,9 +11,23 @@
 //===----------------------------------------------------------------------===//
 import SwiftDriverExecution
 import SwiftDriver
-import TSCLibc
-import TSCBasic
-import TSCUtility
+#if os(Windows)
+import CRT
+#elseif os(iOS) || os(macOS) || os(tvOS) || os(watchOS)
+import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#elseif canImport(Musl)
+import Musl
+#endif
+
+import class TSCBasic.DiagnosticsEngine
+import class TSCBasic.ProcessSet
+import enum TSCBasic.ProcessEnv
+import func TSCBasic.withTemporaryFile
+import struct TSCBasic.AbsolutePath
+import var TSCBasic.localFileSystem
+import var TSCBasic.stderrStream
 
 let diagnosticsEngine = DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler])
 
@@ -62,13 +76,16 @@ do {
     diagnosticsEngine.emit(error: "cannot find sdk: \(sdkPath.pathString)")
     exit(1)
   }
+  let logDir = try getArgumentAsPath("-log-path")
+  let jsonPath = try getArgumentAsPath("-json-path")
   let collector = SDKPrebuiltModuleInputsCollector(sdkPath, diagnosticsEngine)
   var outputDir = try VirtualPath(path: rawOutputDir).absolutePath!
   // if the given output dir ends with 'prebuilt-modules', we should
   // append the SDK version number so all modules will built into
   // the SDK-versioned sub-directory.
   if outputDir.basename == "prebuilt-modules" {
-    outputDir = outputDir.appending(RelativePath(collector.versionString))
+    outputDir = try AbsolutePath(validating: collector.versionString,
+                                 relativeTo: outputDir)
   }
   if !localFileSystem.exists(outputDir) {
     try localFileSystem.createDirectory(outputDir, recursive: true)
@@ -76,12 +93,19 @@ do {
   let swiftcPathRaw = ProcessEnv.vars["SWIFT_EXEC"]
   var swiftcPath: AbsolutePath
   if let swiftcPathRaw = swiftcPathRaw {
-    swiftcPath = try VirtualPath(path: swiftcPathRaw).absolutePath!
+    let virtualPath = try VirtualPath(path: swiftcPathRaw)
+    guard let absolutePath = virtualPath.absolutePath else {
+      diagnosticsEngine.emit(error: "value of SWIFT_EXEC is not a valid absolute path: \(swiftcPathRaw)")
+      exit(1)
+    }
+    swiftcPath = absolutePath
   } else {
-    swiftcPath = sdkPath.parentDirectory.parentDirectory.parentDirectory
-      .parentDirectory.parentDirectory.appending(RelativePath("Toolchains"))
-      .appending(RelativePath("XcodeDefault.xctoolchain")).appending(RelativePath("usr"))
-      .appending(RelativePath("bin")).appending(RelativePath("swiftc"))
+    swiftcPath = try AbsolutePath(validating: "Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+                                  relativeTo: sdkPath.parentDirectory
+                                                     .parentDirectory
+                                                     .parentDirectory
+                                                     .parentDirectory
+                                                     .parentDirectory)
   }
   if !localFileSystem.exists(swiftcPath) {
     diagnosticsEngine.emit(error: "cannot find swift compiler: \(swiftcPath.pathString)")
@@ -101,13 +125,17 @@ do {
                               .appending(component: "SystemVersion.plist"),
                            to: sysVersionFile)
   let processSet = ProcessSet()
-  let inputMap = try collector.collectSwiftInterfaceMap()
+  let inputTuple = try collector.collectSwiftInterfaceMap()
+  let allAdopters = inputTuple.adopters
+  let currentABIDir = try getArgumentAsPath("-current-abi-dir")
+  try SwiftAdopter.emitSummary(allAdopters, to: currentABIDir)
+  let inputMap = inputTuple.inputMap
   let allModules = coreMode ? ["Foundation"] : Array(inputMap.keys)
   try withTemporaryFile(suffix: ".swift") {
     let tempPath = $0.path
     try localFileSystem.writeFileContents(tempPath, body: {
       for module in allModules {
-        $0 <<< "import " <<< module <<< "\n"
+        $0.send("import \(module)\n")
       }
     })
     let executor = try SwiftDriverExecutor(diagnosticsEngine: diagnosticsEngine,
@@ -123,29 +151,37 @@ do {
     if let mcp = getArgument(mcpFlag) {
       args.append(mcpFlag)
       args.append(mcp)
+      // Create module cache dir if absent.
+      let mcpPath = try VirtualPath(path: mcp).absolutePath!
+      if !localFileSystem.exists(mcpPath) {
+        try localFileSystem.createDirectory(mcpPath, recursive: true)
+      }
     }
-    let logDir = try getArgumentAsPath("-log-path")
-    let currentABIDir = try getArgumentAsPath("-current-abi-dir")
     let baselineABIDir = try getArgumentAsPath("-baseline-abi-dir")
     var driver = try Driver(args: args,
-                            diagnosticsEngine: diagnosticsEngine,
+                            diagnosticsOutput: .engine(diagnosticsEngine),
                             executor: executor,
                             compilerExecutableDir: swiftcPath.parentDirectory)
-    let (jobs, danglingJobs) = try driver.generatePrebuitModuleGenerationJobs(with: inputMap,
+    let (jobs, danglingJobs) = try driver.generatePrebuiltModuleGenerationJobs(with: inputMap,
       into: outputDir, exhaustive: !coreMode, dotGraphPath: getArgumentAsPath("-dot-graph-path"),
       currentABIDir: currentABIDir, baselineABIDir: baselineABIDir)
     if verbose {
       Driver.stdErrQueue.sync {
-        stderrStream <<< "job count: \(jobs.count + danglingJobs.count)\n"
+        stderrStream.send("job count: \(jobs.count + danglingJobs.count)\n")
         stderrStream.flush()
       }
     }
     if skipExecution {
       exit(0)
     }
-    let delegate = PrebuitModuleGenerationDelegate(jobs, diagnosticsEngine, verbose, logDir)
+    let delegate = PrebuiltModuleGenerationDelegate(jobs, diagnosticsEngine, verbose, logDir)
+    defer {
+      if let jsonPath = jsonPath {
+        try! delegate.emitJsonOutput(to: jsonPath)
+      }
+    }
     do {
-      try executor.execute(workload: DriverExecutorWorkload.init(jobs, nil, continueBuildingAfterErrors: true),
+      try executor.execute(workload: DriverExecutorWorkload.init(jobs, nil, nil, continueBuildingAfterErrors: true),
                            delegate: delegate, numParallelJobs: 128)
     } catch {
       // Only fail when critical failures happened.
@@ -155,7 +191,7 @@ do {
     }
     do {
       if !danglingJobs.isEmpty && delegate.shouldRunDanglingJobs {
-        try executor.execute(workload: DriverExecutorWorkload.init(danglingJobs, nil, continueBuildingAfterErrors: true), delegate: delegate, numParallelJobs: 128)
+        try executor.execute(workload: DriverExecutorWorkload.init(danglingJobs, nil, nil, continueBuildingAfterErrors: true), delegate: delegate, numParallelJobs: 128)
       }
     } catch {
       // Failing of dangling jobs don't fail the process.

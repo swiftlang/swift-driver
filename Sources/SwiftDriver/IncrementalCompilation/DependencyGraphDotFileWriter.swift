@@ -9,7 +9,8 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import TSCBasic
+
+import protocol TSCBasic.WritableByteStream
 
 // MARK: - Asking to write dot files / interface
 public struct DependencyGraphDotFileWriter {
@@ -27,7 +28,7 @@ public struct DependencyGraphDotFileWriter {
     let basename = file.file.basename
     write(sfdg, basename: basename, internedStringTable: internedStringTable)
   }
-  
+
   mutating func write(_ mdg: ModuleDependencyGraph) {
     write(mdg, basename: Self.moduleDependencyGraphBasename,
           internedStringTable: mdg.internedStringTable)
@@ -124,7 +125,7 @@ extension ModuleDependencyGraph.Node: ExportableNode {
 
 extension ExportableNode {
   fileprivate func emit(id: Int, to out: inout WritableByteStream, _ t: InternedStringTable) {
-    out <<< DotFileNode(id: id, node: self, in: t).description <<< "\n"
+    out.send("\(DotFileNode(id: id, node: self, in: t).description)\n")
   }
 
   fileprivate func label(in t: InternedStringTable) -> String {
@@ -223,11 +224,11 @@ fileprivate struct DOTDependencyGraphSerializer<Graph: ExportableGraph>: Interne
   }
 
   private func emitPrelude() {
-    out <<< "digraph " <<< graphID.quoted <<< " {\n"
+    out.send("digraph \(graphID.quoted) {\n")
   }
   private mutating func emitLegend() {
     for dummy in DependencyKey.Designator.oneOfEachKind {
-      out <<< DotFileNode(forLegend: dummy).description <<< "\n"
+      out.send("\(DotFileNode(forLegend: dummy).description)\n")
     }
   }
   private mutating func emitNodes() {
@@ -248,12 +249,12 @@ fileprivate struct DOTDependencyGraphSerializer<Graph: ExportableGraph>: Interne
   private func emitArcs() {
     graph.forEachExportableArc { (def: Graph.Node, use: Graph.Node) in
       if include(def: def, use: use) {
-        out <<< DotFileArc(defID: nodeIDs[def]!, useID: nodeIDs[use]!).description <<< "\n"
+        out.send("\(DotFileArc(defID: nodeIDs[def]!, useID: nodeIDs[use]!).description)\n")
       }
     }
   }
   private func emitPostlude() {
-    out <<< "\n}\n"
+    out.send("\n}\n")
   }
 
   func include(_ n: Graph.Node) -> Bool {

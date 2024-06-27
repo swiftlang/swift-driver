@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 import XCTest
 import TSCBasic
-import TSCUtility
 import Foundation
 
 @_spi(Testing) import SwiftDriver
@@ -20,9 +19,7 @@ import TestUtilities
 
 // MARK: - Instance variables and initialization
 final class IncrementalCompilationTests: XCTestCase {
-
-  var tempDir: AbsolutePath = AbsolutePath("/tmp")
-
+  var tempDir: AbsolutePath = try! AbsolutePath(validating: "/tmp")
   var derivedDataDir: AbsolutePath {
     tempDir.appending(component: "derivedData")
   }
@@ -65,8 +62,8 @@ final class IncrementalCompilationTests: XCTestCase {
     [
       "swiftc",
       "-module-name", module,
-      "-o", derivedDataPath.appending(component: module + ".o").pathString,
-      "-output-file-map", OFM.pathString,
+      "-o", derivedDataPath.appending(component: module + ".o").nativePathString(escaped: true),
+      "-output-file-map", OFM.nativePathString(escaped: true),
       "-driver-show-incremental",
       "-driver-show-job-lifecycle",
       "-enable-batch-mode",
@@ -75,18 +72,78 @@ final class IncrementalCompilationTests: XCTestCase {
       "-incremental",
       "-no-color-diagnostics",
     ]
-    + inputPathsAndContents.map {$0.0.pathString} .sorted()
+    + inputPathsAndContents.map {$0.0.nativePathString(escaped: true)} .sorted()
   }
+
+  var explicitModuleCacheDir: AbsolutePath {
+    tempDir.appending(component: "ModuleCache")
+  }
+  var explicitDependencyTestInputsPath: AbsolutePath {
+    tempDir.appending(component: "ExplicitTestInputs")
+  }
+  var explicitCDependenciesPath: AbsolutePath {
+    explicitDependencyTestInputsPath.appending(component: "CHeaders")
+  }
+  var explicitSwiftDependenciesPath: AbsolutePath {
+    explicitDependencyTestInputsPath.appending(component: "Swift")
+  }
+
+  var explicitDependencyTestInputsSourcePath: AbsolutePath {
+    var root: AbsolutePath = try! AbsolutePath(validating: #file)
+    while root.basename != "Tests" {
+      root = root.parentDirectory
+    }
+    return root.parentDirectory.appending(component: "TestInputs")
+  }
+
+  var explicitBuildArgs: [String] {
+    ["-explicit-module-build",
+     "-module-cache-path", explicitModuleCacheDir.nativePathString(escaped: true),
+     // Disable implicit imports to keep tests simpler
+     "-Xfrontend", "-disable-implicit-concurrency-module-import",
+     "-Xfrontend", "-disable-implicit-string-processing-module-import",
+     "-I", explicitCDependenciesPath.nativePathString(escaped: true),
+     "-I", explicitSwiftDependenciesPath.nativePathString(escaped: true)] + extraExplicitBuildArgs
+  }
+  var extraExplicitBuildArgs: [String] = []
 
   override func setUp() {
     self.tempDir = try! withTemporaryDirectory(removeTreeOnDeinit: false) {$0}
+    try! localFileSystem.createDirectory(explicitModuleCacheDir)
     try! localFileSystem.createDirectory(derivedDataPath)
+    try! localFileSystem.createDirectory(explicitDependencyTestInputsPath)
+    try! localFileSystem.createDirectory(explicitCDependenciesPath)
+    try! localFileSystem.createDirectory(explicitSwiftDependenciesPath)
     OutputFileMapCreator.write(module: module,
                                inputPaths: inputPathsAndContents.map {$0.0},
                                derivedData: derivedDataPath,
                                to: OFM)
     for (base, contents) in baseNamesAndContents {
       write(contents, to: base)
+    }
+
+    // Set up a per-test copy of all the explicit build module input artifacts
+    do {
+      let ebmSwiftInputsSourcePath = explicitDependencyTestInputsSourcePath
+        .appending(component: "ExplicitModuleBuilds").appending(component: "Swift")
+      let ebmCInputsSourcePath = explicitDependencyTestInputsSourcePath
+        .appending(component: "ExplicitModuleBuilds").appending(component: "CHeaders")
+      stdoutStream.flush()
+      try! localFileSystem.getDirectoryContents(ebmSwiftInputsSourcePath).forEach { filePath in
+        let sourceFilePath = ebmSwiftInputsSourcePath.appending(component: filePath)
+        let destinationFilePath = explicitSwiftDependenciesPath.appending(component: filePath)
+        try! localFileSystem.copy(from: sourceFilePath, to: destinationFilePath)
+      }
+      try! localFileSystem.getDirectoryContents(ebmCInputsSourcePath).forEach { filePath in
+        let sourceFilePath = ebmCInputsSourcePath.appending(component: filePath)
+        let destinationFilePath = explicitCDependenciesPath.appending(component: filePath)
+        try! localFileSystem.copy(from: sourceFilePath, to: destinationFilePath)
+      }
+    }
+
+    let driver = try! Driver(args: ["swiftc", "-v"])
+    if driver.isFrontendArgSupported(.moduleLoadMode) {
+      self.extraExplicitBuildArgs = ["-Xfrontend", "-module-load-mode", "-Xfrontend", "prefer-interface"]
     }
   }
 
@@ -141,19 +198,19 @@ extension IncrementalCompilationTests {
     env["SWIFT_DRIVER_SWIFT_AUTOLINK_EXTRACT_EXEC"] = "/garbage/swift-autolink-extract"
     env["SWIFT_DRIVER_DSYMUTIL_EXEC"] = "/garbage/dsymutil"
 
-    var driver = try! Driver(
+    var driver = try Driver(
       args: commonArgs
         + ["-emit-library", "-target", "x86_64-unknown-linux"],
       env: env)
-    let plannedJobs = try! driver.planBuild()
-    let autolinkExtractJob = try! XCTUnwrap(
+    let plannedJobs = try driver.planBuild()
+    let autolinkExtractJob = try XCTUnwrap(
       plannedJobs
         .filter { $0.kind == .autolinkExtract }
         .first)
     let autoOuts = autolinkExtractJob.outputs.filter {$0.type == .autolink}
     XCTAssertEqual(autoOuts.count, 1)
     let autoOut = autoOuts[0]
-    let expected = AbsolutePath(derivedDataPath, "\(module).autolink")
+    let expected = try AbsolutePath(validating: "\(module).autolink", relativeTo: derivedDataPath)
     XCTAssertEqual(autoOut.file.absolutePath, expected)
   }
 }
@@ -240,6 +297,255 @@ extension IncrementalCompilationTests {
 fileprivate extension Driver {
   func postCompileOutputs() throws -> [TypedVirtualPath] {
     try XCTUnwrap(incrementalCompilationState).jobsAfterCompiles.flatMap {$0.outputs}
+  }
+}
+
+// MARK: - Explicit Module Build incremental tests
+extension IncrementalCompilationTests {
+  func testExplicitIncrementalSimpleBuild() throws {
+    try buildInitialState(explicitModuleBuild: true)
+    try checkNullBuild(explicitModuleBuild: true)
+  }
+
+  // Simple re-use of a prior inter-module dependency graph on a null build
+  func testExplicitIncrementalSimpleBuildCheckDiagnostics() throws {
+    try buildInitialState(checkDiagnostics: true, explicitModuleBuild: true)
+    try checkNullBuild(checkDiagnostics: true, explicitModuleBuild: true)
+  }
+
+  // Source files have changed but the inter-module dependency graph still up-to-date
+  func testExplicitIncrementalBuildCheckGraphReuseOnChange() throws {
+    try buildInitialState(checkDiagnostics: true, explicitModuleBuild: true)
+    try checkReactionToTouchingAll(checkDiagnostics: true, explicitModuleBuild: true)
+  }
+
+  // Adding an import invalidates prior inter-module dependency graph.
+  func testExplicitIncrementalBuildNewImport() throws {
+    try buildInitialState(checkDiagnostics: true, explicitModuleBuild: true)
+    // Introduce a new import. This will cause a re-scan and a re-build of 'other.swift'
+    replace(contentsOf: "other", with: "import E;let bar = foo")
+    try doABuild(
+      "add import to 'other'",
+      checkDiagnostics: true,
+      extraArguments: explicitBuildArgs,
+      whenAutolinking: autolinkLifecycleExpectedDiags
+    ) {
+      readGraph
+      enablingCrossModule
+      readInterModuleGraph
+      // Ensure a re-scan was performed
+      explicitMustReScanDueToChangedImports
+      maySkip("main")
+      schedulingChangedInitialQueuing("other")
+      skipping("main")
+      findingBatchingCompiling("other")
+      reading(deps: "other")
+      fingerprintsChanged("other")
+      fingerprintsMissingOfTopLevelName(name: "bar", "other")
+      moduleOutputNotFound("E")
+      moduleWillBeRebuiltOutOfDate("E")
+      explicitModulesWillBeRebuilt(["E"])
+      compilingExplicitSwiftDependency("E")
+      skipped("main")
+      schedLinking
+    }
+  }
+
+  // A dependency has changed one of its inputs
+  func testExplicitIncrementalBuildChangedDependency() throws {
+    // Add an import of 'E' to make sure followup changes has consistent inputs
+    replace(contentsOf: "other", with: "import E;let bar = foo")
+    try buildInitialState(checkDiagnostics: false, explicitModuleBuild: true)
+
+    // Just update the time-stamp of one of the module dependencies and use a value
+    // it is defined in.
+    touch(try AbsolutePath(validating: explicitSwiftDependenciesPath.appending(component: "E.swiftinterface").pathString))
+    replace(contentsOf: "other", with: "import E;let bar = foo + moduleEValue")
+
+    // Changing a dependency will mean that we both re-run the dependency scan,
+    // and also ensure that all source-files are re-built with a non-cascading build
+    // since the source files themselves have not changed.
+    try doABuild(
+      "update dependency (E) interface timestamp",
+      checkDiagnostics: true,
+      extraArguments: explicitBuildArgs,
+      whenAutolinking: autolinkLifecycleExpectedDiags
+    ) {
+      readGraph
+      enablingCrossModule
+      readInterModuleGraph
+      // Ensure the above 'touch' is detected and causes a re-scan
+      explicitDependencyModuleOlderThanInput("E")
+      moduleInfoStaleOutOfDate("E")
+      explicitMustReScanDueToChangedDependencyInput
+      noFingerprintInSwiftModule("E.swiftinterface")
+      dependencyNewerThanNode("E.swiftinterface")
+      dependencyNewerThanNode("E.swiftinterface") // FIXME: Why do we see this twice?
+      maySkip("main")
+      schedulingChanged("other")
+      invalidatedExternally("main", "other")
+      queuingInitial("main", "other")
+      notSchedulingDependentsUnknownChanges("other")
+      findingBatchingCompiling("main", "other")
+      explicitDependencyModuleOlderThanInput("E")
+      moduleWillBeRebuiltOutOfDate("E")
+      explicitModulesWillBeRebuilt(["E"])
+      compilingExplicitSwiftDependency("E")
+    }
+  }
+
+  // A dependency has changed one of its inputs, ensure
+  // other modules that depend on it are invalidated also.
+  //
+  //             test
+  //             /   \
+  //             Y   T
+  //            / \ / \
+  //           H   R   J
+  //            \       \
+  //             \-------G
+  //
+  // On this graph, inputs of 'G' are updated, causing it to be re-built
+  // as well as all modules on paths from root to it: 'Y', 'H', 'T','J'
+  func testExplicitIncrementalBuildChangedDependencyInvalidatesUpstreamDependencies() throws {
+    replace(contentsOf: "other", with: "import Y;import T")
+    try buildInitialState(checkDiagnostics: false, explicitModuleBuild: true)
+
+    // Just update the time-stamp of one of the module dependencies
+    touch(try AbsolutePath(validating: explicitSwiftDependenciesPath.appending(component: "G.swiftinterface").pathString))
+
+    // Changing a dependency will mean that we both re-run the dependency scan,
+    // and also ensure that all source-files are re-built with a non-cascading build
+    // since the source files themselves have not changed.
+    try doABuild(
+      "update dependency (G) interface timestamp",
+      checkDiagnostics: true,
+      extraArguments: explicitBuildArgs,
+      whenAutolinking: autolinkLifecycleExpectedDiags
+    ) {
+      readGraph
+      enablingCrossModule
+      readInterModuleGraph
+      // Ensure the above 'touch' is detected and causes a re-scan
+      explicitDependencyModuleOlderThanInput("G")
+      moduleInfoStaleOutOfDate("G")
+      moduleInfoStaleInvalidatedDownstream("J")
+      moduleInfoStaleInvalidatedDownstream("T")
+      moduleInfoStaleInvalidatedDownstream("Y")
+      moduleInfoStaleInvalidatedDownstream("H")
+      explicitMustReScanDueToChangedDependencyInput
+      noFingerprintInSwiftModule("G.swiftinterface")
+      dependencyNewerThanNode("G.swiftinterface")
+      dependencyNewerThanNode("G.swiftinterface") // FIXME: Why do we see this twice?
+      reading(deps: "main")
+      reading(deps: "other")
+      fingerprintsMissingOfTopLevelName(name: "foo", "main")
+      maySkip("main")
+      maySkip("other")
+      invalidatedExternally("main", "other")
+      queuingInitial("main", "other")
+      findingBatchingCompiling("main", "other")
+      explicitDependencyModuleOlderThanInput("G")
+      moduleWillBeRebuiltInvalidatedDownstream("J")
+      moduleWillBeRebuiltInvalidatedDownstream("T")
+      moduleWillBeRebuiltInvalidatedDownstream("Y")
+      moduleWillBeRebuiltInvalidatedDownstream("H")
+      explicitModulesWillBeRebuilt(["G", "H", "J", "T", "Y"])
+      moduleWillBeRebuiltOutOfDate("G")
+      compilingExplicitSwiftDependency("G")
+      compilingExplicitSwiftDependency("J")
+      compilingExplicitSwiftDependency("T")
+      compilingExplicitSwiftDependency("Y")
+      compilingExplicitSwiftDependency("H")
+      schedulingPostCompileJobs
+      linking
+    }
+  }
+
+  // A dependency has been re-built to be newer than its dependents
+  // so we must ensure the dependents get re-built even though all the
+  // modules are up-to-date with respect to their textual source inputs.
+  //
+  //             test
+  //                 \
+  //                  J
+  //                   \
+  //                    G
+  //
+  // On this graph, after the initial build, if G module binary file is newer
+  // than that of J, even if each of the modules is up-to-date w.r.t. their source inputs
+  // we still expect that J gets re-built
+  func testExplicitIncrementalBuildChangedDependencyBinaryInvalidatesUpstreamDependencies() throws {
+    replace(contentsOf: "other", with: "import J;")
+    try buildInitialState(checkDiagnostics: false, explicitModuleBuild: true)
+
+    let modCacheEntries = try localFileSystem.getDirectoryContents(explicitModuleCacheDir)
+    let nameOfGModule = try XCTUnwrap(modCacheEntries.first { $0.hasPrefix("G") && $0.hasSuffix(".swiftmodule")})
+    let pathToGModule = explicitModuleCacheDir.appending(component: nameOfGModule)
+    // Just update the time-stamp of one of the module dependencies' outputs.
+    touch(pathToGModule)
+    // Touch one of the inputs to actually trigger the incremental build
+    touch(inputPath(basename: "other"))
+
+    // Changing a dependency will mean that we both re-run the dependency scan,
+    // and also ensure that all source-files are re-built with a non-cascading build
+    // since the source files themselves have not changed.
+    try doABuild(
+      "update dependency (G) result timestamp",
+      checkDiagnostics: true,
+      extraArguments: explicitBuildArgs,
+      whenAutolinking: autolinkLifecycleExpectedDiags
+    ) {
+      readGraph
+      enablingCrossModule
+      readInterModuleGraph
+      explicitDependencyModuleOlderThanInput("J")
+      moduleInfoStaleOutOfDate("J")
+      explicitMustReScanDueToChangedDependencyInput
+      maySkip("main")
+      schedulingChangedInitialQueuing("other")
+      skipping("main")
+      explicitDependencyModuleOlderThanInput("J")
+      moduleWillBeRebuiltOutOfDate("J")
+      explicitModulesWillBeRebuilt(["J"])
+      compilingExplicitSwiftDependency("J")
+      findingBatchingCompiling("other")
+      reading(deps: "other")
+      skipped("main")
+      schedulingPostCompileJobs
+      linking
+    }
+  }
+}
+
+extension IncrementalCompilationTests {
+  // A dependency has changed one of its inputs
+  func testIncrementalImplicitBuildChangedDependency() throws {
+    let extraAruments = ["-I", explicitCDependenciesPath.nativePathString(escaped: true),
+                         "-I", explicitSwiftDependenciesPath.nativePathString(escaped: true)]
+    replace(contentsOf: "other", with: "import E;let bar = foo")
+    try buildInitialState(checkDiagnostics: false, extraArguments: extraAruments)
+    touch(try AbsolutePath(validating: explicitSwiftDependenciesPath.appending(component: "E.swiftinterface").pathString))
+    replace(contentsOf: "other", with: "import E;let bar = foo + moduleEValue")
+
+    // Changing a dependency will mean that we both re-run the dependency scan,
+    // and also ensure that all source-files are re-built with a non-cascading build
+    // since the source files themselves have not changed.
+    try doABuild(
+      "update dependency (E) interface timestamp",
+      checkDiagnostics: false,
+      extraArguments: extraAruments,
+      whenAutolinking: autolinkLifecycleExpectedDiags
+    ) {
+      readGraph
+      enablingCrossModule
+      schedulingNoncascading("main", "other")
+      missing("main")
+      missing("other")
+      queuingInitial("main", "other")
+      notSchedulingDependentsDoNotNeedCascading("main", "other")
+      findingBatchingCompiling("main", "other")
+    }
   }
 }
 
@@ -332,6 +638,14 @@ extension IncrementalCompilationTests {
     XCTAssertTrue(mandatoryJobs.isEmpty)
   }
 
+    func testNullBuildNoVerify() throws {
+      let extraArguments = ["-experimental-emit-module-separately", "-emit-module", "-emit-module-interface", "-enable-library-evolution", "-verify-emitted-module-interface"]
+      try buildInitialState(extraArguments: extraArguments)
+      let driver = try checkNullBuild(extraArguments: extraArguments)
+      let mandatoryJobs = try XCTUnwrap(driver.incrementalCompilationState?.mandatoryJobsInOrder)
+      XCTAssertTrue(mandatoryJobs.isEmpty)
+    }
+
   func testSymlinkModification() throws {
     // Remap
     // main.swift -> links/main.swift
@@ -348,35 +662,6 @@ extension IncrementalCompilationTests {
     try checkReactionToTouchingSymlinkTargets(checkDiagnostics: true)
   }
 
-  /// Ensure that a saved prior module dependency graph is rejected if not from the previous build
-  func testObsoletePriors() throws {
-#if _runtime(_ObjC)
-    let before = Date().advanced(by: -2.0)
-    let driver = try buildInitialState(checkDiagnostics: true)
-    let path = try XCTUnwrap(driver.buildRecordInfo?.dependencyGraphPath)
-    try setModTime(of: path, to: before) // Make priors too old
-    let inputs = ["main", "other"]
-    try doABuild("null with old priors",
-                 checkDiagnostics: true,
-                 extraArguments: [],
-                 whenAutolinking: []) {
-      savedGraphNotFromPriorBuild
-      enablingCrossModule
-      maySkip(inputs)
-      queuingInitial(inputs)
-      findingBatchingCompiling(inputs)
-      for (input, name) in [("main", "foo"), ("other", "bar")] {
-        reading(deps: input)
-        newDefinitionOfSourceFile(.interface, input)
-        newDefinitionOfSourceFile(.implementation, input)
-        newDefinitionOfTopLevelName(.interface, name: name, input: input)
-        newDefinitionOfTopLevelName(.implementation, name: name, input: input)
-      }
-      schedLinking
-    }
-    #endif
-  }
-
   /// Ensure that the driver can detect and then recover from a priors version mismatch
   func testPriorsVersionDetectionAndRecovery() throws {
 #if _runtime(_ObjC)
@@ -390,20 +675,19 @@ extension IncrementalCompilationTests {
       .mock(outputFileMap: outputFileMap)
     let priorsModTime = try info.blockingConcurrentAccessOrMutation {
       () -> Date in
-      let priorsWithOldVersion = try ModuleDependencyGraph.read(
+      let priorsWithOldVersion = try XCTUnwrap(ModuleDependencyGraph.read(
         from: .absolute(priorsPath),
-        info: info)
+        info: info))
       let priorsModTime = try localFileSystem.getFileInfo(priorsPath).modTime
-      let compilerVersion = try XCTUnwrap(driver.buildRecordInfo).actualSwiftVersion
       let incrementedVersion = ModuleDependencyGraph.serializedGraphVersion.withAlteredMinor
-      try priorsWithOldVersion?.write(to: .absolute(priorsPath),
-                                on: localFileSystem,
-                                compilerVersion: compilerVersion,
-                                mockSerializedGraphVersion: incrementedVersion)
+      try priorsWithOldVersion.write(to: .absolute(priorsPath),
+                                     on: localFileSystem,
+                                     buildRecord: priorsWithOldVersion.buildRecord,
+                                     mockSerializedGraphVersion: incrementedVersion)
       return priorsModTime
     }
     try setModTime(of: .absolute(priorsPath), to: priorsModTime)
-    
+
     try checkReactionToObsoletePriors()
     try checkNullBuild(checkDiagnostics: true)
 #endif
@@ -450,7 +734,6 @@ fileprivate enum RemovalTestOption: String, CaseIterable, Comparable, Hashable, 
   case
   removeInputFromInvocation,
   removeSwiftDepsOfRemovedInput,
-  simulatePriorsNotRemovedWhenInputWasRemoved,
   removedFileDependsOnChangedFile
 
   private static let byInt  = [Int: Self](uniqueKeysWithValues: allCases.enumerated().map{($0, $1)})
@@ -502,31 +785,92 @@ extension IncrementalCompilationTests {
 
     let removeInputFromInvocation = options.contains(.removeInputFromInvocation)
     let removeSwiftDepsOfRemovedInput = options.contains(.removeSwiftDepsOfRemovedInput)
-    let simulatePriorsNotRemovedWhenInputWasRemoved = options.contains(.simulatePriorsNotRemovedWhenInputWasRemoved)
     let removedFileDependsOnChangedFileAndMainWasChanged = options.contains(.removedFileDependsOnChangedFile)
 
-    do {
-      let wrapperFn = options.contains(.simulatePriorsNotRemovedWhenInputWasRemoved)
-      ? preservingPriorsDo
-      : {_ = try $0()}
-      try wrapperFn {
-        try self.checkNonincrementalAfterRemoving(
-          removedInput: newInput,
-          defining: topLevelName,
-          removeInputFromInvocation: removeInputFromInvocation,
-          removeSwiftDepsOfRemovedInput: removeSwiftDepsOfRemovedInput)
-      }
-    }
+    _ = try self.checkNonincrementalAfterRemoving(
+      removedInput: newInput,
+      defining: topLevelName,
+      removeInputFromInvocation: removeInputFromInvocation,
+      removeSwiftDepsOfRemovedInput: removeSwiftDepsOfRemovedInput)
+
     if removedFileDependsOnChangedFileAndMainWasChanged {
       replace(contentsOf: "main", with: "let foo = \"hello\"")
     }
+
     try checkRestorationOfIncrementalityAfterRemoval(
       removedInput: newInput,
       defining: topLevelName,
       removeInputFromInvocation: removeInputFromInvocation,
       removeSwiftDepsOfRemovedInput: removeSwiftDepsOfRemovedInput,
-      priorsAreStaleFromBeforeInputWasRemoved: simulatePriorsNotRemovedWhenInputWasRemoved,
       removedFileDependsOnChangedFileAndMainWasChanged: removedFileDependsOnChangedFileAndMainWasChanged)
+  }
+}
+
+// MARK: - Incremental argument hashing tests
+extension IncrementalCompilationTests {
+  func testNullBuildWhenAddingAndRemovingArgumentsNotAffectingIncrementalBuilds() throws {
+    // Adding, removing, or changing the arguments of options which don't affect incremental builds should result in a null build.
+    try buildInitialState(extraArguments: ["-driver-batch-size-limit", "5", "-debug-diagnostic-names"])
+    let driver = try checkNullBuild(extraArguments: ["-driver-batch-size-limit", "10", "-diagnostic-style", "swift"])
+    let mandatoryJobs = try XCTUnwrap(driver.incrementalCompilationState?.mandatoryJobsInOrder)
+    XCTAssertTrue(mandatoryJobs.isEmpty)
+  }
+
+  func testChangingOptionArgumentLeadsToRecompile() throws {
+    // If an option affects incremental builds, changing only the argument should trigger a full recompile.
+    try buildInitialState(extraArguments: ["-user-module-version", "1.0"])
+    try doABuild(
+      "change user module version",
+      checkDiagnostics: true,
+      extraArguments: ["-user-module-version", "1.1"],
+      whenAutolinking: autolinkLifecycleExpectedDiags
+    ) {
+      enablingCrossModule
+      readGraph
+      differentArgsPassed
+      disablingIncrementalDifferentArgsPassed
+      findingBatchingCompiling("main", "other")
+      reading(deps: "main", "other")
+      schedLinking
+    }
+  }
+
+  func testOptionReorderingLeadsToRecompile() throws {
+    // Reordering options which affect incremental builds should trigger a full recompile.
+    try buildInitialState(extraArguments: ["-warnings-as-errors", "-no-warnings-as-errors"])
+    try doABuild(
+      "change user module version",
+      checkDiagnostics: true,
+      extraArguments: ["-no-warnings-as-errors", "-warnings-as-errors"],
+      whenAutolinking: autolinkLifecycleExpectedDiags
+    ) {
+      enablingCrossModule
+      readGraph
+      differentArgsPassed
+      disablingIncrementalDifferentArgsPassed
+      findingBatchingCompiling("main", "other")
+      reading(deps: "main", "other")
+      schedLinking
+    }
+  }
+
+  func testArgumentReorderingLeadsToRecompile() throws {
+    // Reordering the arguments of an option which affect incremental builds should trigger a full recompile.
+    try buildInitialState(extraArguments: ["-Ifoo", "-Ibar"])
+    try doABuild(
+      "change user module version",
+      checkDiagnostics: true,
+      extraArguments: ["-Ibar", "-Ifoo"],
+      whenAutolinking: autolinkLifecycleExpectedDiags
+    ) {
+      enablingCrossModule
+      readGraph
+      differentArgsPassed
+      disablingIncrementalDifferentArgsPassed
+      findingBatchingCompiling("main", "other")
+      reading(deps: "main", "other")
+      schedLinking
+    }
   }
 }
 
@@ -541,25 +885,31 @@ extension IncrementalCompilationTests {
   @discardableResult
   private func buildInitialState(
     checkDiagnostics: Bool = false,
-    extraArguments: [String] = []
+    extraArguments: [String] = [],
+    explicitModuleBuild: Bool = false
   ) throws -> Driver {
-    try doABuild(
-      "initial",
-      checkDiagnostics: checkDiagnostics,
-      extraArguments: extraArguments,
-      whenAutolinking: autolinkLifecycleExpectedDiags
-    ) {
+    @DiagsBuilder var implicitBuildInitialRemarks: [Diagnostic.Message] {
       // Leave off the part after the colon because it varies on Linux:
       // MacOS: The operation could not be completed. (TSCBasic.FileSystemError error 3.).
       // Linux: The operation couldn’t be completed. (TSCBasic.FileSystemError error 3.)
       enablingCrossModule
-      cannotReadBuildRecord
-      disablingIncrementalCannotReadBuildRecord
-      createdGraphFromSwiftdeps
       findingBatchingCompiling("main", "other")
       reading(deps: "main", "other")
       schedLinking
     }
+    @DiagsBuilder var explicitBuildInitialRemarks: [Diagnostic.Message] {
+      implicitBuildInitialRemarks
+      explicitDidNotReadInterModuleGraph
+      compilingExplicitClangDependency("SwiftShims")
+      compilingExplicitSwiftDependency("Swift")
+      compilingExplicitSwiftDependency("SwiftOnoneSupport")
+    }
+
+    return try doABuild("initial",
+                        checkDiagnostics: checkDiagnostics,
+                        extraArguments: explicitModuleBuild ? explicitBuildArgs + extraArguments : extraArguments,
+                        whenAutolinking: autolinkLifecycleExpectedDiags
+    ) { explicitModuleBuild ? explicitBuildInitialRemarks : implicitBuildInitialRemarks }
   }
 
   /// Try a build with no changes.
@@ -570,21 +920,29 @@ extension IncrementalCompilationTests {
   @discardableResult
   private func checkNullBuild(
     checkDiagnostics: Bool = false,
-    extraArguments: [String] = []
+    extraArguments: [String] = [],
+    explicitModuleBuild: Bool = false
   ) throws -> Driver {
-    try doABuild(
+    @DiagsBuilder var implicitBuildNullRemarks: [Diagnostic.Message] {
+      enablingCrossModule
+      readGraph
+      maySkip("main", "other")
+      skipping("main", "other")
+      skipped("main", "other")
+      skippingLinking
+    }
+    @DiagsBuilder var explicitBuildNullRemarks: [Diagnostic.Message] {
+      implicitBuildNullRemarks
+      readInterModuleGraph
+      interModuleDependencyGraphUpToDate
+    }
+
+    return try doABuild(
       "as is",
       checkDiagnostics: checkDiagnostics,
-      extraArguments: extraArguments,
+      extraArguments: explicitModuleBuild ? explicitBuildArgs + extraArguments : extraArguments,
       whenAutolinking: []
-    ) {
-        enablingCrossModule
-        readGraph
-        maySkip("main", "other")
-        skipping("main", "other")
-        skipped("main", "other")
-        skippingLinking
-    }
+    ) { explicitModuleBuild ? explicitBuildNullRemarks : implicitBuildNullRemarks }
   }
 
   /// Check reaction to touching a non-propagating input.
@@ -624,16 +982,10 @@ extension IncrementalCompilationTests {
   ///   - extraArguments: Additional command-line arguments
   private func checkReactionToTouchingAll(
     checkDiagnostics: Bool = false,
-    extraArguments: [String] = []
- ) throws {
-    touch("main")
-    touch("other")
-    try doABuild(
-      "touch both; non-propagating",
-      checkDiagnostics: checkDiagnostics,
-      extraArguments: extraArguments,
-      whenAutolinking: autolinkLifecycleExpectedDiags
-    ) {
+    extraArguments: [String] = [],
+    explicitModuleBuild: Bool = false
+  ) throws {
+    @DiagsBuilder var implicitBuildRemarks: [Diagnostic.Message] {
       readGraph
       enablingCrossModule
       schedulingChangedInitialQueuing("main", "other")
@@ -644,6 +996,20 @@ extension IncrementalCompilationTests {
       fingerprintsMissingOfTopLevelName(name: "bar", "other")
       schedLinking
     }
+    @DiagsBuilder var explicitBuildRemarks: [Diagnostic.Message] {
+      implicitBuildRemarks
+      readInterModuleGraph
+      interModuleDependencyGraphUpToDate
+    }
+
+    touch("main")
+    touch("other")
+    try doABuild(
+      "touch both; non-propagating",
+      checkDiagnostics: checkDiagnostics,
+      extraArguments: explicitModuleBuild ? explicitBuildArgs + extraArguments : extraArguments,
+      whenAutolinking: autolinkLifecycleExpectedDiags
+    ) { explicitModuleBuild ? explicitBuildRemarks : implicitBuildRemarks }
   }
 
   /// Check reaction to changing a top-level declaration.
@@ -828,8 +1194,12 @@ extension IncrementalCompilationTests {
         readGraphAndSkipAll("main", "other", removedInput)
       case (true, _):
         // Give up on incremental if an input is removed:
+        readGraph
         disabledForRemoval(removedInput)
+        enablingCrossModule
+        reading(deps: "main", "other")
         findingBatchingCompiling("main", "other")
+        schedulingPostCompileJobs
         linking
       case (false, true):
         // Missing swiftdeps; compile it, read swiftdeps, link
@@ -848,11 +1218,7 @@ extension IncrementalCompilationTests {
       }
     }
 
-    if removeInputFromInvocation {
-      driver.verifyNoGraph()
-      verifyNoPriors()
-    }
-    else {
+    if !removeInputFromInvocation {
       try driver.withModuleDependencyGraph { graph in
         graph.verifyGraph()
         XCTAssert(graph.contains(sourceBasenameWithoutExt: removedInput))
@@ -875,13 +1241,11 @@ extension IncrementalCompilationTests {
     defining topLevelName: String,
     removeInputFromInvocation: Bool,
     removeSwiftDepsOfRemovedInput: Bool,
-    priorsAreStaleFromBeforeInputWasRemoved: Bool,
     removedFileDependsOnChangedFileAndMainWasChanged: Bool
   ) throws {
     let inputs = ["main", "other"] + (removeInputFromInvocation ? [] : [removedInput])
     let extraArguments = removeInputFromInvocation
       ? [] : [inputPath(basename: removedInput).pathString]
-    let havePriors = !removeInputFromInvocation || priorsAreStaleFromBeforeInputWasRemoved
     let mainChanged = removedFileDependsOnChangedFileAndMainWasChanged
     let changedInputs = mainChanged ? ["main"] : []
     let unchangedInputs = inputs.filter {!changedInputs.contains($0)}
@@ -896,37 +1260,26 @@ extension IncrementalCompilationTests {
       extraArguments: extraArguments,
       whenAutolinking: autolinkLifecycleExpectedDiags
     ) {
-      if havePriors {
-        readGraph
-      }
+      readGraph
       enablingCrossModule
 
-      if changedInputs.isEmpty && havePriors {
+      if changedInputs.isEmpty {
         skippingAll(inputs)
-      }
-      else {
-        let swiftDepsReadAfterFirstWave = havePriors ? changedInputs : inputs
-        let omittedFromFirstWave = havePriors ? unchangedInputs : []
+      } else {
+        let swiftDepsReadAfterFirstWave = changedInputs
+        let omittedFromFirstWave = unchangedInputs
         respondToChangedInputs(
           changedInputs: changedInputs,
           unchangedInputs: unchangedInputs,
           swiftDepsReadAfterFirstWave: swiftDepsReadAfterFirstWave,
           omittedFromFirstWave: omittedFromFirstWave)
-        if !havePriors {
-          addDefsWithoutGraph
-        }
-        else {
-          // At this point in the result builder:
-          // (!removeInputFromInvocation || priorsAreStaleFromBeforeInputWasRemoved) && removedFileDependsOnChangedFileAndMainWasChanged
-
-          integrateChangedMainWithPriors(
-            removedInput: removedInput,
-            defining: topLevelName,
-            affectedInputs: affectedInputs,
-            affectedInputsInBuild: affectedInputsInBuild,
-            affectedInputsInInvocationOrder: affectedInputsInInvocationOrder,
-            removeInputFromInvocation: removeInputFromInvocation)
-        }
+        integrateChangedMainWithPriors(
+          removedInput: removedInput,
+          defining: topLevelName,
+          affectedInputs: affectedInputs,
+          affectedInputsInBuild: affectedInputsInBuild,
+          affectedInputsInInvocationOrder: affectedInputsInInvocationOrder,
+          removeInputFromInvocation: removeInputFromInvocation)
         schedLinking
       }
     }
@@ -943,7 +1296,7 @@ extension IncrementalCompilationTests {
       }
     }
   }
-  
+
   @DiagsBuilder private func respondToChangedInputs(
     changedInputs: [String],
     unchangedInputs: [String],
@@ -958,7 +1311,7 @@ extension IncrementalCompilationTests {
     findingBatchingCompiling(swiftDepsReadAfterFirstWave)
     reading(deps: swiftDepsReadAfterFirstWave)
   }
-  
+
   @DiagsBuilder private var addDefsWithoutGraph: [Diagnostic.Message] {
     for (input, name) in [("main", "foo"), ("other", "bar")] {
       newDefinitionOfSourceFile(.interface,      input)
@@ -967,7 +1320,7 @@ extension IncrementalCompilationTests {
       newDefinitionOfTopLevelName(.implementation, name: name, input: input)
     }
   }
-  
+
   @DiagsBuilder private func integrateChangedMainWithPriors(
     removedInput: String,
     defining topLevelName: String,
@@ -979,7 +1332,7 @@ extension IncrementalCompilationTests {
   {
     fingerprintsChanged("main")
     fingerprintsMissingOfTopLevelName(name: "foo", "main")
-    
+
     for input in affectedInputs {
       trace {
         TraceStep(.interface, sourceFileProvide: "main")
@@ -992,7 +1345,7 @@ extension IncrementalCompilationTests {
     findingBatchingCompiling(affectedInputsInInvocationOrder)
     reading(deps: "other")
     fingerprintsMissingOfTopLevelName(name: "bar", "other")
-    
+
     let readingAnotherDeps = !removeInputFromInvocation // if removed, won't read it
     if readingAnotherDeps {
       reading(deps: removedInput)
@@ -1008,19 +1361,9 @@ extension IncrementalCompilationTests {
       whenAutolinking: autolinkLifecycleExpectedDiags) {
         couldNotReadPriors
         enablingCrossModule
-        maySkip("main", "other")
-        queuingInitial("main", "other")
         findingBatchingCompiling("main", "other")
         reading(deps: "main")
-        newDefinitionOfSourceFile(.interface, "main")
-        newDefinitionOfSourceFile(.implementation, "main")
-        newDefinitionOfTopLevelName(.interface, name: "foo", input: "main")
-        newDefinitionOfTopLevelName(.implementation, name: "foo", input: "main")
         reading(deps: "other")
-        newDefinitionOfSourceFile(.interface, "other")
-        newDefinitionOfSourceFile(.implementation, "other")
-        newDefinitionOfTopLevelName(.interface, name: "bar", input: "other")
-        newDefinitionOfTopLevelName(.implementation, name: "bar", input: "other")
         schedLinking
     }
   }
@@ -1060,7 +1403,7 @@ extension IncrementalCompilationTests {
 
     for (file, contents) in self.inputPathsAndContents {
       let linkTarget = tempDir.appending(component: "links").appending(component: file.basename)
-      try! localFileSystem.writeFileContents(linkTarget) { $0 <<< contents }
+      try! localFileSystem.writeFileContents(linkTarget) { $0.send(contents) }
     }
 
     try doABuild(
@@ -1085,10 +1428,15 @@ extension IncrementalCompilationTests {
 // MARK: - Incremental test perturbation helpers
 extension IncrementalCompilationTests {
   private func touch(_ name: String) {
-    Thread.sleep(forTimeInterval: 1)
     print("*** touching \(name) ***", to: &stderrStream); stderrStream.flush()
-    let (path, contents) = try! XCTUnwrap(inputPathsAndContents.filter {$0.0.pathString.contains(name)}.first)
-    try! localFileSystem.writeFileContents(path) { $0 <<< contents }
+    let (path, _) = try! XCTUnwrap(inputPathsAndContents.filter {$0.0.pathString.contains(name)}.first)
+    touch(path)
+  }
+
+  private func touch(_ path: AbsolutePath) {
+    Thread.sleep(forTimeInterval: 1)
+    let existingContents = try! localFileSystem.readFileContents(path)
+    try! localFileSystem.writeFileContents(path) { $0.send(existingContents) }
   }
 
   /// Set modification time of a file
@@ -1114,11 +1462,11 @@ extension IncrementalCompilationTests {
     try! localFileSystem.removeFileTree(swiftDepsPath)
   }
 
-  private func replace(contentsOf name: String, with replacement: String ) {
+  private func replace(contentsOf name: String, with replacement: String) {
     print("*** replacing \(name) ***", to: &stderrStream); stderrStream.flush()
     let path = inputPath(basename: name)
     let previousContents = try! localFileSystem.readFileContents(path).cString
-    try! localFileSystem.writeFileContents(path) { $0 <<< replacement }
+    try! localFileSystem.writeFileContents(path) { $0.send(replacement) }
     let newContents = try! localFileSystem.readFileContents(path).cString
     XCTAssert(previousContents != newContents, "\(path.pathString) unchanged after write")
     XCTAssert(replacement == newContents, "\(path.pathString) failed to write")
@@ -1126,9 +1474,7 @@ extension IncrementalCompilationTests {
 
   private func write(_ contents: String, to basename: String) {
     print("*** writing \(contents) to \(basename)")
-    try! localFileSystem.writeFileContents(inputPath(basename: basename)) {
-      $0 <<< contents
-    }
+    try! localFileSystem.writeFileContents(inputPath(basename: basename)) { $0.send(contents) }
   }
 
   private func readPriors() -> ByteString? {
@@ -1138,46 +1484,16 @@ extension IncrementalCompilationTests {
   private func writePriors( _ contents: ByteString) {
     try! localFileSystem.writeFileContents(priorsPath, bytes: contents)
   }
-
-  /// Save and restore priors across a call to the argument, ensuring that the restored priors have a valid modTime
-  private func preservingPriorsDo(_ fn: () throws -> Driver ) throws {
-    let contents = try XCTUnwrap(readPriors())
-    _ = try fn()
-    writePriors(contents)
-    let buildRecordContents = try localFileSystem.readFileContents(masterSwiftDepsPath).cString
-    guard let buildRecord = BuildRecord(contents: buildRecordContents, failedToReadOutOfDateMap: {
-      maybeWhy in
-      XCTFail("could not read build record")
-    })
-    else {
-      XCTFail()
-      return
-    }
-    let goodModTime = { start, end in
-      start.advanced(by: end.timeIntervalSince(start) / 2.0)
-    }(buildRecord.buildStartTime, buildRecord.buildEndTime)
-    try setModTime(of: .absolute(priorsPath),
-                   to: goodModTime)
-  }
-
-  private func verifyNoPriors() {
-    XCTAssertNil(readPriors().map {"\($0.count) bytes"}, "Should not have found priors")
-  }
 }
 
 // MARK: - Graph inspection
 extension Driver {
   /// Expose the protected ``ModuleDependencyGraph`` to a function and also prevent concurrent access or modification
-  func withModuleDependencyGraph(_ fn: (ModuleDependencyGraph) throws -> Void ) throws {
-    let incrementalCompilationState: IncrementalCompilationState
-    do {
-      incrementalCompilationState = try XCTUnwrap(self.incrementalCompilationState)
+  func withModuleDependencyGraph(_ fn: (ModuleDependencyGraph) throws -> Void) throws {
+    let incrementalCompilationState = try XCTUnwrap(self.incrementalCompilationState, "no graph")
+    try incrementalCompilationState.blockingConcurrentAccessOrMutationToProtectedState {
+      try $0.testWithModuleDependencyGraph(fn)
     }
-    catch {
-      XCTFail("no graph")
-      throw error
-    }
-    try incrementalCompilationState.blockingConcurrentAccessOrMutationToProtectedState {try $0.testWithModuleDependencyGraph(fn)}
   }
   func verifyNoGraph() {
     XCTAssertNil(incrementalCompilationState)
@@ -1290,8 +1606,7 @@ extension IncrementalCompilationTests {
     }
   }
 
-  private func doABuildWithoutExpectations( arguments: [String]
-  ) throws -> Driver {
+  private func doABuildWithoutExpectations(arguments: [String]) throws -> Driver {
     // If not checking, print out the diagnostics
     let diagnosticEngine = DiagnosticsEngine(handlers: [
       {print($0, to: &stderrStream); stderrStream.flush()}
@@ -1311,7 +1626,7 @@ extension IncrementalCompilationTests {
   }
 }
 
-// MARK: - Concisely specifiying sequences of diagnostics
+// MARK: - Concisely specifying sequences of diagnostics
 
 /// Build an array of diagnostics from a closure containing various things
 @resultBuilder fileprivate enum DiagsBuilder {}
@@ -1361,6 +1676,66 @@ extension IncrementalCompilationTests: DiagVerifiable {}
 
 extension DiagVerifiable {
 
+  // MARK: - explicit builds
+  @DiagsBuilder var explicitDidNotReadInterModuleGraph: [Diagnostic.Message] {
+    "Incremental compilation: Incremental compilation did not attempt to read inter-module dependency graph."
+  }
+  @DiagsBuilder var explicitMustReScanCouldNotReadGraph: [Diagnostic.Message] {
+    "Incremental compilation: Incremental build must re-run dependency scan: Could not read inter-module dependency graph at"
+  }
+  @DiagsBuilder var readInterModuleGraph: [Diagnostic.Message] {
+    "Incremental compilation: Read inter-module dependency graph"
+  }
+  @DiagsBuilder var interModuleDependencyGraphUpToDate: [Diagnostic.Message] {
+    "Incremental compilation: Confirmed prior inter-module dependency graph is up-to-date at"
+  }
+  @DiagsBuilder var explicitMustReScanDueToChangedImports: [Diagnostic.Message] {
+    "Incremental compilation: Incremental build must re-run dependency scan: Target import set has changed."
+  }
+  @DiagsBuilder var explicitMustReScanDueToChangedDependencyInput: [Diagnostic.Message] {
+    "Incremental compilation: Incremental build must re-run dependency scan: Not all dependencies are up-to-date."
+  }
+  @DiagsBuilder func explicitDependencyModuleOlderThanInput(_ dependencyModuleName: String) -> [Diagnostic.Message] {
+    "Dependency module \(dependencyModuleName) is older than input file"
+  }
+  @DiagsBuilder func startCompilingExplicitClangDependency(_ dependencyModuleName: String) -> [Diagnostic.Message] {
+    "Starting Compiling Clang module \(dependencyModuleName)"
+  }
+  @DiagsBuilder func finishCompilingExplicitClangDependency(_ dependencyModuleName: String) -> [Diagnostic.Message] {
+    "Finished Compiling Clang module \(dependencyModuleName)"
+  }
+  @DiagsBuilder func startCompilingExplicitSwiftDependency(_ dependencyModuleName: String) -> [Diagnostic.Message] {
+    "Starting Compiling Swift module \(dependencyModuleName)"
+  }
+  @DiagsBuilder func finishCompilingExplicitSwiftDependency(_ dependencyModuleName: String) -> [Diagnostic.Message] {
+    "Finished Compiling Swift module \(dependencyModuleName)"
+  }
+  @DiagsBuilder func compilingExplicitClangDependency(_ dependencyModuleName: String) -> [Diagnostic.Message] {
+    startCompilingExplicitClangDependency(dependencyModuleName)
+    finishCompilingExplicitClangDependency(dependencyModuleName)
+  }
+  @DiagsBuilder func compilingExplicitSwiftDependency(_ dependencyModuleName: String) -> [Diagnostic.Message] {
+    startCompilingExplicitSwiftDependency(dependencyModuleName)
+    finishCompilingExplicitSwiftDependency(dependencyModuleName)
+  }
+  @DiagsBuilder func moduleOutputNotFound(_ moduleName: String) -> [Diagnostic.Message] {
+    "Incremental compilation: Module output not found: '\(moduleName)'"
+  }
+  @DiagsBuilder func moduleWillBeRebuiltOutOfDate(_ moduleName: String) -> [Diagnostic.Message] {
+    "Incremental compilation: Dependency module '\(moduleName)' will be re-built: Out-of-date"
+  }
+  @DiagsBuilder func moduleWillBeRebuiltInvalidatedDownstream(_ moduleName: String) -> [Diagnostic.Message] {
+    "Incremental compilation: Dependency module '\(moduleName)' will be re-built: Invalidated by downstream dependency"
+  }
+  @DiagsBuilder func moduleInfoStaleOutOfDate(_ moduleName: String) -> [Diagnostic.Message] {
+    "Incremental compilation: Dependency module '\(moduleName)' info is stale: Out-of-date"
+  }
+  @DiagsBuilder func moduleInfoStaleInvalidatedDownstream(_ moduleName: String) -> [Diagnostic.Message] {
+    "Incremental compilation: Dependency module '\(moduleName)' info is stale: Invalidated by downstream dependency"
+  }
+  @DiagsBuilder func explicitModulesWillBeRebuilt(_ moduleNames: [String]) -> [Diagnostic.Message] {
+    "Incremental compilation: Following explicit module dependencies will be re-built: [\(moduleNames.joined(separator: ", "))]"
+  }
 
   // MARK: - misc
   @DiagsBuilder var enablingCrossModule: [Diagnostic.Message] {
@@ -1372,16 +1747,18 @@ extension DiagVerifiable {
   @DiagsBuilder var disabledForWMO: [Diagnostic.Message] {
     "Incremental compilation has been disabled: it is not compatible with whole module optimization"
   }
-  @DiagsBuilder var savedGraphNotFromPriorBuild: [Diagnostic.Message] {
-      .warning(
-      "Will not do cross-module incremental builds, priors saved at ")
-  }
   // MARK: - build record
   @DiagsBuilder var cannotReadBuildRecord: [Diagnostic.Message] {
     "Incremental compilation: Incremental compilation could not read build record at"
   }
   @DiagsBuilder var disablingIncrementalCannotReadBuildRecord: [Diagnostic.Message] {
     "Incremental compilation: Disabling incremental build: could not read build record"
+  }
+  @DiagsBuilder var differentArgsPassed: [Diagnostic.Message] {
+      "Incremental compilation: Incremental compilation has been disabled, because different arguments were passed to the compiler"
+  }
+  @DiagsBuilder var disablingIncrementalDifferentArgsPassed: [Diagnostic.Message] {
+      "Incremental compilation: Disabling incremental build: different arguments were passed to the compiler"
   }
   @DiagsBuilder var missingMainDependencyEntry: [Diagnostic.Message] {
     .warning("ignoring -incremental; output file map has no master dependencies entry (\"swift-dependencies\" under \"\")")
@@ -1397,7 +1774,7 @@ extension DiagVerifiable {
     "Incremental compilation: Read dependency graph"
   }
   @DiagsBuilder var couldNotReadPriors: [Diagnostic.Message] {
-      .warning("Will not do cross-module incremental builds, wrong version of priors; expected")
+      .remark("Will not do cross-module incremental builds, wrong version of priors; expected")
   }
   // MARK: - dependencies
   @DiagsBuilder func reading(deps inputs: [String]) -> [Diagnostic.Message] {
@@ -1408,7 +1785,7 @@ extension DiagVerifiable {
   @DiagsBuilder func reading(deps inputs: String...) -> [Diagnostic.Message] {
     reading(deps: inputs)
   }
-  
+
   @DiagsBuilder func fingerprintChanged(_ aspect: DependencyKey.DeclAspect, _ input: String) -> [Diagnostic.Message] {
     "Incremental compilation: Fingerprint changed for existing \(aspect) of source file from \(input).swiftdeps in \(input).swift"
   }
@@ -1417,7 +1794,7 @@ extension DiagVerifiable {
       fingerprintChanged(aspect, input)
     }
   }
-  
+
    @DiagsBuilder func fingerprintsMissingOfTopLevelName(name: String, _ input: String) -> [Diagnostic.Message] {
     for aspect: DependencyKey.DeclAspect in [.interface, .implementation] {
       "Incremental compilation: Fingerprint missing for existing \(aspect) of top-level name '\(name)' in \(input).swift"
@@ -1457,6 +1834,13 @@ extension DiagVerifiable {
     "Incremental compilation: Failed to read some dependencies source; compiling everything  {compile: \(input).o <= \(input).swift}"
   }
 
+  @DiagsBuilder func noFingerprintInSwiftModule(_ dependencyFile: String) -> [Diagnostic.Message] {
+    "No fingerprint in swiftmodule: Invalidating all nodes in newer: \(dependencyFile)"
+  }
+  @DiagsBuilder func dependencyNewerThanNode(_ dependencyFile: String) -> [Diagnostic.Message] {
+    "Newer: \(dependencyFile) -> SwiftDriver.ModuleDependencyGraph.Node"
+  }
+
   // MARK: - tracing
   @DiagsBuilder func trace(@TraceBuilder _ steps: () -> String) -> [Diagnostic.Message] {
     steps()
@@ -1477,6 +1861,15 @@ extension DiagVerifiable {
   }
   @DiagsBuilder func schedulingChanged(_ inputs: String...) -> [Diagnostic.Message] {
     schedulingChanged(inputs)
+  }
+
+  @DiagsBuilder func schedulingNoncascading(_ inputs: [String]) -> [Diagnostic.Message] {
+    for input in inputs {
+      "Incremental compilation: Scheduling noncascading build  {compile: \(input).o <= \(input).swift}"
+    }
+  }
+  @DiagsBuilder func schedulingNoncascading(_ inputs: String...) -> [Diagnostic.Message] {
+    schedulingNoncascading(inputs)
   }
 
   @DiagsBuilder func schedulingInvalidated(_ inputs: [String]) -> [Diagnostic.Message] {
@@ -1509,6 +1902,15 @@ extension DiagVerifiable {
   }
   @DiagsBuilder func notSchedulingDependentsUnknownChanges(_ inputs: String...) -> [Diagnostic.Message] {
     notSchedulingDependentsUnknownChanges(inputs)
+  }
+
+  @DiagsBuilder func notSchedulingDependentsDoNotNeedCascading(_ inputs: [String]) -> [Diagnostic.Message] {
+    for input in inputs {
+      "Incremental compilation: not scheduling dependents of \(input).swift: does not need cascading build"
+    }
+  }
+  @DiagsBuilder func notSchedulingDependentsDoNotNeedCascading(_ inputs: String...) -> [Diagnostic.Message] {
+    notSchedulingDependentsDoNotNeedCascading(inputs)
   }
 
   @DiagsBuilder func missing(_ input: String) -> [Diagnostic.Message] {

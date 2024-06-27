@@ -12,3 +12,6 @@ target_link_libraries(swift-help PUBLIC
   SwiftOptions
   ArgumentParser
   TSCBasic)
+
+install(TARGETS swift-help
+  DESTINATION bin)

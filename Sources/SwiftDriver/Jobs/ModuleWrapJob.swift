@@ -22,19 +22,18 @@ extension Driver {
 
     commandLine.appendFlags("-target", targetTriple.triple)
 
-    let outputPath = moduleInput.file.replacingExtension(with: .object)
+    let outputPath = try moduleInput.file.replacingExtension(with: .object)
     commandLine.appendFlag("-o")
     commandLine.appendPath(outputPath)
 
     return Job(
       moduleName: moduleOutputInfo.name,
       kind: .moduleWrap,
-      tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
+      tool: try toolchain.resolvedTool(.swiftCompiler),
       commandLine: commandLine,
       inputs: [moduleInput],
       primaryInputs: [],
-      outputs: [.init(file: outputPath.intern(), type: .object)],
-      supportsResponseFiles: true
+      outputs: [.init(file: outputPath.intern(), type: .object)]
     )
   }
 }

@@ -9,8 +9,10 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import TSCBasic
+
 import SwiftOptions
+
+import struct TSCBasic.Diagnostic
 
 extension Diagnostic.Message {
   static var error_static_emit_executable_disallowed: Diagnostic.Message {
@@ -41,8 +43,20 @@ extension Diagnostic.Message {
     .error("invalid value '\(value)' in '\(arg.spelling)'")
   }
 
+  static func error_invalid_arg_value_with_allowed(arg: Option, value: String, options: [String]) -> Diagnostic.Message {
+    .error("invalid value '\(value)' in '\(arg.spelling)', valid options are: \(options.joined(separator: ", "))")
+  }
+
   static func warning_inferring_simulator_target(originalTriple: Triple, inferredTriple: Triple) -> Diagnostic.Message {
     .warning("inferring simulator environment for target '\(originalTriple.triple)'; use '-target \(inferredTriple.triple)' instead")
+  }
+
+  static func remark_inprocess_target_info_query_failed(_ error: String) -> Diagnostic.Message {
+    .remark("In-process target-info query failed (\(error)). Using fallback mechanism.")
+  }
+
+  static func remark_inprocess_supported_features_query_failed(_ error: String) -> Diagnostic.Message {
+    .remark("In-process supported-compiler-features query failed (\(error)). Using fallback mechanism.")
   }
 
   static func error_argument_not_allowed_with(arg: String, other: String) -> Diagnostic.Message {
@@ -109,6 +123,10 @@ extension Diagnostic.Message {
     return .error("bad module alias \"\(arg)\"")
   }
 
+  static var error_empty_package_name: Diagnostic.Message {
+    return .error("package-name is empty")
+  }
+
   static var error_hermetic_seal_cannot_have_library_evolution: Diagnostic.Message {
     .error("Cannot use -experimental-hermetic-seal-at-link with -enable-library-evolution")
   }
@@ -139,5 +157,25 @@ extension Diagnostic.Message {
 
   static func warning_option_overrides_another(overridingOption: Option, overridenOption: Option) -> Diagnostic.Message {
     .warning("ignoring '\(overridenOption.spelling)' because '\(overridingOption.spelling)' was also specified")
+  }
+
+  static func error_expected_one_frontend_job() -> Diagnostic.Message {
+    .error("unable to handle compilation, expected exactly one frontend job")
+  }
+
+  static func error_expected_frontend_command() -> Diagnostic.Message {
+    .error("expected a swift frontend command")
+  }
+
+  static var error_no_library_evolution_embedded: Diagnostic.Message {
+    .error("Library evolution cannot be enabled with embedded Swift.")
+  }
+
+  static var error_need_wmo_embedded: Diagnostic.Message {
+    .error("Whole module optimization (wmo) must be enabled with embedded Swift.")
+  }
+
+  static var error_no_objc_interop_embedded: Diagnostic.Message {
+    .error("Objective-C interop cannot be enabled with embedded Swift.")
   }
 }

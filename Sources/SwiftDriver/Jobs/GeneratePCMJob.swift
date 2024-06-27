@@ -48,19 +48,21 @@ extension Driver {
     commandLine.appendPath(output.file)
 
     try addCommonFrontendOptions(
-      commandLine: &commandLine, inputs: &inputs, bridgingHeaderHandling: .ignored)
+      commandLine: &commandLine, inputs: &inputs, kind: .generatePCM, bridgingHeaderHandling: .ignored)
 
     try commandLine.appendLast(.indexStorePath, from: &parsedOptions)
+    let cacheKeys = try computeOutputCacheKeyForJob(commandLine: commandLine, inputs: [(input, 0)])
 
     return Job(
       moduleName: moduleOutputInfo.name,
       kind: .generatePCM,
-      tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
+      tool: try toolchain.resolvedTool(.swiftCompiler),
       commandLine: commandLine,
       displayInputs: [],
       inputs: inputs,
       primaryInputs: [],
-      outputs: outputs
+      outputs: outputs,
+      outputCacheKeys: cacheKeys
     )
   }
 
@@ -79,12 +81,12 @@ extension Driver {
     commandLine.appendPath(input.file)
 
     try addCommonFrontendOptions(
-      commandLine: &commandLine, inputs: &inputs, bridgingHeaderHandling: .ignored)
+      commandLine: &commandLine, inputs: &inputs, kind: .generatePCM, bridgingHeaderHandling: .ignored)
 
     return Job(
       moduleName: moduleOutputInfo.name,
       kind: .dumpPCM,
-      tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
+      tool: try toolchain.resolvedTool(.swiftCompiler),
       commandLine: commandLine,
       displayInputs: [],
       inputs: inputs,

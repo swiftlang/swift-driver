@@ -8,61 +8,90 @@
 
 cmake_minimum_required(VERSION 3.19.6)
 
+if(POLICY CMP0077)
+  cmake_policy(SET CMP0077 NEW)
+endif()
+
+if(POLICY CMP0091)
+  cmake_policy(SET CMP0091 NEW)
+endif()
+
+project(SwiftDriver
+  LANGUAGES C CXX Swift)
+
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+
+set(CMAKE_MACOSX_RPATH YES)
+set(CMAKE_MSVC_RUNTIME_LIBRARY MultiThreadedDLL)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules)
 
-project(SwiftDriver LANGUAGES C Swift)
-
-set(SWIFT_VERSION 5)
-set(CMAKE_Swift_LANGUAGE_VERSION ${SWIFT_VERSION})
-if(CMAKE_VERSION VERSION_LESS 3.16)
-    add_compile_options($<$<COMPILE_LANGUAGE:Swift>:-swift-version$<SEMICOLON>${SWIFT_VERSION}>)
-    set(CMAKE_LINK_LIBRARY_FLAG "-l")
-endif()
+set(CMAKE_Swift_COMPILE_OPTIONS_MSVC_RUNTIME_LIBRARY MultiThreadedDLL)
+set(CMAKE_Swift_LANGUAGE_VERSION 5)
+set(CMAKE_Swift_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/swift)
 
 # ensure Swift compiler can find _CSwiftScan
 add_compile_options($<$<COMPILE_LANGUAGE:Swift>:-I$<SEMICOLON>${CMAKE_CURRENT_SOURCE_DIR}/Sources/CSwiftScan/include>)
 
-set(CMAKE_Swift_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/swift)
-
-if(CMAKE_VERSION VERSION_LESS 3.16 AND CMAKE_SYSTEM_NAME STREQUAL Windows)
-  set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
-  set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
-else()
-  set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-  set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-endif()
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
-
 option(BUILD_SHARED_LIBS "Build shared libraries by default" YES)
+option(SWIFT_DRIVER_BUILD_TOOLS "Build makeOption" NO)
 
-set(CMAKE_MACOSX_RPATH YES)
-if(CMAKE_VERSION VERSION_LESS 3.17)
-  if(NOT CMAKE_SYSTEM_NAME STREQUAL Windows)
-    set(CMAKE_EXECUTABLE_RUNTIME_Swift_FLAG "-Xlinker -rpath -Xlinker ")
-    set(CMAKE_SHARED_LIBRARY_RUNTIME_Swift_FLAG "-Xlinker -rpath -Xlinker ")
+# Toolchain Vended Dependencies
+find_package(dispatch QUIET)
+find_package(Foundation QUIET)
 
-    if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
-      set(CMAKE_EXECUTABLE_RUNTIME_Swift_FLAG_SEP "")
-      set(CMAKE_SHARED_LIBRARY_RUNTIME_Swift_FLAG_SEP "")
-    else()
-      set(CMAKE_EXECUTABLE_RUNTIME_Swift_FLAG_SEP ":")
-      set(CMAKE_SHARED_LIBRARY_RUNTIME_Swift_FLAG_SEP ":")
-    endif()
-  endif()
+include(FetchContent)
+
+set(_SD_SAVED_BUILD_TESTING ${BUILD_TESTING})
+set(_SD_SAVED_BUILD_EXAMPLES ${BUILD_EXAMPLES})
+
+set(BUILD_TESTING NO)
+set(BUILD_EXAMPLES NO)
+
+find_package(ArgumentParser CONFIG)
+if(NOT ArgumentParser_FOUND)
+  message("-- Vending swift-argument-parser")
+  FetchContent_Declare(ArgumentParser
+    GIT_REPOSITORY https://github.com/apple/swift-argument-parser
+    GIT_TAG 1.2.3)
+  FetchContent_MakeAvailable(ArgumentParser)
 endif()
-
-find_package(TSC CONFIG REQUIRED)
 
 find_package(LLBuild CONFIG)
 if(NOT LLBuild_FOUND)
-  find_package(LLBuild REQUIRED)
+  if(APPLE)
+    find_package(LLBuild REQUIRED)
+  else()
+    message("-- Vending swift-llbuild")
+    set(LLBUILD_SUPPORT_BINDINGS Swift)
+    FetchContent_Declare(LLBuild
+      GIT_REPOSITORY https://github.com/apple/swift-llbuild
+      GIT_TAG main)
+    FetchContent_MakeAvailable(LLBuild)
+  endif()
 endif()
 
-find_package(dispatch QUIET)
-find_package(Foundation QUIET)
-find_package(Yams CONFIG REQUIRED)
-find_package(ArgumentParser CONFIG REQUIRED)
-find_package(SwiftSystem CONFIG REQUIRED)
+find_package(TSC CONFIG)
+if(NOT TSC_FOUND)
+  message("-- Vending swift-tools-support-core")
+  FetchContent_Declare(ToolsSupportCore
+    GIT_REPOSITORY https://github.com/apple/swift-tools-support-core
+    GIT_TAG main)
+  FetchContent_MakeAvailable(ToolsSupportCore)
+endif()
+
+find_package(Yams CONFIG)
+if(NOT Yams_FOUND)
+  message("-- Vending yams")
+  FetchContent_Declare(Yams
+    GIT_REPOSITORY https://github.com/jpsim/yams
+    GIT_TAG 5.0.6)
+  FetchContent_MakeAvailable(Yams)
+endif()
+
+set(BUILD_TESTING ${_SD_SAVED_BUILD_TESTING})
+set(BUILD_EXAMPLES ${_SD_SAVED_BUILD_EXAMPLES})
 
 add_subdirectory(Sources)
 add_subdirectory(cmake/modules)

@@ -9,29 +9,89 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import TSCBasic
 import SwiftOptions
+import class Foundation.JSONEncoder
+import class Foundation.JSONSerialization
 
-@_spi(Testing) public func isIosMacInterface(_ path: VirtualPath) throws -> Bool {
+import class TSCBasic.DiagnosticsEngine
+import protocol TSCBasic.WritableByteStream
+import struct TSCBasic.AbsolutePath
+import struct TSCBasic.ByteString
+import struct TSCBasic.ProcessResult
+import struct TSCBasic.RelativePath
+import var TSCBasic.localFileSystem
+import var TSCBasic.stderrStream
+
+enum InterfaceFlagKind {
+  case regular, ignorable, ignorablePrivate
+
+  var string: String {
+    switch self {
+    case .regular:
+      return "swift-module-flags"
+    case .ignorable:
+      return "swift-module-flags-ignorable"
+    case .ignorablePrivate:
+      return "swift-module-flags-ignorable-private"
+    }
+  }
+}
+
+func getModuleFlags(_ path: VirtualPath,
+                    _ flagKind: InterfaceFlagKind) throws -> [String] {
   let data = try localFileSystem.readFileContents(path).cString
   let myStrings = data.components(separatedBy: .newlines)
-  let prefix = "// swift-module-flags: "
+
+  let prefix = "// " + flagKind.string + ": "
   if let argLine = myStrings.first(where: { $0.hasPrefix(prefix) }) {
-    let args = argLine.dropFirst(prefix.count).components(separatedBy: " ")
-    if let idx = args.firstIndex(of: "-target"), idx + 1 < args.count {
-      return args[idx + 1].contains("macabi")
-    }
+    return argLine.dropFirst(prefix.count).components(separatedBy: " ")
+  }
+  return []
+}
+
+@_spi(Testing) public func getAllModuleFlags(_ path: VirtualPath) throws -> [String] {
+  var allFlags: [String] = []
+  allFlags.append(contentsOf: try getModuleFlags(path, .regular))
+  allFlags.append(contentsOf: try getModuleFlags(path, .ignorable))
+  allFlags.append(contentsOf: try getModuleFlags(path, .ignorablePrivate))
+  return allFlags;
+}
+
+@_spi(Testing) public func isIosMacInterface(_ path: VirtualPath) throws -> Bool {
+  let args = try getAllModuleFlags(path)
+  if let idx = args.firstIndex(of: "-target"), idx + 1 < args.count {
+    return args[idx + 1].contains("macabi")
   }
   return false
 }
 
-fileprivate func getErrKind(_ content: String) -> String {
+@_spi(Testing) public enum LibraryLevel: String, Codable {
+  case api
+  case spi
+  case unknown
+  case unspecified
+}
+
+@_spi(Testing) public func getLibraryLevel(_ flags: [String]) throws -> LibraryLevel {
+  if let idx = flags.firstIndex(of: "-library-level"), idx + 1 < flags.count {
+    return LibraryLevel(rawValue: flags[idx + 1]) ?? .unknown
+  }
+  return .unspecified
+}
+
+enum ErrKind: String {
+  case err
+  case warn
+  case note
+}
+
+fileprivate func getErrKind(_ content: String) -> ErrKind {
   if content.contains("error: ") {
-    return "err"
-  } else if content.contains("warning: "){
-    return "warn"
+    return .err
+  } else if content.contains("warning: ") {
+    return .warn
   } else {
-    return "note"
+    return .note
   }
 }
 
@@ -46,20 +106,27 @@ fileprivate func getLastInputPath(_ job: Job) -> AbsolutePath {
 }
 
 fileprivate func logOutput(_ job: Job, _ result: ProcessResult, _ logPath: AbsolutePath?, _ stdout: Bool) throws {
-  guard let logPath = logPath else {
+  guard var logPath = logPath else {
     return
   }
   let content = stdout ? try result.utf8Output() : try result.utf8stderrOutput()
   guard !content.isEmpty else {
     return
   }
+
+  let interfaceBase = getLastInputPath(job).basename
+  let errKind = getErrKind(content)
+  if interfaceBase.contains(".abi.json") {
+    logPath = logPath.appending(component: "abi").appending(component: errKind.rawValue)
+  } else if errKind != .err {
+    logPath = logPath.appending(component: "interface-nonfatal")
+  }
   if !localFileSystem.exists(logPath) {
     try localFileSystem.createDirectory(logPath, recursive: true)
   }
-  let interfaceBase = getLastInputPath(job).basename
-  let fileName = "\(job.moduleName)-\(interfaceBase)-\(stdout ? "out" : getErrKind(content)).txt"
+  let fileName = "\(job.moduleName)-\(interfaceBase)-\(stdout ? "out" : errKind.rawValue).txt"
   try localFileSystem.writeFileContents(logPath.appending(component: fileName)) {
-    $0 <<< content
+    $0.send(content)
   }
 }
 
@@ -68,9 +135,33 @@ func printJobInfo(_ job: Job, _ start: Bool, _ verbose: Bool) {
     return
   }
   Driver.stdErrQueue.sync {
-    stderrStream <<< (start ? "started: " : "finished: ")
-    stderrStream <<< getLastInputPath(job).pathString <<< "\n"
+    stderrStream.send(start ? "started: " : "finished: ")
+    stderrStream.send("\(getLastInputPath(job).pathString)\n")
     stderrStream.flush()
+  }
+}
+
+class JSONOutputDelegate: Encodable {
+  enum SDKFailureKind: String, Encodable {
+    case BrokenTextualInterface
+  }
+  struct SDKFailure: Encodable {
+    let inputPath: String
+    let kind: SDKFailureKind
+  }
+  var allFailures = [SDKFailure]()
+  func jobFinished(_ job: Job, _ result: ProcessResult) {
+    switch result.exitStatus {
+    case .terminated(code: let code):
+      if code == 0 {
+        break
+      } else {
+        allFailures.append(SDKFailure(inputPath: getLastInputPath(job).pathString,
+                                      kind: .BrokenTextualInterface))
+      }
+    default:
+      break
+    }
   }
 }
 
@@ -81,11 +172,14 @@ fileprivate class ModuleCompileDelegate: JobExecutionDelegate {
   let verbose: Bool
   var failingCriticalOutputs: Set<VirtualPath>
   let logPath: AbsolutePath?
-  public init(_ jobs: [Job], _ diagnosticsEngine: DiagnosticsEngine, _ verbose: Bool, _ logPath: AbsolutePath?) {
+  let jsonDelegate: JSONOutputDelegate
+  init(_ jobs: [Job], _ diagnosticsEngine: DiagnosticsEngine, _ verbose: Bool,
+              _ logPath: AbsolutePath?, _ jsonDelegate: JSONOutputDelegate) {
     self.diagnosticsEngine = diagnosticsEngine
     self.verbose = verbose
     self.failingCriticalOutputs = Set<VirtualPath>(jobs.compactMap(ModuleCompileDelegate.getCriticalOutput))
     self.logPath = logPath
+    self.jsonDelegate = jsonDelegate
   }
 
   /// Dangling jobs are macabi-only modules. We should run those jobs if foundation
@@ -108,6 +202,7 @@ fileprivate class ModuleCompileDelegate: JobExecutionDelegate {
   }
 
   public func jobFinished(job: Job, result: ProcessResult, pid: Int) {
+    self.jsonDelegate.jobFinished(job, result)
     switch result.exitStatus {
     case .terminated(code: let code):
       if code == 0 {
@@ -117,8 +212,8 @@ fileprivate class ModuleCompileDelegate: JobExecutionDelegate {
         failingModules.insert(job.moduleName)
         let result: String = try! result.utf8stderrOutput()
         Driver.stdErrQueue.sync {
-          stderrStream <<< "failed: " <<< commandMap[pid]! <<< "\n"
-          stderrStream <<< result <<< "\n"
+          stderrStream.send("failed: \(commandMap[pid]!)\n")
+          stderrStream.send("\(result)\n")
           stderrStream.flush()
         }
       }
@@ -135,7 +230,7 @@ fileprivate class ModuleCompileDelegate: JobExecutionDelegate {
       try logOutput(job, result, logPath, false)
     } catch {
       Driver.stdErrQueue.sync {
-        stderrStream <<< "Failed to generate log file"
+        stderrStream.send("Failed to generate log file")
         stderrStream.flush()
       }
     }
@@ -173,15 +268,16 @@ fileprivate class ABICheckingDelegate: JobExecutionDelegate {
       try logOutput(job, result, logPath, false)
     } catch {
       Driver.stdErrQueue.sync {
-        stderrStream <<< "Failed to generate log file"
+        stderrStream.send("Failed to generate log file")
         stderrStream.flush()
       }
     }
   }
 }
 
-public class PrebuitModuleGenerationDelegate: JobExecutionDelegate {
+public class PrebuiltModuleGenerationDelegate: JobExecutionDelegate {
 
+  fileprivate let jsonDelegate: JSONOutputDelegate
   fileprivate let compileDelegate: ModuleCompileDelegate
   fileprivate let abiCheckDelegate: ABICheckingDelegate
 
@@ -191,13 +287,16 @@ public class PrebuitModuleGenerationDelegate: JobExecutionDelegate {
     } else if ABICheckingDelegate.canHandle(job: job) {
       return abiCheckDelegate
     } else {
-      fatalError("cannot handle job in PrebuitModuleGenerationDelegate")
+      fatalError("cannot handle job in PrebuiltModuleGenerationDelegate")
     }
   }
 
   public init(_ jobs: [Job], _ diagnosticsEngine: DiagnosticsEngine,
               _ verbose: Bool, _ logPath: AbsolutePath?) {
-    self.compileDelegate = ModuleCompileDelegate(jobs.filter(ModuleCompileDelegate.canHandle), diagnosticsEngine, verbose, logPath)
+    self.jsonDelegate = JSONOutputDelegate()
+    self.compileDelegate = ModuleCompileDelegate(jobs.filter(ModuleCompileDelegate.canHandle),
+                                                 diagnosticsEngine, verbose, logPath,
+                                                 self.jsonDelegate)
     self.abiCheckDelegate = ABICheckingDelegate(verbose, logPath)
   }
 
@@ -218,12 +317,19 @@ public class PrebuitModuleGenerationDelegate: JobExecutionDelegate {
   public var hasCriticalFailure: Bool {
     return compileDelegate.hasCriticalFailure
   }
+  public func emitJsonOutput(to path: AbsolutePath) throws {
+    let data = try JSONEncoder().encode(self.jsonDelegate)
+    if let json = try? JSONSerialization.jsonObject(with: data, options: .mutableContainers),
+       let jsonData = try? JSONSerialization.data(withJSONObject: json, options: .prettyPrinted) {
+      try localFileSystem.writeFileContents(path, bytes: ByteString(jsonData))
+    }
+  }
 }
 
 public struct PrebuiltModuleInput {
   // The path to the input/output of the a module building task.
   let path: TypedVirtualPath
-  // The arch infered from the file name.
+  // The arch inferred from the file name.
   let arch: Triple.Arch
   init(_ path: TypedVirtualPath) {
     let baseName = path.file.basename
@@ -236,14 +342,112 @@ public struct PrebuiltModuleInput {
   }
 }
 
+public enum AdopterIssueKind: String, Codable {
+  case libraryEvolutionDisabled
+  case libraryLevelMissing
+  case libraryLevelWrong
+}
+
+public class SwiftAdopter: Codable {
+  public let name: String
+  public let moduleDir: String
+  public let hasInterface: Bool
+  public let hasPrivateInterface: Bool
+  public let hasPackageInterface: Bool
+  public let hasModule: Bool
+  public let isFramework: Bool
+  public let isPrivate: Bool
+  public let hasCompatibilityHeader: Bool
+  public let isMixed: Bool
+  public let issues: [AdopterIssueKind]?
+  init(_ name: String, _ moduleDir: AbsolutePath, _ hasInterface: [AbsolutePath], _ hasModule: [AbsolutePath]) throws {
+    self.name = name
+    self.moduleDir = SwiftAdopter.relativeToSDK(moduleDir)
+    self.hasInterface = !hasInterface.isEmpty
+    self.hasPrivateInterface = hasInterface.contains { $0.basename.hasSuffix(".private.swiftinterface") }
+    self.hasPackageInterface = hasInterface.contains { $0.basename.hasSuffix(".package.swiftinterface") }
+    self.hasModule = !hasModule.isEmpty
+    self.isFramework = self.moduleDir.contains("\(name).framework")
+    self.isPrivate = self.moduleDir.contains("PrivateFrameworks")
+    let headers = try SwiftAdopter.collectHeaderNames(moduleDir.parentDirectory.parentDirectory)
+    self.hasCompatibilityHeader = headers.contains { $0 == "\(name)-Swift.h" }
+    self.isMixed = headers.contains { $0 != "\(name)-Swift.h" }
+    self.issues = try Self.collectModuleIssues(hasInterface.first, self.isPrivate)
+  }
+
+  static func collectModuleIssues(_ interface: AbsolutePath?, _ isPrivate: Bool) throws -> [AdopterIssueKind]? {
+    guard let interface = interface else { return nil }
+    var issues: [AdopterIssueKind] = []
+    let flags = try getAllModuleFlags(VirtualPath.absolute(interface))
+    let libLevel = try getLibraryLevel(flags)
+    if libLevel == .unspecified {
+      issues.append(.libraryLevelMissing)
+    }
+    if libLevel == .spi && !isPrivate {
+      issues.append(.libraryLevelWrong)
+    }
+    if libLevel == .api && isPrivate {
+      issues.append(.libraryLevelWrong)
+    }
+    if !flags.contains("-enable-library-evolution") {
+      issues.append(.libraryEvolutionDisabled)
+    }
+    return issues.isEmpty ? nil : issues
+  }
+
+  static func collectHeaderNames(_ headersIn: AbsolutePath) throws -> [String] {
+    var results: [String] = []
+    let collector = { (dir: AbsolutePath) in
+      guard localFileSystem.exists(dir) else { return }
+      try localFileSystem.getDirectoryContents(dir).forEach { results.append($0) }
+    }
+    try collector(headersIn.appending(component: "Headers"))
+    try collector(headersIn.appending(component: "PrivateHeaders"))
+    return results
+  }
+
+  static func relativeToSDK(_ fullPath: AbsolutePath) -> String {
+    var SDKDir: AbsolutePath = fullPath
+    while(SDKDir.extension != "sdk") {
+      SDKDir = SDKDir.parentDirectory
+    }
+    assert(SDKDir.extension == "sdk")
+    SDKDir = SDKDir.parentDirectory
+    return fullPath.relative(to: SDKDir).pathString
+  }
+
+  static public func emitSummary(_ adopters: [SwiftAdopter], to logDir: AbsolutePath?) throws {
+    guard let logDir = logDir else { return }
+    if !localFileSystem.exists(logDir) {
+      try localFileSystem.createDirectory(logDir, recursive: true)
+    }
+    let data = try JSONEncoder().encode(adopters)
+    if let json = try? JSONSerialization.jsonObject(with: data, options: .mutableContainers),
+       let jsonData = try? JSONSerialization.data(withJSONObject: json, options: .prettyPrinted) {
+      try localFileSystem.writeFileContents(logDir.appending(component: "adopters.json"), bytes: ByteString(jsonData))
+    }
+  }
+}
+
 typealias PrebuiltModuleOutput = PrebuiltModuleInput
 
 public struct SDKPrebuiltModuleInputsCollector {
   let sdkPath: AbsolutePath
-  let nonFrameworkDirs = [RelativePath("usr/lib/swift"),
-                          RelativePath("System/iOSSupport/usr/lib/swift")]
-  let frameworkDirs = [RelativePath("System/Library/Frameworks"),
-                      RelativePath("System/iOSSupport/System/Library/Frameworks")]
+  var nonFrameworkDirs: [RelativePath] {
+    get throws {
+      try [RelativePath(validating: "usr/lib/swift"),
+           RelativePath(validating: "System/iOSSupport/usr/lib/swift")]
+    }
+  }
+  var frameworkDirs: [RelativePath] {
+    get throws {
+      try [RelativePath(validating: "System/Library/Frameworks"),
+           RelativePath(validating: "System/Library/PrivateFrameworks"),
+           RelativePath(validating: "System/iOSSupport/System/Library/Frameworks"),
+           RelativePath(validating: "System/iOSSupport/System/Library/PrivateFrameworks")]
+    }
+  }
+
   let sdkInfo: DarwinToolchain.DarwinSDKInfo
   let diagEngine: DiagnosticsEngine
   public init(_ sdkPath: AbsolutePath, _ diagEngine: DiagnosticsEngine) {
@@ -268,13 +472,17 @@ public struct SDKPrebuiltModuleInputsCollector {
     case .iphonesimulator:
       return "arm64-apple-ios\(version)-simulator"
     case .watchos:
-      return "armv7k-apple-watchos\(version)"
+      return "arm64-apple-watchos\(version)"
     case .watchsimulator:
       return "arm64-apple-watchos\(version)-simulator"
     case .appletvos:
       return "arm64-apple-tvos\(version)"
     case .appletvsimulator:
       return "arm64-apple-tvos\(version)-simulator"
+    case .visionos:
+      return "arm64-apple-xros\(version)"
+    case .visionsimulator:
+      return "arm64-apple-xros\(version)-simulator"
     case .unknown:
       fatalError("unknown platform kind")
     }
@@ -284,14 +492,16 @@ public struct SDKPrebuiltModuleInputsCollector {
     return map.filter {
       // Remove modules without associated .swiftinterface files and diagnose.
       if $0.value.isEmpty {
-        diagEngine.emit(warning: "\($0.key) has no associated .swiftinterface files")
+        diagEngine.emit(.warning("\($0.key) has no associated .swiftinterface files"),
+                        location: nil)
         return false
       }
       return true
     }
   }
 
-  public func collectSwiftInterfaceMap() throws -> [String: [PrebuiltModuleInput]] {
+  public func collectSwiftInterfaceMap() throws -> (inputMap: [String: [PrebuiltModuleInput]], adopters: [SwiftAdopter]) {
+    var allSwiftAdopters: [SwiftAdopter] = []
     var results: [String: [PrebuiltModuleInput]] = [:]
 
     func updateResults(_ dir: AbsolutePath) throws {
@@ -302,7 +512,8 @@ public struct SDKPrebuiltModuleInputsCollector {
       if results[moduleName] == nil {
         results[moduleName] = []
       }
-
+      var hasInterface: [AbsolutePath] = []
+      var hasModule: [AbsolutePath] = []
       // Search inside a .swiftmodule directory for any .swiftinterface file, and
       // add the files into the dictionary.
       // Duplicate entries are discarded, otherwise llbuild will complain.
@@ -315,14 +526,17 @@ public struct SDKPrebuiltModuleInputsCollector {
           if !results[moduleName]!.contains(where: { $0.path.file.basenameWithoutExt == currentBaseName }) {
             results[moduleName]!.append(PrebuiltModuleInput(interfacePath))
           }
+          hasInterface.append(currentFile)
         }
         if currentFile.extension == "swiftmodule" {
-          diagEngine.emit(warning: "found \(currentFile)")
+          diagEngine.emit(.warning("found \(currentFile)"), location: nil)
+          hasModule.append(currentFile)
         }
       }
+      allSwiftAdopters.append(try! SwiftAdopter(moduleName, dir, hasInterface, hasModule))
     }
     // Search inside framework dirs in an SDK to find .swiftmodule directories.
-    for dir in frameworkDirs {
+    for dir in try frameworkDirs {
       let frameDir = AbsolutePath(sdkPath, dir)
       if !localFileSystem.exists(frameDir) {
         continue
@@ -340,18 +554,18 @@ public struct SDKPrebuiltModuleInputsCollector {
       }
     }
     // Search inside lib dirs in an SDK to find .swiftmodule directories.
-    for dir in nonFrameworkDirs {
+    for dir in try nonFrameworkDirs {
       let swiftModuleDir = AbsolutePath(sdkPath, dir)
       if !localFileSystem.exists(swiftModuleDir) {
         continue
       }
       try localFileSystem.getDirectoryContents(swiftModuleDir).forEach {
         if $0.hasSuffix(".swiftmodule") {
-          try updateResults(AbsolutePath(swiftModuleDir, $0))
+          try updateResults(try AbsolutePath(validating: $0, relativeTo: swiftModuleDir))
         }
       }
     }
-    return sanitizeInterfaceMap(results)
+    return (inputMap: sanitizeInterfaceMap(results), adopters: allSwiftAdopters)
   }
 }
 
@@ -368,15 +582,15 @@ extension InterModuleDependencyGraph {
     func dumpModuleName(_ stream: WritableByteStream, _ dep: ModuleDependencyId) {
       switch dep {
       case .swift(let name):
-        stream <<< "\"\(name).swiftmodule\""
+        stream.send("\"\(name).swiftmodule\"")
       case .clang(let name):
-        stream <<< "\"\(name).pcm\""
+        stream.send("\"\(name).pcm\"")
       default:
         break
       }
     }
-    try localFileSystem.writeFileContents(path) {Stream in
-      Stream <<< "digraph {\n"
+    try localFileSystem.writeFileContents(path) { Stream in
+      Stream.send("digraph {\n")
       for key in modules.keys {
         switch key {
         case .swift(let name):
@@ -393,15 +607,15 @@ extension InterModuleDependencyGraph {
               return
             }
             dumpModuleName(Stream, key)
-            Stream <<< " -> "
+            Stream.send(" -> ")
             dumpModuleName(Stream, dep)
-            Stream <<< ";\n"
+            Stream.send(";\n")
           }
         default:
           break
         }
       }
-      Stream <<< "}\n"
+      Stream.send("}\n")
     }
   }
 }
@@ -430,7 +644,7 @@ extension Driver {
     return Job(
       moduleName: moduleName,
       kind: .compareABIBaseline,
-      tool: .absolute(try toolchain.getToolPath(.swiftAPIDigester)),
+      tool: try toolchain.resolvedTool(.swiftAPIDigester),
       commandLine: commandLine,
       inputs: [currentABI, baselineABI],
       primaryInputs: [],
@@ -443,10 +657,12 @@ extension Driver {
                                                         _ dependencies: [TypedVirtualPath], _ currentABIDir: AbsolutePath?,
                                                         _ baselineABIDir: AbsolutePath?) throws -> [Job] {
     assert(inputPath.path.file.basenameWithoutExt == outputPath.path.file.basenameWithoutExt)
+    let sdkPath = sdkPath!
+    let isInternal = sdkPath.basename.hasSuffix(".Internal.sdk")
     var commandLine: [Job.ArgTemplate] = []
     commandLine.appendFlag(.compileModuleFromInterface)
     commandLine.appendFlag(.sdk)
-    commandLine.append(.path(sdkPath!))
+    commandLine.append(.path(sdkPath))
     commandLine.appendFlag(.prebuiltModuleCachePath)
     commandLine.appendPath(prebuiltModuleDir)
     commandLine.appendFlag(.moduleName)
@@ -457,10 +673,22 @@ extension Driver {
     if moduleName == "Swift" {
       commandLine.appendFlag(.parseStdlib)
     }
+    commandLine.appendFlag(.suppressWarnings)
     // Add macabi-specific search path.
     if try isIosMacInterface(inputPath.path.file) {
       commandLine.appendFlag(.Fsystem)
       commandLine.append(.path(iosMacFrameworksSearchPath))
+      if isInternal {
+        commandLine.appendFlag(.Fsystem)
+        commandLine.append(.path(iosMacFrameworksSearchPath.parentDirectory
+          .appending(component: "PrivateFrameworks")))
+      }
+    }
+    if isInternal {
+      commandLine.appendFlag(.Fsystem)
+      commandLine.append(.path(sdkPath.appending(component: "System")
+        .appending(component: "Library")
+        .appending(component: "PrivateFrameworks")))
     }
     // Use the specified module cache dir
     if let mcp = parsedOptions.getLastArgument(.moduleCachePath)?.asSingle {
@@ -480,7 +708,7 @@ extension Driver {
       if !localFileSystem.exists(moduleABIDir) {
         try localFileSystem.createDirectory(moduleABIDir, recursive: true)
       }
-      let abiFilePath = VirtualPath.absolute(moduleABIDir.appending(component:
+      let abiFilePath = try VirtualPath.absolute(moduleABIDir.appending(component:
         outputPath.path.file.basename)).replacingExtension(with: .jsonABIBaseline).intern()
       let abiPath = TypedVirtualPath(file: abiFilePath, type: .jsonABIBaseline)
       commandLine.appendPath(abiPath.file)
@@ -495,7 +723,7 @@ extension Driver {
     allJobs.append(Job(
       moduleName: moduleName,
       kind: .compile,
-      tool: .absolute(try toolchain.getToolPath(.swiftCompiler)),
+      tool: try toolchain.resolvedTool(.swiftCompiler),
       commandLine: commandLine,
       inputs: allInputs,
       primaryInputs: [],
@@ -504,7 +732,7 @@ extension Driver {
     return allJobs
   }
 
-  public mutating func generatePrebuitModuleGenerationJobs(with inputMap: [String: [PrebuiltModuleInput]],
+  public mutating func generatePrebuiltModuleGenerationJobs(with inputMap: [String: [PrebuiltModuleInput]],
                                                            into prebuiltModuleDir: AbsolutePath,
                                                            exhaustive: Bool,
                                                            dotGraphPath: AbsolutePath? = nil,
@@ -524,7 +752,7 @@ extension Driver {
     // Create directories for each Swift module
     try inputMap.forEach {
       assert(!$0.value.isEmpty)
-      let moduleDir = prebuiltModuleDir.appending(RelativePath($0.key + ".swiftmodule"))
+      let moduleDir = try AbsolutePath(validating: "\($0.key).swiftmodule", relativeTo: prebuiltModuleDir)
       if !localFileSystem.exists(moduleDir) {
         try localFileSystem.createDirectory(moduleDir)
       }
@@ -532,10 +760,11 @@ extension Driver {
 
     // Generate an outputMap from the inputMap for easy reference.
     let outputMap: [String: [PrebuiltModuleOutput]] =
-      Dictionary.init(uniqueKeysWithValues: inputMap.map { key, value in
-      let outputPaths: [PrebuiltModuleInput] = value.map {
-        let path = prebuiltModuleDir.appending(RelativePath(key + ".swiftmodule"))
-          .appending(RelativePath($0.path.file.basenameWithoutExt + ".swiftmodule"))
+      Dictionary.init(uniqueKeysWithValues: try inputMap.map { key, value in
+      let outputPaths: [PrebuiltModuleInput] = try value.map {
+        let path = try AbsolutePath(validating: "\($0.path.file.basenameWithoutExt).swiftmodule",
+                                    relativeTo: try AbsolutePath(validating: "\(key).swiftmodule",
+                                                                 relativeTo: prebuiltModuleDir))
         return PrebuiltModuleOutput(TypedVirtualPath(file: VirtualPath.absolute(path).intern(),
                                                      type: .swiftModule), $0.arch)
       }
@@ -564,7 +793,8 @@ extension Driver {
       var results: [TypedVirtualPath] = []
       modules.forEach { module in
         guard let allOutputs = outputMap[module] else {
-          diagnosticEngine.emit(error: "cannot find output paths for \(module)")
+          diagnosticEngine.emit(.error("cannot find output paths for \(module)"),
+                                location: nil)
           return
         }
         let allPaths = allOutputs.filter { output in
@@ -615,7 +845,8 @@ extension Driver {
         // contain this dependency.
         dependencies.forEach({ newModule in
           if !openModules.contains(newModule) {
-            diagnosticEngine.emit(note: "\(newModule) is discovered.")
+            diagnosticEngine.emit(.note("\(newModule) is discovered."),
+                                  location: nil)
             openModules.append(newModule)
           }
         })
@@ -635,7 +866,8 @@ extension Driver {
     // of mac native so those macabi-only modules cannot be found by the scanner.
     // We have to handle those modules separately without any dependency info.
     try unhandledModules.forEach { moduleName in
-      diagnosticEngine.emit(warning: "handle \(moduleName) as dangling jobs")
+      diagnosticEngine.emit(.warning("handle \(moduleName) has dangling jobs"),
+                            location: nil)
       try forEachInputOutputPair(moduleName) { input, output in
         danglingJobs.append(contentsOf: try generateSingleModuleBuildingJob(moduleName,
           prebuiltModuleDir, input, output, [], currentABIDir, baselineABIDir))

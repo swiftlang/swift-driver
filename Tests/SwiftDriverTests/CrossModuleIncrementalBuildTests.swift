@@ -19,22 +19,23 @@ import TestUtilities
 class CrossModuleIncrementalBuildTests: XCTestCase {
   func makeOutputFileMap(
     in workingDirectory: AbsolutePath,
+    module: String,
     for files: [AbsolutePath],
     outputTransform transform: (String) -> String = { $0 }
   ) -> String {
     """
     {
       "": {
-        "swift-dependencies": "\(workingDirectory.appending(component: "module.swiftdeps").pathString.nativePathString().escaped())"
+        "swift-dependencies": "\(workingDirectory.appending(component: "\(module).swiftdeps").nativePathString(escaped: true))"
       }
     """.appending(files.map { file in
       """
       ,
-      "\(file.pathString.nativePathString().escaped())": {
-        "dependencies": "\(transform(file.basenameWithoutExt.nativePathString().escaped()) + ".d")",
-        "object": "\(transform(file.pathString.nativePathString().escaped()) + ".o")",
-        "swiftmodule": "\(transform(file.basenameWithoutExt.nativePathString().escaped()) + "~partial.swiftmodule")",
-        "swift-dependencies": "\(transform(file.basenameWithoutExt.nativePathString().escaped()) + ".swiftdeps")"
+      "\(file.nativePathString(escaped: true))": {
+        "dependencies": "\(transform(file.basenameWithoutExt) + ".d")",
+        "object": "\(transform(file.nativePathString(escaped: true)) + ".o")",
+        "swiftmodule": "\(transform(file.basenameWithoutExt) + "~partial.swiftmodule")",
+        "swift-dependencies": "\(transform(file.basenameWithoutExt) + ".swiftdeps")"
         }
       """
     }.joined(separator: "\n").appending("\n}"))
@@ -48,16 +49,16 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
       try localFileSystem.changeCurrentWorkingDirectory(to: path)
       let magic = path.appending(component: "magic.swift")
       try localFileSystem.writeFileContents(magic) {
-        $0 <<< "public func castASpell() {}"
+        $0.send("public func castASpell() {}")
       }
 
       let ofm = path.appending(component: "ofm.json")
       try localFileSystem.writeFileContents(ofm) {
-        $0 <<< self.makeOutputFileMap(in: path, for: [ magic ]) {
+        $0.send(self.makeOutputFileMap(in: path, module: "MagicKit", for: [ magic ]) {
           $0 + "-some_suffix"
-        }
+        })
       }
-      
+
       let driverArgs = [
         "swiftc",
         "-incremental",
@@ -75,9 +76,9 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
       }
 
       try localFileSystem.writeFileContents(ofm) {
-        $0 <<< self.makeOutputFileMap(in: path, for: [ magic ]) {
+        $0.send(self.makeOutputFileMap(in: path, module: "MagicKit", for: [ magic ]) {
           $0 + "-some_other_suffix"
-        }
+        })
       }
 
       do {
@@ -97,12 +98,12 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
       do {
         let magic = path.appending(component: "magic.swift")
         try localFileSystem.writeFileContents(magic) {
-          $0 <<< "public func castASpell() {}"
+          $0.send("public func castASpell() {}")
         }
 
         let ofm = path.appending(component: "ofm.json")
         try localFileSystem.writeFileContents(ofm) {
-          $0 <<< self.makeOutputFileMap(in: path, for: [ magic ])
+          $0.send(self.makeOutputFileMap(in: path, module: "MagicKit", for: [ magic ]))
         }
 
         var driver = try Driver(args: [
@@ -121,13 +122,13 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
 
       let main = path.appending(component: "main.swift")
       try localFileSystem.writeFileContents(main) {
-        $0 <<< "import MagicKit\n"
-        $0 <<< "castASpell()"
+        $0.send("import MagicKit\n")
+        $0.send("castASpell()")
       }
 
       let ofm = path.appending(component: "ofm2.json")
       try localFileSystem.writeFileContents(ofm) {
-        $0 <<< self.makeOutputFileMap(in: path, for: [ main ])
+        $0.send(self.makeOutputFileMap(in: path, module: "theModule", for: [ main ]))
       }
 
       var driver = try Driver(args: [

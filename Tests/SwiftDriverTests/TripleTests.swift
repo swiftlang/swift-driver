@@ -12,11 +12,13 @@
 import XCTest
 
 @_spi(Testing) import SwiftDriver
+import class TSCBasic.DiagnosticsEngine
 
 final class TripleTests: XCTestCase {
   func testBasics() throws {
     XCTAssertEqual(Triple("").arch, nil)
     XCTAssertEqual(Triple("kalimba").arch, .kalimba)
+    XCTAssertEqual(Triple("m68k-unknown-linux-gnu").arch, .m68k)
     XCTAssertEqual(Triple("x86_64-apple-macosx").arch, .x86_64)
     XCTAssertEqual(Triple("blah-apple").arch, nil)
     XCTAssertEqual(Triple("x86_64-apple-macosx").vendor, .apple)
@@ -32,6 +34,20 @@ final class TripleTests: XCTestCase {
     XCTAssertEqual(Triple("x86_64-apple-macosx10.13").osVersion, "10.13.0")
     XCTAssertEqual(Triple("x86_64-apple-macosx1x.13").osVersion, "0.13.0")
     XCTAssertEqual(Triple("x86_64-apple-macosx10.13.5-abi").osVersion, "10.13.5")
+
+    XCTAssertEqual(Triple("arm64-unknown-none").arch, .aarch64)
+    XCTAssertEqual(Triple("arm64-unknown-none").vendor, nil)
+    XCTAssertEqual(Triple("arm64-unknown-none").os, .noneOS)
+    XCTAssertEqual(Triple("arm64-unknown-none").environment, nil)
+    XCTAssertEqual(Triple("arm64-unknown-none").objectFormat, .elf)
+
+    XCTAssertEqual(Triple("xtensa-unknown-none").objectFormat, .elf)
+
+    XCTAssertEqual(Triple("arm64-apple-none-macho").arch, .aarch64)
+    XCTAssertEqual(Triple("arm64-apple-none-macho").vendor, .apple)
+    XCTAssertEqual(Triple("arm64-apple-none-macho").os, .noneOS)
+    XCTAssertEqual(Triple("arm64-apple-none-macho").environment, nil)
+    XCTAssertEqual(Triple("arm64-apple-none-macho").objectFormat, .macho)
   }
 
   func testBasicParsing() {
@@ -186,27 +202,46 @@ final class TripleTests: XCTestCase {
 
     T = Triple("arm-none-none-eabi")
     XCTAssertEqual(T.arch, Triple.Arch.arm)
+    XCTAssertEqual(T.subArch, nil)
+    XCTAssertEqual(T.vendor, nil)
+    XCTAssertEqual(T.os, .noneOS)
+    XCTAssertEqual(T.environment, Triple.Environment.eabi)
+
+    T = Triple("arm-none-unknown-eabi")
+    XCTAssertEqual(T.arch, Triple.Arch.arm)
+    XCTAssertEqual(T.subArch, nil)
     XCTAssertEqual(T.vendor, nil)
     XCTAssertEqual(T.os, nil)
     XCTAssertEqual(T.environment, Triple.Environment.eabi)
 
     T = Triple("arm-none-linux-musleabi")
     XCTAssertEqual(T.arch, Triple.Arch.arm)
+    XCTAssertEqual(T.subArch, nil)
     XCTAssertEqual(T.vendor, nil)
     XCTAssertEqual(T.os, Triple.OS.linux)
     XCTAssertEqual(T.environment, Triple.Environment.musleabi)
 
     T = Triple("armv6hl-none-linux-gnueabi")
     XCTAssertEqual(T.arch, Triple.Arch.arm)
+    XCTAssertEqual(T.subArch, nil)
     XCTAssertEqual(T.os, Triple.OS.linux)
     XCTAssertEqual(T.vendor, nil)
     XCTAssertEqual(T.environment, Triple.Environment.gnueabi)
 
     T = Triple("armv7hl-none-linux-gnueabi")
     XCTAssertEqual(T.arch, Triple.Arch.arm)
+    XCTAssertEqual(T.subArch, nil)
     XCTAssertEqual(T.os, Triple.OS.linux)
     XCTAssertEqual(T.vendor, nil)
     XCTAssertEqual(T.environment, Triple.Environment.gnueabi)
+
+    T = Triple("armv7em-apple-none-macho")
+    XCTAssertEqual(T.arch, Triple.Arch.arm)
+    XCTAssertEqual(T.subArch, Triple.SubArch.arm(.v7em))
+    XCTAssertEqual(T.vendor, .apple)
+    XCTAssertEqual(T.os, Triple.OS.noneOS)
+    XCTAssertEqual(T.environment, nil)
+    XCTAssertEqual(T.objectFormat, Triple.ObjectFormat.macho)
 
     T = Triple("amdil-unknown-unknown")
     XCTAssertEqual(T.arch, Triple.Arch.amdil)
@@ -225,6 +260,11 @@ final class TripleTests: XCTestCase {
 
     T = Triple("hsail64-unknown-unknown")
     XCTAssertEqual(T.arch, Triple.Arch.hsail64)
+    XCTAssertEqual(T.vendor, nil)
+    XCTAssertEqual(T.os, nil)
+
+    T = Triple("m68k-unknown-unknown")
+    XCTAssertEqual(T.arch, Triple.Arch.m68k)
     XCTAssertEqual(T.vendor, nil)
     XCTAssertEqual(T.os, nil)
 
@@ -368,6 +408,12 @@ final class TripleTests: XCTestCase {
     XCTAssertEqual(T.vendor, nil)
     XCTAssertEqual(T.os, Triple.OS.haiku)
     XCTAssertEqual(T.environment, nil)
+
+    T = Triple("m68k-suse-linux-gnu")
+    XCTAssertEqual(T.arch, Triple.Arch.m68k)
+    XCTAssertEqual(T.vendor, Triple.Vendor.suse)
+    XCTAssertEqual(T.os, Triple.OS.linux)
+    XCTAssertEqual(T.environment, Triple.Environment.gnu)
 
     T = Triple("mips-mti-linux-gnu")
     XCTAssertEqual(T.arch, Triple.Arch.mips)
@@ -723,7 +769,7 @@ final class TripleTests: XCTestCase {
     assertNormalizesEqual("i686-linux",
               "i686-unknown-linux") // i686-pc-linux-gnu
     assertNormalizesEqual("arm-none-eabi",
-              "arm-none-unknown-eabi") // arm-none-eabi
+              "arm-unknown-none-eabi") // arm-none-eabi
     assertNormalizesEqual("wasm32-wasi",
               "wasm32-unknown-wasi") // wasm32-unknown-wasi
     assertNormalizesEqual("wasm64-wasi",
@@ -772,6 +818,9 @@ final class TripleTests: XCTestCase {
 
     assertNormalizesEqual("i686-pc-windows-elf-elf",
               "i686-pc-windows-elf")
+
+    assertNormalizesEqual("i686-unknown-windows-coff", "i686-unknown-windows-coff")
+    assertNormalizesEqual("x86_64-unknown-windows-coff", "x86_64-unknown-windows-coff")
   }
 
   func testNormalizeARM() {
@@ -1021,6 +1070,7 @@ final class TripleTests: XCTestCase {
     XCTAssertEqual(.macho, Triple("i686---macho").objectFormat)
 
     XCTAssertEqual(.coff, Triple("i686--win32").objectFormat)
+    XCTAssertEqual(.coff, Triple("i686-unknown-windows-coff").objectFormat)
 
     XCTAssertEqual(.elf, Triple("i686-pc-windows-msvc-elf").objectFormat)
     XCTAssertEqual(.elf, Triple("i686-pc-cygwin-elf").objectFormat)
@@ -1259,6 +1309,131 @@ final class TripleTests: XCTestCase {
                                 iOSVersion: nil,
                                 watchOSVersion: .init(60, 0, 0),
                                 shouldHaveJetPacks: true)
+  }
+
+  func testToolchainSelection() {
+    let diagnostics = DiagnosticsEngine()
+    struct None { }
+
+    func assertToolchain<T>(
+      _ rawTriple: String,
+      _ expectedToolchain: T.Type?,
+      file: StaticString = #filePath,
+      line: UInt = #line
+    ) {
+      do {
+        let triple = Triple(rawTriple)
+        let actual = try triple.toolchainType(diagnostics)
+        if None.self is T.Type {
+          XCTFail(
+            "Expected None but found \(actual) for triple \(rawTriple).",
+            file: file,
+            line: line)
+        } else {
+          XCTAssertTrue(
+            actual is T.Type,
+            "Expected \(T.self) but found \(actual) for triple \(rawTriple).",
+            file: file,
+            line: line)
+        }
+      } catch {
+        if None.self is T.Type {
+          // Good
+        } else {
+          XCTFail(
+            "Expected \(T.self) but found None for triple \(rawTriple).",
+            file: file,
+            line: line)
+        }
+      }
+    }
+
+    assertToolchain("i386-apple-darwin", DarwinToolchain.self)
+    assertToolchain("i386-pc-hurd-gnu", None.self)
+    assertToolchain("x86_64-pc-linux-gnu", GenericUnixToolchain.self)
+    assertToolchain("x86_64-pc-linux-musl", GenericUnixToolchain.self)
+    assertToolchain("powerpc-bgp-linux", GenericUnixToolchain.self)
+    assertToolchain("powerpc-bgp-cnk", None.self)
+    assertToolchain("ppc-bgp-linux", GenericUnixToolchain.self)
+    assertToolchain("ppc32-bgp-linux", GenericUnixToolchain.self)
+    assertToolchain("powerpc64-bgq-linux", GenericUnixToolchain.self)
+    assertToolchain("ppc64-bgq-linux", GenericUnixToolchain.self)
+    assertToolchain("powerpc-ibm-aix", None.self)
+    assertToolchain("powerpc64-ibm-aix", None.self)
+    assertToolchain("powerpc-dunno-notsure", None.self)
+    assertToolchain("arm-none-none-eabi", GenericUnixToolchain.self)
+    assertToolchain("arm-none-unknown-eabi", None.self)
+    assertToolchain("arm-none-linux-musleabi", GenericUnixToolchain.self)
+    assertToolchain("armv6hl-none-linux-gnueabi", GenericUnixToolchain.self)
+    assertToolchain("armv7hl-none-linux-gnueabi", GenericUnixToolchain.self)
+    assertToolchain("amdil-unknown-unknown", None.self)
+    assertToolchain("amdil64-unknown-unknown", None.self)
+    assertToolchain("hsail-unknown-unknown", None.self)
+    assertToolchain("hsail64-unknown-unknown", None.self)
+    assertToolchain("sparcel-unknown-unknown", None.self)
+    assertToolchain("spir-unknown-unknown", None.self)
+    assertToolchain("spir64-unknown-unknown", None.self)
+    assertToolchain("x86_64-unknown-ananas", None.self)
+    assertToolchain("x86_64-unknown-cloudabi", None.self)
+    assertToolchain("x86_64-unknown-fuchsia", None.self)
+    assertToolchain("x86_64-unknown-hermit", None.self)
+    assertToolchain("wasm32-unknown-unknown", None.self)
+    assertToolchain("wasm32-unknown-wasi", WebAssemblyToolchain.self)
+    assertToolchain("wasm64-unknown-unknown", None.self)
+    assertToolchain("wasm64-unknown-wasi", WebAssemblyToolchain.self)
+    assertToolchain("avr-unknown-unknown", None.self)
+    assertToolchain("avr", None.self)
+    assertToolchain("lanai-unknown-unknown", None.self)
+    assertToolchain("lanai", None.self)
+    assertToolchain("amdgcn-mesa-mesa3d", None.self)
+    assertToolchain("amdgcn-amd-amdhsa", None.self)
+    assertToolchain("amdgcn-amd-amdpal", None.self)
+    assertToolchain("riscv32-unknown-unknown", None.self)
+    assertToolchain("riscv64-unknown-linux", GenericUnixToolchain.self)
+    assertToolchain("riscv64-unknown-freebsd", GenericUnixToolchain.self)
+    assertToolchain("armv7hl-suse-linux-gnueabi", GenericUnixToolchain.self)
+    assertToolchain("i586-pc-haiku", GenericUnixToolchain.self)
+    assertToolchain("x86_64-unknown-haiku", GenericUnixToolchain.self)
+    assertToolchain("m68k-suse-linux-gnu", GenericUnixToolchain.self)
+    assertToolchain("mips-mti-linux-gnu", GenericUnixToolchain.self)
+    assertToolchain("mipsel-img-linux-gnu", GenericUnixToolchain.self)
+    assertToolchain("mips64-mti-linux-gnu", GenericUnixToolchain.self)
+    assertToolchain("mips64el-img-linux-gnu", GenericUnixToolchain.self)
+    assertToolchain("mips64el-img-linux-gnuabin32", GenericUnixToolchain.self)
+    assertToolchain("mips64el", None.self)
+    assertToolchain("mips64", None.self)
+    assertToolchain("mips64-unknown-linux-gnuabi64", GenericUnixToolchain.self)
+    assertToolchain("mips64-unknown-linux-gnuabin32", GenericUnixToolchain.self)
+    assertToolchain("mipsn32", None.self)
+    assertToolchain("mipsn32r6", None.self)
+    assertToolchain("mipsel-unknown-linux-gnu", GenericUnixToolchain.self)
+    assertToolchain("mipsel", None.self)
+    assertToolchain("mips-unknown-linux-gnu", GenericUnixToolchain.self)
+    assertToolchain("mips", None.self)
+    assertToolchain("mipsr6el", None.self)
+    assertToolchain("mipsisa32r6el", None.self)
+    assertToolchain("mipsisa32r6-unknown-linux-gnu", GenericUnixToolchain.self)
+    assertToolchain("mipsr6", None.self)
+    assertToolchain("mipsisa32r6", None.self)
+    assertToolchain("arm-oe-linux-gnueabi", GenericUnixToolchain.self)
+    assertToolchain("aarch64-oe-linux", GenericUnixToolchain.self)
+    assertToolchain("x86_64-apple-tvos13.0-simulator", DarwinToolchain.self)
+    assertToolchain("arm64_32-apple-ios", DarwinToolchain.self)
+    assertToolchain("armv7s-apple-ios", DarwinToolchain.self)
+    assertToolchain("armv7em-unknown-none-macho", GenericUnixToolchain.self)
+    assertToolchain("armv7em-apple-none-macho", DarwinToolchain.self)
+    assertToolchain("armv7em-apple-none", DarwinToolchain.self)
+    assertToolchain("xscale-none-linux-gnueabi", GenericUnixToolchain.self)
+    assertToolchain("thumbv7-pc-linux-gnu", GenericUnixToolchain.self)
+    assertToolchain("thumbv3-pc-linux-gnu", GenericUnixToolchain.self)
+    assertToolchain("i686-pc-windows-msvc", WindowsToolchain.self)
+    assertToolchain("i686-unknown-windows-msvc", WindowsToolchain.self)
+    assertToolchain("i686-pc-windows-gnu", WindowsToolchain.self)
+    assertToolchain("i686-unknown-windows-gnu", WindowsToolchain.self)
+    assertToolchain("i686-pc-windows-gnu", WindowsToolchain.self)
+    assertToolchain("i686-unknown-windows-gnu", WindowsToolchain.self)
+    assertToolchain("i686-pc-windows-cygnus", WindowsToolchain.self)
+    assertToolchain("i686-unknown-windows-cygnus", WindowsToolchain.self)
   }
 }
 

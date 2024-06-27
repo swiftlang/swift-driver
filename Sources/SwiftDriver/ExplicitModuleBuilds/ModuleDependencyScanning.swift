@@ -10,13 +10,77 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
-import TSCBasic
+import protocol TSCBasic.FileSystem
+import struct TSCBasic.AbsolutePath
+import struct TSCBasic.Diagnostic
+import var TSCBasic.localFileSystem
+import var TSCBasic.stdoutStream
+
 import SwiftOptions
+import struct Foundation.Data
+import class Foundation.JSONEncoder
+import class Foundation.JSONDecoder
+import var Foundation.EXIT_SUCCESS
 
 extension Diagnostic.Message {
-  static func warn_scanner_frontend_fallback() -> Diagnostic.Message {
-    .warning("Fallback to `swift-frontend` dependency scanner invocation")
+  static func warn_scan_dylib_not_found() -> Diagnostic.Message {
+    .warning("Unable to locate libSwiftScan. Fallback to `swift-frontend` dependency scanner invocation.")
+  }
+  static func warn_scan_dylib_load_failed(_ libPath: String) -> Diagnostic.Message {
+    .warning("In-process dependency scan query failed due to incompatible libSwiftScan (\(libPath)). Fallback to `swift-frontend` dependency scanner invocation. Specify '-nonlib-dependency-scanner' to silence this warning.")
+  }
+  static func error_caching_enabled_libswiftscan_load_failure(_ libPath: String) -> Diagnostic.Message {
+    .error("Swift Caching enabled - libSwiftScan load failed (\(libPath)).")
+  }
+  static func scanner_diagnostic_error(_ message: String) -> Diagnostic.Message {
+    return .error(message)
+  }
+  static func scanner_diagnostic_warn(_ message: String) -> Diagnostic.Message {
+    .warning(message)
+  }
+  static func scanner_diagnostic_note(_ message: String) -> Diagnostic.Message {
+    .note(message)
+  }
+  static func scanner_diagnostic_remark(_ message: String) -> Diagnostic.Message {
+    .remark(message)
+  }
+}
+
+@_spi(Testing) public extension Driver {
+  /// Scan the current module's input source-files to compute its direct and transitive
+  /// module dependencies.
+  mutating func gatherModuleDependencies()
+  throws -> InterModuleDependencyGraph {
+    var dependencyGraph = try performDependencyScan()
+
+    if parsedOptions.hasArgument(.printPreprocessedExplicitDependencyGraph) {
+      try stdoutStream.send(dependencyGraph.toJSONString())
+      stdoutStream.flush()
+    }
+
+    if let externalTargetDetails = externalTargetModuleDetailsMap {
+      // Resolve external dependencies in the dependency graph, if any.
+      try dependencyGraph.resolveExternalDependencies(for: externalTargetDetails)
+    }
+
+    // Re-scan Clang modules at all the targets they will be built against.
+    // This is currently disabled because we are investigating it being unnecessary
+    // try resolveVersionedClangDependencies(dependencyGraph: &dependencyGraph)
+
+    // Set dependency modules' paths to be saved in the module cache.
+    // try resolveDependencyModulePaths(dependencyGraph: &dependencyGraph)
+
+    if parsedOptions.hasArgument(.printExplicitDependencyGraph) {
+      let outputFormat = parsedOptions.getLastArgument(.explicitDependencyGraphFormat)?.asSingle
+      if outputFormat == nil || outputFormat == "json" {
+        try stdoutStream.send(dependencyGraph.toJSONString())
+      } else if outputFormat == "dot" {
+        DOTModuleDependencyGraphSerializer(dependencyGraph).writeDOT(to: &stdoutStream)
+      }
+      stdoutStream.flush()
+    }
+
+    return dependencyGraph
   }
 }
 
@@ -30,13 +94,12 @@ public extension Driver {
     // Construct the scanning job.
     return Job(moduleName: moduleOutputInfo.name,
                kind: .scanDependencies,
-               tool: VirtualPath.absolute(try toolchain.getToolPath(.swiftCompiler)),
+               tool: try toolchain.resolvedTool(.swiftCompiler),
                commandLine: commandLine,
                displayInputs: inputs,
                inputs: inputs,
                primaryInputs: [],
-               outputs: [TypedVirtualPath(file: .standardOutput, type: .jsonDependencies)],
-               supportsResponseFiles: false)
+               outputs: [TypedVirtualPath(file: .standardOutput, type: .jsonDependencies)])
   }
 
   /// Generate a full command-line invocation to be used for the dependency scanning action
@@ -48,31 +111,44 @@ public extension Driver {
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
     commandLine.appendFlag("-frontend")
     commandLine.appendFlag("-scan-dependencies")
-    try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs,
-                                 bridgingHeaderHandling: .ignored,
+    try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs, kind: .scanDependencies,
+                                 bridgingHeaderHandling: .parsed,
                                  moduleDependencyGraphUse: .dependencyScan)
     // FIXME: MSVC runtime flags
 
     // Pass in external target dependencies to be treated as placeholder dependencies by the scanner
-    if let externalTargetPaths = externalTargetModuleDetailsMap?.mapValues({ $0.path }) {
+    if let externalTargetDetailsMap = externalTargetModuleDetailsMap,
+       interModuleDependencyOracle.scannerRequiresPlaceholderModules {
       let dependencyPlaceholderMapFile =
-      try serializeExternalDependencyArtifacts(externalTargetPaths: externalTargetPaths)
+      try serializeExternalDependencyArtifacts(externalTargetDependencyDetails: externalTargetDetailsMap)
       commandLine.appendFlag("-placeholder-dependency-module-map-file")
       commandLine.appendPath(dependencyPlaceholderMapFile)
     }
 
+    if isFrontendArgSupported(.clangScannerModuleCachePath) {
+      try commandLine.appendLast(.clangScannerModuleCachePath, from: &parsedOptions)
+    }
+
+    if isFrontendArgSupported(.scannerPrefixMap) {
+      // construct `-scanner-prefix-mapper` for scanner.
+      for (key, value) in prefixMapping {
+        commandLine.appendFlag(.scannerPrefixMap)
+        commandLine.appendFlag(key.pathString + "=" + value.pathString)
+      }
+    }
+
     // Pass on the input files
-    commandLine.append(contentsOf: inputFiles.map { .path($0.file) })
+    commandLine.append(contentsOf: inputFiles.filter { $0.type == .swift }.map { .path($0.file) })
     return (inputs, commandLine)
   }
 
   /// Serialize a map of placeholder (external) dependencies for the dependency scanner.
-   private func serializeExternalDependencyArtifacts(externalTargetPaths: ExternalTargetModulePathMap)
+   private func serializeExternalDependencyArtifacts(externalTargetDependencyDetails: ExternalTargetModuleDetailsMap)
    throws -> VirtualPath {
      var placeholderArtifacts: [SwiftModuleArtifactInfo] = []
      // Explicit external targets
-     for (moduleId, binaryModulePath) in externalTargetPaths {
-       let modPath = TextualVirtualPath(path: VirtualPath.absolute(binaryModulePath).intern())
+     for (moduleId, dependencyDetails) in externalTargetDependencyDetails {
+       let modPath = TextualVirtualPath(path: VirtualPath.absolute(dependencyDetails.path).intern())
        placeholderArtifacts.append(
            SwiftModuleArtifactInfo(name: moduleId.moduleName,
                                    modulePath: modPath))
@@ -80,31 +156,46 @@ public extension Driver {
      let encoder = JSONEncoder()
      encoder.outputFormatting = [.prettyPrinted]
      let contents = try encoder.encode(placeholderArtifacts)
-     return VirtualPath.createUniqueTemporaryFileWithKnownContents(.init("\(moduleOutputInfo.name)-external-modules.json"),
-                                                                   contents)
-   }
-
-  /// Returns false if the lib is available and ready to use
-  private func initSwiftScanLib() throws -> Bool {
-    // If `-nonlib-dependency-scanner` was specified or the libSwiftScan library cannot be found,
-    // attempt to fallback to using `swift-frontend -scan-dependencies` invocations for dependency
-    // scanning.
-    var fallbackToFrontend = parsedOptions.hasArgument(.driverScanDependenciesNonLib)
-    let scanLibPath = try Self.getScanLibPath(of: toolchain, hostTriple: hostTriple, env: env)
-    if try interModuleDependencyOracle
-        .verifyOrCreateScannerInstance(fileSystem: fileSystem,
-                                       swiftScanLibPath: scanLibPath) == false {
-      fallbackToFrontend = true
-      // This warning is mostly useful for debugging the driver, so let's hide it
-      // when libSwiftDriver is used, instead of a swift-driver executable.
-      if !integratedDriver {
-        diagnosticEngine.emit(.warn_scanner_frontend_fallback())
-      }
-    }
-    return fallbackToFrontend
+     return try VirtualPath.createUniqueTemporaryFileWithKnownContents(.init(validating: "\(moduleOutputInfo.name)-external-modules.json"),
+                                                                       contents)
   }
 
-  private func sanitizeCommandForLibScanInvocation(_ command: inout [String]) {
+  /// Returns false if the lib is available and ready to use
+  private mutating func initSwiftScanLib() throws -> Bool {
+    // `-nonlib-dependency-scanner` was specified
+    guard !parsedOptions.hasArgument(.driverScanDependenciesNonLib) else {
+      return true
+    }
+
+    // If the libSwiftScan library cannot be found,
+    // attempt to fallback to using `swift-frontend -scan-dependencies` invocations for dependency
+    // scanning.
+    guard let scanLibPath = try toolchain.lookupSwiftScanLib(),
+          fileSystem.exists(scanLibPath) else {
+      diagnosticEngine.emit(.warn_scan_dylib_not_found())
+      return true
+    }
+
+    do {
+      try interModuleDependencyOracle.verifyOrCreateScannerInstance(fileSystem: fileSystem,
+                                                                    swiftScanLibPath: scanLibPath)
+      if isCachingEnabled {
+        self.cas = try interModuleDependencyOracle.getOrCreateCAS(pluginPath: try getCASPluginPath(),
+                                                                  onDiskPath: try getOnDiskCASPath(),
+                                                                  pluginOptions: try getCASPluginOptions())
+      }
+    } catch {
+      if isCachingEnabled {
+        diagnosticEngine.emit(.error_caching_enabled_libswiftscan_load_failure(scanLibPath.description))
+      } else {
+        diagnosticEngine.emit(.warn_scan_dylib_load_failed(scanLibPath.description))
+      }
+      return true
+    }
+    return false
+  }
+
+  static func sanitizeCommandForLibScanInvocation(_ command: inout [String]) {
     // Remove the tool executable to only leave the arguments. When passing the
     // command line into libSwiftScan, the library is itself the tool and only
     // needs to parse the remaining arguments.
@@ -124,16 +215,24 @@ public extension Driver {
 
     let isSwiftScanLibAvailable = !(try initSwiftScanLib())
     if isSwiftScanLibAvailable {
-      let cwd = workingDirectory ?? fileSystem.currentWorkingDirectory!
-      var command = try itemizedJobCommand(of: preScanJob,
-                                           forceResponseFiles: forceResponseFiles,
-                                           using: executor.resolver)
-      sanitizeCommandForLibScanInvocation(&command)
-      imports =
-        try interModuleDependencyOracle.getImports(workingDirectory: cwd,
-                                                   moduleAliases: moduleOutputInfo.aliases,
-                                                   commandLine: command)
-
+      var scanDiagnostics: [ScannerDiagnosticPayload] = []
+      guard let cwd = workingDirectory else {
+        throw DependencyScanningError.dependencyScanFailed("cannot determine working directory")
+      }
+      var command = try Self.itemizedJobCommand(of: preScanJob,
+                                                useResponseFiles: .disabled,
+                                                using: executor.resolver)
+      Self.sanitizeCommandForLibScanInvocation(&command)
+      do {
+        imports = try interModuleDependencyOracle.getImports(workingDirectory: cwd,
+                                                             moduleAliases: moduleOutputInfo.aliases,
+                                                             commandLine: command,
+                                                             diagnostics: &scanDiagnostics)
+      } catch let DependencyScanningError.dependencyScanFailed(reason) {
+        try emitGlobalScannerDiagnostics()
+        throw DependencyScanningError.dependencyScanFailed(reason)
+      }
+      try emitGlobalScannerDiagnostics()
     } else {
       // Fallback to legacy invocation of the dependency scanner with
       // `swift-frontend -scan-dependencies -import-prescan`
@@ -146,22 +245,72 @@ public extension Driver {
     return imports
   }
 
-  mutating internal func performDependencyScan() throws -> InterModuleDependencyGraph {
+  internal func emitScannerDiagnostics(_ diagnostics: [ScannerDiagnosticPayload]) throws {
+      for diagnostic in diagnostics {
+        switch diagnostic.severity {
+        case .error:
+          diagnosticEngine.emit(.scanner_diagnostic_error(diagnostic.message),
+                                location: diagnostic.sourceLocation)
+        case .warning:
+          diagnosticEngine.emit(.scanner_diagnostic_warn(diagnostic.message),
+                                location: diagnostic.sourceLocation)
+        case .note:
+          diagnosticEngine.emit(.scanner_diagnostic_note(diagnostic.message),
+                                location: diagnostic.sourceLocation)
+        case .remark:
+          diagnosticEngine.emit(.scanner_diagnostic_remark(diagnostic.message),
+                                location: diagnostic.sourceLocation)
+        case .ignored:
+          diagnosticEngine.emit(.scanner_diagnostic_error(diagnostic.message),
+                                location: diagnostic.sourceLocation)
+        }
+      }
+  }
+
+  mutating internal func emitGlobalScannerDiagnostics() throws {
+    // We only emit global scanner-collected diagnostics as a legacy flow
+    // when the scanner does not support per-scan diagnostic output
+    guard try !interModuleDependencyOracle.supportsPerScanDiagnostics() else {
+      return
+    }
+    if let diags = try interModuleDependencyOracle.getScannerDiagnostics() {
+      try emitScannerDiagnostics(diags)
+    }
+  }
+
+  mutating func performDependencyScan() throws -> InterModuleDependencyGraph {
     let scannerJob = try dependencyScanningJob()
     let forceResponseFiles = parsedOptions.hasArgument(.driverForceResponseFiles)
     let dependencyGraph: InterModuleDependencyGraph
 
+    if parsedOptions.contains(.v) {
+      let arguments: [String] = try executor.resolver.resolveArgumentList(for: scannerJob,
+                                                                          useResponseFiles: .disabled)
+      stdoutStream.send("\(arguments.map { $0.spm_shellEscaped() }.joined(separator: " "))\n")
+      stdoutStream.flush()
+    }
+
     let isSwiftScanLibAvailable = !(try initSwiftScanLib())
     if isSwiftScanLibAvailable {
-      let cwd = workingDirectory ?? fileSystem.currentWorkingDirectory!
-      var command = try itemizedJobCommand(of: scannerJob,
-                                           forceResponseFiles: forceResponseFiles,
-                                           using: executor.resolver)
-      sanitizeCommandForLibScanInvocation(&command)
-      dependencyGraph =
-        try interModuleDependencyOracle.getDependencies(workingDirectory: cwd,
-                                                        moduleAliases: moduleOutputInfo.aliases,
-                                                        commandLine: command)
+      var scanDiagnostics: [ScannerDiagnosticPayload] = []
+      guard let cwd = workingDirectory else {
+        throw DependencyScanningError.dependencyScanFailed("cannot determine working directory")
+      }
+      var command = try Self.itemizedJobCommand(of: scannerJob,
+                                                useResponseFiles: .disabled,
+                                                using: executor.resolver)
+      Self.sanitizeCommandForLibScanInvocation(&command)
+      do {
+        dependencyGraph = try interModuleDependencyOracle.getDependencies(workingDirectory: cwd,
+                                                                          moduleAliases: moduleOutputInfo.aliases,
+                                                                          commandLine: command,
+                                                                          diagnostics: &scanDiagnostics)
+        try emitScannerDiagnostics(scanDiagnostics)
+      } catch let DependencyScanningError.dependencyScanFailed(reason) {
+        try emitGlobalScannerDiagnostics()
+        throw DependencyScanningError.dependencyScanFailed(reason)
+      }
+      try emitGlobalScannerDiagnostics()
     } else {
       // Fallback to legacy invocation of the dependency scanner with
       // `swift-frontend -scan-dependencies`
@@ -182,16 +331,20 @@ public extension Driver {
 
     let isSwiftScanLibAvailable = !(try initSwiftScanLib())
     if isSwiftScanLibAvailable {
-      let cwd = workingDirectory ?? fileSystem.currentWorkingDirectory!
-      var command = try itemizedJobCommand(of: batchScanningJob,
-                                           forceResponseFiles: forceResponseFiles,
-                                           using: executor.resolver)
-      sanitizeCommandForLibScanInvocation(&command)
+      var scanDiagnostics: [ScannerDiagnosticPayload] = []
+      guard let cwd = workingDirectory else {
+        throw DependencyScanningError.dependencyScanFailed("cannot determine working directory")
+      }
+      var command = try Self.itemizedJobCommand(of: batchScanningJob,
+                                                useResponseFiles: .disabled,
+                                                using: executor.resolver)
+      Self.sanitizeCommandForLibScanInvocation(&command)
       moduleVersionedGraphMap =
         try interModuleDependencyOracle.getBatchDependencies(workingDirectory: cwd,
                                                              moduleAliases: moduleOutputInfo.aliases,
                                                              commandLine: command,
-                                                             batchInfos: moduleInfos)
+                                                             batchInfos: moduleInfos,
+                                                             diagnostics: &scanDiagnostics)
     } else {
       // Fallback to legacy invocation of the dependency scanner with
       // `swift-frontend -scan-dependencies`
@@ -252,8 +405,8 @@ public extension Driver {
     commandLine.appendFlag("-frontend")
     commandLine.appendFlag("-scan-dependencies")
     commandLine.appendFlag("-import-prescan")
-    try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs,
-                                 bridgingHeaderHandling: .ignored,
+    try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs, kind: .scanDependencies,
+                                 bridgingHeaderHandling: .parsed,
                                  moduleDependencyGraphUse: .dependencyScan)
     // FIXME: MSVC runtime flags
 
@@ -263,13 +416,12 @@ public extension Driver {
     // Construct the scanning job.
     return Job(moduleName: moduleOutputInfo.name,
                kind: .scanDependencies,
-               tool: VirtualPath.absolute(try toolchain.getToolPath(.swiftCompiler)),
+               tool: try toolchain.resolvedTool(.swiftCompiler),
                commandLine: commandLine,
                displayInputs: inputs,
                inputs: inputs,
                primaryInputs: [],
-               outputs: [TypedVirtualPath(file: .standardOutput, type: .jsonDependencies)],
-               supportsResponseFiles: false)
+               outputs: [TypedVirtualPath(file: .standardOutput, type: .jsonDependencies)])
   }
 
   /// Precompute the dependencies for a given collection of modules using swift frontend's batch scanning mode
@@ -283,7 +435,7 @@ public extension Driver {
     // is present.
     commandLine.appendFlag("-frontend")
     commandLine.appendFlag("-scan-dependencies")
-    try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs,
+    try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs, kind: .scanDependencies,
                                  bridgingHeaderHandling: .ignored,
                                  moduleDependencyGraphUse: .dependencyScan)
 
@@ -312,13 +464,12 @@ public extension Driver {
     // Construct the scanning job.
     return Job(moduleName: moduleOutputInfo.name,
                kind: .scanDependencies,
-               tool: VirtualPath.absolute(try toolchain.getToolPath(.swiftCompiler)),
+               tool: try toolchain.resolvedTool(.swiftCompiler),
                commandLine: commandLine,
                displayInputs: inputs,
                inputs: inputs,
                primaryInputs: [],
-               outputs: outputs,
-               supportsResponseFiles: false)
+               outputs: outputs)
   }
 
   /// Serialize a collection of modules into an input format expected by the batch module dependency scanner.
@@ -327,57 +478,21 @@ public extension Driver {
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.prettyPrinted]
     let contents = try encoder.encode(moduleInfos)
-    return VirtualPath.createUniqueTemporaryFileWithKnownContents(.init("\(moduleOutputInfo.name)-batch-module-scan.json"),
-                                                                  contents)
+    return try VirtualPath.createUniqueTemporaryFileWithKnownContents(.init(validating: "\(moduleOutputInfo.name)-batch-module-scan.json"),
+                                                                      contents)
   }
 
-  fileprivate func itemizedJobCommand(of job: Job, forceResponseFiles: Bool,
-                                      using resolver: ArgsResolver) throws -> [String] {
-    let (args, _) = try resolver.resolveArgumentList(for: job,
-                                                     forceResponseFiles: forceResponseFiles,
-                                                     quotePaths: true)
-    return args
-  }
-}
-
-@_spi(Testing) public extension Driver {
-  static func getScanLibPath(of toolchain: Toolchain, hostTriple: Triple,
-                             env: [String: String]) throws -> AbsolutePath {
-    if hostTriple.isWindows {
-      // no matter if we are in a build tree or an installed tree, the layout is
-      // always: `bin/_InternalSwiftScan.dll`
-      return try getRootPath(of: toolchain, env: env)
-                    .appending(component: "bin")
-                    .appending(component: "_InternalSwiftScan.dll")
-    }
-
-    let sharedLibExt: String
-    if hostTriple.isMacOSX {
-      sharedLibExt = ".dylib"
-    } else {
-      sharedLibExt = ".so"
-    }
-    let libScanner = "lib_InternalSwiftScan\(sharedLibExt)"
-    // We first look into position in toolchain
-    let libPath
-     = try getRootPath(of: toolchain, env: env).appending(component: "lib")
-      .appending(component: "swift")
-      .appending(component: hostTriple.osNameUnversioned)
-      .appending(component: libScanner)
-    if localFileSystem.exists(libPath) {
-        return libPath
-    }
-    // In case we are using a compiler from the build dir, we should also try
-    // this path.
-    return try getRootPath(of: toolchain, env: env).appending(component: "lib")
-      .appending(component: libScanner)
+  static func itemizedJobCommand(of job: Job, useResponseFiles: ResponseFileHandling,
+                                 using resolver: ArgsResolver) throws -> [String] {
+    // Because the command-line passed to libSwiftScan does not go through the shell
+    // we must ensure that we generate a shell-escaped string for all arguments/flags that may
+    // potentially need it.
+    return try resolver.resolveArgumentList(for: job,
+                                            useResponseFiles: useResponseFiles).0.map { $0.spm_shellEscaped() }
   }
 
   static func getRootPath(of toolchain: Toolchain, env: [String: String])
   throws -> AbsolutePath {
-    if let overrideString = env["SWIFT_DRIVER_SWIFT_SCAN_TOOLCHAIN_PATH"] {
-      return try AbsolutePath(validating: overrideString)
-    }
     return try toolchain.getToolPath(.swiftCompiler)
       .parentDirectory // bin
       .parentDirectory // toolchain root

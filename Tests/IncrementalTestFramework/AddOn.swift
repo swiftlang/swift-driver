@@ -11,10 +11,10 @@
 //===----------------------------------------------------------------------===//
 
 /// An `AddOn` allows for extra code to be added to file to test what is compiled then.
-/// The syntax is  `//# <identifer>` where the `<identifer>` is replaced by some word.
+/// The syntax is  `//# <identifier>` where the `<identifier>` is replaced by some word.
 /// (There must be exactly one space after the '#')
 /// For example the line `var gazorp //# initGazorp = 17`
-/// will normall be compiled as written. But if the `Step` includes `initGazorp` in its `addOns`
+/// will normally be compiled as written. But if the `Step` includes `initGazorp` in its `addOns`
 /// the line passed to the compiler will be `var gazorp  = 17`
 public struct AddOn {
   /// The name of the `AddOn`. That is, the identifier in the above description.

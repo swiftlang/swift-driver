@@ -11,3 +11,6 @@ add_executable(swift-build-sdk-interfaces
 target_link_libraries(swift-build-sdk-interfaces PUBLIC
   SwiftDriver
   SwiftDriverExecution)
+
+install(TARGETS swift-build-sdk-interfaces
+  DESTINATION bin)

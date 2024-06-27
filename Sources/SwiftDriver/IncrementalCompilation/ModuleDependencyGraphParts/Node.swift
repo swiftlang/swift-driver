@@ -9,11 +9,10 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import TSCBasic
 
 // MARK: - ModuleDependencyGraph.Node
 extension ModuleDependencyGraph {
-  
+
   /// A node in the per-module (i.e. the driver) dependency graph
   /// Each node represents a `Decl` from the frontend.
   /// If a file references a `Decl` we haven't seen yet, the node's `dependencySource` will be nil,
@@ -39,19 +38,20 @@ extension ModuleDependencyGraph {
     /*@_spi(Testing)*/ public var key: DependencyKey { keyAndFingerprint.key }
     /*@_spi(Testing)*/ public var fingerprint: InternedString? { keyAndFingerprint.fingerprint }
 
+    /// When integrating a change, the driver finds untraced nodes so it can kick off jobs that have not been
+    /// kicked off yet. (Within any one driver invocation, compiling a source file is idempotent.)
+    /// When reading a serialized, prior graph, *don't* recover this state, since it will be a new driver
+    /// invocation that has not kicked off any compiles yet.
+    @_spi(Testing) public private(set) var isTraced: Bool = false
+      
     /// Each Node corresponds to a declaration, somewhere. If the definition has been already found,
     /// the `definitionLocation` will point to it.
     /// If uses are encountered before the definition (in reading swiftdeps files), the `definitionLocation`
     /// will be set to `.unknown`.
     /// A node's definition location can move from file to file when the driver reads the result of a
     /// compilation.
- 
+
     @_spi(Testing) public let definitionLocation: DefinitionLocation
-    /// When integrating a change, the driver finds untraced nodes so it can kick off jobs that have not been
-    /// kicked off yet. (Within any one driver invocation, compiling a source file is idempotent.)
-    /// When reading a serialized, prior graph, *don't* recover this state, since it will be a new driver
-    /// invocation that has not kicked off any compiles yet.
-    @_spi(Testing) public private(set) var isTraced: Bool = false
 
     private let cachedHash: Int
 
@@ -127,7 +127,7 @@ extension ModuleDependencyGraph.Node {
     verifyNodesithoutDefinitionLocationHasNoFingerprints()
     key.verify()
   }
-  
+
   public func verifyNodesithoutDefinitionLocationHasNoFingerprints() {
     if case .unknown = definitionLocation, fingerprint != nil {
       fatalError(#function)
@@ -143,7 +143,7 @@ extension ModuleDependencyGraph {
   /// always known. For example, it may be in a `swiftdeps` file yet to be read.
   public enum DefinitionLocation: Equatable, Hashable, Comparable {
     case unknown, known(DependencySource)
-    
+
     public static func <(lhs: Self, rhs: Self) -> Bool {
       switch (lhs, rhs) {
         case (.unknown, .unknown): return false
@@ -152,7 +152,7 @@ extension ModuleDependencyGraph {
         case let (.known(lh), .known(rh)): return lh < rh
       }
     }
-    
+
     /// A string explaining where the definition is.
     public var locationString: String {
       switch self {
@@ -160,7 +160,7 @@ extension ModuleDependencyGraph {
         case let .known(dependencySource): return "in \(dependencySource.description)"
       }
     }
-    
+
     /// The file holding the definition.
     public var internedFileNameIfAny: InternedString? {
       switch self {

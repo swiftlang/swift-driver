@@ -10,12 +10,23 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
-import enum TSCUtility.Diagnostics
-
-import Foundation
-import Dispatch
 import SwiftDriver
+
+import class Dispatch.DispatchQueue
+import class Foundation.OperationQueue
+import class Foundation.FileHandle
+import var Foundation.EXIT_SUCCESS
+import var Foundation.EXIT_FAILURE
+import var Foundation.SIGINT
+
+import class TSCBasic.DiagnosticsEngine
+import class TSCBasic.Process
+import class TSCBasic.ProcessSet
+import protocol TSCBasic.DiagnosticData
+import protocol TSCBasic.FileSystem
+import struct TSCBasic.Diagnostic
+import struct TSCBasic.ProcessResult
+import enum TSCUtility.Diagnostics
 
 // We either import the llbuildSwift shared library or the llbuild framework.
 #if canImport(llbuildSwift)
@@ -74,7 +85,7 @@ public final class MultiJobExecutor {
     let forceResponseFiles: Bool
 
     /// The last time each input file was modified, recorded at the start of the build.
-    public let recordedInputModificationDates: [TypedVirtualPath: Date]
+    public let recordedInputModificationDates: [TypedVirtualPath: TimePoint]
 
     /// The diagnostics engine to use when reporting errors.
     let diagnosticsEngine: DiagnosticsEngine
@@ -101,7 +112,7 @@ public final class MultiJobExecutor {
       jobQueue: OperationQueue,
       processSet: ProcessSet?,
       forceResponseFiles: Bool,
-      recordedInputModificationDates: [TypedVirtualPath: Date],
+      recordedInputModificationDates: [TypedVirtualPath: TimePoint],
       diagnosticsEngine: DiagnosticsEngine,
       processType: ProcessProtocol.Type = Process.self,
       inputHandleOverride: FileHandle? = nil
@@ -249,7 +260,7 @@ public final class MultiJobExecutor {
   private let forceResponseFiles: Bool
 
   /// The last time each input file was modified, recorded at the start of the build.
-  private let recordedInputModificationDates: [TypedVirtualPath: Date]
+  private let recordedInputModificationDates: [TypedVirtualPath: TimePoint]
 
   /// The diagnostics engine to use when reporting errors.
   private let diagnosticsEngine: DiagnosticsEngine
@@ -268,7 +279,7 @@ public final class MultiJobExecutor {
     numParallelJobs: Int? = nil,
     processSet: ProcessSet? = nil,
     forceResponseFiles: Bool = false,
-    recordedInputModificationDates: [TypedVirtualPath: Date] = [:],
+    recordedInputModificationDates: [TypedVirtualPath: TimePoint] = [:],
     processType: ProcessProtocol.Type = Process.self,
     inputHandleOverride: FileHandle? = nil
   ) {
@@ -307,7 +318,7 @@ public final class MultiJobExecutor {
 
     // Throw the stub error the build didn't finish successfully.
     if !result.success {
-      throw Diagnostics.fatalError
+      throw Driver.ErrorDiagnostics.emitted
     }
   }
 
@@ -579,7 +590,7 @@ class ExecuteJobRule: LLBuildRule {
     var pid = 0
     do {
       let arguments: [String] = try resolver.resolveArgumentList(for: job,
-                                                                 forceResponseFiles: context.forceResponseFiles)
+                                                                 useResponseFiles: context.forceResponseFiles ? .forced : .heuristic)
 
 
       let process : ProcessProtocol
@@ -623,7 +634,7 @@ class ExecuteJobRule: LLBuildRule {
           context.diagnosticsEngine.emit(.error_command_exception(kind: job.kind, exception: exception))
 #else
         case let .signalled(signal):
-          // An interrupt of an individual compiler job means it was deliberatly cancelled,
+          // An interrupt of an individual compiler job means it was deliberately cancelled,
           // most likely by the driver itself. This does not constitute an error.
           if signal != SIGINT {
             context.diagnosticsEngine.emit(.error_command_signalled(kind: job.kind, signal: signal))

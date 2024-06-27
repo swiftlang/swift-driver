@@ -9,15 +9,17 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import TSCBasic
 
-// On ELF/WASM platforms there's no built in autolinking mechanism, so we
+import struct TSCBasic.RelativePath
+
+// On ELF/Wasm platforms there's no built in autolinking mechanism, so we
 // pull the info we need from the .o files directly and pass them as an
 // argument input file to the linker.
 // FIXME: Also handle Cygwin and MinGW
 extension Driver {
   /*@_spi(Testing)*/ public var isAutolinkExtractJobNeeded: Bool {
-    [.elf, .wasm].contains(targetTriple.objectFormat) && lto == nil
+    [.elf, .wasm].contains(targetTriple.objectFormat) && lto == nil &&
+    linkerOutputType != nil
   }
 
   mutating func autolinkExtractJob(inputs: [TypedVirtualPath]) throws -> Job? {
@@ -32,8 +34,8 @@ extension Driver {
     let dir = firstInput.file.parentDirectory
     // Go through a bit of extra rigmarole to keep the "./" out of the name for
     // the sake of the tests.
-    let output: VirtualPath = dir == .temporary(RelativePath("."))
-      ? VirtualPath.createUniqueTemporaryFile(RelativePath(outputBasename))
+    let output: VirtualPath = dir == .temporary(try RelativePath(validating: "."))
+      ? try VirtualPath.createUniqueTemporaryFile(RelativePath(validating: outputBasename))
       : dir.appending(component: outputBasename)
 
     commandLine.append(contentsOf: inputs.map { .path($0.file) })
@@ -43,12 +45,11 @@ extension Driver {
     return Job(
       moduleName: moduleOutputInfo.name,
       kind: .autolinkExtract,
-      tool: .absolute(try toolchain.getToolPath(.swiftAutolinkExtract)),
+      tool: try toolchain.resolvedTool(.swiftAutolinkExtract),
       commandLine: commandLine,
       inputs: inputs,
       primaryInputs: [],
-      outputs: [.init(file: output.intern(), type: .autolink)],
-      supportsResponseFiles: true
+      outputs: [.init(file: output.intern(), type: .autolink)]
     )
   }
 }

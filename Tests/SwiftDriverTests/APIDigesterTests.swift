@@ -12,7 +12,6 @@
 
 import XCTest
 import TSCBasic
-import TSCUtility
 @_spi(Testing) import SwiftDriver
 
 class APIDigesterTests: XCTestCase {
@@ -49,22 +48,22 @@ class APIDigesterTests: XCTestCase {
     do {
       var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-emit-digester-baseline"])
       let digesterJob = try XCTUnwrap(driver.planBuild().first { $0.kind == .generateAPIBaseline })
-      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-o", .path(.relative(.init("foo.api.json")))]))
+      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-o", try toPathOption("foo.api.json")]))
     }
     do {
       var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module","-emit-module-interface", "-enable-library-evolution", "-emit-digester-baseline", "-digester-mode", "abi"])
       let digesterJob = try XCTUnwrap(driver.planBuild().first { $0.kind == .generateABIBaseline })
-      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-o", .path(.relative(.init("foo.abi.json")))]))
+      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-o", try toPathOption("foo.abi.json")]))
     }
     do {
       var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-emit-digester-baseline-path", "bar.api.json"])
       let digesterJob = try XCTUnwrap(driver.planBuild().first { $0.kind == .generateAPIBaseline })
-      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-o", .path(.relative(.init("bar.api.json")))]))
+      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-o", try toPathOption("bar.api.json")]))
     }
     do {
       var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module","-emit-module-interface", "-enable-library-evolution", "-digester-mode", "abi", "-emit-digester-baseline-path", "bar.abi.json"])
       let digesterJob = try XCTUnwrap(driver.planBuild().first { $0.kind == .generateABIBaseline })
-      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-o", .path(.relative(.init("bar.abi.json")))]))
+      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-o", try toPathOption("bar.abi.json")]))
     }
     do {
       try withTemporaryDirectory { path in
@@ -96,13 +95,13 @@ class APIDigesterTests: XCTestCase {
       try withTemporaryDirectory { path in
         let ofmPath = path.appending(component: "ofm.json")
         try localFileSystem.writeFileContents(ofmPath) {
-          $0 <<< """
+          $0.send("""
           {
             "": {
               "abi-baseline-json": "/path/to/baseline.abi.json"
             }
           }
-          """
+          """)
         }
         var driver = try Driver(args: ["swiftc", "-wmo", "-emit-module",
                                        "-emit-module-interface", "-enable-library-evolution",
@@ -113,20 +112,20 @@ class APIDigesterTests: XCTestCase {
                                        "-output-file-map", ofmPath.pathString,
                                       ])
         let digesterJob = try XCTUnwrap(driver.planBuild().first { $0.kind == .generateABIBaseline })
-        XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-o", .path(.absolute(.init("/path/to/baseline.abi.json")))]))
+        XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-o", .path(.absolute(try .init(validating: "/path/to/baseline.abi.json")))]))
       }
     }
     do {
       try withTemporaryDirectory { path in
         let ofmPath = path.appending(component: "ofm.json")
         try localFileSystem.writeFileContents(ofmPath) {
-          $0 <<< """
+          $0.send("""
           {
             "": {
               "swiftsourceinfo": "/path/to/sourceinfo"
             }
           }
-          """
+          """)
         }
         var driver = try Driver(args: ["swiftc", "-wmo", "-emit-module",
                                        "-emit-module-interface", "-enable-library-evolution",
@@ -137,7 +136,7 @@ class APIDigesterTests: XCTestCase {
                                        "-output-file-map", ofmPath.pathString,
                                       ])
         let digesterJob = try XCTUnwrap(driver.planBuild().first { $0.kind == .generateABIBaseline })
-        XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-o", .path(.absolute(.init("/path/to/sourceinfo.abi.json")))]))
+        XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-o", .path(.absolute(try .init(validating: "/path/to/sourceinfo.abi.json")))]))
       }
     }
   }
@@ -149,11 +148,11 @@ class APIDigesterTests: XCTestCase {
       let digesterJob = try XCTUnwrap(driver.planBuild().first { $0.kind == .generateAPIBaseline })
       XCTAssertTrue(digesterJob.commandLine.contains("-dump-sdk"))
       XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-module", "foo"]))
-      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-I", .path(.relative(.init(".")))]))
-      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-sdk", .path(.absolute(.init("/path/to/sdk")))]))
-      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-I", .path(.absolute(.init("/some/path")))]))
-      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-F", .path(.relative(.init("framework/path")))]))
-      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-o", .path(.relative(.init("foo.api.json")))]))
+      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-I", try toPathOption(".")]))
+      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-sdk", .path(.absolute(try .init(validating: "/path/to/sdk")))]))
+      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-I", .path(.absolute(try .init(validating: "/some/path")))]))
+      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-F", try toPathOption("framework/path")]))
+      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-o", try toPathOption("foo.api.json")]))
 
       XCTAssertFalse(digesterJob.commandLine.contains("-abi"))
     }
@@ -165,11 +164,11 @@ class APIDigesterTests: XCTestCase {
       let digesterJob = try XCTUnwrap(driver.planBuild().first { $0.kind == .generateABIBaseline })
       XCTAssertTrue(digesterJob.commandLine.contains("-dump-sdk"))
       XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-module", "foo"]))
-      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-I", .path(.relative(.init(".")))]))
-      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-sdk", .path(.absolute(.init("/path/to/sdk")))]))
-      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-I", .path(.absolute(.init("/some/path")))]))
-      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-F", .path(.relative(.init("framework/path")))]))
-      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-o", .path(.relative(.init("foo.abi.json")))]))
+      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-I", try toPathOption(".")]))
+      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-sdk", .path(.absolute(try .init(validating: "/path/to/sdk")))]))
+      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-I", .path(.absolute(try .init(validating: "/some/path")))]))
+      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-F", try toPathOption("framework/path")]))
+      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-o", try toPathOption("foo.abi.json")]))
 
       XCTAssertTrue(digesterJob.commandLine.contains("-abi"))
     }
@@ -184,13 +183,13 @@ class APIDigesterTests: XCTestCase {
       try localFileSystem.changeCurrentWorkingDirectory(to: path)
       let source = path.appending(component: "foo.swift")
       try localFileSystem.writeFileContents(source) {
-        $0 <<< """
+        $0.send("""
         import C
         import E
         import G
 
         public struct MyStruct {}
-        """
+        """)
       }
 
       let packageRootPath = URL(fileURLWithPath: #file).pathComponents
@@ -229,6 +228,9 @@ class APIDigesterTests: XCTestCase {
   }
 
   func testBaselineComparisonJobFlags() throws {
+#if !os(macOS)
+    throw XCTSkip("Skipping: ABI descriptor is only emitted on Darwin platforms.")
+#endif
     do {
       var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-compare-to-baseline-path", "/baseline/path",
                                      "-sdk", "/path/to/sdk", "-I", "/some/path", "-F", "framework/path",
@@ -236,13 +238,13 @@ class APIDigesterTests: XCTestCase {
       let digesterJob = try XCTUnwrap(driver.planBuild().first { $0.kind == .compareAPIBaseline })
       XCTAssertTrue(digesterJob.commandLine.contains("-diagnose-sdk"))
       XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-module", "foo"]))
-      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-baseline-path", .path(.absolute(.init("/baseline/path")))]))
-      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-I", .path(.relative(.init(".")))]))
-      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-sdk", .path(.absolute(.init("/path/to/sdk")))]))
-      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-I", .path(.absolute(.init("/some/path")))]))
-      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-F", .path(.relative(.init("framework/path")))]))
+      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-baseline-path", .path(.absolute(try .init(validating: "/baseline/path")))]))
+      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-I", try toPathOption(".")]))
+      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-sdk", .path(.absolute(try .init(validating: "/path/to/sdk")))]))
+      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-I", .path(.absolute(try .init(validating: "/some/path")))]))
+      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-F", try toPathOption("framework/path")]))
       XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-breakage-allowlist-path",
-                                                                   .path(.relative(.init("allowlist/path")))]))
+                                                                   try toPathOption("allowlist/path")]))
 
       XCTAssertFalse(digesterJob.commandLine.contains("-abi"))
     }
@@ -255,9 +257,9 @@ class APIDigesterTests: XCTestCase {
                                      "-digester-breakage-allowlist-path", "allowlist/path"])
       let digesterJob = try XCTUnwrap(driver.planBuild().first { $0.kind == .compareABIBaseline })
       XCTAssertTrue(digesterJob.commandLine.contains("-diagnose-sdk"))
-      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-input-paths", .path(.absolute(.init("/baseline/path")))]))
+      XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-input-paths", .path(.absolute(try .init(validating: "/baseline/path")))]))
       XCTAssertTrue(digesterJob.commandLine.contains(subsequence: ["-breakage-allowlist-path",
-                                                                   .path(.relative(.init("allowlist/path")))]))
+                                                                   try toPathOption("allowlist/path")]))
       XCTAssertTrue(digesterJob.commandLine.contains("-abi"))
       XCTAssertTrue(digesterJob.commandLine.contains("-serialize-diagnostics-path"))
     }
@@ -272,11 +274,11 @@ class APIDigesterTests: XCTestCase {
       try localFileSystem.changeCurrentWorkingDirectory(to: path)
       let source = path.appending(component: "foo.swift")
       try localFileSystem.writeFileContents(source) {
-        $0 <<< """
+        $0.send("""
         public struct MyStruct {
           public var a: Int
         }
-        """
+        """)
       }
       var driver = try Driver(args: ["swiftc",
                                      "-working-directory", path.pathString,
@@ -293,11 +295,11 @@ class APIDigesterTests: XCTestCase {
       XCTAssertFalse(driver.diagnosticEngine.hasErrors)
 
       try localFileSystem.writeFileContents(source) {
-        $0 <<< """
+        $0.send("""
         public struct MyStruct {
           public var a: Bool
         }
-        """
+        """)
       }
       var driver2 = try Driver(args: ["swiftc",
                                       "-working-directory", path.pathString,
@@ -333,16 +335,16 @@ class APIDigesterTests: XCTestCase {
       let source = path.appending(component: "foo.swift")
       let allowlist = path.appending(component: "allowlist.txt")
       try localFileSystem.writeFileContents(source) {
-        $0 <<< """
+        $0.send("""
         @frozen public struct MyStruct {
           var a: Int
           var b: String
           var c: Int
         }
-        """
+        """)
       }
       try localFileSystem.writeFileContents(allowlist) {
-        $0 <<< "ABI breakage: var MyStruct.c has declared type change from Swift.Int to Swift.String"
+        $0.send("ABI breakage: var MyStruct.c has declared type change from Swift.Int to Swift.String")
       }
       var driver = try Driver(args: ["swiftc",
                                      "-working-directory", path.pathString,
@@ -362,13 +364,13 @@ class APIDigesterTests: XCTestCase {
       XCTAssertFalse(driver.diagnosticEngine.hasErrors)
 
       try localFileSystem.writeFileContents(source) {
-        $0 <<< """
+        $0.send("""
         @frozen public struct MyStruct {
           var b: String
           var a: Int
           var c: String
         }
-        """
+        """)
       }
       var driver2 = try Driver(args: ["swiftc",
                                       "-working-directory", path.pathString,

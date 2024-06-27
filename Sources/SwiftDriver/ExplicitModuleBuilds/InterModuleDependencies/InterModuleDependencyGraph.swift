@@ -10,6 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+import class Foundation.JSONEncoder
+import struct Foundation.Data
+
 /// A map from a module identifier to its info
 public typealias ModuleInfoMap = [ModuleDependencyId: ModuleInfo]
 
@@ -25,6 +28,15 @@ public enum ModuleDependencyId: Hashable {
     case .swiftPlaceholder(let name): return name
     case .swiftPrebuiltExternal(let name): return name
     case .clang(let name): return name
+    }
+  }
+
+  internal var moduleNameForDiagnostic: String {
+    switch self {
+    case .swift(let name): return name
+    case .swiftPlaceholder(let name): return name + "(placeholder)"
+    case .swiftPrebuiltExternal(let name): return name + "(swiftmodule)"
+    case .clang(let name): return name + "(pcm)"
     }
   }
 }
@@ -74,14 +86,23 @@ extension ModuleDependencyId: Codable {
 }
 
 /// Bridging header
-public struct BridgingHeader: Codable {
+public struct BridgingHeader: Codable, Hashable {
   var path: TextualVirtualPath
+  /// The source files referenced by the bridging header.
   var sourceFiles: [TextualVirtualPath]
+  /// Modules that the bridging header specifically depends on
   var moduleDependencies: [String]
 }
 
+/// Linked Library
+public struct LinkLibraryInfo: Codable, Hashable {
+  public var linkName: String
+  public var isFramework: Bool
+  public var shouldForceLoad: Bool
+}
+
 /// Details specific to Swift modules.
-public struct SwiftModuleDetails: Codable {
+public struct SwiftModuleDetails: Codable, Hashable {
   /// The module interface from which this module was built, if any.
   public var moduleInterfacePath: TextualVirtualPath?
 
@@ -89,13 +110,22 @@ public struct SwiftModuleDetails: Codable {
   public var compiledModuleCandidates: [TextualVirtualPath]?
 
   /// The bridging header, if any.
-  public var bridgingHeaderPath: TextualVirtualPath?
-
-  /// The source files referenced by the bridging header.
-  public var bridgingSourceFiles: [TextualVirtualPath]? = []
+  public var bridgingHeader: BridgingHeader?
+  public var bridgingHeaderPath: TextualVirtualPath? {
+    bridgingHeader?.path
+  }
+  public var bridgingSourceFiles: [TextualVirtualPath]? {
+    bridgingHeader?.sourceFiles
+  }
+  public var bridgingHeaderDependencies: [ModuleDependencyId]? {
+    bridgingHeader?.moduleDependencies.map { .clang($0) }
+  }
 
   /// Options to the compile command
   public var commandLine: [String]? = []
+
+  /// Options to the compile command
+  public var bridgingPchCommandLine: [String]? = []
 
   /// The context hash for this module that encodes the producing interface's path,
   /// target triple, etc. This field is optional because it is absent for the ModuleInfo
@@ -109,10 +139,16 @@ public struct SwiftModuleDetails: Codable {
 
   /// A flag to indicate whether or not this module is a framework.
   public var isFramework: Bool?
+
+  /// A set of Swift Overlays of Clang Module Dependencies
+  var swiftOverlayDependencies: [ModuleDependencyId]?
+
+  /// The module cache key of the output module.
+  public var moduleCacheKey: String?
 }
 
 /// Details specific to Swift placeholder dependencies.
-public struct SwiftPlaceholderModuleDetails: Codable {
+public struct SwiftPlaceholderModuleDetails: Codable, Hashable {
   /// The path to the .swiftModuleDoc file.
   var moduleDocPath: TextualVirtualPath?
 
@@ -121,7 +157,7 @@ public struct SwiftPlaceholderModuleDetails: Codable {
 }
 
 /// Details specific to Swift externally-pre-built modules.
-public struct SwiftPrebuiltExternalModuleDetails: Codable {
+public struct SwiftPrebuiltExternalModuleDetails: Codable, Hashable {
   /// The path to the already-compiled module that must be used instead of
   /// generating a job to build this module.
   public var compiledModulePath: TextualVirtualPath
@@ -132,22 +168,21 @@ public struct SwiftPrebuiltExternalModuleDetails: Codable {
   /// The path to the .swiftSourceInfo file.
   public var moduleSourceInfoPath: TextualVirtualPath?
 
+  /// The paths to the binary module's header dependencies
+  public var headerDependencyPaths: [TextualVirtualPath]?
+
+  /// Clang module dependencies of the textual header input
+  public var headerDependencyModuleDependencies: [ModuleDependencyId]?
+
   /// A flag to indicate whether or not this module is a framework.
   public var isFramework: Bool?
 
-  public init(compiledModulePath: TextualVirtualPath,
-              moduleDocPath: TextualVirtualPath? = nil,
-              moduleSourceInfoPath: TextualVirtualPath? = nil,
-              isFramework: Bool = false) throws {
-    self.compiledModulePath = compiledModulePath
-    self.moduleDocPath = moduleDocPath
-    self.moduleSourceInfoPath = moduleSourceInfoPath
-    self.isFramework = isFramework
-  }
+  /// The module cache key of the pre-built module.
+  public var moduleCacheKey: String?
 }
 
 /// Details specific to Clang modules.
-public struct ClangModuleDetails: Codable {
+public struct ClangModuleDetails: Codable, Hashable {
   /// The path to the module map used to build this module.
   public var moduleMapPath: TextualVirtualPath
 
@@ -161,18 +196,11 @@ public struct ClangModuleDetails: Codable {
   /// are covered by the directDependencies info of this module
   public var capturedPCMArgs: Set<[String]>?
 
-  public init(moduleMapPath: TextualVirtualPath,
-              contextHash: String,
-              commandLine: [String],
-              capturedPCMArgs: Set<[String]>?) {
-    self.moduleMapPath = moduleMapPath
-    self.contextHash = contextHash
-    self.commandLine = commandLine
-    self.capturedPCMArgs = capturedPCMArgs
-  }
+  /// The module cache key of the output module.
+  public var moduleCacheKey: String?
 }
 
-public struct ModuleInfo: Codable {
+public struct ModuleInfo: Codable, Hashable {
   /// The path for the module.
   public var modulePath: TextualVirtualPath
 
@@ -182,11 +210,14 @@ public struct ModuleInfo: Codable {
   /// The set of direct module dependencies of this module.
   public var directDependencies: [ModuleDependencyId]?
 
+  /// The set of libraries that need to be linked
+  public var linkLibraries: [LinkLibraryInfo]?
+
   /// Specific details of a particular kind of module.
   public var details: Details
 
   /// Specific details of a particular kind of module.
-  public enum Details {
+  public enum Details: Hashable {
     /// Swift modules may be built from a module interface, and may have
     /// a bridging header.
     case swift(SwiftModuleDetails)
@@ -205,10 +236,12 @@ public struct ModuleInfo: Codable {
   public init(modulePath: TextualVirtualPath,
               sourceFiles: [String]?,
               directDependencies: [ModuleDependencyId]?,
+              linkLibraries: [LinkLibraryInfo]?,
               details: Details) {
     self.modulePath = modulePath
     self.sourceFiles = sourceFiles
     self.directDependencies = directDependencies
+    self.linkLibraries = linkLibraries
     self.details = details
   }
 }
@@ -259,6 +292,19 @@ extension ModuleInfo.Details: Codable {
   }
 }
 
+extension ModuleInfo {
+  var bridgingHeaderModuleDependencies: [ModuleDependencyId]? {
+    switch details {
+    case .swift(let swiftDetails):
+      return swiftDetails.bridgingHeaderDependencies
+    case .swiftPrebuiltExternal(let swiftPrebuiltDetails):
+      return swiftPrebuiltDetails.headerDependencyModuleDependencies
+    default:
+      return nil
+    }
+  }
+}
+
 /// Describes the complete set of dependencies for a Swift module, including
 /// all of the Swift and C modules and source files it depends on.
 public struct InterModuleDependencyGraph: Codable {
@@ -272,9 +318,27 @@ public struct InterModuleDependencyGraph: Codable {
   public var mainModule: ModuleInfo { modules[.swift(mainModuleName)]! }
 }
 
+@_spi(Testing) public  extension InterModuleDependencyGraph {
+  func toJSONData() throws -> Data {
+    let encoder = JSONEncoder()
+#if os(Linux) || os(Android)
+    encoder.outputFormatting = [.prettyPrinted]
+#else
+    if #available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *) {
+      encoder.outputFormatting = [.prettyPrinted, .withoutEscapingSlashes]
+    }
+#endif
+    return try encoder.encode(self)
+  }
+
+  func toJSONString() throws -> String {
+    return try String(data: toJSONData(), encoding: .utf8)!
+  }
+}
+
 public struct InterModuleDependencyImports: Codable {
   public var imports: [String]
-  
+
   public init(imports: [String], moduleAliases: [String: String]? = nil) {
     var realImports = [String]()
     if let aliases = moduleAliases {

@@ -10,8 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-import TSCBasic
-
 enum DigesterMode: String {
   case api, abi
 
@@ -56,12 +54,11 @@ extension Driver {
     return Job(
       moduleName: moduleOutputInfo.name,
       kind: mode.baselineGenerationJobKind,
-      tool: .absolute(try toolchain.getToolPath(.swiftAPIDigester)),
+      tool: try toolchain.resolvedTool(.swiftAPIDigester),
       commandLine: commandLine,
       inputs: [.init(file: modulePath, type: .swiftModule)],
       primaryInputs: [],
-      outputs: [.init(file: outputPath, type: mode.baselineFileType)],
-      supportsResponseFiles: true
+      outputs: [.init(file: outputPath, type: mode.baselineFileType)]
     )
   }
 
@@ -100,12 +97,11 @@ extension Driver {
     return Job(
       moduleName: moduleOutputInfo.name,
       kind: .compareABIBaseline,
-      tool: .absolute(try toolchain.getToolPath(.swiftAPIDigester)),
+      tool: try toolchain.resolvedTool(.swiftAPIDigester),
       commandLine: commandLine,
       inputs: inputs,
       primaryInputs: [],
-      outputs: [diag],
-      supportsResponseFiles: true
+      outputs: [diag]
     )
   }
 
@@ -141,12 +137,11 @@ extension Driver {
     return Job(
       moduleName: moduleOutputInfo.name,
       kind: mode.baselineComparisonJobKind,
-      tool: .absolute(try toolchain.getToolPath(.swiftAPIDigester)),
+      tool: try toolchain.resolvedTool(.swiftAPIDigester),
       commandLine: commandLine,
       inputs: inputs,
       primaryInputs: [],
-      outputs: [.init(file: serializedDiagnosticsPath ?? VirtualPath.Handle.standardOutput, type: .diagnostics)],
-      supportsResponseFiles: true
+      outputs: [.init(file: serializedDiagnosticsPath ?? VirtualPath.Handle.standardOutput, type: .diagnostics)]
     )
   }
 

@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 import TSCBasic
-import Foundation
 
 @_spi(Testing) import SwiftDriver
 import SwiftOptions
@@ -171,7 +170,7 @@ extension Module {
         "-emit-module-path", context.swiftmodulePath(for: self).pathString,
       ] + searchPaths
     }
-    
+
     var importedObjs: [String] {
       self.imports.flatMap { `import` in
         `import`.sources.map { source in

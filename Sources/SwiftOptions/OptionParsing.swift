@@ -9,7 +9,8 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import TSCBasic
+
+import protocol TSCBasic.DiagnosticData
 
 public enum OptionParseError : Error, Equatable, DiagnosticData {
   case unknownOption(index: Int, argument: String)
@@ -36,7 +37,7 @@ extension OptionTable {
   ///
   /// Throws an error if the command line contains any errors.
   public func parse(_ arguments: [String],
-                    for driverKind: DriverKind) throws -> ParsedOptions {
+                    for driverKind: DriverKind, delayThrows: Bool = false) throws -> ParsedOptions {
     var trie = PrefixTrie<Option>()
     // Add all options, ignoring the .noDriver ones
     for opt in options where !opt.attributes.contains(.noDriver) {
@@ -44,6 +45,7 @@ extension OptionTable {
     }
 
     var parsedOptions = ParsedOptions()
+    var seenDashE = false
     var index = arguments.startIndex
     while index < arguments.endIndex {
       // Capture the next argument.
@@ -57,6 +59,12 @@ extension OptionTable {
 
       // If this is not a flag, record it as an input.
       if argument == "-" || argument.first! != "-" {
+        // If we've seen -e, this argument and all remaining ones are arguments to the -e script.
+        if driverKind == .interactive && seenDashE {
+          parsedOptions.addOption(.DASHDASH, argument: .multiple(Array(arguments[(index-1)...])))
+          break
+        }
+
         parsedOptions.addInput(argument)
 
         // In interactive mode, synthesize a "--" argument for all args after the first input.
@@ -73,8 +81,12 @@ extension OptionTable {
       // there's an unmatched suffix at the end, and pop an error. Otherwise,
       // we'll treat the unmatched suffix as the argument to the option.
       guard let option = trie[argument] else {
-        throw OptionParseError.unknownOption(
-          index: index - 1, argument: argument)
+        if delayThrows {
+          parsedOptions.addUnknownFlag(index: index - 1, argument: argument)
+          continue
+        } else {
+          throw OptionParseError.unknownOption(index: index - 1, argument: argument)
+        }
       }
 
       let verifyOptionIsAcceptedByDriverKind = {
@@ -84,6 +96,10 @@ extension OptionTable {
             index: index - 1, argument: argument, option: option,
             currentDriverKind: driverKind)
         }
+      }
+
+      if option == .e {
+        seenDashE = true
       }
 
       // Translate the argument
@@ -137,7 +153,7 @@ extension OptionTable {
           throw OptionParseError.unknownOption(
             index: index - 1, argument: argument)
         }
-        parsedOptions.addOption(.DASHDASH, argument: .single("--"))
+        parsedOptions.addOption(.DASHDASH, argument: .multiple(Array()))
         arguments[index...].map { String($0) }.forEach { parsedOptions.addInput($0) }
         index = arguments.endIndex
 
@@ -155,6 +171,21 @@ extension OptionTable {
 
         parsedOptions.addOption(option, argument: .single(arguments[index]))
         index += 1
+
+      case .multiArg:
+        if argument != option.spelling {
+          throw OptionParseError.unknownOption(
+            index: index - 1, argument: argument)
+        }
+        let endIdx = index + Int(option.numArgs)
+        if endIdx > arguments.endIndex {
+          throw OptionParseError.missingArgument(
+            index: index - 1, argument: argument)
+        }
+        parsedOptions.addOption(option, argument: .multiple(Array()))
+        arguments[index..<endIdx].map { String($0) }.forEach { parsedOptions.addInput($0) }
+        index = endIdx
+
       }
     }
     parsedOptions.buildIndex()

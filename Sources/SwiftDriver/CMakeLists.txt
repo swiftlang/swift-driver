@@ -16,7 +16,9 @@ add_library(SwiftDriver
   "ExplicitModuleBuilds/InterModuleDependencies/InterModuleDependencyOracle.swift"
 
   SwiftScan/DependencyGraphBuilder.swift
+  SwiftScan/Loader.swift
   SwiftScan/SwiftScan.swift
+  SwiftScan/SwiftScanCAS.swift
 
   Driver/CompilerMode.swift
   Driver/DebugInfo.swift
@@ -32,6 +34,15 @@ add_library(SwiftDriver
   Execution/DriverExecutor.swift
   Execution/ParsableOutput.swift
   Execution/ProcessProtocol.swift
+
+  "IncrementalCompilation/Bitcode/Bitcode.swift"
+  "IncrementalCompilation/Bitcode/BitcodeElement.swift"
+  "IncrementalCompilation/Bitcode/Bits.swift"
+  "IncrementalCompilation/Bitcode/Bitstream.swift"
+  "IncrementalCompilation/Bitcode/BitstreamReader.swift"
+  "IncrementalCompilation/Bitcode/BitstreamVisitor.swift"
+  "IncrementalCompilation/Bitcode/BitstreamWriter.swift"
+  "IncrementalCompilation/Bitcode/BlockInfo.swift"
 
   "IncrementalCompilation/BuildRecord.swift"
   "IncrementalCompilation/BuildRecordInfo.swift"
@@ -96,7 +107,11 @@ add_library(SwiftDriver
   Toolchains/WebAssemblyToolchain.swift
   Toolchains/WindowsToolchain.swift
 
+  ToolingInterface/SimpleExecutor.swift
+  ToolingInterface/ToolingUtil.swift
+
   Utilities/DOTJobGraphSerializer.swift
+  Utilities/DOTModuleDependencyGraphSerializer.swift
   Utilities/DateAdditions.swift
   Utilities/Diagnostics.swift
   Utilities/FileList.swift
@@ -109,7 +124,7 @@ add_library(SwiftDriver
   Utilities/Triple+Platforms.swift
   Utilities/Triple.swift
   Utilities/TypedVirtualPath.swift
-  Utilities/VersionExtensions.swift
+  Utilities/Version.swift
   Utilities/VirtualPath.swift)
 
 target_link_libraries(SwiftDriver PUBLIC

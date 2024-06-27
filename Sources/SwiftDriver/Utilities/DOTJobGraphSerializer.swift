@@ -9,7 +9,6 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import TSCBasic
 
 /// Serializes the job graph to a .dot file
 @_spi(Testing) public struct DOTJobGraphSerializer {

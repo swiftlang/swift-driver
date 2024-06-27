@@ -13,7 +13,8 @@
 @_spi(Testing) import SwiftDriver
 import SwiftDriverExecution
 import TSCBasic
-import Foundation
+import protocol Foundation.LocalizedError
+import var Foundation.EXIT_SUCCESS
 
 extension Driver {
   /// Initializer which creates an executor suitable for use in tests.
@@ -22,7 +23,8 @@ extension Driver {
     env: [String: String] = ProcessEnv.vars,
     diagnosticsEngine: DiagnosticsEngine = DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler]),
     fileSystem: FileSystem = localFileSystem,
-    integratedDriver: Bool = true
+    integratedDriver: Bool = true,
+    interModuleDependencyOracle: InterModuleDependencyOracle? = nil
   ) throws {
     let executor = try SwiftDriverExecutor(diagnosticsEngine: diagnosticsEngine,
                                        processSet: ProcessSet(),
@@ -30,16 +32,38 @@ extension Driver {
                                        env: env)
     try self.init(args: args,
                   env: env,
-                  diagnosticsEngine: diagnosticsEngine,
+                  diagnosticsOutput: .engine(diagnosticsEngine),
                   fileSystem: fileSystem,
                   executor: executor,
-                  integratedDriver: integratedDriver)
+                  integratedDriver: integratedDriver,
+                  interModuleDependencyOracle: interModuleDependencyOracle)
   }
 
   /// For tests that need to set the sdk path.
   /// Only works on hosts with `xcrun`, so return nil if cannot work on current host.
   public static func sdkArgumentsForTesting() throws -> [String]? {
     try cachedSDKPath.map {["-sdk", try $0.get()]}
+  }
+
+
+  public func verifyBeingAbleToQueryTargetInfoInProcess(workingDirectory: AbsolutePath?,
+                                                        invocationCommand: [String],
+                                                        expectedSDKPath: String) throws -> Bool {
+    guard let targetInfo = try Self.queryTargetInfoInProcess(of: toolchain,
+                                                             fileSystem: fileSystem,
+                                                             workingDirectory: workingDirectory,
+                                                             invocationCommand: invocationCommand) else {
+      return false
+    }
+
+    guard let sdkPath = targetInfo.sdkPath else {
+      return false
+    }
+
+    if sdkPath.path.description != expectedSDKPath {
+      return false
+    }
+    return true
   }
 }
 
@@ -48,8 +72,6 @@ private let cachedSDKPath: Result<String, Error>? = {
   #if os(Windows)
   if let sdk = ProcessEnv.vars["SDKROOT"] {
     return Result{sdk}
-  } else if let root = ProcessEnv.vars["DEVELOPER_DIR"] {
-    return Result{"\(root)\\Platforms\\Windows.platform\\Developer\\SDKs\\Windows.sdk"}
   }
   // Assume that if neither of the environment variables are set, we are
   // using a build-tree version of the swift frontend, and so we do not set

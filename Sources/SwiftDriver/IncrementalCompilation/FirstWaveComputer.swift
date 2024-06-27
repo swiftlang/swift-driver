@@ -10,8 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
-import TSCBasic
+import protocol TSCBasic.FileSystem
+
+import class Dispatch.DispatchQueue
 
 extension IncrementalCompilationState {
 
@@ -20,12 +21,12 @@ extension IncrementalCompilationState {
     let jobsInPhases: JobsInPhases
     let inputsInvalidatedByExternals: TransitivelyInvalidatedSwiftSourceFileSet
     let inputFiles: [TypedVirtualPath]
-    let sourceFiles: SourceFiles
     let buildRecordInfo: BuildRecordInfo
-    let maybeBuildRecord: BuildRecord?
     let fileSystem: FileSystem
     let showJobLifecycle: Bool
     let alwaysRebuildDependents: Bool
+    let interModuleDependencyGraph: InterModuleDependencyGraph?
+    let explicitModuleDependenciesGuaranteedUpToDate: Bool
     /// If non-null outputs information for `-driver-show-incremental` for input path
     private let reporter: Reporter?
 
@@ -33,21 +34,21 @@ extension IncrementalCompilationState {
       initialState: IncrementalCompilationState.InitialStateForPlanning,
       jobsInPhases: JobsInPhases,
       driver: Driver,
+      interModuleDependencyGraph: InterModuleDependencyGraph?,
       reporter: Reporter?
     ) {
       self.moduleDependencyGraph = initialState.graph
       self.jobsInPhases = jobsInPhases
       self.inputsInvalidatedByExternals = initialState.inputsInvalidatedByExternals
       self.inputFiles = driver.inputFiles
-      self.sourceFiles = SourceFiles(
-        inputFiles: inputFiles,
-        buildRecord: initialState.maybeBuildRecord)
       self.buildRecordInfo = initialState.buildRecordInfo
-      self.maybeBuildRecord = initialState.maybeBuildRecord
       self.fileSystem = driver.fileSystem
       self.showJobLifecycle = driver.showJobLifecycle
       self.alwaysRebuildDependents = initialState.incrementalOptions.contains(
         .alwaysRebuildDependents)
+      self.interModuleDependencyGraph = interModuleDependencyGraph
+      self.explicitModuleDependenciesGuaranteedUpToDate =
+        initialState.upToDatePriorInterModuleDependencyGraph != nil ? true : false
       self.reporter = reporter
     }
 
@@ -78,17 +79,17 @@ extension IncrementalCompilationState.FirstWaveComputer {
   throws -> (initiallySkippedCompileGroups: [TypedVirtualPath: CompileJobGroup],
              mandatoryJobsInOrder: [Job])
   {
-    precondition(sourceFiles.disappeared.isEmpty, "unimplemented")
-
     let compileGroups =
       Dictionary(uniqueKeysWithValues:
                   jobsInPhases.compileGroups.map { ($0.primaryInput, $0) })
-    guard let buildRecord = maybeBuildRecord else {
+    let buildRecord = self.moduleDependencyGraph.buildRecord
+    let jobCreatingPch = jobsInPhases.beforeCompiles.first(where: {$0.kind == .generatePCH})
+    guard !buildRecord.inputInfos.isEmpty else {
       func everythingIsMandatory()
         throws -> (initiallySkippedCompileGroups: [TypedVirtualPath: CompileJobGroup],
                    mandatoryJobsInOrder: [Job])
       {
-        let mandatoryCompileGroupsInOrder = sourceFiles.currentInOrder.compactMap {
+        let mandatoryCompileGroupsInOrder = self.inputFiles.swiftSourceFiles.compactMap {
           input -> CompileJobGroup? in
           compileGroups[input.typedFile]
         }
@@ -97,15 +98,16 @@ extension IncrementalCompilationState.FirstWaveComputer {
         jobsInPhases.beforeCompiles +
         batchJobFormer.formBatchedJobs(
           mandatoryCompileGroupsInOrder.flatMap {$0.allJobs()},
-          showJobLifecycle: showJobLifecycle)
+          showJobLifecycle: showJobLifecycle,
+          jobCreatingPch: jobCreatingPch)
 
-        moduleDependencyGraph.phase = .buildingAfterEachCompilation
+        moduleDependencyGraph.setPhase(to: .buildingAfterEachCompilation)
         return (initiallySkippedCompileGroups: [:],
                 mandatoryJobsInOrder: mandatoryJobsInOrder)
       }
       return try everythingIsMandatory()
     }
-    moduleDependencyGraph.phase = .updatingAfterCompilation
+    moduleDependencyGraph.setPhase(to: .updatingAfterCompilation)
 
     let initiallySkippedInputs = computeInitiallySkippedCompilationInputs(
       inputsInvalidatedByExternals: inputsInvalidatedByExternals,
@@ -121,25 +123,69 @@ extension IncrementalCompilationState.FirstWaveComputer {
         : compileGroups[input]
     }
 
+    let mandatoryBeforeCompilesJobs = try computeMandatoryBeforeCompilesJobs()
     let batchedCompilationJobs = try batchJobFormer.formBatchedJobs(
       mandatoryCompileGroupsInOrder.flatMap {$0.allJobs()},
-      showJobLifecycle: showJobLifecycle)
+      showJobLifecycle: showJobLifecycle,
+      jobCreatingPch: jobCreatingPch)
 
     // In the case where there are no compilation jobs to run on this build (no source-files were changed),
     // we can skip running `beforeCompiles` jobs if we also ensure that none of the `afterCompiles` jobs
     // have any dependencies on them.
-    let skipAllJobs = batchedCompilationJobs.isEmpty ? !afterCompileJobsDependOnBeforeCompileJobs() : false
-    let mandatoryJobsInOrder = skipAllJobs ? [] : jobsInPhases.beforeCompiles + batchedCompilationJobs
+    let skipAllJobs = batchedCompilationJobs.isEmpty ? !nonVerifyAfterCompileJobsDependOnBeforeCompileJobs() : false
+    let mandatoryJobsInOrder = skipAllJobs ? [] : mandatoryBeforeCompilesJobs + batchedCompilationJobs
     return (initiallySkippedCompileGroups: initiallySkippedCompileGroups,
             mandatoryJobsInOrder: mandatoryJobsInOrder)
   }
 
+  /// In an explicit module build, filter out dependency module pre-compilation tasks
+  /// for modules up-to-date from a prior compile.
+  private func computeMandatoryBeforeCompilesJobs() throws -> [Job] {
+    // In an implicit module build, we have nothing to filter/compute here
+    guard let moduleDependencyGraph = interModuleDependencyGraph else {
+      return jobsInPhases.beforeCompiles
+    }
+
+    // If a prior compile's dependency graph was fully up-to-date, we can skip
+    // re-building all dependency modules.
+    guard !self.explicitModuleDependenciesGuaranteedUpToDate else {
+      return jobsInPhases.beforeCompiles.filter { $0.kind != .generatePCM && 
+                                                  $0.kind != .compileModuleFromInterface }
+    }
+
+    // Determine which module pre-build jobs must be re-run
+    let modulesRequiringReBuild =
+      try moduleDependencyGraph.computeInvalidatedModuleDependencies(fileSystem: fileSystem,
+                                                                     forRebuild: true,
+                                                                     reporter: reporter)
+
+    // Filter the `.generatePCM` and `.compileModuleFromInterface` jobs for 
+    // modules which do *not* need re-building.
+    let mandatoryBeforeCompilesJobs = jobsInPhases.beforeCompiles.filter { job in
+      switch job.kind {
+      case .generatePCM:
+        return modulesRequiringReBuild.contains(.clang(job.moduleName))
+      case .compileModuleFromInterface:
+        return modulesRequiringReBuild.contains(.swift(job.moduleName))
+      default:
+        return true
+      }
+    }
+
+    return mandatoryBeforeCompilesJobs
+  }
+
   /// Determine if any of the jobs in the `afterCompiles` group depend on outputs produced by jobs in
-  /// `beforeCompiles` group.
-  private func afterCompileJobsDependOnBeforeCompileJobs() -> Bool {
-      let beforeCompileJobOutputs = jobsInPhases.beforeCompiles.reduce(into: Set<TypedVirtualPath>(),
-                                                                       { (pathSet, job) in pathSet.formUnion(job.outputs) })
-      return jobsInPhases.afterCompiles.contains {postCompileJob in postCompileJob.inputs.contains(where: beforeCompileJobOutputs.contains)}
+  /// `beforeCompiles` group, which are not also verification jobs.
+  private func nonVerifyAfterCompileJobsDependOnBeforeCompileJobs() -> Bool {
+    let beforeCompileJobOutputs = jobsInPhases.beforeCompiles.reduce(into: Set<TypedVirtualPath>(),
+                                                                     { (pathSet, job) in pathSet.formUnion(job.outputs) })
+    let afterCompilesDependnigJobs = jobsInPhases.afterCompiles.filter {postCompileJob in postCompileJob.inputs.contains(where: beforeCompileJobOutputs.contains)}
+    if afterCompilesDependnigJobs.isEmpty || afterCompilesDependnigJobs.allSatisfy({ $0.kind == .verifyModuleInterface }) {
+      return false
+    } else {
+      return true
+    }
   }
 
   /// Figure out which compilation inputs are *not* mandatory at the start
@@ -158,7 +204,7 @@ extension IncrementalCompilationState.FirstWaveComputer {
       }
     }
 
-    let inputsMissingFromGraph = sourceFiles.currentInOrder.filter { sourceFile in
+    let inputsMissingFromGraph = self.inputFiles.swiftSourceFiles.filter { sourceFile in
       !moduleDependencyGraph.containsNodes(forSourceFile: sourceFile)
     }
 
@@ -251,21 +297,13 @@ extension IncrementalCompilationState.FirstWaveComputer {
   ) -> [ChangedInput] {
     jobsInPhases.compileGroups.compactMap { group in
       let input = group.primaryInput
-      let modDate = buildRecordInfo.compilationInputModificationDates[input]
-        ?? Date.distantFuture
+      let modDate = buildRecordInfo.compilationInputModificationDates[input] ?? .distantFuture
       let inputInfo = outOfDateBuildRecord.inputInfos[input.file]
       let previousCompilationStatus = inputInfo?.status ?? .newlyAdded
       let previousModTime = inputInfo?.previousModTime
 
-      // Because legacy driver reads/writes dates wrt 1970,
-      // and because converting time intervals to/from Dates from 1970
-      // exceeds Double precision, must not compare dates directly
-      var datesMatch: Bool {
-        modDate.timeIntervalSince1970 == previousModTime?.timeIntervalSince1970
-      }
-
       switch previousCompilationStatus {
-      case .upToDate where datesMatch:
+      case .upToDate where modDate == previousModTime:
         reporter?.report("May skip current input:", input)
         return nil
 
@@ -280,7 +318,7 @@ extension IncrementalCompilationState.FirstWaveComputer {
       }
       return ChangedInput(typedFile: input,
                           status: previousCompilationStatus,
-                          datesMatch: datesMatch)
+                          datesMatch: modDate == previousModTime)
     }
   }
 

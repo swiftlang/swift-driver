@@ -10,26 +10,26 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
+import class Dispatch.DispatchQueue
 
 public protocol InternedStringTableHolder {
   var internedStringTable: InternedStringTable {get}
 }
 
 public struct InternedString: CustomStringConvertible, Equatable, Hashable {
-  
+
   let index: Int
-  
+
   fileprivate init(_ s: String, _ table: InternedStringTable) {
     self.init(index: s.isEmpty ? 0 : table.intern(s))
   }
-  
+
   private init(index: Int) {
     self.index = index
   }
-  
+
   public var isEmpty: Bool { index == 0 }
-    
+
   public static var empty: Self {
     let r = Self(index: 0)
     assert(r.isEmpty)
@@ -39,9 +39,9 @@ public struct InternedString: CustomStringConvertible, Equatable, Hashable {
   public func lookup(in holder: InternedStringTableHolder) -> String {
     holder.internedStringTable.strings[index]
   }
-  
+
   public var description: String { "<<\(index)>>" }
-  
+
   public func description(in holder: InternedStringTableHolder) -> String {
     "\(lookup(in: holder))\(description)"
   }
@@ -59,14 +59,14 @@ public func isInIncreasingOrder(
 public class InternedStringTable: IncrementalCompilationSynchronizer {
   /// Ensure accesses & mutations are thread-safe
   public let incrementalCompilationQueue: DispatchQueue
-  
+
   var strings = [""]
   fileprivate var indices = ["": 0]
-  
+
   public init(_ incrementalCompilationQueue: DispatchQueue) {
     self.incrementalCompilationQueue = incrementalCompilationQueue
   }
-  
+
   fileprivate func intern(_ s: String) -> Int {
     mutationSafetyPrecondition()
     if let i = indices[s] { return i }
@@ -75,12 +75,12 @@ public class InternedStringTable: IncrementalCompilationSynchronizer {
     indices[s] = i
     return i
   }
-  
+
   var count: Int {
     accessSafetyPrecondition()
     return strings.count
   }
-  
+
   func reserveCapacity(_ minimumCapacity: Int) {
     mutationSafetyPrecondition()
     strings.reserveCapacity(minimumCapacity)

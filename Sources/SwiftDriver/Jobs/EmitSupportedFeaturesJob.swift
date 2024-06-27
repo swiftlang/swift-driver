@@ -10,9 +10,14 @@
 //
 //===----------------------------------------------------------------------===////
 
-import TSCBasic
 import SwiftOptions
-import Foundation
+import struct Foundation.Data
+import class Foundation.JSONDecoder
+import struct TSCBasic.Diagnostic
+import class TSCBasic.DiagnosticsEngine
+import protocol TSCBasic.FileSystem
+import struct TSCBasic.RelativePath
+import var TSCBasic.localFileSystem
 
 /// Describes information about the compiler's supported arguments and features
 @_spi(Testing) public struct SupportedCompilerFeatures: Codable {
@@ -32,47 +37,43 @@ extension Toolchain {
     // at least one so we fake it.
     // FIXME: Teach -emit-supported-features to not expect any inputs, like -print-target-info does.
     let dummyInputPath =
-      VirtualPath.createUniqueTemporaryFileWithKnownContents(.init("dummyInput.swift"),
-                                                             "".data(using: .utf8)!)
+      try VirtualPath.createUniqueTemporaryFileWithKnownContents(.init(validating: "dummyInput.swift"),
+                                                                 "".data(using: .utf8)!)
     commandLine.appendPath(dummyInputPath)
     inputs.append(TypedVirtualPath(file: dummyInputPath.intern(), type: .swift))
-    
+
     return Job(
       moduleName: "",
       kind: .emitSupportedFeatures,
-      tool: .absolute(try getToolPath(.swiftCompiler)),
+      tool: try resolvedTool(.swiftCompiler),
       commandLine: commandLine,
       displayInputs: [],
       inputs: inputs,
       primaryInputs: [],
       outputs: [.init(file: .standardOutput, type: .jsonCompilerFeatures)],
-      requiresInPlaceExecution: requiresInPlaceExecution,
-      supportsResponseFiles: false
+      requiresInPlaceExecution: requiresInPlaceExecution
     )
   }
 }
 
 extension Driver {
-  static func computeSupportedCompilerArgs(of toolchain: Toolchain, hostTriple: Triple,
-                                               parsedOptions: inout ParsedOptions,
-                                               diagnosticsEngine: DiagnosticsEngine,
-                                               fileSystem: FileSystem,
-                                               executor: DriverExecutor, env: [String: String])
-  throws -> Set<String> {
-    // TODO: Once we are sure libSwiftScan is deployed across supported platforms and architectures
-    // we should deploy it here.
-//    let swiftScanLibPath = try Self.getScanLibPath(of: toolchain,
-//                                                   hostTriple: hostTriple,
-//                                                   env: env)
-//
-//    if fileSystem.exists(swiftScanLibPath) {
-//      let libSwiftScanInstance = try SwiftScan(dylib: swiftScanLibPath)
-//      if libSwiftScanInstance.canQuerySupportedArguments() {
-//        return try libSwiftScanInstance.querySupportedArguments()
-//      }
-//    }
 
-    // Invoke `swift-frontend -emit-supported-features`
+  static func computeSupportedCompilerArgs(of toolchain: Toolchain,
+                                           parsedOptions: inout ParsedOptions,
+                                           diagnosticsEngine: DiagnosticsEngine,
+                                           fileSystem: FileSystem,
+                                           executor: DriverExecutor)
+  throws -> Set<String> {
+    do {
+      if let supportedArgs =
+          try querySupportedCompilerArgsInProcess(of: toolchain, fileSystem: fileSystem) {
+        return supportedArgs
+      }
+    } catch {
+      diagnosticsEngine.emit(.remark_inprocess_supported_features_query_failed(error.localizedDescription))
+    }
+
+    // Fallback: Invoke `swift-frontend -emit-supported-features` and decode the output
     let frontendOverride = try FrontendOverride(&parsedOptions, diagnosticsEngine)
     frontendOverride.setUpForTargetInfo(toolchain)
     defer { frontendOverride.setUpForCompilation(toolchain) }
@@ -85,6 +86,20 @@ extension Driver {
       forceResponseFiles: false,
       recordedInputModificationDates: [:]).SupportedArguments
     return Set(decodedSupportedFlagList)
+  }
+
+  static func querySupportedCompilerArgsInProcess(of toolchain: Toolchain,
+                                                  fileSystem: FileSystem)
+  throws -> Set<String>? {
+    let optionalSwiftScanLibPath = try toolchain.lookupSwiftScanLib()
+    if let swiftScanLibPath = optionalSwiftScanLibPath,
+       fileSystem.exists(swiftScanLibPath) {
+      let libSwiftScanInstance = try SwiftScan(dylib: swiftScanLibPath)
+      if libSwiftScanInstance.canQuerySupportedArguments() {
+        return try libSwiftScanInstance.querySupportedArguments()
+      }
+    }
+    return nil
   }
 
   static func computeSupportedCompilerFeatures(of toolchain: Toolchain,

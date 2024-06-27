@@ -9,18 +9,20 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import TSCBasic
-import TSCUtility
+
 import SwiftOptions
+
+import struct TSCBasic.AbsolutePath
+import struct TSCBasic.RelativePath
 
 extension DarwinToolchain {
   internal func findXcodeClangPath() throws -> AbsolutePath? {
     let result = try executor.checkNonZeroExit(
       args: "xcrun", "-toolchain", "default", "-f", "clang",
       environment: env
-    ).spm_chomp()
+    ).trimmingCharacters(in: .whitespacesAndNewlines)
 
-    return result.isEmpty ? nil : AbsolutePath(result)
+    return result.isEmpty ? nil : try AbsolutePath(validating: result)
   }
 
   internal func findXcodeClangLibPath(_ additionalPath: String) throws -> AbsolutePath? {
@@ -46,153 +48,6 @@ extension DarwinToolchain {
     return try findXcodeClangLibPath("arc")
   }
 
-  internal func addLTOLibArgs(to commandLine: inout [Job.ArgTemplate]) throws {
-    if let path = try findXcodeClangLibPath("libLTO.dylib") {
-      commandLine.appendFlag("-lto_library")
-      commandLine.appendPath(path)
-    }
-  }
-
-  func addLinkRuntimeLibraryRPath(
-    to commandLine: inout [Job.ArgTemplate],
-    parsedOptions: inout ParsedOptions,
-    targetInfo: FrontendTargetInfo,
-    darwinLibName: String
-  ) throws {
-    // Adding the rpaths might negatively interact when other rpaths are involved,
-    // so we should make sure we add the rpaths last, after all user-specified
-    // rpaths. This is currently true from this place, but we need to be
-    // careful if this function is ever called before user's rpaths are emitted.
-    assert(darwinLibName.hasSuffix(".dylib"), "must be a dynamic library")
-
-    // Add @executable_path to rpath to support having the dylib copied with
-    // the executable.
-    commandLine.appendFlag("-rpath")
-    commandLine.appendFlag("@executable_path")
-
-    // Add the path to the resource dir to rpath to support using the dylib
-    // from the default location without copying.
-
-
-    let clangPath = try clangLibraryPath(
-      for: targetInfo,
-      parsedOptions: &parsedOptions)
-    commandLine.appendFlag("-rpath")
-    commandLine.appendPath(clangPath)
-  }
-
-  func addLinkSanitizerLibArgsForDarwin(
-    to commandLine: inout [Job.ArgTemplate],
-    parsedOptions: inout ParsedOptions,
-    targetInfo: FrontendTargetInfo,
-    sanitizer: Sanitizer,
-    isShared: Bool
-  ) throws {
-    // Sanitizer runtime libraries requires C++.
-    commandLine.appendFlag("-lc++")
-    // Add explicit dependency on -lc++abi, as -lc++ doesn't re-export
-    // all RTTI-related symbols that are used.
-    commandLine.appendFlag("-lc++abi")
-
-    let sanitizerName = try runtimeLibraryName(
-      for: sanitizer,
-      targetTriple: targetInfo.target.triple,
-      isShared: isShared
-    )
-    try addLinkRuntimeLibrary(
-      named: sanitizerName,
-      to: &commandLine,
-      for: targetInfo,
-      parsedOptions: &parsedOptions
-    )
-
-    if isShared {
-      try addLinkRuntimeLibraryRPath(
-        to: &commandLine,
-        parsedOptions: &parsedOptions,
-        targetInfo: targetInfo,
-        darwinLibName: sanitizerName
-      )
-    }
-  }
-
-  private func addProfileGenerationArgs(
-    to commandLine: inout [Job.ArgTemplate],
-    parsedOptions: inout ParsedOptions,
-    targetInfo: FrontendTargetInfo
-  ) throws {
-    guard parsedOptions.hasArgument(.profileGenerate) else { return }
-    let clangPath = try clangLibraryPath(for: targetInfo,
-                                         parsedOptions: &parsedOptions)
-
-    for runtime in targetInfo.target.triple.darwinPlatform!.profileLibraryNameSuffixes {
-      let clangRTPath = clangPath
-        .appending(component: "libclang_rt.profile_\(runtime).a")
-      commandLine.appendPath(clangRTPath)
-    }
-  }
-
-  private func addPlatformVersionArg(to commandLine: inout [Job.ArgTemplate],
-                                     for triple: Triple, sdkPath: VirtualPath.Handle?) {
-    assert(triple.isDarwin)
-    let platformName = triple.darwinPlatform!.linkerPlatformName
-    let platformVersion = triple.darwinLinkerPlatformVersion
-    let sdkVersion: Version
-    if let sdkPath = sdkPath,
-       let sdkInfo = getTargetSDKInfo(sdkPath: sdkPath) {
-      sdkVersion = sdkInfo.sdkVersion(for: triple)
-    } else {
-      sdkVersion = Version(0, 0, 0)
-    }
-
-    commandLine.append(.flag("-platform_version"))
-    commandLine.append(.flag(platformName))
-    commandLine.append(.flag(platformVersion.description))
-    commandLine.append(.flag(sdkVersion.description))
-  }
-
-  private func addDeploymentTargetArgs(
-    to commandLine: inout [Job.ArgTemplate],
-    targetTriple: Triple,
-    targetVariantTriple: Triple?,
-    sdkPath: VirtualPath.Handle?
-  ) {
-    addPlatformVersionArg(to: &commandLine, for: targetTriple, sdkPath: sdkPath)
-    if let variantTriple = targetVariantTriple {
-      assert(targetTriple.isValidForZipperingWithTriple(variantTriple))
-      addPlatformVersionArg(to: &commandLine, for: variantTriple,
-                            sdkPath: sdkPath)
-    }
-  }
-
-  private func addArgsToLinkARCLite(
-    to commandLine: inout [Job.ArgTemplate],
-    parsedOptions: inout ParsedOptions,
-    targetTriple: Triple
-  ) throws {
-    guard parsedOptions.hasFlag(
-      positive: .linkObjcRuntime,
-      negative: .noLinkObjcRuntime,
-      default: !targetTriple.supports(.nativeARC)
-    ) else {
-      return
-    }
-
-    guard let arcLiteLibPath = try findARCLiteLibPath(),
-      let platformName = targetTriple.platformName() else {
-        return
-    }
-    let fullLibPath = arcLiteLibPath
-      .appending(components: "libarclite_\(platformName).a")
-
-    commandLine.appendFlag("-force_load")
-    commandLine.appendPath(fullLibPath)
-
-    // Arclite depends on CoreFoundation.
-    commandLine.appendFlag(.framework)
-    commandLine.appendFlag("CoreFoundation")
-  }
-
   /// Adds the arguments necessary to link the files from the given set of
   /// options for a Darwin platform.
   public func addPlatformSpecificLinkerArgs(
@@ -205,18 +60,18 @@ extension DarwinToolchain {
     lto: LTOKind?,
     sanitizers: Set<Sanitizer>,
     targetInfo: FrontendTargetInfo
-  ) throws -> AbsolutePath {
+  ) throws -> ResolvedTool {
     // Set up for linking.
     let linkerTool: Tool
     switch linkerOutputType {
     case .dynamicLibrary:
       // Same as an executable, but with the -dylib flag
       linkerTool = .dynamicLinker
-      commandLine.appendFlag("-dylib")
-      addLinkInputs(shouldUseInputFileList: shouldUseInputFileList,
-                    commandLine: &commandLine,
-                    inputs: inputs,
-                    linkerOutputType: linkerOutputType)
+      commandLine.appendFlag("-dynamiclib")
+      try addLinkInputs(shouldUseInputFileList: shouldUseInputFileList,
+                        commandLine: &commandLine,
+                        inputs: inputs,
+                        linkerOutputType: linkerOutputType)
       try addDynamicLinkerFlags(targetInfo: targetInfo,
                                 parsedOptions: &parsedOptions,
                                 commandLine: &commandLine,
@@ -226,10 +81,10 @@ extension DarwinToolchain {
 
     case .executable:
       linkerTool = .dynamicLinker
-      addLinkInputs(shouldUseInputFileList: shouldUseInputFileList,
-                    commandLine: &commandLine,
-                    inputs: inputs,
-                    linkerOutputType: linkerOutputType)
+      try addLinkInputs(shouldUseInputFileList: shouldUseInputFileList,
+                        commandLine: &commandLine,
+                        inputs: inputs,
+                        linkerOutputType: linkerOutputType)
       try addDynamicLinkerFlags(targetInfo: targetInfo,
                                 parsedOptions: &parsedOptions,
                                 commandLine: &commandLine,
@@ -240,23 +95,23 @@ extension DarwinToolchain {
     case .staticLibrary:
       linkerTool = .staticLinker(lto)
       commandLine.appendFlag(.static)
-      addLinkInputs(shouldUseInputFileList: shouldUseInputFileList,
-                    commandLine: &commandLine,
-                    inputs: inputs,
-                    linkerOutputType: linkerOutputType)
+      try addLinkInputs(shouldUseInputFileList: shouldUseInputFileList,
+                        commandLine: &commandLine,
+                        inputs: inputs,
+                        linkerOutputType: linkerOutputType)
     }
 
     // Add the output
     commandLine.appendFlag("-o")
     commandLine.appendPath(outputFile)
 
-    return try getToolPath(linkerTool)
+    return try resolvedTool(linkerTool)
   }
 
   private func addLinkInputs(shouldUseInputFileList: Bool,
                              commandLine: inout [Job.ArgTemplate],
                              inputs: [TypedVirtualPath],
-                             linkerOutputType: LinkOutputType) {
+                             linkerOutputType: LinkOutputType) throws {
     // inputs LinkFileList
     if shouldUseInputFileList {
       commandLine.appendFlag(.filelist)
@@ -264,7 +119,6 @@ extension DarwinToolchain {
       var inputModules = [VirtualPath]()
       for input in inputs {
         if input.type == .swiftModule && linkerOutputType != .staticLibrary {
-          inputPaths.append(input.file)
           inputModules.append(input.file)
         } else if input.type == .object {
           inputPaths.append(input.file)
@@ -274,13 +128,12 @@ extension DarwinToolchain {
           inputPaths.append(input.file)
         }
       }
-      let fileList = VirtualPath.createUniqueFilelist(RelativePath("inputs.LinkFileList"),
-                                                      .list(inputPaths))
+      let fileList = try VirtualPath.createUniqueFilelist(RelativePath(validating: "inputs.LinkFileList"),
+                                                          .list(inputPaths))
       commandLine.appendPath(fileList)
       if linkerOutputType != .staticLibrary {
         for module in inputModules {
-          commandLine.append(.flag("-add_ast_path"))
-          commandLine.append(.path(module))
+          commandLine.append(.joinedOptionAndPath("-Wl,-add_ast_path,", module))
         }
       }
 
@@ -290,7 +143,7 @@ extension DarwinToolchain {
       commandLine.append(contentsOf: inputs.flatMap {
         (path: TypedVirtualPath) -> [Job.ArgTemplate] in
         if path.type == .swiftModule && linkerOutputType != .staticLibrary {
-          return [.flag("-add_ast_path"), .path(path.file)]
+          return [.joinedOptionAndPath("-Wl,-add_ast_path,", path.file)]
         } else if path.type == .object {
           return [.path(path.file)]
         } else if path.type == .tbd {
@@ -310,40 +163,25 @@ extension DarwinToolchain {
                                      sanitizers: Set<Sanitizer>,
                                      linkerOutputType: LinkOutputType,
                                      lto: LTOKind?) throws {
-    // FIXME: If we used Clang as a linker instead of going straight to ld,
-    // we wouldn't have to replicate a bunch of Clang's logic here.
+    if let lto = lto {
+      switch lto {
+      case .llvmFull:
+        commandLine.appendFlag("-flto=full")
+      case .llvmThin:
+        commandLine.appendFlag("-flto=thin")
+      }
 
-    // Always link the regular compiler_rt if it's present. Note that the
-    // regular libclang_rt.a uses a fat binary for device and simulator; this is
-    // not true for all compiler_rt build products.
-    //
-    // Note: Normally we'd just add this unconditionally, but it's valid to build
-    // Swift and use it as a linker without building compiler_rt.
-    let targetTriple = targetInfo.target.triple
-    let darwinPlatformSuffix =
-      targetTriple.darwinPlatform!.with(.device)!.libraryNameSuffix
-    let compilerRTPath =
-      try clangLibraryPath(
-        for: targetInfo,
-        parsedOptions: &parsedOptions)
-      .appending(component: "libclang_rt.\(darwinPlatformSuffix).a")
-    if try fileSystem.exists(compilerRTPath) {
-      commandLine.append(.path(compilerRTPath))
+      if let arg = parsedOptions.getLastArgument(.ltoLibrary)?.asSingle {
+        commandLine.append(.joinedOptionAndPath("-Wl,-lto_library,", try VirtualPath(path: arg)))
+      }
     }
 
-    try addArgsToLinkARCLite(
-      to: &commandLine,
-      parsedOptions: &parsedOptions,
-      targetTriple: targetTriple
-    )
+    if let arg = parsedOptions.getLastArgument(.useLd)?.asSingle {
+      commandLine.appendFlag("-fuse-ld=\(arg)")
+    }
 
-    if lto != nil {
-      if let arg = parsedOptions.getLastArgument(.ltoLibrary)?.asSingle {
-        commandLine.appendFlag("-lto_library")
-        commandLine.appendPath(try VirtualPath(path: arg))
-      } else {
-        try addLTOLibArgs(to: &commandLine)
-      }
+    if let arg = parsedOptions.getLastArgument(.ldPath)?.asSingle {
+      commandLine.append(.joinedOptionAndPath("--ld-path=", try VirtualPath(path: arg)))
     }
 
     let fSystemArgs = parsedOptions.arguments(for: .F, .Fsystem)
@@ -353,46 +191,63 @@ extension DarwinToolchain {
     }
 
     if parsedOptions.contains(.enableAppExtension) {
-      commandLine.appendFlag("-application_extension")
+      commandLine.appendFlag("-fapplication-extension")
+    }
+
+    // Pass down an optimization level
+    if let optArg = mapOptimizationLevelToClangArg(from: &parsedOptions) {
+      commandLine.appendFlag(optArg)
     }
 
     // Linking sanitizers will add rpaths, which might negatively interact when
     // other rpaths are involved, so we should make sure we add the rpaths after
     // all user-specified rpaths.
-    for sanitizer in sanitizers {
-      if sanitizer == .fuzzer {
-        guard linkerOutputType == .executable else { continue }
+    if linkerOutputType != .staticLibrary && !sanitizers.isEmpty {
+      let sanitizerNames = sanitizers
+        .map { $0.rawValue }
+        .sorted() // Sort so we get a stable, testable order
+        .joined(separator: ",")
+      commandLine.appendFlag("-fsanitize=\(sanitizerNames)")
+
+      if parsedOptions.contains(.sanitizeStableAbiEQ) {
+        commandLine.appendFlag("-fsanitize-stable-abi")
       }
-      try addLinkSanitizerLibArgsForDarwin(
-        to: &commandLine,
-        parsedOptions: &parsedOptions,
-        targetInfo: targetInfo,
-        sanitizer: sanitizer,
-        isShared: sanitizer != .fuzzer
-      )
     }
 
-    if parsedOptions.contains(.embedBitcode) ||
-        parsedOptions.contains(.embedBitcodeMarker) {
-      commandLine.appendFlag("-bitcode_bundle")
+    if parsedOptions.contains(.embedBitcode) {
+      commandLine.appendFlag("-fembed-bitcode")
+    } else if parsedOptions.contains(.embedBitcodeMarker) {
+      commandLine.appendFlag("-fembed-bitcode=marker")
     }
 
     // Add the SDK path
     if let sdkPath = targetInfo.sdkPath?.path {
-      commandLine.appendFlag("-syslibroot")
+      commandLine.appendFlag("--sysroot")
       commandLine.appendPath(VirtualPath.lookup(sdkPath))
     }
 
-    commandLine.appendFlags(
-      "-lobjc",
-      "-lSystem"
-    )
+    // -link-objc-runtime also implies -fobjc-link-runtime
+    if parsedOptions.hasFlag(positive: .linkObjcRuntime,
+                             negative: .noLinkObjcRuntime,
+                             default: false) {
+      commandLine.appendFlag("-fobjc-link-runtime")
+    }
 
-    commandLine.appendFlag("-arch")
-    commandLine.appendFlag(targetTriple.archName)
+    let targetTriple = targetInfo.target.triple
+    commandLine.appendFlag("--target=\(targetTriple.triple)")
+    if let variantTriple = targetInfo.targetVariant?.triple {
+      assert(targetTriple.isValidForZipperingWithTriple(variantTriple))
+      commandLine.appendFlag("-darwin-target-variant=\(variantTriple.triple)")
+    }
 
     // On Darwin, we only support libc++.
-    if parsedOptions.contains(.enableExperimentalCxxInterop) {
+    var cxxCompatEnabled = parsedOptions.hasArgument(.enableExperimentalCxxInterop)
+    if let cxxInteropMode = parsedOptions.getLastArgument(.cxxInteroperabilityMode) {
+      if cxxInteropMode.asSingle == "swift-5.9" {
+        cxxCompatEnabled = true
+      }
+    }
+    if cxxCompatEnabled {
       commandLine.appendFlag("-lc++")
     }
 
@@ -404,19 +259,9 @@ extension DarwinToolchain {
       fileSystem: fileSystem
     )
 
-    try addProfileGenerationArgs(
-      to: &commandLine,
-      parsedOptions: &parsedOptions,
-      targetInfo: targetInfo
-    )
-
-    let targetVariantTriple = targetInfo.targetVariant?.triple
-    addDeploymentTargetArgs(
-      to: &commandLine,
-      targetTriple: targetTriple,
-      targetVariantTriple: targetVariantTriple,
-      sdkPath: targetInfo.sdkPath?.path
-    )
+    if parsedOptions.hasArgument(.profileGenerate) {
+      commandLine.appendFlag("-fprofile-generate")
+    }
 
     // These custom arguments should be right before the object file at the
     // end.
@@ -426,7 +271,7 @@ extension DarwinToolchain {
       from: &parsedOptions
     )
     addLinkedLibArgs(to: &commandLine, parsedOptions: &parsedOptions)
-    try commandLine.appendAllArguments(.Xlinker, from: &parsedOptions)
+    try addExtraClangLinkerArgs(to: &commandLine, parsedOptions: &parsedOptions)
   }
 }
 
@@ -447,6 +292,10 @@ private extension DarwinPlatform {
       return ["watchos"]
     case .watchOS(.simulator):
       return ["watchossim", "watchos"]
+    case .visionOS(.device):
+      return ["xros"]
+    case .visionOS(.simulator):
+      return ["xrossim", "xros"]
     }
   }
 }
