@@ -220,12 +220,25 @@ public final class DarwinToolchain: Toolchain {
   }
 
   public func getDefaultDwarfVersion(targetTriple: Triple) -> UInt8 {
-      if (targetTriple.isMacOSX && targetTriple.version(for: .macOS) < Triple.Version(10, 11, 0)) ||
+    // Default to DWARF 2 on OS X 10.10 / iOS 8 and lower.
+    // Default to DWARF 4 on OS X 10.11 - macOS 14 / iOS - iOS 17.
+    if (targetTriple.isMacOSX && targetTriple.version(for: .macOS) < Triple.Version(10, 11, 0)) ||
         (targetTriple.isiOS && targetTriple.version(
             for: .iOS(targetTriple._isSimulatorEnvironment ? .simulator : .device)) < Triple.Version(9, 0, 0)) {
       return 2;
     }
-    return 4
+    if (targetTriple.isMacOSX && targetTriple.version(for: .macOS) < Triple.Version(15, 0, 0)) ||
+        (targetTriple.isiOS && targetTriple.version(
+            for: .iOS(targetTriple._isSimulatorEnvironment ? .simulator : .device)) < Triple.Version(18, 0, 0)) ||
+        (targetTriple.isTvOS && targetTriple.version(
+            for: .tvOS(targetTriple._isSimulatorEnvironment ? .simulator : .device)) < Triple.Version(18, 0, 0)) ||
+        (targetTriple.isWatchOS && targetTriple.version(
+            for: .watchOS(targetTriple._isSimulatorEnvironment ? .simulator : .device)) < Triple.Version(11, 0, 0)) ||
+        (targetTriple.isVisionOS && targetTriple.version(
+            for: .visionOS(targetTriple._isSimulatorEnvironment ? .simulator : .device)) < Triple.Version(2, 0, 0)){
+      return 4
+    }
+    return 5
   }
 
   func validateDeploymentTarget(_ parsedOptions: inout ParsedOptions,

@@ -321,13 +321,10 @@ extension Triple {
 
     case .linux:
       switch environment {
-      case .musl:
+      case .musl where vendor == .swift:
         // The triple for linux-static is <arch>-swift-linux-musl, to distinguish
         // it from a "normal" musl set-up (ala Alpine).
-        if vendor == .swift {
-          return "linux-static"
-        }
-        fallthrough
+        return "linux-static"
       case .musl, .musleabihf, .musleabi:
         return "musl"
       case .android:

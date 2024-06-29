@@ -669,15 +669,35 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(jobs[0].commandLine.contains(.flag("-dwarf-version=4")))
     }
 
-    // TODO: Enable once compiler support lands
-//    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-g", "-c", "-target", "arm64-apple-xros1.0-simulator") { driver in
-//      let jobs = try driver.planBuild()
-//      XCTAssertTrue(jobs[0].commandLine.contains(.flag("-dwarf-version=4")))
-//    }
-//    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-g", "-c", "-target", "arm64-apple-xros1.0") { driver in
-//      let jobs = try driver.planBuild()
-//      XCTAssertTrue(jobs[0].commandLine.contains(.flag("-dwarf-version=4")))
-//    }
+    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-g", "-c", "-target", "x86_64-apple-macosx15") { driver in
+      let jobs = try driver.planBuild()
+      XCTAssertTrue(jobs[0].commandLine.contains(.flag("-dwarf-version=5")))
+    }
+    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-g", "-c", "-target", "arm64-apple-ios18.0") { driver in
+      let jobs = try driver.planBuild()
+      XCTAssertTrue(jobs[0].commandLine.contains(.flag("-dwarf-version=5")))
+    }
+    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-g", "-c", "-target", "arm64_32-apple-watchos11") { driver in
+      let jobs = try driver.planBuild()
+      XCTAssertTrue(jobs[0].commandLine.contains(.flag("-dwarf-version=5")))
+    }
+    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-g", "-c", "-target", "arm64-apple-tvos18") { driver in
+      let jobs = try driver.planBuild()
+      XCTAssertTrue(jobs[0].commandLine.contains(.flag("-dwarf-version=5")))
+    }
+    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-g", "-c", "-target", "arm64-apple-xros1.0-simulator") { driver in
+      let jobs = try driver.planBuild()
+      XCTAssertTrue(jobs[0].commandLine.contains(.flag("-dwarf-version=4")))
+    }
+    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-g", "-c", "-target", "arm64-apple-xros2.0") { driver in
+      let jobs = try driver.planBuild()
+      XCTAssertTrue(jobs[0].commandLine.contains(.flag("-dwarf-version=5")))
+    }
+
+    try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-c", "-file-compilation-dir", ".") { driver in
+      let jobs = try driver.planBuild()
+      XCTAssertFalse(jobs[0].commandLine.contains(.flag("-file-compilation-dir")))
+    }
   }
 
   func testCoverageSettings() throws {
@@ -1690,6 +1710,27 @@ final class SwiftDriverTests: XCTestCase {
       let resolver = try ArgsResolver(fileSystem: localFileSystem)
       let resolvedArgs: [String] = try resolver.resolveArgumentList(for: interpretJob)
       XCTAssertFalse(resolvedArgs.contains { $0.hasPrefix("@") })
+    }
+  }
+    
+  func testResponseFileDeterministicNaming() throws {
+    #if !os(macOS)
+    throw XCTSkip("Test assumes macOS response file quoting behavior")
+    #endif
+    do {
+      let testJob = Job(moduleName: "Foo",
+                        kind: .compile,
+                        tool: .init(path: try AbsolutePath(validating: "/swiftc"), supportsResponseFiles: true),
+                        commandLine: (1...20000).map { .flag("-DTEST_\($0)") },
+                        inputs: [],
+                        primaryInputs: [],
+                        outputs: [])
+      let resolver = try ArgsResolver(fileSystem: localFileSystem)
+      let resolvedArgs: [String] = try resolver.resolveArgumentList(for: testJob)
+      XCTAssertTrue(resolvedArgs.count == 3)
+      XCTAssertEqual(resolvedArgs[2].first, "@")
+      let responseFilePath = try AbsolutePath(validating: String(resolvedArgs[2].dropFirst()))
+      XCTAssertEqual(responseFilePath.basename, "arguments-847d15e70d97df7c18033735497ca8dcc4441f461d5a9c2b764b127004524e81.resp")
     }
   }
 

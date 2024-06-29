@@ -1,12 +1,12 @@
 # Swift Compiler Driver
 
-Swift's compiler driver is a program that coordinates the compilation of Swift source code into various compiled results: executables, libraries, object files, Swift modules and interfaces, etc. It is the program one invokes from the command line to build Swift code (i.e., `swift` or `swiftc`) and is often invoked on the developer's behalf by a build system such as the [Swift Package Manager (SwiftPM)](https://github.com/apple/swift-package-manager) or Xcode's build system.
+Swift's compiler driver is a program that coordinates the compilation of Swift source code into various compiled results: executables, libraries, object files, Swift modules and interfaces, etc. It is the program one invokes from the command line to build Swift code (i.e., `swift` or `swiftc`) and is often invoked on the developer's behalf by a build system such as the [Swift Package Manager (SwiftPM)](https://github.com/swiftlang/swift-package-manager) or Xcode's build system.
 
 The `swift-driver` project is a new implementation of the Swift compiler driver that is intended to replace the [existing driver](https://github.com/apple/swift/tree/main/lib/Driver) with a more extensible, maintainable, and robust code base. The specific goals of this project include:
 
 * A maintainable, robust, and flexible Swift code base
 * Library-based architecture that allows better integration with build tools
-* Leverage existing Swift build technologies ([SwiftPM](https://github.com/apple/swift-package-manager), [llbuild](https://github.com/apple/swift-llbuild))
+* Leverage existing Swift build technologies ([SwiftPM](https://github.com/swiftlang/swift-package-manager), [llbuild](https://github.com/apple/swift-llbuild))
 * A platform for experimenting with more efficient build models for Swift, including compile servers and unifying build graphs across different driver invocations
 
 ## Getting Started
