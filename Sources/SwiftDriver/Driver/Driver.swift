@@ -73,7 +73,7 @@ public struct Driver {
     case missingPCMArguments(String)
     case missingModuleDependency(String)
     case missingContextHashOnSwiftDependency(String)
-    case dependencyScanningFailure(Int, String)
+    case dependencyScanErrors
     case missingExternalDependency(String)
 
     public var description: String {
@@ -130,8 +130,8 @@ public struct Driver {
         return "Missing Module Dependency Info: \(moduleName)"
       case .missingContextHashOnSwiftDependency(let moduleName):
         return "Missing Context Hash for Swift dependency: \(moduleName)"
-      case .dependencyScanningFailure(let code, let error):
-        return "Module Dependency Scanner returned with non-zero exit status: \(code), \(error)"
+      case .dependencyScanErrors:
+        return "Dependency scan produced errors"
       case .unableToLoadOutputFileMap(let path, let error):
         return "unable to load output file map '\(path)': \(error)"
       case .missingExternalDependency(let moduleName):

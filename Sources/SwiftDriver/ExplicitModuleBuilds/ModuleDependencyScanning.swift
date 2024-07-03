@@ -230,8 +230,17 @@ public extension Driver {
                                                              diagnostics: &scanDiagnostics)
         try emitScannerDiagnostics(scanDiagnostics)
       } catch let DependencyScanningError.dependencyScanFailed(reason) {
+        // On a complete query failure, attempt to produce global scanner diagnostic state
         try emitGlobalScannerDiagnostics()
         throw DependencyScanningError.dependencyScanFailed(reason)
+      } catch let error {
+        // Otherwise, attempt to get at the query-specific diagnostic state
+        if scanDiagnostics.contains(where: {$0.severity == .error}) {
+          try emitScannerDiagnostics(scanDiagnostics)
+          throw Error.dependencyScanErrors
+        } else {
+          throw error
+        }
       }
     } else {
       // Fallback to legacy invocation of the dependency scanner with
@@ -306,8 +315,17 @@ public extension Driver {
                                                                           diagnostics: &scanDiagnostics)
         try emitScannerDiagnostics(scanDiagnostics)
       } catch let DependencyScanningError.dependencyScanFailed(reason) {
+        // On a complete query failure, attempt to produce global scanner diagnostic state
         try emitGlobalScannerDiagnostics()
         throw DependencyScanningError.dependencyScanFailed(reason)
+      } catch let error {
+        // Otherwise, attempt to get at the query-specific diagnostic state
+        if scanDiagnostics.contains(where: {$0.severity == .error}) {
+          try emitScannerDiagnostics(scanDiagnostics)
+          throw Error.dependencyScanErrors
+        } else {
+          throw error
+        }
       }
     } else {
       // Fallback to legacy invocation of the dependency scanner with
