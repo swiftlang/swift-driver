@@ -157,6 +157,18 @@ do {
         try localFileSystem.createDirectory(mcpPath, recursive: true)
       }
     }
+
+    // When building modules for an SDK,  ignore any existing prebuilt modules.
+    // modules. Do so by passing an intentially-bad path for the prebuilt
+    // module cache path that's derived from the output path (but not the same
+    // as that path). This prohibits the frontend scanning job from adding the
+    // default prebuilt module cache path, while ensuring that we find no
+    // prebuilt modules during this scan.
+    args.append("-Xfrontend")
+    args.append("-prebuilt-module-cache-path")
+    args.append("-Xfrontend")
+    args.append(outputDir.appending(component: "__nonexistent__").pathString)
+
     let baselineABIDir = try getArgumentAsPath("-baseline-abi-dir")
     var driver = try Driver(args: args,
                             diagnosticsOutput: .engine(diagnosticsEngine),
