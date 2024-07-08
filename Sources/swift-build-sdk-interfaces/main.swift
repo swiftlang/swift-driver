@@ -169,6 +169,19 @@ do {
     args.append("-Xfrontend")
     args.append(outputDir.appending(component: "__nonexistent__").pathString)
 
+    // If the compiler/scanner supports it, instruct it to ignore any existing prebuilt
+    // modules for which a textual interface is discovered, ensuring that modules
+    // always build from interface when one is available.
+    if let supportedFlagsTestDriver = try? Driver(args: ["swiftc", "-v"],
+                                                  executor: executor,
+                                                  compilerExecutableDir: swiftcPath.parentDirectory),
+       supportedFlagsTestDriver.isFrontendArgSupported(.moduleLoadMode) {
+      args.append("-Xfrontend")
+      args.append("-module-load-mode")
+      args.append("-Xfrontend")
+      args.append("only-interface")
+    }
+
     let baselineABIDir = try getArgumentAsPath("-baseline-abi-dir")
     var driver = try Driver(args: args,
                             diagnosticsOutput: .engine(diagnosticsEngine),
