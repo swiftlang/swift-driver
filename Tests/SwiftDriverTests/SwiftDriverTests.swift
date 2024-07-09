@@ -7087,12 +7087,13 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
-      var driver = try Driver(args: ["swift", "-warnings-as-errors", "-no-warnings-as-errors", "-suppress-warnings", "foo.swift"])
+      var driver = try Driver(args: ["swift", "-warnings-as-errors", "-no-warnings-as-errors", "-suppress-warnings", "-suppress-remarks", "foo.swift"])
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 1)
       let job = plannedJobs[0]
       XCTAssertJobInvocationMatches(job, .flag("-warnings-as-errors"), .flag("-no-warnings-as-errors"))
       XCTAssertJobInvocationMatches(job, .flag("-suppress-warnings"))
+      XCTAssertJobInvocationMatches(job, .flag("-suppress-remarks"))
     }
 
     do {
