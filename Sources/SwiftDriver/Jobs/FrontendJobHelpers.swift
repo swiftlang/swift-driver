@@ -220,6 +220,7 @@ extension Driver {
     try commandLine.appendLast(.remarkLoadingModule, from: &parsedOptions)
     try commandLine.appendLast(.RpassEQ, from: &parsedOptions)
     try commandLine.appendLast(.RpassMissedEQ, from: &parsedOptions)
+    try commandLine.appendLast(.suppressRemarks, from: &parsedOptions)
     try commandLine.appendLast(.suppressWarnings, from: &parsedOptions)
     try commandLine.appendLast(.profileGenerate, from: &parsedOptions)
     try commandLine.appendLast(.profileUse, from: &parsedOptions)
