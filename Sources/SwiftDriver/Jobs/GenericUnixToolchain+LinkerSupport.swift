@@ -147,7 +147,7 @@ extension GenericUnixToolchain {
         }
       }
 
-      if let sdk = parsedOptions.getLastArgument(.sdk)?.asSingle ?? env["SDKROOT"], !sdk.isEmpty {
+      if targetInfo.sdkPath != nil {
         for libpath in targetInfo.runtimeLibraryImportPaths {
           commandLine.appendFlag(.L)
           commandLine.appendPath(VirtualPath.lookup(libpath.path))
@@ -156,10 +156,9 @@ extension GenericUnixToolchain {
 
       if !isEmbeddedEnabled && !parsedOptions.hasArgument(.nostartfiles) {
         let rsrc: VirtualPath
-        if let sdk = parsedOptions.getLastArgument(.sdk)?.asSingle ?? env["SDKROOT"], !sdk.isEmpty {
-          rsrc = try VirtualPath(path: AbsolutePath(validating: sdk)
-                                        .appending(components: "usr", "lib", "swift")
-                                        .pathString)
+        // Prefer the swiftrt.o runtime file from the SDK if it's specified.
+        if let sdk = targetInfo.sdkPath.flatMap({ VirtualPath.lookup($0.path) }) {
+          rsrc = sdk.appending(components: "usr", "lib", "swift")
         } else {
           rsrc = VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
         }
@@ -206,20 +205,7 @@ extension GenericUnixToolchain {
       }
 
       if targetTriple.environment == .android {
-        if let ndk = env["ANDROID_NDK_ROOT"] {
-          var sysroot: AbsolutePath =
-                try AbsolutePath(validating: ndk)
-                    .appending(components: "toolchains", "llvm", "prebuilt")
-#if arch(x86_64)
-#if os(Windows)
-                    .appending(component: "windows-x86_64")
-#elseif os(Linux)
-                    .appending(component: "linux-x86_64")
-#else
-                    .appending(component: "darwin-x86_64")
-#endif
-#endif
-                    .appending(component: "sysroot")
+        if let sysroot = try getAndroidNDKSysrootPath() {
           commandLine.appendFlag("--sysroot")
           commandLine.appendPath(sysroot)
         }
