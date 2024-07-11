@@ -39,18 +39,41 @@ extension WindowsToolchain {
                                             sanitizers: Set<Sanitizer>,
                                             targetInfo: FrontendTargetInfo)
     throws -> ResolvedTool {
+    // Check to see whether we need to use lld as the linker.
+    let requiresLLD = {
+      if let ld = parsedOptions.getLastArgument(.useLd)?.asSingle {
+        switch ld {
+        case "lld", "lld.exe", "lld-link", "lld-link.exe":
+          return true
+        default:
+          return false
+        }
+      }
+      if lto != nil {
+        return true
+      }
+      // Profiling currently relies on the ability to emit duplicate weak
+      // symbols across translation units and having the linker coalesce them.
+      // Unfortunately link.exe does not support this, so require lld-link
+      // for now, which supports the behavior via a flag.
+      // TODO: Once we've changed coverage to no longer rely on emitting
+      // duplicate weak symbols (rdar://131295678), we can remove this.
+      if parsedOptions.hasArgument(.profileGenerate) {
+        return true
+      }
+      return false
+    }()
+
     // Special case static linking as clang cannot drive the operation.
     if linkerOutputType == .staticLibrary {
       let librarian: String
-      switch parsedOptions.getLastArgument(.useLd)?.asSingle {
-      case .none:
-        librarian = lto == nil ? "link" : "lld-link"
-      case .some("lld"), .some("lld.exe"), .some("lld-link"), .some("lld-link.exe"):
+      if requiresLLD {
         librarian = "lld-link"
-      case let .some(linker):
-        librarian = linker
+      } else if let ld = parsedOptions.getLastArgument(.useLd)?.asSingle {
+        librarian = ld
+      } else {
+        librarian = "link"
       }
-
       commandLine.appendFlag("/LIB")
       commandLine.appendFlag("/NOLOGO")
       commandLine.appendFlag("/OUT:\(outputFile.name.spm_shellEscaped())")
@@ -99,9 +122,9 @@ extension WindowsToolchain {
     }
 
     // Select the linker to use.
-    if let arg = parsedOptions.getLastArgument(.useLd) {
-      commandLine.appendFlag("-fuse-ld=\(arg.asSingle)")
-    } else if lto != nil {
+    if let arg = parsedOptions.getLastArgument(.useLd)?.asSingle {
+      commandLine.appendFlag("-fuse-ld=\(arg)")
+    } else if requiresLLD {
       commandLine.appendFlag("-fuse-ld=lld")
     }
 
@@ -195,6 +218,13 @@ extension WindowsToolchain {
       // FIXME(compnerd) wrap llvm::getInstrProfRuntimeHookVarName()
       commandLine.appendFlag("-include:__llvm_profile_runtime")
       commandLine.appendFlag("-lclang_rt.profile")
+
+      // FIXME(rdar://131295678): Currently profiling requires the ability to
+      // emit duplicate weak symbols. Assuming we're using lld, pass
+      // -lld-allow-duplicate-weak to enable this behavior.
+      if requiresLLD {
+        commandLine.appendFlags("-Xlinker", "-lld-allow-duplicate-weak")
+      }
     }
 
     try addExtraClangLinkerArgs(to: &commandLine, parsedOptions: &parsedOptions)
