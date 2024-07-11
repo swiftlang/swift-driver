@@ -19,6 +19,8 @@ import WinSDK
 import Glibc
 #elseif canImport(Musl)
 import Musl
+#elseif canImport(Bionic)
+import Bionic
 #else
 #error("Missing libc or equivalent")
 #endif
@@ -136,7 +138,11 @@ import var TSCBasic.stdoutStream
         }
 #else
       case .signalled(let signal):
+#if canImport(Bionic)
+        let errorMessage = String(cString: strsignal(signal))
+#else
         let errorMessage = strsignal(signal).map { String(cString: $0) } ?? ""
+#endif
         messages = constructJobSignalledMessages(job: job, error: errorMessage, output: output,
                                                  signal: signal, pid: pid).map {
           ParsableMessage(name: job.kind.rawValue, kind: .signalled($0))
