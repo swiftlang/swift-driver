@@ -28,7 +28,6 @@ import struct TSCBasic.Diagnostic
 import struct TSCBasic.ProcessResult
 import enum TSCUtility.Diagnostics
 
-// We either import the llbuildSwift shared library or the llbuild framework.
 #if canImport(llbuildSwift)
 @_implementationOnly import llbuildSwift
 @_implementationOnly import llbuild
@@ -592,8 +591,7 @@ class ExecuteJobRule: LLBuildRule {
       let arguments: [String] = try resolver.resolveArgumentList(for: job,
                                                                  useResponseFiles: context.forceResponseFiles ? .forced : .heuristic)
 
-
-      let process : ProcessProtocol
+      let process: ProcessProtocol
       // If the input comes from standard input, forward the driver's input to the compile job.
       if job.inputs.contains(TypedVirtualPath(file: .standardInput, type: .swift)) {
         let inputFileHandle = context.testInputHandle ?? FileHandle.standardInput
@@ -609,7 +607,7 @@ class ExecuteJobRule: LLBuildRule {
       pid = Int(process.processID)
 
       // Add it to the process set if it's a real process.
-      if case let realProcess as TSCBasic.Process = process {
+      if let realProcess = process as? TSCBasic.Process {
         try context.processSet?.add(realProcess)
       }
 
@@ -623,11 +621,12 @@ class ExecuteJobRule: LLBuildRule {
       let success = result.exitStatus == .terminated(code: EXIT_SUCCESS)
 
       if !success {
+        let stderr = try result.utf8stderrOutput()
         job.removeOutputsOfFailedCompilation(from: context.fileSystem)
         switch result.exitStatus {
         case let .terminated(code):
           if !job.kind.isCompile || code != EXIT_FAILURE {
-            context.diagnosticsEngine.emit(.error_command_failed(kind: job.kind, code: code))
+            context.diagnosticsEngine.emit(.error_command_failed(kind: job.kind, code: code, stderr: stderr))
           }
 #if os(Windows)
         case let .abnormal(exception):
@@ -636,42 +635,25 @@ class ExecuteJobRule: LLBuildRule {
         case let .signalled(signal):
           // An interrupt of an individual compiler job means it was deliberately cancelled,
           // most likely by the driver itself. This does not constitute an error.
-          if signal != SIGINT {
-            context.diagnosticsEngine.emit(.error_command_signalled(kind: job.kind, signal: signal))
-          }
+          context.diagnosticsEngine.emit(.error_command_signalled(kind: job.kind, signal: signal, stderr: stderr))
 #endif
         }
       }
 
-      // Inform the delegate about job finishing.
+      context.cancelBuildIfNeeded(result)
       context.delegateQueue.sync {
         context.executorDelegate.jobFinished(job: job, result: result, pid: pid)
       }
-      pendingFinish = false
-      context.cancelBuildIfNeeded(result)
+
       value = .jobExecution(success: success)
     } catch {
-      if error is DiagnosticData {
-        context.diagnosticsEngine.emit(error)
-      }
-      // Only inform finished job if the job has been started, otherwise the build
-      // system may complain about malformed output
-      if (pendingFinish) {
-        context.delegateQueue.sync {
-          let result = ProcessResult(
-            arguments: [],
-            environment: env,
-            exitStatus: .terminated(code: EXIT_FAILURE),
-            output: Result.success([]),
-            stderrOutput: Result.success([])
-          )
-          context.executorDelegate.jobFinished(job: job, result: result, pid: pid)
-        }
-      }
+      context.diagnosticsEngine.emit(.error_unexpected(error: error.localizedDescription))
       value = .jobExecution(success: false)
     }
 
-    engine.taskIsComplete(value)
+    if pendingFinish {
+      engine.taskIsComplete(value)
+    }
   }
 }
 
