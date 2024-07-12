@@ -3644,6 +3644,24 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
+      // -cross-module-optimization should supersede -enable-default-cmo
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-c", "-o", rebase("test.o", at: root), "-wmo", "-O", "-cross-module-optimization"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      XCTAssertFalse(plannedJobs[0].commandLine.contains(.flag("-enable-default-cmo")))
+      XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-cross-module-optimization")))
+    }
+
+    do {
+      // -enable-cmo-everything should supersede -enable-default-cmo
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-c", "-o", rebase("test.o", at: root), "-wmo", "-O", "-enable-cmo-everything"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      XCTAssertFalse(plannedJobs[0].commandLine.contains(.flag("-enable-default-cmo")))
+      XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-enable-cmo-everything")))
+    }
+
+    do {
       // library-evolution builds can emit the module in a separate job.
       var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-c", "-o", rebase("test.o", at: root), "-wmo", "-O", "-enable-library-evolution" ])
       let plannedJobs = try driver.planBuild()
@@ -3671,7 +3689,7 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
-      // Don't use emit-module-separetely as a linker.
+      // Don't use emit-module-separately as a linker.
       var driver = try Driver(args: ["swiftc", "foo.sil", "bar.sil", "-module-name", "Test", "-emit-module-path", "/foo/bar/Test.swiftmodule", "-emit-library", "-target", "x86_64-apple-macosx10.15", "-wmo", "-emit-module-separately-wmo"],
                                env: envVars)
       let plannedJobs = try driver.planBuild()
