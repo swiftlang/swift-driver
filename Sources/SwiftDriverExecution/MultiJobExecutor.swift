@@ -344,6 +344,48 @@ public final class MultiJobExecutor {
   }
 }
 
+extension ProcessResult {
+  func utf8stderrOutput() throws -> String {
+    let stderrData = try self.utf8stderrOutput().get()
+    return String(decoding: stderrData, as: UTF8.self)
+  }
+}
+
+extension DiagnosticsEngine {
+  func emit(_ diagnostic: Diagnostic) {
+    self.emit(diagnostic)
+  }
+
+  static func error_command_failed(kind: Job.Kind, code: Int32, stderr: String) -> Diagnostic {
+    return Diagnostic(
+      severity: .error,
+      message: "command failed with exit code \(code): \(stderr)"
+    )
+  }
+
+  static func error_command_exception(kind: Job.Kind, exception: String) -> Diagnostic {
+    return Diagnostic(
+      severity: .error,
+      message: "command failed with exception: \(exception)"
+    )
+  }
+
+  static func error_command_signalled(kind: Job.Kind, signal: Int32, stderr: String) -> Diagnostic {
+    return Diagnostic(
+      severity: .error,
+      message: "command terminated by signal \(signal): \(stderr)"
+    )
+  }
+
+  static func error_unexpected(error: String) -> Diagnostic {
+    return Diagnostic(
+      severity: .error,
+      message: "unexpected error: \(error)"
+    )
+  }
+}
+
+
 struct JobExecutorBuildDelegate: LLBuildEngineDelegate {
 
   let context: MultiJobExecutor.Context
