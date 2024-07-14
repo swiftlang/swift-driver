@@ -4401,7 +4401,67 @@ final class SwiftDriverTests: XCTestCase {
     }
     #endif
 
-    // TODO: Windows
+    for explicitUseLd in [true, false] {
+      var args = ["swiftc", "-profile-generate", "-target", "x86_64-unknown-windows-msvc", "test.swift"]
+      if explicitUseLd {
+        // Explicitly passing '-use-ld=lld' should still result in '-lld-allow-duplicate-weak'.
+        args.append("-use-ld=lld")
+      }
+      var driver = try Driver(args: args)
+      let plannedJobs = try driver.planBuild()
+      print(plannedJobs[1].commandLine)
+
+      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+      XCTAssertEqual(plannedJobs[1].kind, .link)
+
+      let linkCmds = plannedJobs[1].commandLine
+      XCTAssert(linkCmds.contains(.flag("-include:__llvm_profile_runtime")))
+      XCTAssert(linkCmds.contains(.flag("-lclang_rt.profile")))
+
+      // rdar://131295678 - Make sure we force the use of lld and pass
+      // '-lld-allow-duplicate-weak'.
+      XCTAssert(linkCmds.contains(.flag("-fuse-ld=lld")))
+      XCTAssert(linkCmds.contains([.flag("-Xlinker"), .flag("-lld-allow-duplicate-weak")]))
+    }
+
+    do {
+      // If the user passes -use-ld for a non-lld linker, respect that and
+      // don't use '-lld-allow-duplicate-weak'
+      var driver = try Driver(args: ["swiftc", "-profile-generate", "-use-ld=link", "-target", "x86_64-unknown-windows-msvc", "test.swift"])
+      let plannedJobs = try driver.planBuild()
+      print(plannedJobs[1].commandLine)
+
+      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+      XCTAssertEqual(plannedJobs[1].kind, .link)
+
+      let linkCmds = plannedJobs[1].commandLine
+      XCTAssert(linkCmds.contains(.flag("-include:__llvm_profile_runtime")))
+      XCTAssert(linkCmds.contains(.flag("-lclang_rt.profile")))
+
+      XCTAssertTrue(linkCmds.contains(.flag("-fuse-ld=link")))
+      XCTAssertFalse(linkCmds.contains(.flag("-fuse-ld=lld")))
+      XCTAssertFalse(linkCmds.contains(.flag("-lld-allow-duplicate-weak")))
+    }
+
+    do {
+      // If we're not building for profiling, don't add '-lld-allow-duplicate-weak'.
+      var driver = try Driver(args: ["swiftc", "-use-ld=lld", "-target", "x86_64-unknown-windows-msvc", "test.swift"])
+      let plannedJobs = try driver.planBuild()
+      print(plannedJobs[1].commandLine)
+
+      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+      XCTAssertEqual(plannedJobs[1].kind, .link)
+
+      let linkCmds = plannedJobs[1].commandLine
+      XCTAssertTrue(linkCmds.contains(.flag("-fuse-ld=lld")))
+      XCTAssertFalse(linkCmds.contains(.flag("-lld-allow-duplicate-weak")))
+    }
   }
 
   func testConditionalCompilationArgValidation() throws {

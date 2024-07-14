@@ -19,6 +19,8 @@ import Darwin
 import Glibc
 #elseif canImport(Musl)
 import Musl
+#elseif canImport(Bionic)
+import Bionic
 #endif
 
 import class TSCBasic.DiagnosticsEngine
@@ -157,6 +159,31 @@ do {
         try localFileSystem.createDirectory(mcpPath, recursive: true)
       }
     }
+
+    // When building modules for an SDK,  ignore any existing prebuilt modules.
+    // modules. Do so by passing an intentially-bad path for the prebuilt
+    // module cache path that's derived from the output path (but not the same
+    // as that path). This prohibits the frontend scanning job from adding the
+    // default prebuilt module cache path, while ensuring that we find no
+    // prebuilt modules during this scan.
+    args.append("-Xfrontend")
+    args.append("-prebuilt-module-cache-path")
+    args.append("-Xfrontend")
+    args.append(outputDir.appending(component: "__nonexistent__").pathString)
+
+    // If the compiler/scanner supports it, instruct it to ignore any existing prebuilt
+    // modules for which a textual interface is discovered, ensuring that modules
+    // always build from interface when one is available.
+    if let supportedFlagsTestDriver = try? Driver(args: ["swiftc", "-v"],
+                                                  executor: executor,
+                                                  compilerExecutableDir: swiftcPath.parentDirectory),
+       supportedFlagsTestDriver.isFrontendArgSupported(.moduleLoadMode) {
+      args.append("-Xfrontend")
+      args.append("-module-load-mode")
+      args.append("-Xfrontend")
+      args.append("only-interface")
+    }
+
     let baselineABIDir = try getArgumentAsPath("-baseline-abi-dir")
     var driver = try Driver(args: args,
                             diagnosticsOutput: .engine(diagnosticsEngine),

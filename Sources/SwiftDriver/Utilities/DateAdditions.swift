@@ -18,6 +18,8 @@ import Darwin
 import Glibc
 #elseif canImport(Musl)
 import Musl
+#elseif canImport(Bionic)
+import Bionic
 #endif
 
 /// Represents a time point value with nanosecond precision.

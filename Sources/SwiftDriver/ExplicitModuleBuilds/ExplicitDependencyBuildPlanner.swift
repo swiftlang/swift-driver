@@ -269,12 +269,6 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
       if cas != nil && !prebuiltHeaderDependencyPaths.isEmpty {
         throw DependencyScanningError.unsupportedConfigurationForCaching("module \(dependencyModule.moduleName) has bridging header dependency")
       }
-
-      for headerDep in prebuiltHeaderDependencyPaths {
-        commandLine.appendFlags(["-Xcc", "-include-pch", "-Xcc"])
-        commandLine.appendPath(VirtualPath.lookup(headerDep.path))
-        inputs.append(TypedVirtualPath(file: headerDep.path, type: .pch))
-      }
     }
     for moduleArtifactInfo in clangDependencyArtifacts {
       let clangModulePath =

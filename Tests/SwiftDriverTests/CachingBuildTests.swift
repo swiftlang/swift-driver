@@ -829,15 +829,27 @@ final class CachingBuildTests: XCTestCase {
                                       "-cas-path", casPath2.nativePathString(escaped: true),
                                       ]
       var scanDiagnostics: [ScannerDiagnosticPayload] = []
-      XCTAssertThrowsError(try dependencyOracle.getDependencies(workingDirectory: path,
-                                                                commandLine: command,
-                                                                diagnostics: &scanDiagnostics)) {
-        XCTAssertTrue($0 is DependencyScanningError)
+      do {
+        let _ = try dependencyOracle.getDependencies(workingDirectory: path,
+                                                     commandLine: command,
+                                                     diagnostics: &scanDiagnostics)
+      } catch let error {
+        XCTAssertTrue(error is DependencyScanningError)
       }
-      let diags = try XCTUnwrap(dependencyOracle.getScannerDiagnostics())
-      XCTAssertEqual(diags.count, 1)
-      XCTAssertEqual(diags[0].severity, .error)
-      XCTAssertEqual(diags[0].message, "CAS error encountered: conflicting CAS options used in scanning service")
+
+      let testDiagnostics: [ScannerDiagnosticPayload]
+      if try dependencyOracle.supportsPerScanDiagnostics(),
+         !scanDiagnostics.isEmpty {
+        testDiagnostics = scanDiagnostics
+        print("Using Per-Scan diagnostics")
+      } else {
+        testDiagnostics = try XCTUnwrap(dependencyOracle.getScannerDiagnostics())
+        print("Using Scanner-Global diagnostics")
+      }
+
+      XCTAssertEqual(testDiagnostics.count, 1)
+      XCTAssertEqual(testDiagnostics[0].severity, .error)
+      XCTAssertEqual(testDiagnostics[0].message, "CAS error encountered: conflicting CAS options used in scanning service")
     }
   }
 
