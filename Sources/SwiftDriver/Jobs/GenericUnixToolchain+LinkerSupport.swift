@@ -147,14 +147,24 @@ extension GenericUnixToolchain {
         }
       }
 
+      if targetInfo.sdkPath != nil {
+        for libpath in targetInfo.runtimeLibraryImportPaths {
+          commandLine.appendFlag(.L)
+          commandLine.appendPath(VirtualPath.lookup(libpath.path))
+        }
+      }
+
       if !isEmbeddedEnabled && !parsedOptions.hasArgument(.nostartfiles) {
-        let swiftrtPath = VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
-          .appending(
-            components: targetTriple.platformName() ?? "",
-            String(majorArchitectureName(for: targetTriple)),
-            "swiftrt.o"
-          )
-        commandLine.appendPath(swiftrtPath)
+        let rsrc: VirtualPath
+        // Prefer the swiftrt.o runtime file from the SDK if it's specified.
+        if let sdk = targetInfo.sdkPath.flatMap({ VirtualPath.lookup($0.path) }) {
+          rsrc = sdk.appending(components: "usr", "lib", "swift")
+        } else {
+          rsrc = VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
+        }
+        let platform: String = targetTriple.platformName() ?? ""
+        let architecture: String = majorArchitectureName(for: targetTriple)
+        commandLine.appendPath(rsrc.appending(components: platform, architecture, "swiftrt.o"))
       }
 
       // If we are linking statically, we need to add all
@@ -194,7 +204,12 @@ extension GenericUnixToolchain {
         commandLine.appendPath(try VirtualPath(path: opt.argument.asSingle))
       }
 
-      if let path = targetInfo.sdkPath?.path {
+      if targetTriple.environment == .android {
+        if let sysroot = try getAndroidNDKSysrootPath() {
+          commandLine.appendFlag("--sysroot")
+          commandLine.appendPath(sysroot)
+        }
+      } else if let path = targetInfo.sdkPath?.path {
         commandLine.appendFlag("--sysroot")
         commandLine.appendPath(VirtualPath.lookup(path))
       }
