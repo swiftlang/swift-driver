@@ -197,6 +197,7 @@ extension Driver {
     try commandLine.appendLast(.fixitAll, from: &parsedOptions)
     try commandLine.appendLast(.warnSwift3ObjcInferenceMinimal, .warnSwift3ObjcInferenceComplete, from: &parsedOptions)
     try commandLine.appendLast(.warnImplicitOverrides, from: &parsedOptions)
+    try commandLine.appendLast(.warnSoftDeprecated, from: &parsedOptions)
     try commandLine.appendLast(.typoCorrectionLimit, from: &parsedOptions)
     try commandLine.appendLast(.enableAppExtension, from: &parsedOptions)
     try commandLine.appendLast(.enableLibraryEvolution, from: &parsedOptions)
