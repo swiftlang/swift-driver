@@ -827,6 +827,16 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testModuleABIName() throws {
+    var driver = try Driver(
+      args: ["swiftc", "foo.swift", "-module-name", "Mod", "-module-abi-name", "ABIMod"]
+    )
+    let jobs = try driver.planBuild()
+    let compileJob = try jobs.findJob(.compile)
+    XCTAssert(compileJob.commandLine.contains(.flag("-module-abi-name")))
+    XCTAssert(compileJob.commandLine.contains(.flag("ABIMod")))
+  }
+
   func testStandardCompileJobs() throws {
     var driver1 = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test"])
     let plannedJobs = try driver1.planBuild().removingAutolinkExtractJobs()

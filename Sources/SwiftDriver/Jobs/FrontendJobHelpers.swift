@@ -212,6 +212,7 @@ extension Driver {
     try commandLine.appendLast(.importUnderlyingModule, from: &parsedOptions)
     try commandLine.appendLast(.moduleCachePath, from: &parsedOptions)
     try commandLine.appendLast(.moduleLinkName, from: &parsedOptions)
+    try commandLine.appendLast(.moduleAbiName, from: &parsedOptions)
     try commandLine.appendLast(.nostdimport, from: &parsedOptions)
     try commandLine.appendLast(.parseStdlib, from: &parsedOptions)
     try commandLine.appendLast(.solverMemoryThreshold, from: &parsedOptions)
