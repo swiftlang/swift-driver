@@ -1475,6 +1475,38 @@ extension Diagnostic.Message {
 }
 
 extension Driver {
+  func explainModuleDependency(_ explainModuleName: String, allPaths: Bool) throws {
+    guard let dependencyPlanner = explicitDependencyBuildPlanner else {
+      fatalError("Cannot explain dependency without Explicit Build Planner")
+    }
+    guard let dependencyPaths = try dependencyPlanner.explainDependency(explainModuleName, allPaths: allPaths) else {
+      diagnosticEngine.emit(.remark("No such module dependency found: '\(explainModuleName)'"))
+      return
+    }
+    diagnosticEngine.emit(.remark("Module '\(moduleOutputInfo.name)' depends on '\(explainModuleName)'"))
+    for path in dependencyPaths {
+      var pathString:String = ""
+      for (index, moduleId) in path.enumerated() {
+        switch moduleId {
+        case .swift(let moduleName):
+          pathString = pathString + "[" + moduleName + "]"
+        case .swiftPrebuiltExternal(let moduleName):
+          pathString = pathString + "[" + moduleName + "]"
+        case .clang(let moduleName):
+          pathString = pathString + "[" + moduleName + "](ObjC)"
+        case .swiftPlaceholder(_):
+          fatalError("Unexpected unresolved Placeholder module")
+        }
+        if index < path.count - 1 {
+          pathString = pathString + " -> "
+        }
+      }
+      diagnosticEngine.emit(.note(pathString))
+    }
+  }
+}
+
+extension Driver {
   /// Determine the driver kind based on the command-line arguments, consuming the arguments
   /// conveying this information.
   @_spi(Testing) public static func determineDriverKind(
@@ -1520,34 +1552,10 @@ extension Driver {
     }
 
     // If we're only supposed to explain a dependency on a given module, do so now.
-    if let explainModuleName = parsedOptions.getLastArgument(.explainModuleDependency) {
-      guard let dependencyPlanner = explicitDependencyBuildPlanner else {
-        fatalError("Cannot explain dependency without Explicit Build Planner")
-      }
-      guard let dependencyPaths = try dependencyPlanner.explainDependency(explainModuleName.asSingle) else {
-        diagnosticEngine.emit(.remark("No such module dependency found: '\(explainModuleName.asSingle)'"))
-        return
-      }
-      diagnosticEngine.emit(.remark("Module '\(moduleOutputInfo.name)' depends on '\(explainModuleName.asSingle)'"))
-      for path in dependencyPaths {
-        var pathString:String = ""
-        for (index, moduleId) in path.enumerated() {
-          switch moduleId {
-          case .swift(let moduleName):
-            pathString = pathString + "[" + moduleName + "]"
-          case .swiftPrebuiltExternal(let moduleName):
-            pathString = pathString + "[" + moduleName + "]"
-          case .clang(let moduleName):
-            pathString = pathString + "[" + moduleName + "](ObjC)"
-          case .swiftPlaceholder(_):
-            fatalError("Unexpected unresolved Placeholder module")
-          }
-          if index < path.count - 1 {
-            pathString = pathString + " -> "
-          }
-        }
-        diagnosticEngine.emit(.note(pathString))
-      }
+    if let explainModuleName = parsedOptions.getLastArgument(.explainModuleDependencyDetailed) {
+      try explainModuleDependency(explainModuleName.asSingle, allPaths: true)
+    } else if let explainModuleNameDetailed = parsedOptions.getLastArgument(.explainModuleDependency) {
+      try explainModuleDependency(explainModuleNameDetailed.asSingle, allPaths: false)
     }
 
     if parsedOptions.contains(.driverPrintOutputFileMap) {

@@ -416,33 +416,49 @@ internal extension InterModuleDependencyGraph {
 }
 
 internal extension InterModuleDependencyGraph {
-  func explainDependency(dependencyModuleName: String) throws -> [[ModuleDependencyId]]? {
+  func explainDependency(dependencyModuleName: String, allPaths: Bool) throws -> [[ModuleDependencyId]]? {
     guard modules.contains(where: { $0.key.moduleName == dependencyModuleName }) else { return nil }
-    var results = Set<[ModuleDependencyId]>()
-    try findAllPaths(source: .swift(mainModuleName),
-                     to: dependencyModuleName,
-                     pathSoFar: [.swift(mainModuleName)],
-                     results: &results)
-    return results.sorted(by: { $0.count < $1.count })
+    var result: Set<[ModuleDependencyId]> = []
+    if allPaths {
+      try findAllPaths(source: .swift(mainModuleName),
+                       pathSoFar: [.swift(mainModuleName)],
+                       results: &result,
+                       destinationMatch: { $0.moduleName == dependencyModuleName })
+    } else {
+      var visited: Set<ModuleDependencyId> = []
+      var singlePathResult: [ModuleDependencyId]? = nil
+      if try findAPath(source: .swift(mainModuleName),
+                       pathSoFar: [.swift(mainModuleName)],
+                       visited: &visited,
+                       result: &singlePathResult,
+                       destinationMatch: { $0.moduleName == dependencyModuleName }),
+         let resultingPath = singlePathResult {
+        result = [resultingPath]
+      }
+    }
+    return Array(result)
   }
 
-
-  private func findAllPaths(source: ModuleDependencyId,
-                            to moduleName: String,
-                            pathSoFar: [ModuleDependencyId],
-                            results: inout Set<[ModuleDependencyId]>) throws {
+  @discardableResult
+  func findAPath(source: ModuleDependencyId,
+                 pathSoFar: [ModuleDependencyId],
+                 visited: inout Set<ModuleDependencyId>,
+                 result: inout [ModuleDependencyId]?,
+                 destinationMatch: (ModuleDependencyId) -> Bool) throws -> Bool {
+    // Mark this node as visited
+    visited.insert(source)
     let sourceInfo = try moduleInfo(of: source)
-    // If the source is our target, we are done
-    if source.moduleName == moduleName {
+    if destinationMatch(source) {
       // If the source is a target Swift module, also check if it
       // depends on a corresponding Clang module with the same name.
       // If it does, add it to the path as well.
       var completePath = pathSoFar
       if let dependencies = sourceInfo.directDependencies,
-         dependencies.contains(.clang(moduleName)) {
-        completePath.append(.clang(moduleName))
+         dependencies.contains(.clang(source.moduleName)) {
+        completePath.append(.clang(source.moduleName))
       }
-      results.insert(completePath)
+      result = completePath
+      return true
     }
 
     var allDependencies = sourceInfo.directDependencies ?? []
@@ -452,10 +468,45 @@ internal extension InterModuleDependencyGraph {
     }
 
     for dependency in allDependencies {
-      try findAllPaths(source: dependency,
-                       to: moduleName,
+      if try findAPath(source: dependency,
                        pathSoFar: pathSoFar + [dependency],
-                       results: &results)
+                       visited: &visited,
+                       result: &result,
+                       destinationMatch: destinationMatch) {
+        return true
+      }
+    }
+    return false
+  }
+
+  private func findAllPaths(source: ModuleDependencyId,
+                            pathSoFar: [ModuleDependencyId],
+                            results: inout Set<[ModuleDependencyId]>,
+                            destinationMatch: (ModuleDependencyId) -> Bool) throws {
+    let sourceInfo = try moduleInfo(of: source)
+    if destinationMatch(source) {
+      // If the source is a target Swift module, also check if it
+      // depends on a corresponding Clang module with the same name.
+      // If it does, add it to the path as well.
+      var completePath = pathSoFar
+      if let dependencies = sourceInfo.directDependencies,
+         dependencies.contains(.clang(source.moduleName)) {
+        completePath.append(.clang(source.moduleName))
+      }
+      results.insert(completePath)
+      return
+    }
+
+    var allDependencies = sourceInfo.directDependencies ?? []
+    if case .swift(let swiftModuleDetails) = sourceInfo.details,
+          let overlayDependencies = swiftModuleDetails.swiftOverlayDependencies {
+      allDependencies.append(contentsOf: overlayDependencies)
+    }
+    for dependency in allDependencies {
+      try findAllPaths(source: dependency,
+                       pathSoFar: pathSoFar + [dependency],
+                       results: &results,
+                       destinationMatch: destinationMatch)
     }
   }
 }

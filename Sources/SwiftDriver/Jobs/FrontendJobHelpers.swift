@@ -51,6 +51,7 @@ extension Driver {
     /// If the driver is in Explicit Module Build mode, the dependency graph has been computed
     case computed
   }
+
   /// Add frontend options that are common to different frontend invocations.
   mutating func addCommonFrontendOptions(
     commandLine: inout [Job.ArgTemplate],
