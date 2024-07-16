@@ -157,8 +157,8 @@ extension GenericUnixToolchain {
       if !isEmbeddedEnabled && !parsedOptions.hasArgument(.nostartfiles) {
         let rsrc: VirtualPath
         // Prefer the swiftrt.o runtime file from the SDK if it's specified.
-        if let sdk = targetInfo.sdkPath.flatMap({ VirtualPath.lookup($0.path) }) {
-          rsrc = sdk.appending(components: "usr", "lib", "swift")
+        if let sdk = targetInfo.sdkPath {
+          rsrc = VirtualPath.lookup(sdk.path).appending(components: "usr", "lib", "swift")
         } else {
           rsrc = VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
         }
