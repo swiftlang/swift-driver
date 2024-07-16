@@ -2248,30 +2248,61 @@ final class ExplicitModuleBuildTests: XCTestCase {
           try testInputsPath.appending(component: "ExplicitModuleBuilds")
                             .appending(component: "Swift")
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
-      var driver = try Driver(args: ["swiftc",
-                                     "-I", cHeadersPath.nativePathString(escaped: true),
-                                     "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
-                                     "-explicit-module-build", "-v",
-                                     "-module-cache-path", moduleCachePath.nativePathString(escaped: true),
-                                     "-working-directory", path.nativePathString(escaped: true),
-                                     "-explain-module-dependency", "A",
-                                     main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
-                              env: ProcessEnv.vars)
-      let jobs = try driver.planBuild()
-      try driver.run(jobs: jobs)
-      XCTAssertTrue(!driver.diagnosticEngine.diagnostics.isEmpty)
-      XCTAssertTrue(driver.diagnosticEngine.diagnostics.contains { $0.behavior == .remark &&
-                                                                   $0.message.text == "Module 'testTraceDependency' depends on 'A'"})
 
-      for diag in driver.diagnosticEngine.diagnostics {
-        print(diag.behavior)
-        print(diag.message)
+      // Detailed explain (all possible paths)
+      do {
+        var driver = try Driver(args: ["swiftc",
+                                       "-I", cHeadersPath.nativePathString(escaped: true),
+                                       "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                       "-explicit-module-build", "-v",
+                                       "-module-cache-path", moduleCachePath.nativePathString(escaped: true),
+                                       "-working-directory", path.nativePathString(escaped: true),
+                                       "-explain-module-dependency-detailed", "A",
+                                       main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
+                                env: ProcessEnv.vars)
+        let jobs = try driver.planBuild()
+        try driver.run(jobs: jobs)
+        XCTAssertTrue(!driver.diagnosticEngine.diagnostics.isEmpty)
+        XCTAssertTrue(driver.diagnosticEngine.diagnostics.contains { $0.behavior == .remark &&
+          $0.message.text == "Module 'testTraceDependency' depends on 'A'"})
+
+        for diag in driver.diagnosticEngine.diagnostics {
+          print(diag.behavior)
+          print(diag.message)
+        }
+        XCTAssertEqual(driver.diagnosticEngine.diagnostics.filter { $0.behavior == .note}.count, 2)
+        XCTAssertTrue(driver.diagnosticEngine.diagnostics.contains { $0.behavior == .note &&
+          $0.message.text == "[testTraceDependency] -> [A] -> [A](ObjC)"})
+        XCTAssertTrue(driver.diagnosticEngine.diagnostics.contains { $0.behavior == .note &&
+          $0.message.text == "[testTraceDependency] -> [C](ObjC) -> [B](ObjC) -> [A](ObjC)"})
       }
-      XCTAssertEqual(driver.diagnosticEngine.diagnostics.filter { $0.behavior == .note}.count, 2)
-      XCTAssertTrue(driver.diagnosticEngine.diagnostics.contains { $0.behavior == .note &&
-                                                                   $0.message.text == "[testTraceDependency] -> [A] -> [A](ObjC)"})
-      XCTAssertTrue(driver.diagnosticEngine.diagnostics.contains { $0.behavior == .note &&
-                                                                   $0.message.text == "[testTraceDependency] -> [C](ObjC) -> [B](ObjC) -> [A](ObjC)"})
+
+      // Simple explain (first available path)
+      do {
+        var driver = try Driver(args: ["swiftc",
+                                       "-I", cHeadersPath.nativePathString(escaped: true),
+                                       "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                       "-explicit-module-build", "-v",
+                                       "-module-cache-path", moduleCachePath.nativePathString(escaped: true),
+                                       "-working-directory", path.nativePathString(escaped: true),
+                                       "-explain-module-dependency", "A",
+                                       main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
+                                env: ProcessEnv.vars)
+        let jobs = try driver.planBuild()
+        try driver.run(jobs: jobs)
+        XCTAssertTrue(!driver.diagnosticEngine.diagnostics.isEmpty)
+        XCTAssertTrue(driver.diagnosticEngine.diagnostics.contains { $0.behavior == .remark &&
+          $0.message.text == "Module 'testTraceDependency' depends on 'A'"})
+
+        for diag in driver.diagnosticEngine.diagnostics {
+          print(diag.behavior)
+          print(diag.message)
+        }
+        XCTAssertEqual(driver.diagnosticEngine.diagnostics.filter { $0.behavior == .note}.count, 1)
+        XCTAssertTrue(driver.diagnosticEngine.diagnostics.contains { $0.behavior == .note &&
+          ($0.message.text == "[testTraceDependency] -> [A] -> [A](ObjC)" ||
+           $0.message.text == "[testTraceDependency] -> [C](ObjC) -> [B](ObjC) -> [A](ObjC)")})
+      }
     }
   }
 

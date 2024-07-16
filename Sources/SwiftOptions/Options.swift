@@ -499,7 +499,8 @@ extension Option {
   public static let experimentalSpiImports: Option = Option("-experimental-spi-imports", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental support for SPI imports")
   public static let experimentalSpiOnlyImports: Option = Option("-experimental-spi-only-imports", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable use of @_spiOnly imports")
   public static let enableExperimentalSwiftBasedClosureSpecialization: Option = Option("-experimental-swift-based-closure-specialization", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Use the experimental Swift based closure-specialization optimization pass instead of the existing C++ one")
-  public static let explainModuleDependency: Option = Option("-explain-module-dependency", .separate, attributes: [], helpText: "Emit remark/notes describing why compilation may depend on a module with a given name.")
+  public static let explainModuleDependencyDetailed: Option = Option("-explain-module-dependency-detailed", .separate, attributes: [], helpText: "Emit remarks describing every possible dependency path that explains why compilation may depend on a module with a given name.")
+  public static let explainModuleDependency: Option = Option("-explain-module-dependency", .separate, attributes: [], helpText: "Emit remark describing why compilation may depend on a module with a given name.")
   public static let explicitAutoLinking: Option = Option("-explicit-auto-linking", .flag, attributes: [], helpText: "Instead of linker-load directives, have the driver specify all link dependencies on the linker invocation. Requires '-explicit-module-build'.")
   public static let explicitDependencyGraphFormat: Option = Option("-explicit-dependency-graph-format=", .joined, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Specify the explicit dependency graph output format to either 'json' or 'dot'")
   public static let explicitInterfaceModuleBuild: Option = Option("-explicit-interface-module-build", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Use the specified command-line to build the module from interface, instead of flags specified in the interface")
@@ -1371,6 +1372,7 @@ extension Option {
       Option.experimentalSpiImports,
       Option.experimentalSpiOnlyImports,
       Option.enableExperimentalSwiftBasedClosureSpecialization,
+      Option.explainModuleDependencyDetailed,
       Option.explainModuleDependency,
       Option.explicitAutoLinking,
       Option.explicitDependencyGraphFormat,
