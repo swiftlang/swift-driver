@@ -7151,10 +7151,14 @@ final class SwiftDriverTests: XCTestCase {
 
   func testRelativeResourceDir() throws {
     do {
+      // Reset the environment to avoid 'SDKROOT' influencing the
+      // linux driver paths and taking the priority over the resource directory.
+      var env = ProcessEnv.vars
+      env["SDKROOT"] = nil
       var driver = try Driver(args: ["swiftc",
                                      "-target", "x86_64-unknown-linux", "-lto=llvm-thin",
                                      "foo.swift",
-                                     "-resource-dir", "resource/dir"])
+                                     "-resource-dir", "resource/dir"], env: env)
       let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
       let compileJob = plannedJobs[0]
       XCTAssertEqual(compileJob.kind, .compile)
@@ -7167,6 +7171,24 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(linkJob.commandLine.contains(try toPathOption("resource/dir/linux/x86_64/swiftrt.o")))
       XCTAssertTrue(linkJob.commandLine.contains(subsequence:
                                                    ["-L", try toPathOption("resource/dir/linux")]))
+    }
+  }
+
+  func testSDKDirLinuxPrioritizedOverRelativeResourceDirForLinkingSwiftRT() throws {
+    do {
+      let sdkRoot = try testInputsPath.appending(component: "mock-sdk.sdk")
+      var env = ProcessEnv.vars
+      env["SDKROOT"] = sdkRoot.pathString
+      var driver = try Driver(args: ["swiftc",
+                                     "-target", "x86_64-unknown-linux", "-lto=llvm-thin",
+                                     "foo.swift",
+                                     "-resource-dir", "resource/dir"], env: env)
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      let compileJob = plannedJobs[0]
+      XCTAssertEqual(compileJob.kind, .compile)
+      let linkJob = plannedJobs[1]
+      XCTAssertEqual(linkJob.kind, .link)
+      XCTAssertTrue(linkJob.commandLine.contains(try toPathOption(sdkRoot.pathString + "/usr/lib/swift/linux/x86_64/swiftrt.o")))
     }
   }
 
