@@ -173,6 +173,7 @@ fileprivate class ModuleCompileDelegate: JobExecutionDelegate {
   var failingCriticalOutputs: Set<VirtualPath>
   let logPath: AbsolutePath?
   let jsonDelegate: JSONOutputDelegate
+  var compiledModules: [String: Int] = [:]
   init(_ jobs: [Job], _ diagnosticsEngine: DiagnosticsEngine, _ verbose: Bool,
               _ logPath: AbsolutePath?, _ jsonDelegate: JSONOutputDelegate) {
     self.diagnosticsEngine = diagnosticsEngine
@@ -201,6 +202,20 @@ fileprivate class ModuleCompileDelegate: JobExecutionDelegate {
     return !failingCriticalOutputs.isEmpty
   }
 
+  public func checkCriticalModulesGenerated() -> Bool {
+    let sortedModules = compiledModules.sorted(by: <)
+    Driver.stdErrQueue.sync {
+      stderrStream.send("===================================================\n")
+      sortedModules.forEach {
+        stderrStream.send("\($0.key): \($0.value)\n")
+      }
+      stderrStream.send("===================================================\n")
+      stderrStream.flush()
+    }
+    let keyModules = ["Swift", "SwiftUI", "Foundation"]
+    return keyModules.allSatisfy { compiledModules.keys.contains($0) }
+  }
+
   public func jobFinished(job: Job, result: ProcessResult, pid: Int) {
     self.jsonDelegate.jobFinished(job, result)
     switch result.exitStatus {
@@ -208,6 +223,13 @@ fileprivate class ModuleCompileDelegate: JobExecutionDelegate {
       if code == 0 {
         printJobInfo(job, false, verbose)
         failingCriticalOutputs.remove(job.outputs[0].file)
+
+        // Keep track of Swift modules that have been already generated.
+        if let seen = compiledModules[job.moduleName] {
+          compiledModules[job.moduleName] = seen + 1
+        } else {
+          compiledModules[job.moduleName] = 1
+        }
       } else {
         failingModules.insert(job.moduleName)
         let result: String = try! result.utf8stderrOutput()
@@ -316,6 +338,9 @@ public class PrebuiltModuleGenerationDelegate: JobExecutionDelegate {
   }
   public var hasCriticalFailure: Bool {
     return compileDelegate.hasCriticalFailure
+  }
+  public func checkCriticalModulesGenerated() -> Bool {
+    return compileDelegate.checkCriticalModulesGenerated()
   }
   public func emitJsonOutput(to path: AbsolutePath) throws {
     let data = try JSONEncoder().encode(self.jsonDelegate)
