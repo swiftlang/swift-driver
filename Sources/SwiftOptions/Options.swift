@@ -745,6 +745,7 @@ extension Option {
   public static let saveOptimizationRecord: Option = Option("-save-optimization-record", .flag, attributes: [.frontend], helpText: "Generate a YAML optimization record file")
   public static let saveTemps: Option = Option("-save-temps", .flag, attributes: [.noInteractive, .doesNotAffectIncrementalBuild], helpText: "Save intermediate compilation results")
   public static let scanDependencies: Option = Option("-scan-dependencies", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Scan dependencies of the given Swift sources", group: .modes)
+  public static let scannerModuleValidation: Option = Option("-scanner-module-validation", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Validate binary modules in the dependency scanner")
   public static let scannerPrefixMapSdk: Option = Option("-scanner-prefix-map-sdk", .separate, attributes: [], metaVar: "<path>", helpText: "Remap paths within SDK reported by dependency scanner")
   public static let scannerPrefixMapToolchain: Option = Option("-scanner-prefix-map-toolchain", .separate, attributes: [], metaVar: "<path>", helpText: "Remap paths within toolchain directory reported by dependency scanner")
   public static let scannerPrefixMap: Option = Option("-scanner-prefix-map", .separate, attributes: [.frontend], metaVar: "<prefix=replacement>", helpText: "Remap paths reported by dependency scanner")
@@ -1616,6 +1617,7 @@ extension Option {
       Option.saveOptimizationRecord,
       Option.saveTemps,
       Option.scanDependencies,
+      Option.scannerModuleValidation,
       Option.scannerPrefixMapSdk,
       Option.scannerPrefixMapToolchain,
       Option.scannerPrefixMap,
