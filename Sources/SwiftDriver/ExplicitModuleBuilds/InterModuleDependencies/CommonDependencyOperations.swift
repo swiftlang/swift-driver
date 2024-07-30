@@ -367,7 +367,7 @@ internal extension InterModuleDependencyGraph {
       }
     }
 
-    // Check if any of the textual sources of this module are newer than this module
+    // Check if any of the input sources of this module are newer than this module
     switch checkedModuleInfo.details {
     case .swift(let swiftDetails):
       if let moduleInterfacePath = swiftDetails.moduleInterfacePath {
@@ -400,11 +400,12 @@ internal extension InterModuleDependencyGraph {
         }
       }
     case .swiftPrebuiltExternal(_):
-      // TODO: We have to give-up here until we have a way to verify the timestamp of the binary module.
-      // We can do better here by knowing if this module hasn't changed - which would allows us to not
-      // invalidate any of the dependencies that depend on it.
-      reporter?.report("Unable to verify binary module dependency up-to-date: \(moduleID.moduleNameForDiagnostic)")
-      return false;
+      // We do not verify the binary module itself being out-of-date if we do not have a textual
+      // interface it was built from, but we can safely treat it as up-to-date, particularly
+      // because if it is newer than any of the modules they depend on it, they will
+      // still get invalidated in the check above for whether a module has
+      // any dependencies newer than it.
+      return true;
     case .swiftPlaceholder(_):
       // TODO: This should never ever happen. Hard error?
       return false;
