@@ -213,7 +213,13 @@ fileprivate class ModuleCompileDelegate: JobExecutionDelegate {
       stderrStream.flush()
     }
     let keyModules = ["Swift", "SwiftUI", "Foundation"]
-    return keyModules.allSatisfy { compiledModules.keys.contains($0) }
+    return keyModules.allSatisfy {
+      if compiledModules.keys.contains($0) {
+        return true
+      }
+      stderrStream.send("Missing critical module: \($0)\n")
+      return false
+    }
   }
 
   public func jobFinished(job: Job, result: ProcessResult, pid: Int) {
