@@ -516,6 +516,56 @@ extension IncrementalCompilationTests {
       linking
     }
   }
+
+  func testExplicitIncrementalBuildUnchangedBinaryDependencyDoesNotInvalidateUpstreamDependencies() throws {
+    replace(contentsOf: "other", with: "import J;")
+
+    // After an initial build, replace the G.swiftinterface with G.swiftmodule
+    // and repeat the initial build to settle into the "initial" state for the test
+    try buildInitialState(checkDiagnostics: false, explicitModuleBuild: true)
+    let modCacheEntries = try localFileSystem.getDirectoryContents(explicitModuleCacheDir)
+    let nameOfGModule = try XCTUnwrap(modCacheEntries.first { $0.hasPrefix("G") && $0.hasSuffix(".swiftmodule")})
+    let pathToGModule = explicitModuleCacheDir.appending(component: nameOfGModule)
+    // Rename the binary module to G.swiftmodule so that the next build's scan finds it.
+    let newPathToGModule = explicitSwiftDependenciesPath.appending(component: "G.swiftmodule")
+    try! localFileSystem.move(from: pathToGModule, to: newPathToGModule)
+    // Delete the textual interface it was built from so that it is treated as a binary-only dependency now.
+    try! localFileSystem.removeFileTree(try AbsolutePath(validating: explicitSwiftDependenciesPath.appending(component: "G.swiftinterface").pathString))
+    try buildInitialState(checkDiagnostics: false, explicitModuleBuild: true)
+
+    // Touch one of the inputs to actually trigger the incremental build, so that we can ensure
+    // no module deps get re-built
+    touch(inputPath(basename: "other"))
+
+    try doABuild(
+      "Unchanged binary dependency (G)",
+      checkDiagnostics: true,
+      extraArguments: explicitBuildArgs,
+      whenAutolinking: autolinkLifecycleExpectedDiags
+    ) {
+      readGraph
+      enablingCrossModule
+      noFingerprintInSwiftModule("G.swiftinterface")
+      dependencyNewerThanNode("G.swiftinterface")
+      dependencyNewerThanNode("G.swiftinterface") // FIXME: Why do we see this twice?
+      readInterModuleGraph
+      interModuleDependencyGraphUpToDate // Graph declared up-to-date despite a downstream dependency on a binary Swift module dependency
+      maySkip("main")
+      schedulingChangedInitialQueuing("other")
+      fingerprintsMissingOfTopLevelName(name: "foo", "main")
+      invalidatedExternally("main", "other")
+      queuingInitial("main")
+      foundBatchableJobs(2)
+      formingOneBatch
+      addingToBatchThenForming("main", "other")
+      compiling("main", "other")
+      reading(deps: "main")
+      reading(deps: "other")
+      schedulingPostCompileJobs
+      linking
+
+    }
+  }
 }
 
 extension IncrementalCompilationTests {
