@@ -374,12 +374,18 @@ final class ExplicitModuleBuildTests: XCTestCase {
         throw XCTSkip("libSwiftScan does not support link library reporting.")
       }
 
-      var driver = try Driver(args: ["swiftc",
-                                     "-I", cHeadersPath.nativePathString(escaped: true),
-                                     "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
-                                     "-explicit-module-build",
-                                     "-import-objc-header", bridgingHeaderpath.nativePathString(escaped: true),
-                                     main.nativePathString(escaped: true)] + sdkArgumentsForTesting)
+      var args = ["swiftc",
+                  "-I", cHeadersPath.nativePathString(escaped: true),
+                  "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                  "-explicit-module-build",
+                  "-import-objc-header", bridgingHeaderpath.nativePathString(escaped: true),
+                  main.nativePathString(escaped: true)] + sdkArgumentsForTesting
+      var driver = try Driver(args: args)
+      // If this is a supported flow, then it is currently required for this test
+      if driver.isFrontendArgSupported(.scannerModuleValidation) {
+        driver = try Driver(args: args + ["-scanner-module-validation"])
+      }
+
       let _ = try driver.planBuild()
       let dependencyGraph = try XCTUnwrap(driver.explicitDependencyBuildPlanner?.dependencyGraph)
 
