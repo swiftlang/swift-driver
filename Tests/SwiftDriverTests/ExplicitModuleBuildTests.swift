@@ -1710,6 +1710,10 @@ final class ExplicitModuleBuildTests: XCTestCase {
         scannerCommand.removeFirst()
       }
 
+      if driver.isFrontendArgSupported(.scannerModuleValidation) {
+        XCTAssertTrue(scannerCommand.contains("-scanner-module-validation"))
+      }
+
       // Ensure we do not propagate the usual PCH-handling arguments to the scanner invocation
       XCTAssertFalse(scannerCommand.contains("-pch-output-dir"))
       XCTAssertFalse(scannerCommand.contains("Foo.o"))

@@ -129,6 +129,10 @@ public extension Driver {
       try commandLine.appendLast(.clangScannerModuleCachePath, from: &parsedOptions)
     }
 
+    if isFrontendArgSupported(.scannerModuleValidation) {
+      commandLine.appendFlag(.scannerModuleValidation)
+    }
+
     if isFrontendArgSupported(.scannerPrefixMap) {
       // construct `-scanner-prefix-mapper` for scanner.
       for (key, value) in prefixMapping {
