@@ -2275,6 +2275,44 @@ final class ExplicitModuleBuildTests: XCTestCase {
     }
   }
 
+  func testEmitModuleSeparatelyJobs() throws {
+    try withTemporaryDirectory { path in
+      try localFileSystem.changeCurrentWorkingDirectory(to: path)
+      let moduleCachePath = path.appending(component: "ModuleCache")
+      try localFileSystem.createDirectory(moduleCachePath)
+      let fileA = path.appending(component: "fileA.swift")
+      try localFileSystem.writeFileContents(fileA, bytes:
+        """
+        public struct A {}
+        """
+      )
+      let fileB = path.appending(component: "fileB.swift")
+      try localFileSystem.writeFileContents(fileB, bytes:
+        """
+        public struct B {}
+        """
+      )
+
+      let outputModule = path.appending(component: "Test.swiftmodule")
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+      var driver = try Driver(args: ["swiftc",
+                                     "-explicit-module-build", "-v", "-module-name", "Test",
+                                     "-module-cache-path", moduleCachePath.nativePathString(escaped: true),
+                                     "-working-directory", path.nativePathString(escaped: true),
+                                     "-emit-module", outputModule.nativePathString(escaped: true),
+                                     "-experimental-emit-module-separately",
+                                     fileA.nativePathString(escaped: true), fileB.nativePathString(escaped: true)] + sdkArgumentsForTesting,
+                              env: ProcessEnv.vars)
+      let jobs = try driver.planBuild()
+      let compileJobs = jobs.filter({ $0.kind == .compile })
+      XCTAssertEqual(compileJobs.count, 0)
+      let emitModuleJob = jobs.filter({ $0.kind == .emitModule })
+      XCTAssertEqual(emitModuleJob.count, 1)
+      try driver.run(jobs: jobs)
+      XCTAssertFalse(driver.diagnosticEngine.hasErrors)
+    }
+  }
+
 // We only care about prebuilt modules in macOS.
 #if os(macOS)
   func testPrebuiltModuleGenerationJobs() throws {
