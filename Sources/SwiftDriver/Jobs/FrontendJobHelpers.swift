@@ -228,7 +228,11 @@ extension Driver {
     try commandLine.appendLast(.profileGenerate, from: &parsedOptions)
     try commandLine.appendLast(.profileUse, from: &parsedOptions)
     try commandLine.appendLast(.profileCoverageMapping, from: &parsedOptions)
-    try commandLine.appendLast(.warningsAsErrors, .noWarningsAsErrors, from: &parsedOptions)
+    try commandLine.appendAllExcept(
+      includeList: [.warningTreating], 
+      excludeList: [], 
+      from: &parsedOptions
+    )
     try commandLine.appendLast(.sanitizeEQ, from: &parsedOptions)
     try commandLine.appendLast(.sanitizeRecoverEQ, from: &parsedOptions)
     try commandLine.appendLast(.sanitizeAddressUseOdrIndicator, from: &parsedOptions)

@@ -2929,10 +2929,19 @@ extension Diagnostic.Message {
 extension Driver {
   static func validateWarningControlArgs(_ parsedOptions: inout ParsedOptions,
                                          diagnosticEngine: DiagnosticsEngine) {
-    if parsedOptions.hasArgument(.suppressWarnings) &&
-        parsedOptions.hasFlag(positive: .warningsAsErrors, negative: .noWarningsAsErrors, default: false) {
-      diagnosticEngine.emit(.error(Error.conflictingOptions(.warningsAsErrors, .suppressWarnings)),
-                            location: nil)
+    if parsedOptions.hasArgument(.suppressWarnings) {
+      if parsedOptions.hasFlag(positive: .warningsAsErrors, negative: .noWarningsAsErrors, default: false) {
+        diagnosticEngine.emit(.error(Error.conflictingOptions(.warningsAsErrors, .suppressWarnings)),
+                              location: nil)
+      }
+      if parsedOptions.hasArgument(.Wwarning) {
+        diagnosticEngine.emit(.error(Error.conflictingOptions(.Wwarning, .suppressWarnings)),
+                              location: nil)
+      }
+      if parsedOptions.hasArgument(.Werror) {
+        diagnosticEngine.emit(.error(Error.conflictingOptions(.Werror, .suppressWarnings)),
+                              location: nil)
+      }
     }
   }
 
