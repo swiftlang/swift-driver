@@ -640,7 +640,8 @@ extension Option {
   public static let noStrictImplicitModuleContext: Option = Option("-no-strict-implicit-module-context", .flag, attributes: [.helpHidden, .frontend], helpText: "Disable the strict forwarding of compilation context to downstream implicit module dependencies")
   public static let noToolchainStdlibRpath: Option = Option("-no-toolchain-stdlib-rpath", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Do not add an rpath entry for the toolchain's standard library (default)")
   public static let noVerifyEmittedModuleInterface: Option = Option("-no-verify-emitted-module-interface", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Don't check that module interfaces emitted during compilation typecheck")
-  public static let noWarningsAsErrors: Option = Option("-no-warnings-as-errors", .flag, attributes: [.frontend], helpText: "Don't treat warnings as errors")
+  public static let noWarningAsError: Option = Option("-no-warning-as-error", .separate, attributes: [.helpHidden, .frontend], metaVar: "<diagnostic_group>", helpText: "Don't treat this warning group as error", group: .warningTreating)
+  public static let noWarningsAsErrors: Option = Option("-no-warnings-as-errors", .flag, attributes: [.frontend], helpText: "Don't treat warnings as errors", group: .warningTreating)
   public static let noWholeModuleOptimization: Option = Option("-no-whole-module-optimization", .flag, attributes: [.frontend, .noInteractive], helpText: "Disable optimizing input files together instead of individually")
   public static let driverScanDependenciesNonLib: Option = Option("-nonlib-dependency-scanner", .flag, attributes: [.helpHidden], helpText: "Use calls to `swift-frontend -scan-dependencies` instead of dedicated dependency scanning library")
   public static let nostartfiles: Option = Option("-nostartfiles", .flag, attributes: [.helpHidden, .frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Do not link in the Swift language startup routines")
@@ -872,7 +873,8 @@ extension Option {
   public static let warnSwift3ObjcInferenceComplete: Option = Option("-warn-swift3-objc-inference-complete", .flag, attributes: [.helpHidden, .frontend, .doesNotAffectIncrementalBuild], helpText: "Deprecated, has no effect")
   public static let warnSwift3ObjcInferenceMinimal: Option = Option("-warn-swift3-objc-inference-minimal", .flag, attributes: [.helpHidden, .frontend, .doesNotAffectIncrementalBuild], helpText: "Deprecated, has no effect")
   public static let warnSwift3ObjcInference: Option = Option("-warn-swift3-objc-inference", .flag, alias: Option.warnSwift3ObjcInferenceComplete, attributes: [.helpHidden, .frontend, .doesNotAffectIncrementalBuild])
-  public static let warningsAsErrors: Option = Option("-warnings-as-errors", .flag, attributes: [.frontend], helpText: "Treat warnings as errors")
+  public static let warningAsError: Option = Option("-warning-as-error", .separate, attributes: [.helpHidden, .frontend], metaVar: "<diagnostic_group>", helpText: "Treat this warning group as error", group: .warningTreating)
+  public static let warningsAsErrors: Option = Option("-warnings-as-errors", .flag, attributes: [.frontend], helpText: "Treat warnings as errors", group: .warningTreating)
   public static let weakLinkAtTarget: Option = Option("-weak-link-at-target", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Weakly link symbols for declarations that were introduced at the deployment target. Symbols introduced before the deployment target are still strongly linked.")
   public static let wholeModuleOptimization: Option = Option("-whole-module-optimization", .flag, attributes: [.frontend, .noInteractive], helpText: "Optimize input files together instead of individually")
   public static let windowsSdkRoot: Option = Option("-windows-sdk-root", .separate, attributes: [.frontend, .argumentIsPath], metaVar: "<root>", helpText: "Windows SDK Root")
@@ -1513,6 +1515,7 @@ extension Option {
       Option.noStrictImplicitModuleContext,
       Option.noToolchainStdlibRpath,
       Option.noVerifyEmittedModuleInterface,
+      Option.noWarningAsError,
       Option.noWarningsAsErrors,
       Option.noWholeModuleOptimization,
       Option.driverScanDependenciesNonLib,
@@ -1745,6 +1748,7 @@ extension Option {
       Option.warnSwift3ObjcInferenceComplete,
       Option.warnSwift3ObjcInferenceMinimal,
       Option.warnSwift3ObjcInference,
+      Option.warningAsError,
       Option.warningsAsErrors,
       Option.weakLinkAtTarget,
       Option.wholeModuleOptimization,
@@ -1774,6 +1778,7 @@ extension Option {
     case linkerOption
     case modes
     case pluginSearch
+    case warningTreating
   }
 }
 
@@ -1798,6 +1803,8 @@ extension Option.Group {
         return "<mode options>"
       case .pluginSearch:
         return "<plugin search options>"
+      case .warningTreating:
+        return "<options to control warning treating>"
     }
   }
 }
@@ -1822,6 +1829,8 @@ extension Option.Group {
       case .modes:
         return "MODES"
       case .pluginSearch:
+        return nil
+      case .warningTreating:
         return nil
     }
   }

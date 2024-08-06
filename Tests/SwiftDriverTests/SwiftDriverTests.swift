@@ -5662,7 +5662,9 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 1)
       let job = plannedJobs[0]
-      XCTAssertTrue(job.commandLine.contains(.flag("-warnings-as-errors")))
+      XCTAssertTrue(job.commandLine.contains(
+        subsequence: [.flag("-no-warnings-as-errors"), .flag("-warnings-as-errors")]
+      ))
     }
 
     do {
@@ -5670,7 +5672,9 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 1)
       let job = plannedJobs[0]
-      XCTAssertTrue(job.commandLine.contains(.flag("-no-warnings-as-errors")))
+      XCTAssertTrue(job.commandLine.contains(
+        subsequence: [.flag("-warnings-as-errors"), .flag("-no-warnings-as-errors")]
+      ))
     }
 
     do {
@@ -5678,8 +5682,38 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 1)
       let job = plannedJobs[0]
-      XCTAssertTrue(job.commandLine.contains(.flag("-no-warnings-as-errors")))
+      XCTAssertTrue(job.commandLine.contains(
+        subsequence: [.flag("-warnings-as-errors"), .flag("-no-warnings-as-errors")]
+      ))
       XCTAssertTrue(job.commandLine.contains(.flag("-suppress-warnings")))
+    }
+
+    do {
+      var driver = try Driver(args: [
+        "swift",
+        "-warnings-as-errors",
+        "-no-warnings-as-errors",
+        "-warning-as-error", "A",
+        "-no-warning-as-error", "B",
+        "-warning-as-error", "C",
+        "-no-warning-as-error", "C",
+        "foo.swift",
+      ])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      let job = plannedJobs[0]
+      XCTAssertTrue(job.commandLine.contains(subsequence: [
+        .flag("-warnings-as-errors"),
+        .flag("-no-warnings-as-errors"),
+        .flag("-warning-as-error"),
+        .flag("A"),
+        .flag("-no-warning-as-error"),
+        .flag("B"),
+        .flag("-warning-as-error"),
+        .flag("C"),
+        .flag("-no-warning-as-error"),
+        .flag("C"),
+      ]))
     }
 
     do {
