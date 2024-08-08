@@ -17,7 +17,7 @@ The preferred way to build `swift-driver` is to use the Swift package manager.
 
 On most platforms you can build using:
 
-```
+```sh
 $ swift build
 ```
 
@@ -25,13 +25,13 @@ However, on Windows, some additional work must be done by the developer.
 
 Due to the default version of swift-tools-support-core that `Package.resolved` references, we must first update the package dependencies.
 
-```
+```sh
 swift package update
 ```
 
 Then, we can build the package using:
 
-```cmd
+```sh
 swift build -Xcc -I -Xcc "%SystemDrive%\Library\sqlite-3.38.0\usr\include" -Xlinker -L -Xlinker "%SystemDrive%\Library\sqlite-3.38.0\usr\lib" -Xlinker "%SDKROOT%\usr\lib\swift\windows\x86_64\swiftCore.lib"
 ```
 
@@ -39,14 +39,14 @@ Because SQLite3 is a system library dependency, and there is no singular header 
 
 To use `swift-driver` in place of the existing Swift driver, create a symbolic link from `swift` and `swiftc` to `swift-driver`:
 
-```
+```sh
 ln -s /path/to/built/swift-driver $SOME_PATH/swift
 ln -s /path/to/built/swift-driver $SOME_PATH/swiftc
 ```
 
 Swift packages can be built with the new Swift driver by overriding `SWIFT_EXEC` to refer to the `swiftc` symbolic link created above and `SWIFT_DRIVER_SWIFT_FRONTEND_EXEC` to refer to the original `swift-frontend`, e.g.,
 
-```
+```sh
 SWIFT_EXEC=$SOME_PATH/swiftc SWIFT_DRIVER_SWIFT_FRONTEND_EXEC=$TOOLCHAIN_PATH/bin/swift-frontend swift build
 ```
 
@@ -61,14 +61,14 @@ all with CMake:
 
 * (Non-Apple platforms only) [swift-corelibs-foundation](https://github.com/apple/swift-corelibs-foundation)
 * [llbuild](https://github.com/apple/swift-llbuild) configure CMake with `-DLLBUILD_SUPPORT_BINDINGS="Swift"` and `-DCMAKE_OSX_ARCHITECTURES=x86_64` (If building on Intel) when building
-  ```
+  ```sh
   cmake -B <llbuild-build-dir> -G Ninja <llbuild-source-dir> -DLLBUILD_SUPPORT_BINDINGS="Swift" -DCMAKE_OSX_ARCHITECTURES=x86_64
   ```
 * [swift-argument-parser](https://github.com/apple/swift-argument-parser)
 * [Yams](https://github.com/jpsim/Yams)
 
 Once those dependencies have built, build `swift-driver` itself:
-```
+```sh
 cmake -B <swift-driver-build-dir> -G Ninja <swift-driver-source-dir> -DTSC_DIR=<swift-tools-support-core-build-dir>/cmake/modules -DLLBuild_DIR=<llbuild-build-dir>/cmake/modules -DYams_DIR=<yamls-build-dir>/cmake/modules -DArgumentParser_DIR=<swift-argument-parser-build-dir>
 cmake --build <swift-driver-build-dir>
 ```
@@ -85,7 +85,7 @@ For a conceptual overview of the driver, see [The Swift Driver, Compilation Mode
 
 Test using command-line SwiftPM or Xcode.
 
-```
+```sh
 $ swift test --parallel
 ```
 
@@ -93,7 +93,7 @@ Integration tests are costly to run and are disabled by default. Enable them
 using `SWIFT_DRIVER_ENABLE_INTEGRATION_TESTS` environment variable. In Xcode,
 you can set this variable in the scheme's test action.
 
-```
+```sh
 $ SWIFT_DRIVER_ENABLE_INTEGRATION_TESTS=1 swift test --parallel
 ```
 
@@ -103,7 +103,7 @@ build-script, then set both `SWIFT_DRIVER_ENABLE_INTEGRATION_TESTS`
 and `SWIFT_DRIVER_LIT_DIR`, either in your Xcode scheme or
 on the command line:
 
-```
+```sh
 $ SWIFT_DRIVER_ENABLE_INTEGRATION_TESTS=1 \
   SWIFT_DRIVER_LIT_DIR=/path/to/build/Ninja-ReleaseAssert/swift-.../test-... \
   swift test -c release --parallel
@@ -135,13 +135,13 @@ To get a docker up and running to the following:
 - Install Docker for Mac.
 - Get the newest swift docker image `docker pull swift`.
 - Run the following command to start a docker
-```
+```sh
 $ docker run -v /path/to/swift-driver:/home/swift-driver \
   --cap-add=SYS_PTRACE --security-opt seccomp=unconfined \
   --security-opt apparmor=unconfined -it swift:latest bash
 ```
 - Install dependencies by running
-```
+```sh
 $ apt-get update
 $ apt-get install libsqlite3-dev
 $ apt-get install libncurses-dev
@@ -154,13 +154,13 @@ $ apt-get install libncurses-dev
 `Options.swift`, which contains the complete set of options that can be parsed by the driver, is automatically generated from the [option tables in the Swift compiler](https://github.com/apple/swift/tree/main/include/swift/Option). If you need to regenerate `Options.swift`, you will need to [build the Swift compiler](https://github.com/apple/swift#building-swift) and then build `makeOptions` program with a `-I` that allows the generated `Options.inc` to
 be found, e.g.:
 
-```
+```sh
 $ swift build -Xcc -I/path/to/build/Ninja-Release/swift-.../include -Xcc -I/path/to/build/Ninja-Release/llvm-.../include -Xcc -I/path/to/source/llvm-project/llvm/include --product makeOptions
 ```
 
 Then, run `makeOptions` and redirect the output to overwrite `Options.swift`:
 
-```
+```sh
 $ .build/path/to/makeOptions > Sources/SwiftOptions/Options.swift
 ```
 
