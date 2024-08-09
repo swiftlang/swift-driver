@@ -787,8 +787,8 @@ private extension swiftscan_functions_t {
 
 // TODO: Move to TSC?
 /// Perform an  `action` passing it a `const char **` constructed out of `[String]`
-func withArrayOfCStrings<T>(_ strings: [String],
-                            _ action:  (UnsafeMutablePointer<UnsafePointer<Int8>?>?) -> T) -> T
+@_spi(Testing) public func withArrayOfCStrings<T>(_ strings: [String],
+                                                  _ action:  (UnsafeMutablePointer<UnsafePointer<Int8>?>?) -> T) -> T
 {
   let cstrings = strings.map { strdup($0) } + [nil]
   let unsafeCStrings = cstrings.map { UnsafePointer($0) }
