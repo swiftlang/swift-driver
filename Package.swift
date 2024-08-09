@@ -69,7 +69,7 @@ let package = Package(
     /// Driver tests.
     .testTarget(
       name: "SwiftDriverTests",
-      dependencies: ["SwiftDriver", "SwiftDriverExecution", "TestUtilities"]),
+      dependencies: ["SwiftDriver", "SwiftDriverExecution", "TestUtilities", "ToolingTestShim"]),
 
     /// IncrementalImport tests
     .testTarget(
@@ -92,6 +92,11 @@ let package = Package(
       name: "TestUtilities",
       dependencies: ["SwiftDriver", "SwiftDriverExecution"],
       path: "Tests/TestUtilities"),
+
+    .target(
+      name: "ToolingTestShim",
+      dependencies: ["SwiftDriver"],
+      path: "Tests/ToolingTestShim"),
 
     /// The options library.
     .target(
@@ -120,7 +125,7 @@ let package = Package(
       ],
       exclude: ["CMakeLists.txt"]),
 
-    /// The help executable.
+    /// Build SDK Interfaces tool executable.
     .executableTarget(
       name: "swift-build-sdk-interfaces",
       dependencies: ["SwiftDriver", "SwiftDriverExecution"],
