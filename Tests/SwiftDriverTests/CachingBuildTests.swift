@@ -227,7 +227,7 @@ final class CachingBuildTests: XCTestCase {
       let casPath = path.appending(component: "cas")
       let swiftModuleInterfacesPath: AbsolutePath =
           try testInputsPath.appending(component: "ExplicitModuleBuilds")
-                            .appending(component: "Swift")      
+                            .appending(component: "Swift")
       let cHeadersPath: AbsolutePath =
           try testInputsPath.appending(component: "ExplicitModuleBuilds")
                             .appending(component: "CHeaders")
@@ -334,6 +334,7 @@ final class CachingBuildTests: XCTestCase {
   }
 
   func testModuleOnlyJob() throws {
+    let (stdlibPath, shimsPath, _, _) = try getDriverArtifactsForScanning()
     try withTemporaryDirectory { path in
       let main = path.appending(component: "testModuleOnlyJob.swift")
       try localFileSystem.writeFileContents(main) {
@@ -355,10 +356,11 @@ final class CachingBuildTests: XCTestCase {
       let modulePath: AbsolutePath = path.appending(component: "testModuleOnlyJob.swiftmodule")
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       var driver = try Driver(args: ["swiftc",
-                                     "-target", "x86_64-apple-macosx11.0",
                                      "-module-name", "Test",
                                      "-I", cHeadersPath.nativePathString(escaped: true),
                                      "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+				     "-I", stdlibPath.nativePathString(escaped: true),
+                                     "-I", shimsPath.nativePathString(escaped: true),
                                      "-emit-module-interface-path", swiftInterfacePath.nativePathString(escaped: true),
                                      "-emit-private-module-interface-path", privateSwiftInterfacePath.nativePathString(escaped: true),
                                      "-explicit-module-build", "-emit-module-separately-wmo", "-disable-cmo", "-Rcache-compile-job",
@@ -390,6 +392,7 @@ final class CachingBuildTests: XCTestCase {
   }
 
   func testSeparateModuleJob() throws {
+    let (stdlibPath, shimsPath, _, _) = try getDriverArtifactsForScanning()
     try withTemporaryDirectory { path in
       let main = path.appending(component: "testSeparateModuleJob.swift")
       try localFileSystem.writeFileContents(main) {
@@ -407,16 +410,19 @@ final class CachingBuildTests: XCTestCase {
       let modulePath: AbsolutePath = path.appending(component: "testSeparateModuleJob.swiftmodule")
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       var driver = try Driver(args: ["swiftc",
-                                     "-target", "x86_64-apple-macosx11.0",
                                      "-module-name", "Test",
                                      "-I", cHeadersPath.nativePathString(escaped: true),
                                      "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+				     "-I", stdlibPath.nativePathString(escaped: true),
+                                     "-I", shimsPath.nativePathString(escaped: true),
                                      "-emit-module-path", modulePath.nativePathString(escaped: true),
                                      "-emit-module-interface-path", swiftInterfacePath.nativePathString(escaped: true),
                                      "-emit-private-module-interface-path", privateSwiftInterfacePath.nativePathString(escaped: true),
                                      "-explicit-module-build", "-experimental-emit-module-separately", "-Rcache-compile-job",
                                      "-enable-library-evolution", "-O",
                                      "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: true),
+				     "-Xfrontend", "-disable-implicit-concurrency-module-import",
+				     "-Xfrontend", "-disable-implicit-string-processing-module-import",
                                      main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
                               env: ProcessEnv.vars,
                               interModuleDependencyOracle: dependencyOracle)
