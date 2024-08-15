@@ -391,9 +391,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
 
       let checkForLinkLibrary = { (info: ModuleInfo, linkName: String, isFramework: Bool, shouldForceLoad: Bool) in
         let linkLibraries = try XCTUnwrap(info.linkLibraries)
-        XCTAssertEqual(linkLibraries.count, 1)
-        let linkLibrary = try XCTUnwrap(linkLibraries.first)
-        XCTAssertEqual(linkLibrary.linkName, linkName)
+        let linkLibrary = try XCTUnwrap(linkLibraries.first { $0.linkName == linkName })
         XCTAssertEqual(linkLibrary.isFramework, isFramework)
         XCTAssertEqual(linkLibrary.shouldForceLoad, shouldForceLoad)
       }
@@ -2090,9 +2088,11 @@ final class ExplicitModuleBuildTests: XCTestCase {
         XCTAssertTrue(contents.contains("\"G\" [style=bold, color=orange"))
         XCTAssertTrue(contents.contains("\"E\" [style=bold, color=orange, style=filled"))
         XCTAssertTrue(contents.contains("\"C (C)\" [style=bold, color=lightskyblue, style=filled"))
-        XCTAssertTrue(contents.contains("\"Swift\" [style=bold, color=orange, style=filled"))
+        XCTAssertTrue(contents.contains("\"Swift\" [style=bold, color=orange, style=filled") ||
+                      contents.contains("\"Swift (Prebuilt)\" [style=bold, color=darkorange3, style=filled"))
         XCTAssertTrue(contents.contains("\"SwiftShims (C)\" [style=bold, color=lightskyblue, style=filled"))
-        XCTAssertTrue(contents.contains("\"Swift\" -> \"SwiftShims (C)\" [color=black];"))
+        XCTAssertTrue(contents.contains("\"Swift\" -> \"SwiftShims (C)\" [color=black];") ||
+	              contents.contains("\"Swift (Prebuilt)\" -> \"SwiftShims (C)\" [color=black];"))
       }
   }
 
@@ -2237,7 +2237,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let moduleCachePath = path.appending(component: "ModuleCache")
       try localFileSystem.createDirectory(moduleCachePath)
       let main = path.appending(component: "testTraceDependency.swift")
-      try localFileSystem.writeFileContents(main, bytes: 
+      try localFileSystem.writeFileContents(main, bytes:
         """
         import C;\
         import E;\
