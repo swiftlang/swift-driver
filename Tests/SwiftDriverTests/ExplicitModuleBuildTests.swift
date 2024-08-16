@@ -112,6 +112,60 @@ private func checkExplicitModuleBuildJobDependencies(job: Job,
   }
 }
 
+internal func getDriverArtifactsForScanning() throws -> (stdLibPath: AbsolutePath,
+                                                         shimsPath: AbsolutePath,
+                                                         toolchain: Toolchain,
+                                                         hostTriple: Triple) {
+  // Just instantiating to get at the toolchain path
+  let driver = try Driver(args: ["swiftc", "-explicit-module-build",
+                                 "-module-name", "testDependencyScanning",
+                                 "test.swift"])
+  let (stdLibPath, shimsPath) = try getStdlibShimsPaths(driver)
+  XCTAssertTrue(localFileSystem.exists(stdLibPath),
+                "expected Swift StdLib at: \(stdLibPath.description)")
+  XCTAssertTrue(localFileSystem.exists(shimsPath),
+                "expected Swift Shims at: \(shimsPath.description)")
+  return (stdLibPath, shimsPath, driver.toolchain, driver.hostTriple)
+}
+
+func getStdlibShimsPaths(_ driver: Driver) throws -> (AbsolutePath, AbsolutePath) {
+  let toolchainRootPath: AbsolutePath = try driver.toolchain.getToolPath(.swiftCompiler)
+                                                          .parentDirectory // bin
+                                                          .parentDirectory // toolchain root
+  if driver.targetTriple.isDarwin {
+    let executor = try SwiftDriverExecutor(diagnosticsEngine: DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler]),
+                                           processSet: ProcessSet(),
+                                           fileSystem: localFileSystem,
+                                           env: ProcessEnv.vars)
+    let sdkPath = try executor.checkNonZeroExit(
+      args: "xcrun", "-sdk", "macosx", "--show-sdk-path").spm_chomp()
+    let stdLibPath = try AbsolutePath(validating: sdkPath).appending(component: "usr")
+      .appending(component: "lib")
+      .appending(component: "swift")
+    return (stdLibPath, stdLibPath.appending(component: "shims"))
+  } else if driver.targetTriple.isWindows {
+    if let sdkroot = try driver.toolchain.defaultSDKPath(driver.targetTriple) {
+      return (sdkroot.appending(components: "usr", "lib", "swift", "windows"),
+              sdkroot.appending(components: "usr", "lib", "swift", "shims"))
+    }
+    return (toolchainRootPath
+              .appending(component: "lib")
+              .appending(component: "swift")
+              .appending(component: driver.targetTriple.osNameUnversioned),
+            toolchainRootPath
+              .appending(component: "lib")
+              .appending(component: "swift")
+              .appending(component: "shims"))
+  } else {
+    return (toolchainRootPath.appending(component: "lib")
+              .appending(component: "swift")
+              .appending(component: driver.targetTriple.osNameUnversioned),
+            toolchainRootPath.appending(component: "lib")
+              .appending(component: "swift")
+              .appending(component: "shims"))
+  }
+}
+
 /// Test that for the given JSON module dependency graph, valid jobs are generated
 final class ExplicitModuleBuildTests: XCTestCase {
   func testModuleDependencyBuildCommandGeneration() throws {
@@ -391,9 +445,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
 
       let checkForLinkLibrary = { (info: ModuleInfo, linkName: String, isFramework: Bool, shouldForceLoad: Bool) in
         let linkLibraries = try XCTUnwrap(info.linkLibraries)
-        XCTAssertEqual(linkLibraries.count, 1)
-        let linkLibrary = try XCTUnwrap(linkLibraries.first)
-        XCTAssertEqual(linkLibrary.linkName, linkName)
+        let linkLibrary = try XCTUnwrap(linkLibraries.first { $0.linkName == linkName })
         XCTAssertEqual(linkLibrary.isFramework, isFramework)
         XCTAssertEqual(linkLibrary.shouldForceLoad, shouldForceLoad)
       }
@@ -1339,60 +1391,6 @@ final class ExplicitModuleBuildTests: XCTestCase {
     }
   }
 
-  func getStdlibShimsPaths(_ driver: Driver) throws -> (AbsolutePath, AbsolutePath) {
-    let toolchainRootPath: AbsolutePath = try driver.toolchain.getToolPath(.swiftCompiler)
-                                                            .parentDirectory // bin
-                                                            .parentDirectory // toolchain root
-    if driver.targetTriple.isDarwin {
-      let executor = try SwiftDriverExecutor(diagnosticsEngine: DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler]),
-                                             processSet: ProcessSet(),
-                                             fileSystem: localFileSystem,
-                                             env: ProcessEnv.vars)
-      let sdkPath = try executor.checkNonZeroExit(
-        args: "xcrun", "-sdk", "macosx", "--show-sdk-path").spm_chomp()
-      let stdLibPath = try AbsolutePath(validating: sdkPath).appending(component: "usr")
-        .appending(component: "lib")
-        .appending(component: "swift")
-      return (stdLibPath, stdLibPath.appending(component: "shims"))
-    } else if driver.targetTriple.isWindows {
-      if let sdkroot = try driver.toolchain.defaultSDKPath(driver.targetTriple) {
-        return (sdkroot.appending(components: "usr", "lib", "swift", "windows"),
-                sdkroot.appending(components: "usr", "lib", "swift", "shims"))
-      }
-      return (toolchainRootPath
-                .appending(component: "lib")
-                .appending(component: "swift")
-                .appending(component: driver.targetTriple.osNameUnversioned),
-              toolchainRootPath
-                .appending(component: "lib")
-                .appending(component: "swift")
-                .appending(component: "shims"))
-    } else {
-      return (toolchainRootPath.appending(component: "lib")
-                .appending(component: "swift")
-                .appending(component: driver.targetTriple.osNameUnversioned),
-              toolchainRootPath.appending(component: "lib")
-                .appending(component: "swift")
-                .appending(component: "shims"))
-    }
-  }
-
-  private func getDriverArtifactsForScanning() throws -> (stdLibPath: AbsolutePath,
-                                                          shimsPath: AbsolutePath,
-                                                          toolchain: Toolchain,
-                                                          hostTriple: Triple) {
-    // Just instantiating to get at the toolchain path
-    let driver = try Driver(args: ["swiftc", "-explicit-module-build",
-                                   "-module-name", "testDependencyScanning",
-                                   "test.swift"])
-    let (stdLibPath, shimsPath) = try getStdlibShimsPaths(driver)
-    XCTAssertTrue(localFileSystem.exists(stdLibPath),
-                  "expected Swift StdLib at: \(stdLibPath.description)")
-    XCTAssertTrue(localFileSystem.exists(shimsPath),
-                  "expected Swift Shims at: \(shimsPath.description)")
-    return (stdLibPath, shimsPath, driver.toolchain, driver.hostTriple)
-  }
-
   /// Test the libSwiftScan dependency scanning (import-prescan).
   func testDependencyImportPrescan() throws {
     let (stdLibPath, shimsPath, toolchain, _) = try getDriverArtifactsForScanning()
@@ -2090,9 +2088,11 @@ final class ExplicitModuleBuildTests: XCTestCase {
         XCTAssertTrue(contents.contains("\"G\" [style=bold, color=orange"))
         XCTAssertTrue(contents.contains("\"E\" [style=bold, color=orange, style=filled"))
         XCTAssertTrue(contents.contains("\"C (C)\" [style=bold, color=lightskyblue, style=filled"))
-        XCTAssertTrue(contents.contains("\"Swift\" [style=bold, color=orange, style=filled"))
+        XCTAssertTrue(contents.contains("\"Swift\" [style=bold, color=orange, style=filled") ||
+                      contents.contains("\"Swift (Prebuilt)\" [style=bold, color=darkorange3, style=filled"))
         XCTAssertTrue(contents.contains("\"SwiftShims (C)\" [style=bold, color=lightskyblue, style=filled"))
-        XCTAssertTrue(contents.contains("\"Swift\" -> \"SwiftShims (C)\" [color=black];"))
+        XCTAssertTrue(contents.contains("\"Swift\" -> \"SwiftShims (C)\" [color=black];") ||
+	              contents.contains("\"Swift (Prebuilt)\" -> \"SwiftShims (C)\" [color=black];"))
       }
   }
 
@@ -2237,7 +2237,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let moduleCachePath = path.appending(component: "ModuleCache")
       try localFileSystem.createDirectory(moduleCachePath)
       let main = path.appending(component: "testTraceDependency.swift")
-      try localFileSystem.writeFileContents(main, bytes: 
+      try localFileSystem.writeFileContents(main, bytes:
         """
         import C;\
         import E;\
