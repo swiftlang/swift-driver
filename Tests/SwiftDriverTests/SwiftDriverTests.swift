@@ -7929,7 +7929,65 @@ final class SwiftDriverTests: XCTestCase {
       ]))
     }
   }
-  
+
+  func testAndroidNDK() throws {
+    try withTemporaryDirectory { path in
+      do {
+        let sysroot = path.appending(component: "sysroot")
+        var driver = try Driver(args: [
+          "swiftc", "-target", "aarch64-unknown-linux-android", "-sysroot", sysroot.pathString, #file
+        ])
+        let jobs = try driver.planBuild().removingAutolinkExtractJobs()
+        let frontend = try XCTUnwrap(jobs.first)
+        XCTAssertTrue(frontend.commandLine.contains(subsequence: [
+          .flag("-sysroot"),
+          .path(.absolute(sysroot))
+        ]))
+      }
+
+      do {
+        var env = ProcessEnv.vars
+        env["ANDROID_NDK_ROOT"] = path.appending(component: "ndk").nativePathString(escaped: false)
+
+        let sysroot = path.appending(component: "sysroot")
+        var driver = try Driver(args: [
+          "swiftc", "-target", "aarch64-unknown-linux-android", "-sysroot", sysroot.pathString, #file
+        ], env: env)
+        let jobs = try driver.planBuild().removingAutolinkExtractJobs()
+        let frontend = try XCTUnwrap(jobs.first)
+        XCTAssertTrue(frontend.commandLine.contains(subsequence: [
+          .flag("-sysroot"),
+          .path(.absolute(sysroot))
+        ]))
+      }
+
+      do {
+        let sysroot = path.appending(component: "ndk")
+
+        var env = ProcessEnv.vars
+        env["ANDROID_NDK_ROOT"] = sysroot.nativePathString(escaped: false)
+
+#if os(Windows)
+        let os = "windows"
+#elseif os(macOS)
+        let os = "darwin"
+#else
+        let os = "linux"
+#endif
+
+        var driver = try Driver(args: [
+          "swiftc", "-target", "aarch64-unknown-linux-android", #file
+        ], env: env)
+        let jobs = try driver.planBuild().removingAutolinkExtractJobs()
+        let frontend = try XCTUnwrap(jobs.first)
+        XCTAssertTrue(frontend.commandLine.contains(subsequence: [
+          .flag("-sysroot"),
+          .path(.absolute(sysroot.appending(components: "toolchains", "llvm", "prebuilt", "\(os)-x86_64", "sysroot"))),
+        ]))
+      }
+    }
+  }
+
   func testEmitAPIDescriptorEmitModule() throws {
     try withTemporaryDirectory { path in
       do {

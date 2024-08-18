@@ -14,6 +14,34 @@ import protocol TSCBasic.FileSystem
 import struct TSCBasic.AbsolutePath
 import var TSCBasic.localFileSystem
 
+internal enum AndroidNDK {
+  internal static func getOSName() -> String? {
+    // The NDK is only available on macOS, linux and windows hosts currently.
+#if os(Windows)
+    "windows"
+#elseif os(Linux)
+    "linux"
+#elseif os(macOS)
+    "darwin"
+#else
+    nil
+#endif
+  }
+
+  internal static func getDefaultSysrootPath(in env: [String:String]) -> AbsolutePath? {
+    // The NDK is only available on an x86_64 hosts currently.
+#if arch(x86_64)
+    guard let ndk = env["ANDROID_NDK_ROOT"], let os = getOSName() else { return nil }
+    return try? AbsolutePath(validating: ndk)
+      .appending(components: "toolchains", "llvm", "prebuilt")
+      .appending(component: "\(os)-x86_64")
+      .appending(component: "sysroot")
+#else
+    return nil
+#endif
+  }
+}
+
 /// Toolchain for Unix-like systems.
 public final class GenericUnixToolchain: Toolchain {
   public let env: [String: String]
@@ -118,38 +146,6 @@ public final class GenericUnixToolchain: Toolchain {
     return "libclang_rt.\(sanitizer.libraryName)-\(targetTriple.archName)\(environment).a"
   }
 
-  private func getAndroidNDKHostOSSuffix() -> String? {
-#if os(Windows)
-    "windows"
-#elseif os(Linux)
-    "linux"
-#elseif os(macOS)
-    "darwin"
-#else
-    // The NDK is only available on macOS, linux and windows hosts.
-    nil
-#endif
-  }
-
-  func getAndroidNDKSysrootPath() throws -> AbsolutePath? {
-#if arch(x86_64)
-    // The NDK's sysroot should be specified in the environment.
-    guard let ndk = env["ANDROID_NDK_ROOT"],
-          let osSuffix = getAndroidNDKHostOSSuffix() else {
-      return  nil
-    }
-    var sysroot: AbsolutePath =
-        try AbsolutePath(validating: ndk)
-            .appending(components: "toolchains", "llvm", "prebuilt")
-            .appending(component: "\(osSuffix)-x86_64")
-            .appending(component: "sysroot")
-    return sysroot
-#else
-    // The NDK is only available on an x86_64 host.
-    return nil
-#endif
-  }
-
   public func addPlatformSpecificCommonFrontendOptions(
     commandLine: inout [Job.ArgTemplate],
     inputs: inout [TypedVirtualPath],
@@ -157,9 +153,12 @@ public final class GenericUnixToolchain: Toolchain {
     driver: inout Driver
   ) throws {
     if driver.targetTriple.environment == .android {
-      if let sysroot = try getAndroidNDKSysrootPath() {
+      if let sysroot = driver.parsedOptions.getLastArgument(.sysroot)?.asSingle {
         commandLine.appendFlag("-sysroot")
-        commandLine.appendFlag(sysroot.pathString)
+        try commandLine.appendPath(VirtualPath(path: sysroot))
+      } else if let sysroot = AndroidNDK.getDefaultSysrootPath(in: self.env) {
+        commandLine.appendFlag("-sysroot")
+        try commandLine.appendPath(VirtualPath(path: sysroot.pathString))
       }
     }
   }
