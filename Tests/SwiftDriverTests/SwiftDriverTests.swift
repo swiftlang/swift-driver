@@ -7932,11 +7932,14 @@ final class SwiftDriverTests: XCTestCase {
 
   func testAndroidNDK() throws {
     try withTemporaryDirectory { path in
+      var env = ProcessEnv.vars
+      env["SWIFT_DRIVER_SWIFT_AUTOLINK_EXTRACT_EXEC"] = "/garbage/swift-autolink-extract"
+
       do {
         let sysroot = path.appending(component: "sysroot")
         var driver = try Driver(args: [
           "swiftc", "-target", "aarch64-unknown-linux-android", "-sysroot", sysroot.pathString, #file
-        ])
+        ], env: env)
         let jobs = try driver.planBuild().removingAutolinkExtractJobs()
         let frontend = try XCTUnwrap(jobs.first)
         XCTAssertTrue(frontend.commandLine.contains(subsequence: [
@@ -7946,7 +7949,7 @@ final class SwiftDriverTests: XCTestCase {
       }
 
       do {
-        var env = ProcessEnv.vars
+        var env = env
         env["ANDROID_NDK_ROOT"] = path.appending(component: "ndk").nativePathString(escaped: false)
 
         let sysroot = path.appending(component: "sysroot")
@@ -7961,10 +7964,12 @@ final class SwiftDriverTests: XCTestCase {
         ]))
       }
 
+      // The default NDK prebuilts are x86_64 hosts only currently as if r27.
+#if arch(x86_64)
       do {
         let sysroot = path.appending(component: "ndk")
 
-        var env = ProcessEnv.vars
+        var env = env
         env["ANDROID_NDK_ROOT"] = sysroot.nativePathString(escaped: false)
 
 #if os(Windows)
@@ -7980,11 +7985,13 @@ final class SwiftDriverTests: XCTestCase {
         ], env: env)
         let jobs = try driver.planBuild().removingAutolinkExtractJobs()
         let frontend = try XCTUnwrap(jobs.first)
+        print(frontend.commandLine)
         XCTAssertTrue(frontend.commandLine.contains(subsequence: [
           .flag("-sysroot"),
           .path(.absolute(sysroot.appending(components: "toolchains", "llvm", "prebuilt", "\(os)-x86_64", "sysroot"))),
         ]))
       }
+#endif
     }
   }
 
