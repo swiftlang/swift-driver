@@ -4416,15 +4416,19 @@ final class SwiftDriverTests: XCTestCase {
     // FIXME: This will fail when run on macOS, because
     // swift-autolink-extract is not present
     #if os(Linux) || os(Android) || os(Windows)
-    do {
-      var driver = try Driver(args: ["swiftc", "-profile-generate", "-target", "x86_64-unknown-linux-gnu", "test.swift"])
+    for triple in ["aarch64-unknown-linux-android", "x86_64-unknown-linux-gnu"] {
+      var driver = try Driver(args: ["swiftc", "-profile-generate", "-target", triple, "test.swift"])
       let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
 
       XCTAssertEqual(plannedJobs.count, 2)
       XCTAssertEqual(plannedJobs[0].kind, .compile)
 
       XCTAssertEqual(plannedJobs[1].kind, .link)
-      XCTAssert(plannedJobs[1].commandLine.containsPathWithBasename("libclang_rt.profile-x86_64.a"))
+      if triple == "aarch64-unknown-linux-android" {
+        XCTAssert(plannedJobs[1].commandLine.containsPathWithBasename("libclang_rt.profile-aarch64-android.a"))
+      } else {
+        XCTAssert(plannedJobs[1].commandLine.containsPathWithBasename("libclang_rt.profile-x86_64.a"))
+      }
       XCTAssert(plannedJobs[1].commandLine.contains { $0 == .flag("-u__llvm_profile_runtime") })
     }
     #endif
