@@ -584,6 +584,7 @@ extension Option {
   public static let json_: Option = Option("--json", .flag, alias: Option.json, attributes: [.noDriver], helpText: "Print output in JSON format.")
   public static let j: Option = Option("-j", .joinedOrSeparate, attributes: [.doesNotAffectIncrementalBuild], metaVar: "<n>", helpText: "Number of commands to execute in parallel")
   public static let LEQ: Option = Option("-L=", .joined, alias: Option.L, attributes: [.frontend, .doesNotAffectIncrementalBuild, .argumentIsPath], group: .linkerOption)
+  public static let languageMode: Option = Option("-language-mode", .separate, alias: Option.swiftVersion, attributes: [.frontend, .moduleInterface], metaVar: "<mode>", helpText: "Interpret input according to a specific Swift language mode")
   public static let ldPath: Option = Option("-ld-path=", .joined, attributes: [.helpHidden, .doesNotAffectIncrementalBuild, .argumentIsPath], helpText: "Specifies the path to the linker to be used")
   public static let libc: Option = Option("-libc", .separate, attributes: [], helpText: "libc runtime library to use")
   public static let libraryLevelEQ: Option = Option("-library-level=", .joined, alias: Option.libraryLevel, attributes: [.helpHidden, .frontend, .moduleInterface], metaVar: "<level>")
@@ -1457,6 +1458,7 @@ extension Option {
       Option.json_,
       Option.j,
       Option.LEQ,
+      Option.languageMode,
       Option.ldPath,
       Option.libc,
       Option.libraryLevelEQ,
