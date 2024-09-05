@@ -202,10 +202,6 @@ extension WindowsToolchain {
       commandLine.appendPath(VirtualPath.lookup(sdkPath))
     }
 
-    if let stdlib = parsedOptions.getLastArgument(.experimentalCxxStdlib) {
-      commandLine.appendFlag("-stdlib=\(stdlib.asSingle)")
-    }
-
     // Pass down an optimization level
     if let optArg = mapOptimizationLevelToClangArg(from: &parsedOptions) {
       commandLine.appendFlag(optArg)
