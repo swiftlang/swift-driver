@@ -478,7 +478,6 @@ extension Option {
   public static let experimentalAllowedReexportedModules: Option = Option("-experimental-allowed-reexported-modules=", .commaJoined, attributes: [.noDriver], helpText: "Allow reexporting symbols from the provided modules if they are themselves exported from the main module. This is a comma separated list of module names.")
   public static let experimentalCForeignReferenceTypes: Option = Option("-experimental-c-foreign-reference-types", .flag, attributes: [.helpHidden, .frontend, .moduleInterface], helpText: "Enable experimental C foreign references types (with reference counting).")
   public static let experimentalClangImporterDirectCc1Scan: Option = Option("-experimental-clang-importer-direct-cc1-scan", .flag, attributes: [.helpHidden, .frontend], helpText: "Enables swift driver to construct swift-frontend invocations using -direct-clang-cc1-module-build")
-  public static let experimentalCxxStdlib: Option = Option("-experimental-cxx-stdlib", .separate, attributes: [.helpHidden], helpText: "C++ standard library to use; forwarded to Clang's -stdlib flag")
   public static let emitModuleSeparately: Option = Option("-experimental-emit-module-separately", .flag, attributes: [.helpHidden], helpText: "Emit module files as a distinct job")
   public static let driverExperimentalExplicitModuleBuild: Option = Option("-experimental-explicit-module-build", .flag, alias: Option.driverExplicitModuleBuild, attributes: [.helpHidden], helpText: "Prebuild module dependencies to make them explicit")
   public static let forceWorkaroundBrokenModules: Option = Option("-experimental-force-workaround-broken-modules", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Attempt unsafe recovery for imported modules with broken modularization")
@@ -1352,7 +1351,6 @@ extension Option {
       Option.experimentalAllowedReexportedModules,
       Option.experimentalCForeignReferenceTypes,
       Option.experimentalClangImporterDirectCc1Scan,
-      Option.experimentalCxxStdlib,
       Option.emitModuleSeparately,
       Option.driverExperimentalExplicitModuleBuild,
       Option.forceWorkaroundBrokenModules,

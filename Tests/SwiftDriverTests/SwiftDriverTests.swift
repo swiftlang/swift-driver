@@ -4281,14 +4281,6 @@ final class SwiftDriverTests: XCTestCase {
       }
     }
 
-    XCTAssertThrowsError(try Driver(args: ["swiftc", "-c", "-target", "x86_64-apple-macosx10.14", "-experimental-cxx-stdlib", "libstdc++",
-                                           "foo.swift"])) { error in
-        guard case DarwinToolchain.ToolchainValidationError.darwinOnlySupportsLibCxx = error else {
-          XCTFail("Unexpected error: \(error)")
-        return
-      }
-    }
-
     // Not actually a valid arch for tvOS, but we shouldn't fall into the iOS case by mistake and emit a message about iOS >= 11 not supporting armv7.
     XCTAssertNoThrow(try Driver(args: ["swiftc", "-c", "-target", "armv7-apple-tvos9.0", "foo.swift"]))
 
@@ -6822,19 +6814,6 @@ final class SwiftDriverTests: XCTestCase {
       let compileJob = plannedJobs[0]
       let linkJob = plannedJobs[1]
       XCTAssertTrue(compileJob.commandLine.contains(.flag("-cxx-interoperability-mode=swift-5.9")))
-      if driver.targetTriple.isDarwin {
-        XCTAssertTrue(linkJob.commandLine.contains(.flag("-lc++")))
-      }
-    }
-    do {
-      var driver = try Driver(args: ["swiftc", "-cxx-interoperability-mode=swift-5.9",
-                                     "-experimental-cxx-stdlib", "libc++", "foo.swift"])
-      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
-      XCTAssertEqual(plannedJobs.count, 2)
-      let compileJob = plannedJobs[0]
-      let linkJob = plannedJobs[1]
-      XCTAssertTrue(compileJob.commandLine.contains(.flag("-cxx-interoperability-mode=swift-5.9")))
-      XCTAssertTrue(compileJob.commandLine.contains(.flag("-stdlib=libc++")))
       if driver.targetTriple.isDarwin {
         XCTAssertTrue(linkJob.commandLine.contains(.flag("-lc++")))
       }
