@@ -5658,7 +5658,9 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 1)
       let job = plannedJobs[0]
-      XCTAssertTrue(job.commandLine.contains(.flag("-warnings-as-errors")))
+      XCTAssertTrue(job.commandLine.contains(
+        subsequence: [.flag("-no-warnings-as-errors"), .flag("-warnings-as-errors")]
+      ))
     }
 
     do {
@@ -5666,7 +5668,9 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 1)
       let job = plannedJobs[0]
-      XCTAssertTrue(job.commandLine.contains(.flag("-no-warnings-as-errors")))
+      XCTAssertTrue(job.commandLine.contains(
+        subsequence: [.flag("-warnings-as-errors"), .flag("-no-warnings-as-errors")]
+      ))
     }
 
     do {
@@ -5674,13 +5678,55 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 1)
       let job = plannedJobs[0]
-      XCTAssertTrue(job.commandLine.contains(.flag("-no-warnings-as-errors")))
+      XCTAssertTrue(job.commandLine.contains(
+        subsequence: [.flag("-warnings-as-errors"), .flag("-no-warnings-as-errors")]
+      ))
       XCTAssertTrue(job.commandLine.contains(.flag("-suppress-warnings")))
+    }
+
+    do {
+      var driver = try Driver(args: [
+        "swift",
+        "-warnings-as-errors",
+        "-no-warnings-as-errors",
+        "-Werror", "A",
+        "-Wwarning", "B",
+        "-Werror", "C",
+        "-Wwarning", "C",
+        "foo.swift",
+      ])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      let job = plannedJobs[0]
+      XCTAssertTrue(job.commandLine.contains(subsequence: [
+        .flag("-warnings-as-errors"),
+        .flag("-no-warnings-as-errors"),
+        .flag("-Werror"),
+        .flag("A"),
+        .flag("-Wwarning"),
+        .flag("B"),
+        .flag("-Werror"),
+        .flag("C"),
+        .flag("-Wwarning"),
+        .flag("C"),
+      ]))
     }
 
     do {
       try assertDriverDiagnostics(args: ["swift", "-no-warnings-as-errors", "-warnings-as-errors", "-suppress-warnings", "foo.swift"]) {
         $1.expect(.error(Driver.Error.conflictingOptions(.warningsAsErrors, .suppressWarnings)))
+      }
+    }
+
+    do {
+      try assertDriverDiagnostics(args: ["swift", "-Wwarning", "test", "-suppress-warnings", "foo.swift"]) {
+        $1.expect(.error(Driver.Error.conflictingOptions(.Wwarning, .suppressWarnings)))
+      }
+    }
+
+    do {
+      try assertDriverDiagnostics(args: ["swift", "-Werror", "test", "-suppress-warnings", "foo.swift"]) {
+        $1.expect(.error(Driver.Error.conflictingOptions(.Werror, .suppressWarnings)))
       }
     }
 
