@@ -5435,9 +5435,11 @@ final class SwiftDriverTests: XCTestCase {
       if localFileSystem.exists(swiftScanLibPath) {
         let libSwiftScanInstance = try SwiftScan(dylib: swiftScanLibPath)
         if libSwiftScanInstance.canQueryTargetInfo() {
-          XCTAssertTrue(try driver.verifyBeingAbleToQueryTargetInfoInProcess(workingDirectory: localFileSystem.currentWorkingDirectory,
-                                                                             invocationCommand: printTargetInfoCommand,
-                                                                             expectedSDKPath: "/bar"))
+          let _ = try Driver.queryTargetInfoInProcess(libSwiftScanInstance: libSwiftScanInstance,
+                                                      toolchain: driver.toolchain,
+                                                      fileSystem: localFileSystem,
+                                                      workingDirectory: localFileSystem.currentWorkingDirectory,
+                                                      invocationCommand: printTargetInfoCommand)
         }
       }
     }
@@ -5455,9 +5457,11 @@ final class SwiftDriverTests: XCTestCase {
       if localFileSystem.exists(swiftScanLibPath) {
         let libSwiftScanInstance = try SwiftScan(dylib: swiftScanLibPath)
         if libSwiftScanInstance.canQueryTargetInfo() {
-          XCTAssertTrue(try driver.verifyBeingAbleToQueryTargetInfoInProcess(workingDirectory: localFileSystem.currentWorkingDirectory,
-                                                                             invocationCommand: printTargetInfoCommand,
-                                                                             expectedSDKPath: "/tmp/foo bar"))
+          let _ = try Driver.queryTargetInfoInProcess(libSwiftScanInstance: libSwiftScanInstance,
+                                                      toolchain: driver.toolchain,
+                                                      fileSystem: localFileSystem,
+                                                      workingDirectory: localFileSystem.currentWorkingDirectory,
+                                                      invocationCommand: printTargetInfoCommand)
         }
       }
     }
@@ -5491,9 +5495,9 @@ final class SwiftDriverTests: XCTestCase {
                                       env: hideSwiftScanEnv,
                                       executor: MockExecutor(resolver: ArgsResolver(fileSystem: InMemoryFileSystem())))) {
         error in
-        if case .unableToDecodeFrontendTargetInfo = error as? Driver.Error {}
+        if case .decodingError = error as? JobExecutionError {}
         else {
-          XCTFail("not a decoding error")
+          XCTFail("not a decoding error: \(error)")
         }
       }
     }
@@ -5502,15 +5506,9 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertThrowsError(try Driver(args: ["swift", "-print-target-info"],
                                       env: ["SWIFT_DRIVER_SWIFT_FRONTEND_EXEC": "/bad/path/to/swift-frontend"])) {
         error in
-        XCTAssertTrue(error is Driver.Error)
-
-        switch error {
-        case Driver.Error.failedToRetrieveFrontendTargetInfo,
-             Driver.Error.failedToRunFrontendToRetrieveTargetInfo:
-          break;
-
-        default:
-          XCTFail("unexpected error \(error)")
+        if case .posix_spawn = error as? TSCBasic.SystemError {}
+        else {
+          XCTFail("unexpected error: \(error)")
         }
       }
     }

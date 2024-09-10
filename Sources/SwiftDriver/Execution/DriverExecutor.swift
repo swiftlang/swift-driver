@@ -80,7 +80,7 @@ public struct DriverExecutorWorkload {
   }
 }
 
-enum JobExecutionError: Error {
+@_spi(Testing) public enum JobExecutionError: Error {
   case jobFailedWithNonzeroExitCode(Int, String)
   case failedToReadJobOutput
   // A way to pass more information to the catch point

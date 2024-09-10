@@ -426,8 +426,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       // 2. Run a dependency scan to find the just-built module
       let dependencyOracle = InterModuleDependencyOracle()
       let scanLibPath = try XCTUnwrap(toolchain.lookupSwiftScanLib())
-      try dependencyOracle.verifyOrCreateScannerInstance(fileSystem: localFileSystem,
-                                                         swiftScanLibPath: scanLibPath)
+      try dependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
       guard try dependencyOracle.supportsLinkLibraries() else {
         throw XCTSkip("libSwiftScan does not support link library reporting.")
       }
@@ -1195,8 +1194,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
     // queries.
     let dependencyOracle = InterModuleDependencyOracle()
     let scanLibPath = try XCTUnwrap(toolchain.lookupSwiftScanLib())
-    try dependencyOracle.verifyOrCreateScannerInstance(fileSystem: localFileSystem,
-                                                       swiftScanLibPath: scanLibPath)
+    try dependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
 
     try withTemporaryDirectory { path in
       let main = path.appending(component: "foo.swift")
@@ -1372,8 +1370,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       // 2. Run a dependency scan to find the just-built module
       let dependencyOracle = InterModuleDependencyOracle()
       let scanLibPath = try XCTUnwrap(toolchain.lookupSwiftScanLib())
-      try dependencyOracle.verifyOrCreateScannerInstance(fileSystem: localFileSystem,
-                                                         swiftScanLibPath: scanLibPath)
+      try dependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
       guard try dependencyOracle.supportsBinaryFrameworkDependencies() else {
         throw XCTSkip("libSwiftScan does not support framework binary dependency reporting.")
       }
@@ -1417,8 +1414,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
     // queries.
     let dependencyOracle = InterModuleDependencyOracle()
     let scanLibPath = try XCTUnwrap(toolchain.lookupSwiftScanLib())
-    try dependencyOracle.verifyOrCreateScannerInstance(fileSystem: localFileSystem,
-                                                       swiftScanLibPath: scanLibPath)
+    try dependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
 
     // Create a simple test case.
     try withTemporaryDirectory { path in
@@ -1523,8 +1519,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
     // queries.
     let dependencyOracle = InterModuleDependencyOracle()
     let scanLibPath = try XCTUnwrap(toolchain.lookupSwiftScanLib())
-    try dependencyOracle.verifyOrCreateScannerInstance(fileSystem: localFileSystem,
-                                                       swiftScanLibPath: scanLibPath)
+    try dependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
     guard try dependencyOracle.supportsScannerDiagnostics() else {
       throw XCTSkip("libSwiftScan does not support diagnostics query.")
     }
@@ -1685,8 +1680,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
     // queries.
     let dependencyOracle = InterModuleDependencyOracle()
     let scanLibPath = try XCTUnwrap(toolchain.lookupSwiftScanLib())
-    try dependencyOracle.verifyOrCreateScannerInstance(fileSystem: localFileSystem,
-                                                       swiftScanLibPath: scanLibPath)
+    try dependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
 
     // Create a simple test case.
     try withTemporaryDirectory { path in
@@ -1864,8 +1858,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
     // queries.
     let dependencyOracle = InterModuleDependencyOracle()
     let scanLibPath = try XCTUnwrap(toolchain.lookupSwiftScanLib())
-    try dependencyOracle.verifyOrCreateScannerInstance(fileSystem: localFileSystem,
-                                                       swiftScanLibPath: scanLibPath)
+    try dependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
     if !(try dependencyOracle.supportsPerScanDiagnostics()) {
       throw XCTSkip("Scanner does not support per-scan diagnostics")
     }
@@ -2055,8 +2048,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let (stdlibPath, shimsPath, toolchain, _) = try getDriverArtifactsForScanning()
       let dependencyOracle = InterModuleDependencyOracle()
       let scanLibPath = try XCTUnwrap(toolchain.lookupSwiftScanLib())
-      try dependencyOracle.verifyOrCreateScannerInstance(fileSystem: localFileSystem,
-                                                         swiftScanLibPath: scanLibPath)
+      try dependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
       // Create a simple test case.
       try withTemporaryDirectory { path in
         let main = path.appending(component: "testDependencyScanning.swift")
@@ -2157,8 +2149,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let scanLibPath = try XCTUnwrap(toolchain.lookupSwiftScanLib())
       // Run the first scan and serialize the cache contents.
       let firstDependencyOracle = InterModuleDependencyOracle()
-      try firstDependencyOracle.verifyOrCreateScannerInstance(fileSystem: localFileSystem,
-                                                              swiftScanLibPath: scanLibPath)
+      try firstDependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
       var firstScanDiagnostics: [ScannerDiagnosticPayload] = []
       let firstScanGraph =
         try firstDependencyOracle.getDependencies(workingDirectory: path,
@@ -2168,8 +2159,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
 
       // Run the second scan, re-using the serialized cache contents.
       let secondDependencyOracle = InterModuleDependencyOracle()
-      try secondDependencyOracle.verifyOrCreateScannerInstance(fileSystem: localFileSystem,
-                                                               swiftScanLibPath: scanLibPath)
+      try secondDependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
       XCTAssertFalse(secondDependencyOracle.loadScannerCache(from: cacheSavePath))
       var secondScanDiagnostics: [ScannerDiagnosticPayload] = []
       let secondScanGraph =
