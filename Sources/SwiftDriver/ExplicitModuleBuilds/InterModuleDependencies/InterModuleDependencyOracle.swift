@@ -83,16 +83,17 @@ public class InterModuleDependencyOracle {
   }
 
   /// Given a specified toolchain path, locate and instantiate an instance of the SwiftScan library
-  public func verifyOrCreateScannerInstance(fileSystem: FileSystem,
-                                            swiftScanLibPath: AbsolutePath) throws {
+  public func verifyOrCreateScannerInstance(swiftScanLibPath: AbsolutePath?) throws {
     return try queue.sync {
-      if swiftScanLibInstance == nil {
+      guard let scanInstance = swiftScanLibInstance else {
         swiftScanLibInstance = try SwiftScan(dylib: swiftScanLibPath)
-      } else {
-        guard swiftScanLibInstance!.path == swiftScanLibPath else {
-          throw DependencyScanningError
-          .scanningLibraryInvocationMismatch(swiftScanLibInstance!.path, swiftScanLibPath)
-        }
+        return
+      }
+
+      guard scanInstance.path?.description == swiftScanLibPath?.description else {
+        throw DependencyScanningError
+          .scanningLibraryInvocationMismatch(scanInstance.path?.description ?? "built-in",
+                                             swiftScanLibPath?.description ?? "built-in")
       }
     }
   }
@@ -209,10 +210,20 @@ public class InterModuleDependencyOracle {
     }
   }
 
+  // Note: this is `true` even in the `compilerIntegratedTooling` mode
+  // where the `SwiftScan` instance refers to the own image the driver is
+  // running in, since there is still technically a `SwiftScan` handle
+  // capable of handling API requests expected of it.
   private var hasScannerInstance: Bool { self.swiftScanLibInstance != nil }
+  func getScannerInstance() -> SwiftScan? {
+    self.swiftScanLibInstance
+  }
+  func setScannerInstance(_ instance: SwiftScan?) {
+    self.swiftScanLibInstance = instance
+  }
 
   /// Queue to sunchronize accesses to the scanner
-  internal let queue = DispatchQueue(label: "org.swift.swift-driver.swift-scan")
+  let queue = DispatchQueue(label: "org.swift.swift-driver.swift-scan")
 
   /// A reference to an instance of the compiler's libSwiftScan shared library
   private var swiftScanLibInstance: SwiftScan? = nil
