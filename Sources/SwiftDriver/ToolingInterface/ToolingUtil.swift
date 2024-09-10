@@ -35,6 +35,20 @@ public func getSingleFrontendInvocationFromDriverArgumentsV2(driverPath: UnsafeP
                                                              action: @convention(c) (CInt, UnsafePointer<UnsafePointer<CChar>?>) -> Bool,
                                                              diagnosticCallback: @convention(c) (CInt, UnsafePointer<CChar>) -> Void,
                                                              forceNoOutputs: Bool = false) -> Bool {
+  return getSingleFrontendInvocationFromDriverArgumentsV3(driverPath: driverPath, argListCount: argListCount,
+                                                          argList: argList, action: action,
+                                                          diagnosticCallback: diagnosticCallback,
+                                                          compilerIntegratedTooling: true)
+}
+
+@_cdecl("swift_getSingleFrontendInvocationFromDriverArgumentsV3")
+public func getSingleFrontendInvocationFromDriverArgumentsV3(driverPath: UnsafePointer<CChar>,
+                                                             argListCount: CInt,
+                                                             argList: UnsafePointer<UnsafePointer<CChar>?>,
+                                                             action: @convention(c) (CInt, UnsafePointer<UnsafePointer<CChar>?>) -> Bool,
+                                                             diagnosticCallback: @convention(c) (CInt, UnsafePointer<CChar>) -> Void,
+                                                             compilerIntegratedTooling: Bool = false,
+                                                             forceNoOutputs: Bool = false) -> Bool {
   // Bridge the driver path argument
   let bridgedDriverPath = String(cString: driverPath)
 
@@ -60,6 +74,7 @@ public func getSingleFrontendInvocationFromDriverArgumentsV2(driverPath: UnsafeP
                                                                 action: bridgedAction,
                                                                 diagnostics: &diagnostics,
                                                                 diagnosticCallback: bridgedDiagnosticCallback,
+                                                                compilerIntegratedTooling: compilerIntegratedTooling,
                                                                 forceNoOutputs: forceNoOutputs)
   return result
 }
@@ -72,6 +87,8 @@ public func getSingleFrontendInvocationFromDriverArgumentsV2(driverPath: UnsafeP
 /// \param argList The driver arguments (i.e. normal arguments for \c swiftc).
 /// \param diagnostics Contains the diagnostics emitted by the driver
 /// \param action invokes a user-provided action on the resulting frontend invocation command
+/// \param compilerIntegratedTooling If true, this code is executed in the context of a
+///        Swift compiler image which contains symbols normally queried from a libSwiftScan instance.
 /// \param forceNoOutputs If true, override the output mode to "-typecheck" and
 /// produce no outputs. For example, this disables "-emit-module" and "-c" and
 /// prevents the creation of temporary files.
@@ -85,6 +102,7 @@ public func getSingleFrontendInvocationFromDriverArgumentsV2(driverPath: String,
                                                              action: ([String]) -> Bool,
                                                              diagnostics: inout [Diagnostic],
                                                              diagnosticCallback:  @escaping (CInt, String) -> Void,
+                                                             compilerIntegratedTooling: Bool = false,
                                                              forceNoOutputs: Bool = false) -> Bool {
   /// Handler for emitting diagnostics to tooling clients.
   let toolingDiagnosticsHandler: DiagnosticsEngine.DiagnosticsHandler = { diagnostic in
@@ -148,7 +166,8 @@ public func getSingleFrontendInvocationFromDriverArgumentsV2(driverPath: String,
                                   env: ProcessEnv.vars)
     var driver = try Driver(args: parsedOptions.commandLine,
                             diagnosticsOutput: .engine(diagnosticsEngine),
-                            executor: executor)
+                            executor: executor,
+                            compilerIntegratedTooling: compilerIntegratedTooling)
     if diagnosticsEngine.hasErrors {
       return true
     }
