@@ -165,7 +165,6 @@ public final class DarwinToolchain: Toolchain {
     case argumentNotSupported(String)
     case invalidDeploymentTargetForIR(platform: DarwinPlatform, version: Triple.Version, archName: String)
     case unsupportedTargetVariant(variant: Triple)
-    case darwinOnlySupportsLibCxx
 
     public var description: String {
       switch self {
@@ -177,8 +176,6 @@ public final class DarwinToolchain: Toolchain {
         return "unsupported '\(variant.isiOS ? "-target-variant" : "-target")' value '\(variant.triple)'; use 'ios-macabi' instead"
       case .argumentNotSupported(let argument):
         return "\(argument) is no longer supported for Apple platforms"
-      case .darwinOnlySupportsLibCxx:
-        return "The only C++ standard library supported on Apple platforms is libc++"
       }
     }
   }
@@ -210,12 +207,6 @@ public final class DarwinToolchain: Toolchain {
     // Validating darwin unsupported -static-executable argument.
     if parsedOptions.hasArgument(.staticExecutable) {
       throw ToolchainValidationError.argumentNotSupported("-static-executable")
-    }
-    // If a C++ standard library is specified, it has to be libc++.
-    if let cxxLib = parsedOptions.getLastArgument(.experimentalCxxStdlib) {
-        if cxxLib.asSingle != "libc++" {
-            throw ToolchainValidationError.darwinOnlySupportsLibCxx
-        }
     }
   }
 

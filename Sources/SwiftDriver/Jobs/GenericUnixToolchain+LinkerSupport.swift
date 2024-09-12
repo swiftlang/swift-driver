@@ -219,10 +219,10 @@ extension GenericUnixToolchain {
 
       if targetTriple.environment == .android {
         if let sysroot = parsedOptions.getLastArgument(.sysroot)?.asSingle {
-          commandLine.appendFlag("-sysroot")
+          commandLine.appendFlag("--sysroot")
           try commandLine.appendPath(VirtualPath(path: sysroot))
         } else if let sysroot = AndroidNDK.getDefaultSysrootPath(in: self.env) {
-          commandLine.appendFlag("-sysroot")
+          commandLine.appendFlag("--sysroot")
           try commandLine.appendPath(VirtualPath(path: sysroot.pathString))
         }
       } else if let path = targetInfo.sdkPath?.path {
@@ -285,9 +285,10 @@ extension GenericUnixToolchain {
       }
 
       if parsedOptions.hasArgument(.profileGenerate) {
+        let environment = (targetTriple.environment == .android) ? "-android" : ""
         let libProfile = VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
           .appending(components: "clang", "lib", targetTriple.osName,
-                                 "libclang_rt.profile-\(targetTriple.archName).a")
+                                 "libclang_rt.profile-\(targetTriple.archName)\(environment).a")
         commandLine.appendPath(libProfile)
 
         // HACK: Hard-coded from llvm::getInstrProfRuntimeHookVarName()

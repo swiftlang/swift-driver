@@ -478,7 +478,6 @@ extension Option {
   public static let experimentalAllowedReexportedModules: Option = Option("-experimental-allowed-reexported-modules=", .commaJoined, attributes: [.noDriver], helpText: "Allow reexporting symbols from the provided modules if they are themselves exported from the main module. This is a comma separated list of module names.")
   public static let experimentalCForeignReferenceTypes: Option = Option("-experimental-c-foreign-reference-types", .flag, attributes: [.helpHidden, .frontend, .moduleInterface], helpText: "Enable experimental C foreign references types (with reference counting).")
   public static let experimentalClangImporterDirectCc1Scan: Option = Option("-experimental-clang-importer-direct-cc1-scan", .flag, attributes: [.helpHidden, .frontend], helpText: "Enables swift driver to construct swift-frontend invocations using -direct-clang-cc1-module-build")
-  public static let experimentalCxxStdlib: Option = Option("-experimental-cxx-stdlib", .separate, attributes: [.helpHidden], helpText: "C++ standard library to use; forwarded to Clang's -stdlib flag")
   public static let emitModuleSeparately: Option = Option("-experimental-emit-module-separately", .flag, attributes: [.helpHidden], helpText: "Emit module files as a distinct job")
   public static let driverExperimentalExplicitModuleBuild: Option = Option("-experimental-explicit-module-build", .flag, alias: Option.driverExplicitModuleBuild, attributes: [.helpHidden], helpText: "Prebuild module dependencies to make them explicit")
   public static let forceWorkaroundBrokenModules: Option = Option("-experimental-force-workaround-broken-modules", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Attempt unsafe recovery for imported modules with broken modularization")
@@ -584,6 +583,7 @@ extension Option {
   public static let json_: Option = Option("--json", .flag, alias: Option.json, attributes: [.noDriver], helpText: "Print output in JSON format.")
   public static let j: Option = Option("-j", .joinedOrSeparate, attributes: [.doesNotAffectIncrementalBuild], metaVar: "<n>", helpText: "Number of commands to execute in parallel")
   public static let LEQ: Option = Option("-L=", .joined, alias: Option.L, attributes: [.frontend, .doesNotAffectIncrementalBuild, .argumentIsPath], group: .linkerOption)
+  public static let languageMode: Option = Option("-language-mode", .separate, alias: Option.swiftVersion, attributes: [.frontend, .moduleInterface], metaVar: "<mode>", helpText: "Interpret input according to a specific Swift language mode")
   public static let ldPath: Option = Option("-ld-path=", .joined, attributes: [.helpHidden, .doesNotAffectIncrementalBuild, .argumentIsPath], helpText: "Specifies the path to the linker to be used")
   public static let libc: Option = Option("-libc", .separate, attributes: [], helpText: "libc runtime library to use")
   public static let libraryLevelEQ: Option = Option("-library-level=", .joined, alias: Option.libraryLevel, attributes: [.helpHidden, .frontend, .moduleInterface], metaVar: "<level>")
@@ -640,7 +640,7 @@ extension Option {
   public static let noStrictImplicitModuleContext: Option = Option("-no-strict-implicit-module-context", .flag, attributes: [.helpHidden, .frontend], helpText: "Disable the strict forwarding of compilation context to downstream implicit module dependencies")
   public static let noToolchainStdlibRpath: Option = Option("-no-toolchain-stdlib-rpath", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Do not add an rpath entry for the toolchain's standard library (default)")
   public static let noVerifyEmittedModuleInterface: Option = Option("-no-verify-emitted-module-interface", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Don't check that module interfaces emitted during compilation typecheck")
-  public static let noWarningsAsErrors: Option = Option("-no-warnings-as-errors", .flag, attributes: [.frontend], helpText: "Don't treat warnings as errors")
+  public static let noWarningsAsErrors: Option = Option("-no-warnings-as-errors", .flag, attributes: [.frontend], helpText: "Treat warnings as warnings", group: .warningTreating)
   public static let noWholeModuleOptimization: Option = Option("-no-whole-module-optimization", .flag, attributes: [.frontend, .noInteractive], helpText: "Disable optimizing input files together instead of individually")
   public static let driverScanDependenciesNonLib: Option = Option("-nonlib-dependency-scanner", .flag, attributes: [.helpHidden], helpText: "Use calls to `swift-frontend -scan-dependencies` instead of dedicated dependency scanning library")
   public static let nostartfiles: Option = Option("-nostartfiles", .flag, attributes: [.helpHidden, .frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Do not link in the Swift language startup routines")
@@ -872,14 +872,16 @@ extension Option {
   public static let warnSwift3ObjcInferenceComplete: Option = Option("-warn-swift3-objc-inference-complete", .flag, attributes: [.helpHidden, .frontend, .doesNotAffectIncrementalBuild], helpText: "Deprecated, has no effect")
   public static let warnSwift3ObjcInferenceMinimal: Option = Option("-warn-swift3-objc-inference-minimal", .flag, attributes: [.helpHidden, .frontend, .doesNotAffectIncrementalBuild], helpText: "Deprecated, has no effect")
   public static let warnSwift3ObjcInference: Option = Option("-warn-swift3-objc-inference", .flag, alias: Option.warnSwift3ObjcInferenceComplete, attributes: [.helpHidden, .frontend, .doesNotAffectIncrementalBuild])
-  public static let warningsAsErrors: Option = Option("-warnings-as-errors", .flag, attributes: [.frontend], helpText: "Treat warnings as errors")
+  public static let warningsAsErrors: Option = Option("-warnings-as-errors", .flag, attributes: [.frontend], helpText: "Treat warnings as errors", group: .warningTreating)
   public static let weakLinkAtTarget: Option = Option("-weak-link-at-target", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Weakly link symbols for declarations that were introduced at the deployment target. Symbols introduced before the deployment target are still strongly linked.")
+  public static let Werror: Option = Option("-Werror", .separate, attributes: [.helpHidden, .frontend], metaVar: "<diagnostic_group>", helpText: "Treat this warning group as error", group: .warningTreating)
   public static let wholeModuleOptimization: Option = Option("-whole-module-optimization", .flag, attributes: [.frontend, .noInteractive], helpText: "Optimize input files together instead of individually")
   public static let windowsSdkRoot: Option = Option("-windows-sdk-root", .separate, attributes: [.frontend, .argumentIsPath], metaVar: "<root>", helpText: "Windows SDK Root")
   public static let windowsSdkVersion: Option = Option("-windows-sdk-version", .separate, attributes: [.frontend], metaVar: "<version>", helpText: "Windows SDK Version")
   public static let wmo: Option = Option("-wmo", .flag, alias: Option.wholeModuleOptimization, attributes: [.helpHidden, .frontend, .noInteractive])
   public static let workingDirectoryEQ: Option = Option("-working-directory=", .joined, alias: Option.workingDirectory)
   public static let workingDirectory: Option = Option("-working-directory", .separate, metaVar: "<path>", helpText: "Resolve file paths relative to the specified directory")
+  public static let Wwarning: Option = Option("-Wwarning", .separate, attributes: [.helpHidden, .frontend], metaVar: "<diagnostic_group>", helpText: "Treat this warning group as warning", group: .warningTreating)
   public static let Xcc: Option = Option("-Xcc", .separate, attributes: [.frontend], metaVar: "<arg>", helpText: "Pass <arg> to the C/C++/Objective-C compiler")
   public static let XclangLinker: Option = Option("-Xclang-linker", .separate, attributes: [.helpHidden], metaVar: "<arg>", helpText: "Pass <arg> to Clang when it is use for linking.")
   public static let Xfrontend: Option = Option("-Xfrontend", .separate, attributes: [.helpHidden], metaVar: "<arg>", helpText: "Pass <arg> to the Swift frontend")
@@ -1351,7 +1353,6 @@ extension Option {
       Option.experimentalAllowedReexportedModules,
       Option.experimentalCForeignReferenceTypes,
       Option.experimentalClangImporterDirectCc1Scan,
-      Option.experimentalCxxStdlib,
       Option.emitModuleSeparately,
       Option.driverExperimentalExplicitModuleBuild,
       Option.forceWorkaroundBrokenModules,
@@ -1457,6 +1458,7 @@ extension Option {
       Option.json_,
       Option.j,
       Option.LEQ,
+      Option.languageMode,
       Option.ldPath,
       Option.libc,
       Option.libraryLevelEQ,
@@ -1747,12 +1749,14 @@ extension Option {
       Option.warnSwift3ObjcInference,
       Option.warningsAsErrors,
       Option.weakLinkAtTarget,
+      Option.Werror,
       Option.wholeModuleOptimization,
       Option.windowsSdkRoot,
       Option.windowsSdkVersion,
       Option.wmo,
       Option.workingDirectoryEQ,
       Option.workingDirectory,
+      Option.Wwarning,
       Option.Xcc,
       Option.XclangLinker,
       Option.Xfrontend,
@@ -1774,6 +1778,7 @@ extension Option {
     case linkerOption
     case modes
     case pluginSearch
+    case warningTreating
   }
 }
 
@@ -1798,6 +1803,8 @@ extension Option.Group {
         return "<mode options>"
       case .pluginSearch:
         return "<plugin search options>"
+      case .warningTreating:
+        return "<options to control warning treating>"
     }
   }
 }
@@ -1822,6 +1829,8 @@ extension Option.Group {
       case .modes:
         return "MODES"
       case .pluginSearch:
+        return nil
+      case .warningTreating:
         return nil
     }
   }

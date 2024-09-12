@@ -275,6 +275,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
   }
 
   func testModuleDependencyBuildCommandUniqueDepFile() throws {
+    let (stdlibPath, shimsPath, _, _) = try getDriverArtifactsForScanning()
     try withTemporaryDirectory { path in
       let source0 = path.appending(component: "testModuleDependencyBuildCommandUniqueDepFile1.swift")
       let source1 = path.appending(component: "testModuleDependencyBuildCommandUniqueDepFile2.swift")
@@ -299,9 +300,10 @@ final class ExplicitModuleBuildTests: XCTestCase {
                             .appending(component: "Swift")
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       var driver = try Driver(args: ["swiftc",
-                                     "-target", "x86_64-apple-macosx11.0",
                                      "-I", cHeadersPath.nativePathString(escaped: true),
                                      "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                     "-I", stdlibPath.nativePathString(escaped: true),
+                                     "-I", shimsPath.nativePathString(escaped: true),
                                      "-explicit-module-build",
                                      "-import-objc-header", bridgingHeaderpath.nativePathString(escaped: true),
                                      source0.nativePathString(escaped: true),
@@ -331,6 +333,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
   /// Test generation of explicit module build jobs for dependency modules when the driver
   /// is invoked with -explicit-module-build
   func testBridgingHeaderDeps() throws {
+    let (stdlibPath, shimsPath, _, _) = try getDriverArtifactsForScanning()
     try withTemporaryDirectory { path in
       let main = path.appending(component: "testExplicitModuleBuildJobs.swift")
       try localFileSystem.writeFileContents(main, bytes:
@@ -350,9 +353,10 @@ final class ExplicitModuleBuildTests: XCTestCase {
         .appending(component: "Swift")
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       var driver = try Driver(args: ["swiftc",
-                                     "-target", "x86_64-apple-macosx11.0",
                                      "-I", cHeadersPath.nativePathString(escaped: true),
                                      "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                     "-I", stdlibPath.nativePathString(escaped: true),
+                                     "-I", shimsPath.nativePathString(escaped: true),
                                      "-explicit-module-build",
                                      "-import-objc-header", bridgingHeaderpath.nativePathString(escaped: true),
                                      main.nativePathString(escaped: true)] + sdkArgumentsForTesting)
@@ -492,6 +496,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
   /// Test generation of explicit module build jobs for dependency modules when the driver
   /// is invoked with -explicit-module-build
   func testExplicitModuleBuildJobs() throws {
+    let (stdlibPath, shimsPath, _, hostTriple) = try getDriverArtifactsForScanning()
     try withTemporaryDirectory { path in
       let main = path.appending(component: "testExplicitModuleBuildJobs.swift")
       try localFileSystem.writeFileContents(main, bytes:
@@ -512,9 +517,10 @@ final class ExplicitModuleBuildTests: XCTestCase {
                             .appending(component: "Swift")
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       var driver = try Driver(args: ["swiftc",
-                                     "-target", "x86_64-apple-macosx11.0",
                                      "-I", cHeadersPath.nativePathString(escaped: true),
                                      "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                     "-I", stdlibPath.nativePathString(escaped: true),
+                                     "-I", shimsPath.nativePathString(escaped: true),
                                      "-explicit-module-build",
                                      "-import-objc-header", bridgingHeaderpath.nativePathString(escaped: true),
                                      main.nativePathString(escaped: true)] + sdkArgumentsForTesting)
@@ -589,6 +595,12 @@ final class ExplicitModuleBuildTests: XCTestCase {
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang("_SwiftConcurrencyShims"),
                                             dependencyGraph: dependencyGraph)
           }
+          else if hostTriple.isMacOSX,
+             hostTriple.version(for: .macOS) < Triple.Version(11, 0, 0),
+             relativeOutputPathFileName.starts(with: "X-") {
+            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("X"),
+                                            dependencyGraph: dependencyGraph)
+          }
           else {
             XCTFail("Unexpected module dependency build job output: \(outputFilePath)")
           }
@@ -616,6 +628,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
   /// Test generation of explicit module build jobs for dependency modules when the driver
   /// is invoked with -explicit-module-build, -verify-emitted-module-interface and -enable-library-evolution.
   func testExplicitModuleVerifyInterfaceJobs() throws {
+    let (stdlibPath, shimsPath, _, _) = try getDriverArtifactsForScanning()
     try withTemporaryDirectory { path in
       let main = path.appending(component: "testExplicitModuleVerifyInterfaceJobs.swift")
       try localFileSystem.writeFileContents(main) {
@@ -632,9 +645,10 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let privateSwiftInterfacePath: AbsolutePath = path.appending(component: "testExplicitModuleVerifyInterfaceJobs.private.swiftinterface")
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       var driver = try Driver(args: ["swiftc",
-                                     "-target", "x86_64-apple-macosx11.0",
                                      "-I", cHeadersPath.nativePathString(escaped: true),
                                      "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                     "-I", stdlibPath.nativePathString(escaped: true),
+                                     "-I", shimsPath.nativePathString(escaped: true),
                                      "-emit-module-interface-path", swiftInterfacePath.nativePathString(escaped: true),
                                      "-emit-private-module-interface-path", privateSwiftInterfacePath.nativePathString(escaped: true),
                                      "-explicit-module-build", "-verify-emitted-module-interface",
@@ -748,6 +762,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
   /// Test generation of explicit module build jobs for dependency modules when the driver
   /// is invoked with -explicit-module-build and -pch-output-dir
   func testExplicitModuleBuildPCHOutputJobs() throws {
+    let (stdlibPath, shimsPath, _, _) = try getDriverArtifactsForScanning()
     try withTemporaryDirectory { path in
       let main = path.appending(component: "testExplicitModuleBuildPCHOutputJobs.swift")
       try localFileSystem.writeFileContents(main, bytes:
@@ -769,9 +784,10 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       let pchOutputDir: AbsolutePath = path
       var driver = try Driver(args: ["swiftc",
-                                     "-target", "x86_64-apple-macosx11.0",
                                      "-I", cHeadersPath.nativePathString(escaped: true),
                                      "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                     "-I", stdlibPath.nativePathString(escaped: true),
+                                     "-I", shimsPath.nativePathString(escaped: true),
                                      "-explicit-module-build",
                                      "-import-objc-header", bridgingHeaderpath.nativePathString(escaped: true),
                                      "-pch-output-dir", pchOutputDir.nativePathString(escaped: true),
@@ -883,6 +899,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
   }
 
   func testImmediateModeExplicitModuleBuild() throws {
+    let (stdlibPath, shimsPath, _, _) = try getDriverArtifactsForScanning()
     try withTemporaryDirectory { path in
       let main = path.appending(component: "testExplicitModuleBuildJobs.swift")
       try localFileSystem.writeFileContents(main, bytes: "import C\n")
@@ -895,9 +912,10 @@ final class ExplicitModuleBuildTests: XCTestCase {
                             .appending(component: "Swift")
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       var driver = try Driver(args: ["swift",
-                                     "-target", "x86_64-apple-macosx11.0",
                                      "-I", cHeadersPath.nativePathString(escaped: true),
                                      "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                     "-I", stdlibPath.nativePathString(escaped: true),
+                                     "-I", shimsPath.nativePathString(escaped: true),
                                      "-explicit-module-build",
                                      main.nativePathString(escaped: true)] + sdkArgumentsForTesting)
 
@@ -1723,12 +1741,12 @@ final class ExplicitModuleBuildTests: XCTestCase {
       // #if __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ < 110000
       let expectedNumberOfDependencies: Int
       if hostTriple.isMacOSX,
-         hostTriple.version(for: .macOS) >= Triple.Version(11, 0, 0) {
-        expectedNumberOfDependencies = 11
+         hostTriple.version(for: .macOS) < Triple.Version(11, 0, 0) {
+        expectedNumberOfDependencies = 12
       } else if driver.targetTriple.isWindows {
         expectedNumberOfDependencies = 14
       } else {
-        expectedNumberOfDependencies = 12
+        expectedNumberOfDependencies = 11
       }
 
       // Dispatch several iterations in parallel
