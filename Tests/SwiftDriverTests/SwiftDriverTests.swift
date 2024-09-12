@@ -4281,14 +4281,6 @@ final class SwiftDriverTests: XCTestCase {
       }
     }
 
-    XCTAssertThrowsError(try Driver(args: ["swiftc", "-c", "-target", "x86_64-apple-macosx10.14", "-experimental-cxx-stdlib", "libstdc++",
-                                           "foo.swift"])) { error in
-        guard case DarwinToolchain.ToolchainValidationError.darwinOnlySupportsLibCxx = error else {
-          XCTFail("Unexpected error: \(error)")
-        return
-      }
-    }
-
     // Not actually a valid arch for tvOS, but we shouldn't fall into the iOS case by mistake and emit a message about iOS >= 11 not supporting armv7.
     XCTAssertNoThrow(try Driver(args: ["swiftc", "-c", "-target", "armv7-apple-tvos9.0", "foo.swift"]))
 
@@ -4416,15 +4408,19 @@ final class SwiftDriverTests: XCTestCase {
     // FIXME: This will fail when run on macOS, because
     // swift-autolink-extract is not present
     #if os(Linux) || os(Android) || os(Windows)
-    do {
-      var driver = try Driver(args: ["swiftc", "-profile-generate", "-target", "x86_64-unknown-linux-gnu", "test.swift"])
+    for triple in ["aarch64-unknown-linux-android", "x86_64-unknown-linux-gnu"] {
+      var driver = try Driver(args: ["swiftc", "-profile-generate", "-target", triple, "test.swift"])
       let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
 
       XCTAssertEqual(plannedJobs.count, 2)
       XCTAssertEqual(plannedJobs[0].kind, .compile)
 
       XCTAssertEqual(plannedJobs[1].kind, .link)
-      XCTAssert(plannedJobs[1].commandLine.containsPathWithBasename("libclang_rt.profile-x86_64.a"))
+      if triple == "aarch64-unknown-linux-android" {
+        XCTAssert(plannedJobs[1].commandLine.containsPathWithBasename("libclang_rt.profile-aarch64-android.a"))
+      } else {
+        XCTAssert(plannedJobs[1].commandLine.containsPathWithBasename("libclang_rt.profile-x86_64.a"))
+      }
       XCTAssert(plannedJobs[1].commandLine.contains { $0 == .flag("-u__llvm_profile_runtime") })
     }
     #endif
@@ -5662,7 +5658,9 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 1)
       let job = plannedJobs[0]
-      XCTAssertTrue(job.commandLine.contains(.flag("-warnings-as-errors")))
+      XCTAssertTrue(job.commandLine.contains(
+        subsequence: [.flag("-no-warnings-as-errors"), .flag("-warnings-as-errors")]
+      ))
     }
 
     do {
@@ -5670,7 +5668,9 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 1)
       let job = plannedJobs[0]
-      XCTAssertTrue(job.commandLine.contains(.flag("-no-warnings-as-errors")))
+      XCTAssertTrue(job.commandLine.contains(
+        subsequence: [.flag("-warnings-as-errors"), .flag("-no-warnings-as-errors")]
+      ))
     }
 
     do {
@@ -5678,13 +5678,55 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 1)
       let job = plannedJobs[0]
-      XCTAssertTrue(job.commandLine.contains(.flag("-no-warnings-as-errors")))
+      XCTAssertTrue(job.commandLine.contains(
+        subsequence: [.flag("-warnings-as-errors"), .flag("-no-warnings-as-errors")]
+      ))
       XCTAssertTrue(job.commandLine.contains(.flag("-suppress-warnings")))
+    }
+
+    do {
+      var driver = try Driver(args: [
+        "swift",
+        "-warnings-as-errors",
+        "-no-warnings-as-errors",
+        "-Werror", "A",
+        "-Wwarning", "B",
+        "-Werror", "C",
+        "-Wwarning", "C",
+        "foo.swift",
+      ])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      let job = plannedJobs[0]
+      XCTAssertTrue(job.commandLine.contains(subsequence: [
+        .flag("-warnings-as-errors"),
+        .flag("-no-warnings-as-errors"),
+        .flag("-Werror"),
+        .flag("A"),
+        .flag("-Wwarning"),
+        .flag("B"),
+        .flag("-Werror"),
+        .flag("C"),
+        .flag("-Wwarning"),
+        .flag("C"),
+      ]))
     }
 
     do {
       try assertDriverDiagnostics(args: ["swift", "-no-warnings-as-errors", "-warnings-as-errors", "-suppress-warnings", "foo.swift"]) {
         $1.expect(.error(Driver.Error.conflictingOptions(.warningsAsErrors, .suppressWarnings)))
+      }
+    }
+
+    do {
+      try assertDriverDiagnostics(args: ["swift", "-Wwarning", "test", "-suppress-warnings", "foo.swift"]) {
+        $1.expect(.error(Driver.Error.conflictingOptions(.Wwarning, .suppressWarnings)))
+      }
+    }
+
+    do {
+      try assertDriverDiagnostics(args: ["swift", "-Werror", "test", "-suppress-warnings", "foo.swift"]) {
+        $1.expect(.error(Driver.Error.conflictingOptions(.Werror, .suppressWarnings)))
       }
     }
 
@@ -6822,19 +6864,6 @@ final class SwiftDriverTests: XCTestCase {
         XCTAssertTrue(linkJob.commandLine.contains(.flag("-lc++")))
       }
     }
-    do {
-      var driver = try Driver(args: ["swiftc", "-cxx-interoperability-mode=swift-5.9",
-                                     "-experimental-cxx-stdlib", "libc++", "foo.swift"])
-      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
-      XCTAssertEqual(plannedJobs.count, 2)
-      let compileJob = plannedJobs[0]
-      let linkJob = plannedJobs[1]
-      XCTAssertTrue(compileJob.commandLine.contains(.flag("-cxx-interoperability-mode=swift-5.9")))
-      XCTAssertTrue(compileJob.commandLine.contains(.flag("-stdlib=libc++")))
-      if driver.targetTriple.isDarwin {
-        XCTAssertTrue(linkJob.commandLine.contains(.flag("-lc++")))
-      }
-    }
   }
 
   func testEmbeddedSwiftOptions() throws {
@@ -7932,11 +7961,14 @@ final class SwiftDriverTests: XCTestCase {
 
   func testAndroidNDK() throws {
     try withTemporaryDirectory { path in
+      var env = ProcessEnv.vars
+      env["SWIFT_DRIVER_SWIFT_AUTOLINK_EXTRACT_EXEC"] = "/garbage/swift-autolink-extract"
+
       do {
         let sysroot = path.appending(component: "sysroot")
         var driver = try Driver(args: [
           "swiftc", "-target", "aarch64-unknown-linux-android", "-sysroot", sysroot.pathString, #file
-        ])
+        ], env: env)
         let jobs = try driver.planBuild().removingAutolinkExtractJobs()
         let frontend = try XCTUnwrap(jobs.first)
         XCTAssertTrue(frontend.commandLine.contains(subsequence: [
@@ -7946,7 +7978,7 @@ final class SwiftDriverTests: XCTestCase {
       }
 
       do {
-        var env = ProcessEnv.vars
+        var env = env
         env["ANDROID_NDK_ROOT"] = path.appending(component: "ndk").nativePathString(escaped: false)
 
         let sysroot = path.appending(component: "sysroot")
@@ -7961,10 +7993,12 @@ final class SwiftDriverTests: XCTestCase {
         ]))
       }
 
+      // The default NDK prebuilts are x86_64 hosts only currently as if r27.
+#if arch(x86_64)
       do {
         let sysroot = path.appending(component: "ndk")
 
-        var env = ProcessEnv.vars
+        var env = env
         env["ANDROID_NDK_ROOT"] = sysroot.nativePathString(escaped: false)
 
 #if os(Windows)
@@ -7980,11 +8014,13 @@ final class SwiftDriverTests: XCTestCase {
         ], env: env)
         let jobs = try driver.planBuild().removingAutolinkExtractJobs()
         let frontend = try XCTUnwrap(jobs.first)
+        print(frontend.commandLine)
         XCTAssertTrue(frontend.commandLine.contains(subsequence: [
           .flag("-sysroot"),
           .path(.absolute(sysroot.appending(components: "toolchains", "llvm", "prebuilt", "\(os)-x86_64", "sysroot"))),
         ]))
       }
+#endif
     }
   }
 

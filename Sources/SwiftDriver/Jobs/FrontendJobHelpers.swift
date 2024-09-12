@@ -136,9 +136,6 @@ extension Driver {
     // Add flags for C++ interop
     try commandLine.appendLast(.enableExperimentalCxxInterop, from: &parsedOptions)
     try commandLine.appendLast(.cxxInteroperabilityMode, from: &parsedOptions)
-    if let stdlibVariant = parsedOptions.getLastArgument(.experimentalCxxStdlib)?.asSingle {
-      appendXccFlag("-stdlib=\(stdlibVariant)")
-    }
 
     if isEmbeddedEnabled && parsedOptions.hasArgument(.enableLibraryEvolution) {
       diagnosticEngine.emit(.error_no_library_evolution_embedded)
@@ -228,7 +225,11 @@ extension Driver {
     try commandLine.appendLast(.profileGenerate, from: &parsedOptions)
     try commandLine.appendLast(.profileUse, from: &parsedOptions)
     try commandLine.appendLast(.profileCoverageMapping, from: &parsedOptions)
-    try commandLine.appendLast(.warningsAsErrors, .noWarningsAsErrors, from: &parsedOptions)
+    try commandLine.appendAllExcept(
+      includeList: [.warningTreating], 
+      excludeList: [], 
+      from: &parsedOptions
+    )
     try commandLine.appendLast(.sanitizeEQ, from: &parsedOptions)
     try commandLine.appendLast(.sanitizeRecoverEQ, from: &parsedOptions)
     try commandLine.appendLast(.sanitizeAddressUseOdrIndicator, from: &parsedOptions)
