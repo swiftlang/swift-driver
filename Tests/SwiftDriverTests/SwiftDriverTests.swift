@@ -5737,6 +5737,22 @@ final class SwiftDriverTests: XCTestCase {
       let job = plannedJobs[0]
       XCTAssertTrue(job.commandLine.contains(.flag("-print-educational-notes")))
     }
+
+    do {
+      var driver = try Driver(args: ["swift", "-debug-diagnostic-names", "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      let job = plannedJobs[0]
+      XCTAssertTrue(job.commandLine.contains(.flag("-debug-diagnostic-names")))
+    }
+
+    do {
+      var driver = try Driver(args: ["swift", "-print-diagnostic-groups", "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 1)
+      let job = plannedJobs[0]
+      XCTAssertTrue(job.commandLine.contains(.flag("-print-diagnostic-groups")))
+    }
   }
 
   func testNumThreads() throws {
