@@ -7029,14 +7029,34 @@ final class SwiftDriverTests: XCTestCase {
         try testInputsPath.appending(component: "mock-sdk.sdk").nativePathString(escaped: false)
 
     do {
-      var driver = try Driver(args: ["swiftc", "-target", "x86_64-apple-ios13.1-macabi", "foo.swift", "-sdk", mockSDKPath],
+      let resourceDirPath: String = try testInputsPath.appending(components: "PrebuiltModules-macOS10.15.xctoolchain", "usr", "lib", "swift").nativePathString(escaped: false)
+
+      var driver = try Driver(args: ["swiftc", "-target", "x86_64-apple-ios13.1-macabi", "foo.swift", "-sdk", mockSDKPath, "-resource-dir", resourceDirPath],
                               env: envVars)
       let plannedJobs = try driver.planBuild()
       let job = plannedJobs[0]
       XCTAssertTrue(job.commandLine.contains(.flag("-prebuilt-module-cache-path")))
       XCTAssertTrue(job.commandLine.contains { arg in
         if case .path(let curPath) = arg {
-          if curPath.basename == "10.15" && curPath.parentDirectory.basename == "prebuilt-modules" {
+          if curPath.basename == "10.15" && curPath.parentDirectory.basename == "prebuilt-modules" && curPath.parentDirectory.parentDirectory.basename == "macosx" {
+              return true
+          }
+        }
+        return false
+      })
+    }
+
+    do {
+      let resourceDirPath: String = try testInputsPath.appending(components: "PrebuiltModules-macOSUnversioned.xctoolchain", "usr", "lib", "swift").nativePathString(escaped: false)
+
+      var driver = try Driver(args: ["swiftc", "-target", "x86_64-apple-ios13.1-macabi", "foo.swift", "-sdk", mockSDKPath, "-resource-dir", resourceDirPath],
+                              env: envVars)
+      let plannedJobs = try driver.planBuild()
+      let job = plannedJobs[0]
+      XCTAssertTrue(job.commandLine.contains(.flag("-prebuilt-module-cache-path")))
+      XCTAssertTrue(job.commandLine.contains { arg in
+        if case .path(let curPath) = arg {
+          if curPath.basename == "prebuilt-modules" && curPath.parentDirectory.basename == "macosx" {
               return true
           }
         }
