@@ -251,6 +251,7 @@ extension Driver {
     try commandLine.appendLast(.packageDescriptionVersion, from: &parsedOptions)
     try commandLine.appendLast(.serializeDiagnosticsPath, from: &parsedOptions)
     try commandLine.appendLast(.debugDiagnosticNames, from: &parsedOptions)
+    try commandLine.appendLast(.printDiagnosticGroups, from: &parsedOptions)
     try commandLine.appendLast(.scanDependencies, from: &parsedOptions)
     try commandLine.appendLast(.enableExperimentalConcisePoundFile, from: &parsedOptions)
     try commandLine.appendLast(.experimentalPackageInterfaceLoad, from: &parsedOptions)
