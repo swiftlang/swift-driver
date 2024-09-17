@@ -686,6 +686,7 @@ extension Option {
   public static let printAstDecl: Option = Option("-print-ast-decl", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Parse and type-check input file(s) and pretty print declarations from AST(s)", group: .modes)
   public static let printAst: Option = Option("-print-ast", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Parse and type-check input file(s) and pretty print AST(s)", group: .modes)
   public static let printClangStats: Option = Option("-print-clang-stats", .flag, attributes: [.frontend, .noDriver], helpText: "Print Clang importer statistics")
+  public static let printDiagnosticGroups: Option = Option("-print-diagnostic-groups", .flag, attributes: [.helpHidden, .frontend, .doesNotAffectIncrementalBuild], helpText: "Include diagnostic groups in printed diagnostic output, if available")
   public static let printEducationalNotes: Option = Option("-print-educational-notes", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Include educational notes in printed diagnostic output, if available")
   public static let printExplicitDependencyGraph: Option = Option("-print-explicit-dependency-graph", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Print the result of module dependency scanning after external module resolution to output")
   public static let printInstCounts: Option = Option("-print-inst-counts", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Before IRGen, count all the various SIL instructions. Must be used in conjunction with -print-stats.")
@@ -1561,6 +1562,7 @@ extension Option {
       Option.printAstDecl,
       Option.printAst,
       Option.printClangStats,
+      Option.printDiagnosticGroups,
       Option.printEducationalNotes,
       Option.printExplicitDependencyGraph,
       Option.printInstCounts,
