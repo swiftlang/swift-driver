@@ -389,8 +389,7 @@ final class CachingBuildTests: XCTestCase {
       XCTAssertFalse(driver.diagnosticEngine.hasErrors)
 
       let scanLibPath = try XCTUnwrap(driver.getSwiftScanLibPath())
-      try dependencyOracle.verifyOrCreateScannerInstance(fileSystem: localFileSystem,
-                                                         swiftScanLibPath: scanLibPath)
+      try dependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
 
       let cas = try dependencyOracle.getOrCreateCAS(pluginPath: nil, onDiskPath: casPath, pluginOptions: [])
       if let driverCAS = driver.cas {
@@ -445,8 +444,7 @@ final class CachingBuildTests: XCTestCase {
       XCTAssertFalse(driver.diagnosticEngine.hasErrors)
 
       let scanLibPath = try XCTUnwrap(driver.getSwiftScanLibPath())
-      try dependencyOracle.verifyOrCreateScannerInstance(fileSystem: localFileSystem,
-                                                         swiftScanLibPath: scanLibPath)
+      try dependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
 
       let cas = try dependencyOracle.getOrCreateCAS(pluginPath: nil, onDiskPath: casPath, pluginOptions: [])
       if let driverCAS = driver.cas {
@@ -630,8 +628,7 @@ final class CachingBuildTests: XCTestCase {
       XCTAssertFalse(driver.diagnosticEngine.hasErrors)
 
       let scanLibPath = try XCTUnwrap(driver.getSwiftScanLibPath())
-      try dependencyOracle.verifyOrCreateScannerInstance(fileSystem: localFileSystem,
-                                                         swiftScanLibPath: scanLibPath)
+      try dependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
 
       let cas = try dependencyOracle.getOrCreateCAS(pluginPath: nil, onDiskPath: casPath, pluginOptions: [])
       if let driverCAS = driver.cas {
@@ -685,8 +682,7 @@ final class CachingBuildTests: XCTestCase {
                                       interModuleDependencyOracle: dependencyOracle)
 
       let scanLibPath = try XCTUnwrap(fooBuildDriver.getSwiftScanLibPath())
-      try dependencyOracle.verifyOrCreateScannerInstance(fileSystem: localFileSystem,
-                                                         swiftScanLibPath: scanLibPath)
+      try dependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
       guard try dependencyOracle.supportsBinaryModuleHeaderDependencies() else {
         throw XCTSkip("libSwiftScan does not support binary module header dependencies.")
       }
@@ -753,8 +749,7 @@ final class CachingBuildTests: XCTestCase {
                               env: ProcessEnv.vars,
                               interModuleDependencyOracle: dependencyOracle)
       let scanLibPath = try XCTUnwrap(driver.getSwiftScanLibPath())
-      try dependencyOracle.verifyOrCreateScannerInstance(fileSystem: localFileSystem,
-                                                         swiftScanLibPath: scanLibPath)
+      try dependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
       let resolver = try ArgsResolver(fileSystem: localFileSystem)
       var scannerCommand = try driver.dependencyScannerInvocationCommand().1.map { try resolver.resolve($0) }
       // We generate full swiftc -frontend -scan-dependencies invocations in order to also be
@@ -905,8 +900,7 @@ final class CachingBuildTests: XCTestCase {
         throw XCTSkip("frontend doesn't support prefix map")
       }
       let scanLibPath = try XCTUnwrap(driver.getSwiftScanLibPath())
-      try dependencyOracle.verifyOrCreateScannerInstance(fileSystem: localFileSystem,
-                                                         swiftScanLibPath: scanLibPath)
+      try dependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
       let resolver = try ArgsResolver(fileSystem: localFileSystem)
       let scannerCommand = try driver.dependencyScannerInvocationCommand().1.map { try resolver.resolve($0) }
 
@@ -972,8 +966,7 @@ final class CachingBuildTests: XCTestCase {
       XCTAssertFalse(driver.diagnosticEngine.hasErrors)
 
       let scanLibPath = try XCTUnwrap(driver.getSwiftScanLibPath())
-      try dependencyOracle.verifyOrCreateScannerInstance(fileSystem: localFileSystem,
-                                                         swiftScanLibPath: scanLibPath)
+      try dependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
 
       let cas = try dependencyOracle.getOrCreateCAS(pluginPath: nil, onDiskPath: casPath, pluginOptions: [])
       if let driverCAS = driver.cas {
@@ -1001,8 +994,7 @@ final class CachingBuildTests: XCTestCase {
       let casPath = path.appending(component: "cas")
       let driver = try Driver(args: ["swiftc", "-v"])
       let scanLibPath = try XCTUnwrap(driver.getSwiftScanLibPath())
-      try dependencyOracle.verifyOrCreateScannerInstance(fileSystem: localFileSystem,
-                                                         swiftScanLibPath: scanLibPath)
+      try dependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
       let cas = try dependencyOracle.getOrCreateCAS(pluginPath: nil, onDiskPath: casPath, pluginOptions: [])
       guard cas.supportsSizeManagement else {
         throw XCTSkip("CAS size management is not supported")
