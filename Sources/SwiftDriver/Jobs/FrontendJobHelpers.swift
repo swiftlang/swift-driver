@@ -51,6 +51,7 @@ extension Driver {
     /// If the driver is in Explicit Module Build mode, the dependency graph has been computed
     case computed
   }
+
   /// Add frontend options that are common to different frontend invocations.
   mutating func addCommonFrontendOptions(
     commandLine: inout [Job.ArgTemplate],
@@ -135,16 +136,14 @@ extension Driver {
     // Add flags for C++ interop
     try commandLine.appendLast(.enableExperimentalCxxInterop, from: &parsedOptions)
     try commandLine.appendLast(.cxxInteroperabilityMode, from: &parsedOptions)
-    if let stdlibVariant = parsedOptions.getLastArgument(.experimentalCxxStdlib)?.asSingle {
-      appendXccFlag("-stdlib=\(stdlibVariant)")
-    }
 
     if isEmbeddedEnabled && parsedOptions.hasArgument(.enableLibraryEvolution) {
       diagnosticEngine.emit(.error_no_library_evolution_embedded)
       throw ErrorDiagnostics.emitted
     }
 
-    if isEmbeddedEnabled &&
+    // Building embedded Swift requires WMO, unless we're not generating SIL. This allows modes like -index-file to work the same way they do when not using embedded Swift
+    if isEmbeddedEnabled && compilerOutputType?.requiresSILGen == true &&
        (!parsedOptions.hasArgument(.wmo) || !parsedOptions.hasArgument(.wholeModuleOptimization)) {
       diagnosticEngine.emit(.error_need_wmo_embedded)
       throw ErrorDiagnostics.emitted
@@ -197,6 +196,7 @@ extension Driver {
     try commandLine.appendLast(.fixitAll, from: &parsedOptions)
     try commandLine.appendLast(.warnSwift3ObjcInferenceMinimal, .warnSwift3ObjcInferenceComplete, from: &parsedOptions)
     try commandLine.appendLast(.warnImplicitOverrides, from: &parsedOptions)
+    try commandLine.appendLast(.warnSoftDeprecated, from: &parsedOptions)
     try commandLine.appendLast(.typoCorrectionLimit, from: &parsedOptions)
     try commandLine.appendLast(.enableAppExtension, from: &parsedOptions)
     try commandLine.appendLast(.enableLibraryEvolution, from: &parsedOptions)
@@ -212,6 +212,7 @@ extension Driver {
     try commandLine.appendLast(.importUnderlyingModule, from: &parsedOptions)
     try commandLine.appendLast(.moduleCachePath, from: &parsedOptions)
     try commandLine.appendLast(.moduleLinkName, from: &parsedOptions)
+    try commandLine.appendLast(.moduleAbiName, from: &parsedOptions)
     try commandLine.appendLast(.nostdimport, from: &parsedOptions)
     try commandLine.appendLast(.parseStdlib, from: &parsedOptions)
     try commandLine.appendLast(.solverMemoryThreshold, from: &parsedOptions)
@@ -224,7 +225,11 @@ extension Driver {
     try commandLine.appendLast(.profileGenerate, from: &parsedOptions)
     try commandLine.appendLast(.profileUse, from: &parsedOptions)
     try commandLine.appendLast(.profileCoverageMapping, from: &parsedOptions)
-    try commandLine.appendLast(.warningsAsErrors, .noWarningsAsErrors, from: &parsedOptions)
+    try commandLine.appendAllExcept(
+      includeList: [.warningTreating], 
+      excludeList: [], 
+      from: &parsedOptions
+    )
     try commandLine.appendLast(.sanitizeEQ, from: &parsedOptions)
     try commandLine.appendLast(.sanitizeRecoverEQ, from: &parsedOptions)
     try commandLine.appendLast(.sanitizeAddressUseOdrIndicator, from: &parsedOptions)
@@ -246,6 +251,7 @@ extension Driver {
     try commandLine.appendLast(.packageDescriptionVersion, from: &parsedOptions)
     try commandLine.appendLast(.serializeDiagnosticsPath, from: &parsedOptions)
     try commandLine.appendLast(.debugDiagnosticNames, from: &parsedOptions)
+    try commandLine.appendLast(.printDiagnosticGroups, from: &parsedOptions)
     try commandLine.appendLast(.scanDependencies, from: &parsedOptions)
     try commandLine.appendLast(.enableExperimentalConcisePoundFile, from: &parsedOptions)
     try commandLine.appendLast(.experimentalPackageInterfaceLoad, from: &parsedOptions)
@@ -403,11 +409,13 @@ extension Driver {
     // CAS related options.
     if isCachingEnabled {
       commandLine.appendFlag(.cacheCompileJob)
-      if let casPath = try getOnDiskCASPath() {
+      if let casPath = try Self.getOnDiskCASPath(parsedOptions: &parsedOptions,
+                                                 toolchain: toolchain) {
         commandLine.appendFlag(.casPath)
         commandLine.appendFlag(casPath.pathString)
       }
-      if let pluginPath = try getCASPluginPath() {
+      if let pluginPath = try Self.getCASPluginPath(parsedOptions: &parsedOptions,
+                                                    toolchain: toolchain) {
         commandLine.appendFlag(.casPluginPath)
         commandLine.appendFlag(pluginPath.pathString)
       }

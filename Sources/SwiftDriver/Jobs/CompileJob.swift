@@ -296,7 +296,8 @@ extension Driver {
     if Driver.canDoCrossModuleOptimization(parsedOptions: &parsedOptions) &&
        // For historical reasons, -cross-module-optimization turns on "aggressive" CMO
        // which is different from "default" CMO.
-       !parsedOptions.hasArgument(.CrossModuleOptimization) {
+       !parsedOptions.hasArgument(.CrossModuleOptimization) &&
+       !parsedOptions.hasArgument(.EnableCMOEverything) {
       assert(!emitModuleSeparately, "Cannot emit module separately with cross-module-optimization")
       commandLine.appendFlag("-enable-default-cmo")
     }
@@ -370,6 +371,7 @@ extension Driver {
 
     try commandLine.appendLast(.trackSystemDependencies, from: &parsedOptions)
     try commandLine.appendLast(.CrossModuleOptimization, from: &parsedOptions)
+    try commandLine.appendLast(.EnableCMOEverything, from: &parsedOptions)
     try commandLine.appendLast(.ExperimentalPerformanceAnnotations, from: &parsedOptions)
 
     try commandLine.appendLast(.runtimeCompatibilityVersion, from: &parsedOptions)

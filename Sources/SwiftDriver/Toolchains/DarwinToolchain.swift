@@ -165,7 +165,6 @@ public final class DarwinToolchain: Toolchain {
     case argumentNotSupported(String)
     case invalidDeploymentTargetForIR(platform: DarwinPlatform, version: Triple.Version, archName: String)
     case unsupportedTargetVariant(variant: Triple)
-    case darwinOnlySupportsLibCxx
 
     public var description: String {
       switch self {
@@ -177,8 +176,6 @@ public final class DarwinToolchain: Toolchain {
         return "unsupported '\(variant.isiOS ? "-target-variant" : "-target")' value '\(variant.triple)'; use 'ios-macabi' instead"
       case .argumentNotSupported(let argument):
         return "\(argument) is no longer supported for Apple platforms"
-      case .darwinOnlySupportsLibCxx:
-        return "The only C++ standard library supported on Apple platforms is libc++"
       }
     }
   }
@@ -210,12 +207,6 @@ public final class DarwinToolchain: Toolchain {
     // Validating darwin unsupported -static-executable argument.
     if parsedOptions.hasArgument(.staticExecutable) {
       throw ToolchainValidationError.argumentNotSupported("-static-executable")
-    }
-    // If a C++ standard library is specified, it has to be libc++.
-    if let cxxLib = parsedOptions.getLastArgument(.experimentalCxxStdlib) {
-        if cxxLib.asSingle != "libc++" {
-            throw ToolchainValidationError.darwinOnlySupportsLibCxx
-        }
     }
   }
 
@@ -419,12 +410,27 @@ public final class DarwinToolchain: Toolchain {
     // doesn't always match the macosx sdk version so the compiler may fail to find
     // the prebuilt module in the versioned sub-dir.
     if frontendTargetInfo.target.triple.isMacCatalyst {
+      let resourceDirPath = VirtualPath.lookup(frontendTargetInfo.runtimeResourcePath.path)
+      let basePrebuiltModulesPath = resourceDirPath.appending(components: "macosx", "prebuilt-modules")
+
+      // Ensure we pass a path that exists. This matches logic used in the Swift frontend.
+      let prebuiltModulesPath: VirtualPath = try {
+        var versionString = sdkInfo.versionString
+        repeat {
+          let versionedPrebuiltModulesPath =
+            basePrebuiltModulesPath.appending(component: versionString)
+          if try fileSystem.exists(versionedPrebuiltModulesPath) {
+            return versionedPrebuiltModulesPath
+          } else if versionString.hasSuffix(".0") {
+            versionString.removeLast(2)
+          } else {
+            return basePrebuiltModulesPath
+          }
+        } while true
+      }()
+
       commandLine.appendFlag(.prebuiltModuleCachePath)
-      commandLine.appendPath(try getToolPath(.swiftCompiler).parentDirectory/*bin*/
-        .parentDirectory/*usr*/
-        .appending(component: "lib").appending(component: "swift")
-        .appending(component: "macosx").appending(component: "prebuilt-modules")
-        .appending(component: sdkInfo.versionString))
+      commandLine.appendPath(prebuiltModulesPath)
     }
 
     // Pass down -clang-target.

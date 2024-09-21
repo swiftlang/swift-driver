@@ -129,6 +129,10 @@ public extension Driver {
       try commandLine.appendLast(.clangScannerModuleCachePath, from: &parsedOptions)
     }
 
+    if isFrontendArgSupported(.scannerModuleValidation) {
+      commandLine.appendFlag(.scannerModuleValidation)
+    }
+
     if isFrontendArgSupported(.scannerPrefixMap) {
       // construct `-scanner-prefix-mapper` for scanner.
       for (key, value) in prefixMapping {
@@ -160,41 +164,6 @@ public extension Driver {
                                                                        contents)
   }
 
-  /// Returns false if the lib is available and ready to use
-  private mutating func initSwiftScanLib() throws -> Bool {
-    // `-nonlib-dependency-scanner` was specified
-    guard !parsedOptions.hasArgument(.driverScanDependenciesNonLib) else {
-      return true
-    }
-
-    // If the libSwiftScan library cannot be found,
-    // attempt to fallback to using `swift-frontend -scan-dependencies` invocations for dependency
-    // scanning.
-    guard let scanLibPath = try toolchain.lookupSwiftScanLib(),
-          fileSystem.exists(scanLibPath) else {
-      diagnosticEngine.emit(.warn_scan_dylib_not_found())
-      return true
-    }
-
-    do {
-      try interModuleDependencyOracle.verifyOrCreateScannerInstance(fileSystem: fileSystem,
-                                                                    swiftScanLibPath: scanLibPath)
-      if isCachingEnabled {
-        self.cas = try interModuleDependencyOracle.getOrCreateCAS(pluginPath: try getCASPluginPath(),
-                                                                  onDiskPath: try getOnDiskCASPath(),
-                                                                  pluginOptions: try getCASPluginOptions())
-      }
-    } catch {
-      if isCachingEnabled {
-        diagnosticEngine.emit(.error_caching_enabled_libswiftscan_load_failure(scanLibPath.description))
-      } else {
-        diagnosticEngine.emit(.warn_scan_dylib_load_failed(scanLibPath.description))
-      }
-      return true
-    }
-    return false
-  }
-
   static func sanitizeCommandForLibScanInvocation(_ command: inout [String]) {
     // Remove the tool executable to only leave the arguments. When passing the
     // command line into libSwiftScan, the library is itself the tool and only
@@ -213,8 +182,7 @@ public extension Driver {
     let forceResponseFiles = parsedOptions.hasArgument(.driverForceResponseFiles)
     let imports: InterModuleDependencyImports
 
-    let isSwiftScanLibAvailable = !(try initSwiftScanLib())
-    if isSwiftScanLibAvailable {
+    if supportInProcessSwiftScanQueries {
       var scanDiagnostics: [ScannerDiagnosticPayload] = []
       guard let cwd = workingDirectory else {
         throw DependencyScanningError.dependencyScanFailed("cannot determine working directory")
@@ -290,8 +258,7 @@ public extension Driver {
       stdoutStream.flush()
     }
 
-    let isSwiftScanLibAvailable = !(try initSwiftScanLib())
-    if isSwiftScanLibAvailable {
+    if supportInProcessSwiftScanQueries {
       var scanDiagnostics: [ScannerDiagnosticPayload] = []
       guard let cwd = workingDirectory else {
         throw DependencyScanningError.dependencyScanFailed("cannot determine working directory")
@@ -329,8 +296,7 @@ public extension Driver {
     let forceResponseFiles = parsedOptions.hasArgument(.driverForceResponseFiles)
     let moduleVersionedGraphMap: [ModuleDependencyId: [InterModuleDependencyGraph]]
 
-    let isSwiftScanLibAvailable = !(try initSwiftScanLib())
-    if isSwiftScanLibAvailable {
+    if supportInProcessSwiftScanQueries {
       var scanDiagnostics: [ScannerDiagnosticPayload] = []
       guard let cwd = workingDirectory else {
         throw DependencyScanningError.dependencyScanFailed("cannot determine working directory")
@@ -497,4 +463,8 @@ public extension Driver {
       .parentDirectory // bin
       .parentDirectory // toolchain root
   }
+}
+
+extension Driver {
+  var supportInProcessSwiftScanQueries: Bool { return self.swiftScanLibInstance != nil }
 }

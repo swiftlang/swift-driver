@@ -158,6 +158,10 @@ public struct Driver {
   /// Whether we are using the driver as the integrated driver via libSwiftDriver
   public let integratedDriver: Bool
 
+  /// If true, the driver instance is executed in the context of a
+  /// Swift compiler image which contains symbols normally queried from a libSwiftScan instance.
+  internal let compilerIntegratedTooling: Bool
+
   /// The file system which we should interact with.
   @_spi(Testing) public let fileSystem: FileSystem
 
@@ -409,6 +413,10 @@ public struct Driver {
   /// as explicit inputs by the various compilation jobs.
   @_spi(Testing) public var explicitDependencyBuildPlanner: ExplicitDependencyBuildPlanner? = nil
 
+  /// A reference to the instance of libSwiftScan which is shared with the driver's
+  /// `InterModuleDependencyOracle`, but also used for non-scanning tasks, such as target info
+  /// and supported compiler feature queries
+  @_spi(Testing) public var swiftScanLibInstance: SwiftScan? = nil
   /// An oracle for querying inter-module dependencies
   /// Can either be an argument to the driver in many-module contexts where dependency information
   /// is shared across many targets; otherwise, a new instance is created by the driver itself.
@@ -572,6 +580,33 @@ public struct Driver {
       fileSystem: fileSystem,
       executor: executor,
       integratedDriver: integratedDriver,
+      compilerIntegratedTooling: false,
+      compilerExecutableDir: compilerExecutableDir,
+      externalTargetModuleDetailsMap: externalTargetModuleDetailsMap,
+      interModuleDependencyOracle: interModuleDependencyOracle
+    )
+  }
+
+  @available(*, deprecated, renamed: "init(args:env:diagnosticsOutput:fileSystem:executor:integratedDriver:compilerIntegratedTooling:compilerExecutableDir:externalTargetModuleDetailsMap:interModuleDependencyOracle:)")
+  public init(
+    args: [String],
+    env: [String: String] = ProcessEnv.vars,
+    diagnosticsOutput: DiagnosticsOutput = .engine(DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler])),
+    fileSystem: FileSystem = localFileSystem,
+    executor: DriverExecutor,
+    integratedDriver: Bool = true,
+    compilerExecutableDir: AbsolutePath? = nil,
+    externalTargetModuleDetailsMap: ExternalTargetModuleDetailsMap? = nil,
+    interModuleDependencyOracle: InterModuleDependencyOracle? = nil
+  ) throws {
+    try self.init(
+      args: args,
+      env: env,
+      diagnosticsOutput: diagnosticsOutput,
+      fileSystem: fileSystem,
+      executor: executor,
+      integratedDriver: integratedDriver,
+      compilerIntegratedTooling: false,
       compilerExecutableDir: compilerExecutableDir,
       externalTargetModuleDetailsMap: externalTargetModuleDetailsMap,
       interModuleDependencyOracle: interModuleDependencyOracle
@@ -592,6 +627,8 @@ public struct Driver {
   ///   is present to streamline testing, it shouldn't be used in production.
   /// - Parameter integratedDriver: Used to distinguish whether the driver is being used as
   ///   an executable or as a library.
+  /// - Parameter compilerIntegratedTooling: If true, this code is executed in the context of a
+  ///   Swift compiler image which contains symbols normally queried from a libSwiftScan instance.
   /// - Parameter compilerExecutableDir: Directory that contains the compiler executable to be used.
   ///   Used when in `integratedDriver` mode as a substitute for the driver knowing its executable path.
   /// - Parameter externalTargetModuleDetailsMap: A dictionary of external targets that are a part of
@@ -606,6 +643,7 @@ public struct Driver {
     fileSystem: FileSystem = localFileSystem,
     executor: DriverExecutor,
     integratedDriver: Bool = true,
+    compilerIntegratedTooling: Bool = false,
     compilerExecutableDir: AbsolutePath? = nil,
     externalTargetModuleDetailsMap: ExternalTargetModuleDetailsMap? = nil,
     interModuleDependencyOracle: InterModuleDependencyOracle? = nil
@@ -613,6 +651,7 @@ public struct Driver {
     self.env = env
     self.fileSystem = fileSystem
     self.integratedDriver = integratedDriver
+    self.compilerIntegratedTooling = compilerIntegratedTooling
 
     let diagnosticsEngine: DiagnosticsEngine
     switch diagnosticsOutput {
@@ -668,7 +707,7 @@ public struct Driver {
     self.useStaticResourceDir = staticExecutable || staticStdlib
 
     // Build the toolchain and determine target information.
-    (self.toolchain, self.frontendTargetInfo, self.swiftCompilerPrefixArgs) =
+    (self.toolchain, self.swiftCompilerPrefixArgs) =
         try Self.computeToolchain(
           &self.parsedOptions, diagnosticsEngine: diagnosticEngine,
           compilerMode: self.compilerMode, env: env,
@@ -677,13 +716,40 @@ public struct Driver {
           workingDirectory: self.workingDirectory,
           compilerExecutableDir: compilerExecutableDir)
 
+    // Create an instance of an inter-module dependency oracle, if the driver's
+    // client did not provide one. The clients are expected to provide an oracle
+    // when they wish to share module dependency information across targets.
+    if let dependencyOracle = interModuleDependencyOracle {
+      self.interModuleDependencyOracle = dependencyOracle
+    } else {
+      self.interModuleDependencyOracle = InterModuleDependencyOracle()
+    }
+
+    self.swiftScanLibInstance = try Self.initializeSwiftScanInstance(&parsedOptions,
+                                                                     diagnosticsEngine: diagnosticEngine,
+                                                                     toolchain: self.toolchain,
+                                                                     interModuleDependencyOracle: self.interModuleDependencyOracle,
+                                                                     fileSystem: self.fileSystem,
+                                                                     compilerIntegratedTooling: self.compilerIntegratedTooling)
+
     // Compute the host machine's triple
     self.hostTriple =
       try Self.computeHostTriple(&self.parsedOptions, diagnosticsEngine: diagnosticEngine,
+                                 libSwiftScan: self.swiftScanLibInstance,
                                  toolchain: self.toolchain, executor: self.executor,
                                  fileSystem: fileSystem,
-                                 workingDirectory: self.workingDirectory,
-                                 swiftCompilerPrefixArgs: self.swiftCompilerPrefixArgs)
+                                 workingDirectory: self.workingDirectory)
+
+    // Compute the entire target info, including runtime resource paths
+    self.frontendTargetInfo = try Self.computeTargetInfo(&self.parsedOptions, diagnosticsEngine: diagnosticEngine,
+                                                         compilerMode: self.compilerMode, env: env,
+                                                         executor: self.executor,
+                                                         libSwiftScan: self.swiftScanLibInstance,
+                                                         toolchain: self.toolchain,
+                                                         fileSystem: fileSystem,
+                                                         useStaticResourceDir: self.useStaticResourceDir,
+                                                         workingDirectory: self.workingDirectory,
+                                                         compilerExecutableDir: compilerExecutableDir)
 
     // Classify and collect all of the input files.
     let inputFiles = try Self.collectInputFiles(&self.parsedOptions, diagnosticsEngine: diagnosticsEngine, fileSystem: self.fileSystem)
@@ -714,15 +780,6 @@ public struct Driver {
       } else {
         self.outputFileMap = outputFileMap
       }
-    }
-
-    // Create an instance of an inter-module dependency oracle, if the driver's
-    // client did not provide one. The clients are expected to provide an oracle
-    // when they wish to share module dependency information across targets.
-    if let dependencyOracle = interModuleDependencyOracle {
-      self.interModuleDependencyOracle = dependencyOracle
-    } else {
-      self.interModuleDependencyOracle = InterModuleDependencyOracle()
     }
 
     self.fileListThreshold = try Self.computeFileListThreshold(&self.parsedOptions, diagnosticsEngine: diagnosticsEngine)
@@ -810,6 +867,7 @@ public struct Driver {
 
     self.supportedFrontendFlags =
       try Self.computeSupportedCompilerArgs(of: self.toolchain,
+                                            libSwiftScan: self.swiftScanLibInstance,
                                             parsedOptions: &self.parsedOptions,
                                             diagnosticsEngine: diagnosticEngine,
                                             fileSystem: fileSystem,
@@ -852,6 +910,18 @@ public struct Driver {
       self.scannerPrefixMapToolchain = try AbsolutePath(validating: toolchainMapping)
     } else {
       self.scannerPrefixMapToolchain = nil
+    }
+
+    // Initialize the CAS instance
+    if self.swiftScanLibInstance != nil &&
+        self.enableCaching &&
+        self.supportedFrontendFeatures.contains(KnownCompilerFeature.compilation_caching.rawValue) {
+      self.cas =
+        try self.interModuleDependencyOracle.getOrCreateCAS(pluginPath: try Self.getCASPluginPath(parsedOptions: &self.parsedOptions,
+                                                                                                  toolchain: self.toolchain),
+                                                            onDiskPath: try Self.getOnDiskCASPath(parsedOptions: &self.parsedOptions,
+                                                                                                  toolchain: self.toolchain),
+                                                            pluginOptions: try Self.getCASPluginOptions(parsedOptions: &self.parsedOptions))
     }
 
     self.enabledSanitizers = try Self.parseSanitizerArgValues(
@@ -1475,6 +1545,38 @@ extension Diagnostic.Message {
 }
 
 extension Driver {
+  func explainModuleDependency(_ explainModuleName: String, allPaths: Bool) throws {
+    guard let dependencyPlanner = explicitDependencyBuildPlanner else {
+      fatalError("Cannot explain dependency without Explicit Build Planner")
+    }
+    guard let dependencyPaths = try dependencyPlanner.explainDependency(explainModuleName, allPaths: allPaths) else {
+      diagnosticEngine.emit(.remark("No such module dependency found: '\(explainModuleName)'"))
+      return
+    }
+    diagnosticEngine.emit(.remark("Module '\(moduleOutputInfo.name)' depends on '\(explainModuleName)'"))
+    for path in dependencyPaths {
+      var pathString:String = ""
+      for (index, moduleId) in path.enumerated() {
+        switch moduleId {
+        case .swift(let moduleName):
+          pathString = pathString + "[" + moduleName + "]"
+        case .swiftPrebuiltExternal(let moduleName):
+          pathString = pathString + "[" + moduleName + "]"
+        case .clang(let moduleName):
+          pathString = pathString + "[" + moduleName + "](ObjC)"
+        case .swiftPlaceholder(_):
+          fatalError("Unexpected unresolved Placeholder module")
+        }
+        if index < path.count - 1 {
+          pathString = pathString + " -> "
+        }
+      }
+      diagnosticEngine.emit(.note(pathString))
+    }
+  }
+}
+
+extension Driver {
   /// Determine the driver kind based on the command-line arguments, consuming the arguments
   /// conveying this information.
   @_spi(Testing) public static func determineDriverKind(
@@ -1520,34 +1622,10 @@ extension Driver {
     }
 
     // If we're only supposed to explain a dependency on a given module, do so now.
-    if let explainModuleName = parsedOptions.getLastArgument(.explainModuleDependency) {
-      guard let dependencyPlanner = explicitDependencyBuildPlanner else {
-        fatalError("Cannot explain dependency without Explicit Build Planner")
-      }
-      guard let dependencyPaths = try dependencyPlanner.explainDependency(explainModuleName.asSingle) else {
-        diagnosticEngine.emit(.remark("No such module dependency found: '\(explainModuleName.asSingle)'"))
-        return
-      }
-      diagnosticEngine.emit(.remark("Module '\(moduleOutputInfo.name)' depends on '\(explainModuleName.asSingle)'"))
-      for path in dependencyPaths {
-        var pathString:String = ""
-        for (index, moduleId) in path.enumerated() {
-          switch moduleId {
-          case .swift(let moduleName):
-            pathString = pathString + "[" + moduleName + "]"
-          case .swiftPrebuiltExternal(let moduleName):
-            pathString = pathString + "[" + moduleName + "]"
-          case .clang(let moduleName):
-            pathString = pathString + "[" + moduleName + "](ObjC)"
-          case .swiftPlaceholder(_):
-            fatalError("Unexpected unresolved Placeholder module")
-          }
-          if index < path.count - 1 {
-            pathString = pathString + " -> "
-          }
-        }
-        diagnosticEngine.emit(.note(pathString))
-      }
+    if let explainModuleName = parsedOptions.getLastArgument(.explainModuleDependencyDetailed) {
+      try explainModuleDependency(explainModuleName.asSingle, allPaths: true)
+    } else if let explainModuleNameDetailed = parsedOptions.getLastArgument(.explainModuleDependency) {
+      try explainModuleDependency(explainModuleNameDetailed.asSingle, allPaths: false)
     }
 
     if parsedOptions.contains(.driverPrintOutputFileMap) {
@@ -2921,10 +2999,19 @@ extension Diagnostic.Message {
 extension Driver {
   static func validateWarningControlArgs(_ parsedOptions: inout ParsedOptions,
                                          diagnosticEngine: DiagnosticsEngine) {
-    if parsedOptions.hasArgument(.suppressWarnings) &&
-        parsedOptions.hasFlag(positive: .warningsAsErrors, negative: .noWarningsAsErrors, default: false) {
-      diagnosticEngine.emit(.error(Error.conflictingOptions(.warningsAsErrors, .suppressWarnings)),
-                            location: nil)
+    if parsedOptions.hasArgument(.suppressWarnings) {
+      if parsedOptions.hasFlag(positive: .warningsAsErrors, negative: .noWarningsAsErrors, default: false) {
+        diagnosticEngine.emit(.error(Error.conflictingOptions(.warningsAsErrors, .suppressWarnings)),
+                              location: nil)
+      }
+      if parsedOptions.hasArgument(.Wwarning) {
+        diagnosticEngine.emit(.error(Error.conflictingOptions(.Wwarning, .suppressWarnings)),
+                              location: nil)
+      }
+      if parsedOptions.hasArgument(.Werror) {
+        diagnosticEngine.emit(.error(Error.conflictingOptions(.Werror, .suppressWarnings)),
+                              location: nil)
+      }
     }
   }
 
@@ -3209,21 +3296,51 @@ extension Driver {
   static func computeHostTriple(
     _ parsedOptions: inout ParsedOptions,
     diagnosticsEngine: DiagnosticsEngine,
+    libSwiftScan: SwiftScan?,
     toolchain: Toolchain,
     executor: DriverExecutor,
     fileSystem: FileSystem,
-    workingDirectory: AbsolutePath?,
-    swiftCompilerPrefixArgs: [String]) throws -> Triple {
+    workingDirectory: AbsolutePath?) throws -> Triple {
 
     let frontendOverride = try FrontendOverride(&parsedOptions, diagnosticsEngine)
     frontendOverride.setUpForTargetInfo(toolchain)
     defer { frontendOverride.setUpForCompilation(toolchain) }
     return try Self.computeTargetInfo(target: nil, targetVariant: nil,
                                       swiftCompilerPrefixArgs: frontendOverride.prefixArgsForTargetInfo,
+                                      libSwiftScan: libSwiftScan,
                                       toolchain: toolchain, fileSystem: fileSystem,
                                       workingDirectory: workingDirectory,
                                       diagnosticsEngine: diagnosticsEngine,
                                       executor: executor).target.triple
+  }
+
+  static func initializeSwiftScanInstance(
+    _ parsedOptions: inout ParsedOptions,
+    diagnosticsEngine: DiagnosticsEngine,
+    toolchain: Toolchain,
+    interModuleDependencyOracle: InterModuleDependencyOracle,
+    fileSystem: FileSystem,
+    compilerIntegratedTooling: Bool) throws -> SwiftScan? {
+      guard !parsedOptions.hasArgument(.driverScanDependenciesNonLib) else {
+        return nil
+      }
+
+      let swiftScanLibPath: AbsolutePath? = compilerIntegratedTooling ? nil : try toolchain.lookupSwiftScanLib()
+      do {
+        guard compilerIntegratedTooling ||
+              (swiftScanLibPath != nil && fileSystem.exists(swiftScanLibPath!))  else {
+          diagnosticsEngine.emit(.warn_scan_dylib_not_found())
+          return nil
+        }
+
+        // Ensure the oracle initializes or verifies the existing scanner instance
+        try interModuleDependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: swiftScanLibPath)
+        // The driver needs a reference to this for non-scanning tasks
+        return interModuleDependencyOracle.getScannerInstance()
+      } catch {
+        diagnosticsEngine.emit(.warn_scan_dylib_load_failed(swiftScanLibPath?.description ?? "built-in"))
+      }
+      return nil
   }
 
   static func computeToolchain(
@@ -3236,23 +3353,11 @@ extension Driver {
     useStaticResourceDir: Bool,
     workingDirectory: AbsolutePath?,
     compilerExecutableDir: AbsolutePath?
-  ) throws -> (Toolchain, FrontendTargetInfo, [String]) {
+  ) throws -> (Toolchain, [String]) {
     let explicitTarget = (parsedOptions.getLastArgument(.target)?.asSingle)
       .map {
         Triple($0, normalizing: true)
       }
-    let explicitTargetVariant = (parsedOptions.getLastArgument(.targetVariant)?.asSingle)
-      .map {
-        Triple($0, normalizing: true)
-      }
-
-    // Determine the resource directory.
-    let resourceDirPath: VirtualPath?
-    if let resourceDirArg = parsedOptions.getLastArgument(.resourceDir) {
-      resourceDirPath = try VirtualPath(path: resourceDirArg.asSingle)
-    } else {
-      resourceDirPath = nil
-    }
 
     let toolchainType = try explicitTarget?.toolchainType(diagnosticsEngine) ??
           defaultToolchainType
@@ -3267,29 +3372,60 @@ extension Driver {
                                        toolDirectory: toolDir)
 
     let frontendOverride = try FrontendOverride(&parsedOptions, diagnosticsEngine)
+    return (toolchain, frontendOverride.prefixArgs)
+  }
+
+  static func computeTargetInfo(_ parsedOptions: inout ParsedOptions,
+                                diagnosticsEngine: DiagnosticsEngine,
+                                compilerMode: CompilerMode,
+                                env: [String: String],
+                                executor: DriverExecutor,
+                                libSwiftScan: SwiftScan?,
+                                toolchain: Toolchain,
+                                fileSystem: FileSystem,
+                                useStaticResourceDir: Bool,
+                                workingDirectory: AbsolutePath?,
+                                compilerExecutableDir: AbsolutePath?) throws -> FrontendTargetInfo {
+    let explicitTarget = (parsedOptions.getLastArgument(.target)?.asSingle)
+      .map {
+        Triple($0, normalizing: true)
+      }
+    let explicitTargetVariant = (parsedOptions.getLastArgument(.targetVariant)?.asSingle)
+      .map {
+        Triple($0, normalizing: true)
+      }
+
+    let frontendOverride = try FrontendOverride(&parsedOptions, diagnosticsEngine)
     frontendOverride.setUpForTargetInfo(toolchain)
     defer { frontendOverride.setUpForCompilation(toolchain) }
+
     // Find the SDK, if any.
     let sdkPath: VirtualPath? = Self.computeSDKPath(
       &parsedOptions, compilerMode: compilerMode, toolchain: toolchain,
       targetTriple: explicitTarget, fileSystem: fileSystem,
       diagnosticsEngine: diagnosticsEngine, env: env)
 
-
     // Query the frontend for target information.
     do {
+      // Determine the resource directory.
+      let resourceDirPath: VirtualPath?
+      if let resourceDirArg = parsedOptions.getLastArgument(.resourceDir) {
+        resourceDirPath = try VirtualPath(path: resourceDirArg.asSingle)
+      } else {
+        resourceDirPath = nil
+      }
       var info: FrontendTargetInfo =
         try Self.computeTargetInfo(target: explicitTarget, targetVariant: explicitTargetVariant,
                                    sdkPath: sdkPath, resourceDirPath: resourceDirPath,
                                    runtimeCompatibilityVersion:
-                                     parsedOptions.getLastArgument(.runtimeCompatibilityVersion)?.asSingle,
+                                    parsedOptions.getLastArgument(.runtimeCompatibilityVersion)?.asSingle,
                                    useStaticResourceDir: useStaticResourceDir,
                                    swiftCompilerPrefixArgs: frontendOverride.prefixArgsForTargetInfo,
+                                   libSwiftScan: libSwiftScan,
                                    toolchain: toolchain, fileSystem: fileSystem,
                                    workingDirectory: workingDirectory,
                                    diagnosticsEngine: diagnosticsEngine,
                                    executor: executor)
-
       // Parse the runtime compatibility version. If present, it will override
       // what is reported by the frontend.
       if let versionString =
@@ -3311,23 +3447,23 @@ extension Driver {
         diagnosticsEngine.emit(.warning_inferring_simulator_target(originalTriple: explicitTarget,
                                                                    inferredTriple: info.target.triple))
       }
-      return (toolchain, info, frontendOverride.prefixArgs)
+      return info
     } catch let JobExecutionError.decodingError(decodingError,
                                                 dataToDecode,
                                                 processResult) {
       let stringToDecode = String(data: dataToDecode, encoding: .utf8)
       let errorDesc: String
       switch decodingError {
-        case let .typeMismatch(type, context):
-          errorDesc = "type mismatch: \(type), path: \(context.codingPath)"
-        case let .valueNotFound(type, context):
-          errorDesc = "value missing: \(type), path: \(context.codingPath)"
-        case let .keyNotFound(key, context):
-          errorDesc = "key missing: \(key), path: \(context.codingPath)"
-       case let .dataCorrupted(context):
-          errorDesc = "data corrupted at path: \(context.codingPath)"
-        @unknown default:
-          errorDesc = "unknown decoding error"
+      case let .typeMismatch(type, context):
+        errorDesc = "type mismatch: \(type), path: \(context.codingPath)"
+      case let .valueNotFound(type, context):
+        errorDesc = "value missing: \(type), path: \(context.codingPath)"
+      case let .keyNotFound(key, context):
+        errorDesc = "key missing: \(key), path: \(context.codingPath)"
+      case let .dataCorrupted(context):
+        errorDesc = "data corrupted at path: \(context.codingPath)"
+      @unknown default:
+        errorDesc = "unknown decoding error"
       }
       throw Error.unableToDecodeFrontendTargetInfo(
         stringToDecode,
@@ -3621,21 +3757,23 @@ extension Driver {
 
 // CAS and Caching.
 extension Driver {
-  mutating func getCASPluginPath() throws -> AbsolutePath? {
+  static func getCASPluginPath(parsedOptions: inout ParsedOptions,
+                               toolchain: Toolchain) throws -> AbsolutePath? {
     if let pluginPath = parsedOptions.getLastArgument(.casPluginPath)?.asSingle {
       return try AbsolutePath(validating: pluginPath.description)
     }
     return try toolchain.lookupToolchainCASPluginLib()
   }
 
-  mutating func getOnDiskCASPath() throws -> AbsolutePath? {
+  static func getOnDiskCASPath(parsedOptions: inout ParsedOptions,
+                               toolchain: Toolchain) throws -> AbsolutePath? {
     if let casPathOpt = parsedOptions.getLastArgument(.casPath)?.asSingle {
       return try AbsolutePath(validating: casPathOpt.description)
     }
     return nil;
   }
 
-  mutating func getCASPluginOptions() throws -> [(String, String)] {
+  static func getCASPluginOptions(parsedOptions: inout ParsedOptions) throws -> [(String, String)] {
     var options : [(String, String)] = []
     for opt in parsedOptions.arguments(for: .casPluginOption) {
       let pluginArg = opt.argument.asSingle.split(separator: "=", maxSplits: 1)

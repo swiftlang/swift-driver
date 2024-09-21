@@ -618,8 +618,19 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
 }
 
 internal extension ExplicitDependencyBuildPlanner {
-  func explainDependency(_ dependencyModuleName: String) throws -> [[ModuleDependencyId]]? {
-    return try dependencyGraph.explainDependency(dependencyModuleName: dependencyModuleName)
+  func explainDependency(_ dependencyModuleName: String, allPaths: Bool) throws -> [[ModuleDependencyId]]? {
+    return try dependencyGraph.explainDependency(dependencyModuleName: dependencyModuleName, allPaths: allPaths)
+  }
+
+  func findPath(from source: ModuleDependencyId, to destination: ModuleDependencyId) throws -> [ModuleDependencyId]? {
+    guard dependencyGraph.modules.contains(where: { $0.key == destination }) else { return nil }
+    var result: [ModuleDependencyId]? = nil
+    var visited: Set<ModuleDependencyId> = []
+    try dependencyGraph.findAPath(source: source,
+                                  pathSoFar: [source],
+                                  visited: &visited,
+                                  result: &result) { $0 == destination }
+    return result
   }
 }
 

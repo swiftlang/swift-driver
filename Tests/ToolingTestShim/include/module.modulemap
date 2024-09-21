@@ -1,0 +1,4 @@
+module CToolingTestShim {
+  header "tooling_shim.h"
+  export *
+}

@@ -470,12 +470,9 @@ extension Driver {
       assert(backendJobs.count <= 1)
       addCompileJobGroup(CompileJobGroup(compileJob: compile, backendJob: backendJobs.first))
     } else {
-      // TODO: if !canSkipIfOnlyModule {
-      // Some other tools still expect the partial jobs. Bring this check
-      // back once they are updated. rdar://84979778
-
       // We can skip the compile jobs if all we want is a module when it's
       // built separately.
+      if parsedOptions.hasArgument(.driverExplicitModuleBuild), canSkipIfOnlyModule { return }
       let compile = try compileJob(primaryInputs: [primaryInput],
                                    outputType: compilerOutputType,
                                    addJobOutputs: addJobOutputs,

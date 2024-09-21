@@ -112,6 +112,60 @@ private func checkExplicitModuleBuildJobDependencies(job: Job,
   }
 }
 
+internal func getDriverArtifactsForScanning() throws -> (stdLibPath: AbsolutePath,
+                                                         shimsPath: AbsolutePath,
+                                                         toolchain: Toolchain,
+                                                         hostTriple: Triple) {
+  // Just instantiating to get at the toolchain path
+  let driver = try Driver(args: ["swiftc", "-explicit-module-build",
+                                 "-module-name", "testDependencyScanning",
+                                 "test.swift"])
+  let (stdLibPath, shimsPath) = try getStdlibShimsPaths(driver)
+  XCTAssertTrue(localFileSystem.exists(stdLibPath),
+                "expected Swift StdLib at: \(stdLibPath.description)")
+  XCTAssertTrue(localFileSystem.exists(shimsPath),
+                "expected Swift Shims at: \(shimsPath.description)")
+  return (stdLibPath, shimsPath, driver.toolchain, driver.hostTriple)
+}
+
+func getStdlibShimsPaths(_ driver: Driver) throws -> (AbsolutePath, AbsolutePath) {
+  let toolchainRootPath: AbsolutePath = try driver.toolchain.getToolPath(.swiftCompiler)
+                                                          .parentDirectory // bin
+                                                          .parentDirectory // toolchain root
+  if driver.targetTriple.isDarwin {
+    let executor = try SwiftDriverExecutor(diagnosticsEngine: DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler]),
+                                           processSet: ProcessSet(),
+                                           fileSystem: localFileSystem,
+                                           env: ProcessEnv.vars)
+    let sdkPath = try executor.checkNonZeroExit(
+      args: "xcrun", "-sdk", "macosx", "--show-sdk-path").spm_chomp()
+    let stdLibPath = try AbsolutePath(validating: sdkPath).appending(component: "usr")
+      .appending(component: "lib")
+      .appending(component: "swift")
+    return (stdLibPath, stdLibPath.appending(component: "shims"))
+  } else if driver.targetTriple.isWindows {
+    if let sdkroot = try driver.toolchain.defaultSDKPath(driver.targetTriple) {
+      return (sdkroot.appending(components: "usr", "lib", "swift", "windows"),
+              sdkroot.appending(components: "usr", "lib", "swift", "shims"))
+    }
+    return (toolchainRootPath
+              .appending(component: "lib")
+              .appending(component: "swift")
+              .appending(component: driver.targetTriple.osNameUnversioned),
+            toolchainRootPath
+              .appending(component: "lib")
+              .appending(component: "swift")
+              .appending(component: "shims"))
+  } else {
+    return (toolchainRootPath.appending(component: "lib")
+              .appending(component: "swift")
+              .appending(component: driver.targetTriple.osNameUnversioned),
+            toolchainRootPath.appending(component: "lib")
+              .appending(component: "swift")
+              .appending(component: "shims"))
+  }
+}
+
 /// Test that for the given JSON module dependency graph, valid jobs are generated
 final class ExplicitModuleBuildTests: XCTestCase {
   func testModuleDependencyBuildCommandGeneration() throws {
@@ -221,6 +275,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
   }
 
   func testModuleDependencyBuildCommandUniqueDepFile() throws {
+    let (stdlibPath, shimsPath, _, _) = try getDriverArtifactsForScanning()
     try withTemporaryDirectory { path in
       let source0 = path.appending(component: "testModuleDependencyBuildCommandUniqueDepFile1.swift")
       let source1 = path.appending(component: "testModuleDependencyBuildCommandUniqueDepFile2.swift")
@@ -245,9 +300,10 @@ final class ExplicitModuleBuildTests: XCTestCase {
                             .appending(component: "Swift")
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       var driver = try Driver(args: ["swiftc",
-                                     "-target", "x86_64-apple-macosx11.0",
                                      "-I", cHeadersPath.nativePathString(escaped: true),
                                      "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                     "-I", stdlibPath.nativePathString(escaped: true),
+                                     "-I", shimsPath.nativePathString(escaped: true),
                                      "-explicit-module-build",
                                      "-import-objc-header", bridgingHeaderpath.nativePathString(escaped: true),
                                      source0.nativePathString(escaped: true),
@@ -277,6 +333,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
   /// Test generation of explicit module build jobs for dependency modules when the driver
   /// is invoked with -explicit-module-build
   func testBridgingHeaderDeps() throws {
+    let (stdlibPath, shimsPath, _, _) = try getDriverArtifactsForScanning()
     try withTemporaryDirectory { path in
       let main = path.appending(component: "testExplicitModuleBuildJobs.swift")
       try localFileSystem.writeFileContents(main, bytes:
@@ -296,9 +353,10 @@ final class ExplicitModuleBuildTests: XCTestCase {
         .appending(component: "Swift")
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       var driver = try Driver(args: ["swiftc",
-                                     "-target", "x86_64-apple-macosx11.0",
                                      "-I", cHeadersPath.nativePathString(escaped: true),
                                      "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                     "-I", stdlibPath.nativePathString(escaped: true),
+                                     "-I", shimsPath.nativePathString(escaped: true),
                                      "-explicit-module-build",
                                      "-import-objc-header", bridgingHeaderpath.nativePathString(escaped: true),
                                      main.nativePathString(escaped: true)] + sdkArgumentsForTesting)
@@ -368,26 +426,29 @@ final class ExplicitModuleBuildTests: XCTestCase {
       // 2. Run a dependency scan to find the just-built module
       let dependencyOracle = InterModuleDependencyOracle()
       let scanLibPath = try XCTUnwrap(toolchain.lookupSwiftScanLib())
-      try dependencyOracle.verifyOrCreateScannerInstance(fileSystem: localFileSystem,
-                                                         swiftScanLibPath: scanLibPath)
+      try dependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
       guard try dependencyOracle.supportsLinkLibraries() else {
         throw XCTSkip("libSwiftScan does not support link library reporting.")
       }
 
-      var driver = try Driver(args: ["swiftc",
-                                     "-I", cHeadersPath.nativePathString(escaped: true),
-                                     "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
-                                     "-explicit-module-build",
-                                     "-import-objc-header", bridgingHeaderpath.nativePathString(escaped: true),
-                                     main.nativePathString(escaped: true)] + sdkArgumentsForTesting)
+      var args = ["swiftc",
+                  "-I", cHeadersPath.nativePathString(escaped: true),
+                  "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                  "-explicit-module-build",
+                  "-import-objc-header", bridgingHeaderpath.nativePathString(escaped: true),
+                  main.nativePathString(escaped: true)] + sdkArgumentsForTesting
+      var driver = try Driver(args: args)
+      // If this is a supported flow, then it is currently required for this test
+      if driver.isFrontendArgSupported(.scannerModuleValidation) {
+        driver = try Driver(args: args + ["-scanner-module-validation"])
+      }
+
       let _ = try driver.planBuild()
       let dependencyGraph = try XCTUnwrap(driver.explicitDependencyBuildPlanner?.dependencyGraph)
 
       let checkForLinkLibrary = { (info: ModuleInfo, linkName: String, isFramework: Bool, shouldForceLoad: Bool) in
         let linkLibraries = try XCTUnwrap(info.linkLibraries)
-        XCTAssertEqual(linkLibraries.count, 1)
-        let linkLibrary = try XCTUnwrap(linkLibraries.first)
-        XCTAssertEqual(linkLibrary.linkName, linkName)
+        let linkLibrary = try XCTUnwrap(linkLibraries.first { $0.linkName == linkName })
         XCTAssertEqual(linkLibrary.isFramework, isFramework)
         XCTAssertEqual(linkLibrary.shouldForceLoad, shouldForceLoad)
       }
@@ -434,6 +495,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
   /// Test generation of explicit module build jobs for dependency modules when the driver
   /// is invoked with -explicit-module-build
   func testExplicitModuleBuildJobs() throws {
+    let (stdlibPath, shimsPath, _, hostTriple) = try getDriverArtifactsForScanning()
     try withTemporaryDirectory { path in
       let main = path.appending(component: "testExplicitModuleBuildJobs.swift")
       try localFileSystem.writeFileContents(main, bytes:
@@ -454,9 +516,10 @@ final class ExplicitModuleBuildTests: XCTestCase {
                             .appending(component: "Swift")
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       var driver = try Driver(args: ["swiftc",
-                                     "-target", "x86_64-apple-macosx11.0",
                                      "-I", cHeadersPath.nativePathString(escaped: true),
                                      "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                     "-I", stdlibPath.nativePathString(escaped: true),
+                                     "-I", shimsPath.nativePathString(escaped: true),
                                      "-explicit-module-build",
                                      "-import-objc-header", bridgingHeaderpath.nativePathString(escaped: true),
                                      main.nativePathString(escaped: true)] + sdkArgumentsForTesting)
@@ -531,6 +594,12 @@ final class ExplicitModuleBuildTests: XCTestCase {
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang("_SwiftConcurrencyShims"),
                                             dependencyGraph: dependencyGraph)
           }
+          else if hostTriple.isMacOSX,
+             hostTriple.version(for: .macOS) < Triple.Version(11, 0, 0),
+             relativeOutputPathFileName.starts(with: "X-") {
+            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("X"),
+                                            dependencyGraph: dependencyGraph)
+          }
           else {
             XCTFail("Unexpected module dependency build job output: \(outputFilePath)")
           }
@@ -558,6 +627,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
   /// Test generation of explicit module build jobs for dependency modules when the driver
   /// is invoked with -explicit-module-build, -verify-emitted-module-interface and -enable-library-evolution.
   func testExplicitModuleVerifyInterfaceJobs() throws {
+    let (stdlibPath, shimsPath, _, _) = try getDriverArtifactsForScanning()
     try withTemporaryDirectory { path in
       let main = path.appending(component: "testExplicitModuleVerifyInterfaceJobs.swift")
       try localFileSystem.writeFileContents(main) {
@@ -574,9 +644,10 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let privateSwiftInterfacePath: AbsolutePath = path.appending(component: "testExplicitModuleVerifyInterfaceJobs.private.swiftinterface")
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       var driver = try Driver(args: ["swiftc",
-                                     "-target", "x86_64-apple-macosx11.0",
                                      "-I", cHeadersPath.nativePathString(escaped: true),
                                      "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                     "-I", stdlibPath.nativePathString(escaped: true),
+                                     "-I", shimsPath.nativePathString(escaped: true),
                                      "-emit-module-interface-path", swiftInterfacePath.nativePathString(escaped: true),
                                      "-emit-private-module-interface-path", privateSwiftInterfacePath.nativePathString(escaped: true),
                                      "-explicit-module-build", "-verify-emitted-module-interface",
@@ -690,6 +761,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
   /// Test generation of explicit module build jobs for dependency modules when the driver
   /// is invoked with -explicit-module-build and -pch-output-dir
   func testExplicitModuleBuildPCHOutputJobs() throws {
+    let (stdlibPath, shimsPath, _, _) = try getDriverArtifactsForScanning()
     try withTemporaryDirectory { path in
       let main = path.appending(component: "testExplicitModuleBuildPCHOutputJobs.swift")
       try localFileSystem.writeFileContents(main, bytes:
@@ -711,9 +783,10 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       let pchOutputDir: AbsolutePath = path
       var driver = try Driver(args: ["swiftc",
-                                     "-target", "x86_64-apple-macosx11.0",
                                      "-I", cHeadersPath.nativePathString(escaped: true),
                                      "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                     "-I", stdlibPath.nativePathString(escaped: true),
+                                     "-I", shimsPath.nativePathString(escaped: true),
                                      "-explicit-module-build",
                                      "-import-objc-header", bridgingHeaderpath.nativePathString(escaped: true),
                                      "-pch-output-dir", pchOutputDir.nativePathString(escaped: true),
@@ -825,6 +898,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
   }
 
   func testImmediateModeExplicitModuleBuild() throws {
+    let (stdlibPath, shimsPath, _, _) = try getDriverArtifactsForScanning()
     try withTemporaryDirectory { path in
       let main = path.appending(component: "testExplicitModuleBuildJobs.swift")
       try localFileSystem.writeFileContents(main, bytes: "import C\n")
@@ -837,9 +911,10 @@ final class ExplicitModuleBuildTests: XCTestCase {
                             .appending(component: "Swift")
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       var driver = try Driver(args: ["swift",
-                                     "-target", "x86_64-apple-macosx11.0",
                                      "-I", cHeadersPath.nativePathString(escaped: true),
                                      "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                     "-I", stdlibPath.nativePathString(escaped: true),
+                                     "-I", shimsPath.nativePathString(escaped: true),
                                      "-explicit-module-build",
                                      main.nativePathString(escaped: true)] + sdkArgumentsForTesting)
 
@@ -1119,8 +1194,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
     // queries.
     let dependencyOracle = InterModuleDependencyOracle()
     let scanLibPath = try XCTUnwrap(toolchain.lookupSwiftScanLib())
-    try dependencyOracle.verifyOrCreateScannerInstance(fileSystem: localFileSystem,
-                                                       swiftScanLibPath: scanLibPath)
+    try dependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
 
     try withTemporaryDirectory { path in
       let main = path.appending(component: "foo.swift")
@@ -1296,8 +1370,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       // 2. Run a dependency scan to find the just-built module
       let dependencyOracle = InterModuleDependencyOracle()
       let scanLibPath = try XCTUnwrap(toolchain.lookupSwiftScanLib())
-      try dependencyOracle.verifyOrCreateScannerInstance(fileSystem: localFileSystem,
-                                                         swiftScanLibPath: scanLibPath)
+      try dependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
       guard try dependencyOracle.supportsBinaryFrameworkDependencies() else {
         throw XCTSkip("libSwiftScan does not support framework binary dependency reporting.")
       }
@@ -1333,60 +1406,6 @@ final class ExplicitModuleBuildTests: XCTestCase {
     }
   }
 
-  func getStdlibShimsPaths(_ driver: Driver) throws -> (AbsolutePath, AbsolutePath) {
-    let toolchainRootPath: AbsolutePath = try driver.toolchain.getToolPath(.swiftCompiler)
-                                                            .parentDirectory // bin
-                                                            .parentDirectory // toolchain root
-    if driver.targetTriple.isDarwin {
-      let executor = try SwiftDriverExecutor(diagnosticsEngine: DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler]),
-                                             processSet: ProcessSet(),
-                                             fileSystem: localFileSystem,
-                                             env: ProcessEnv.vars)
-      let sdkPath = try executor.checkNonZeroExit(
-        args: "xcrun", "-sdk", "macosx", "--show-sdk-path").spm_chomp()
-      let stdLibPath = try AbsolutePath(validating: sdkPath).appending(component: "usr")
-        .appending(component: "lib")
-        .appending(component: "swift")
-      return (stdLibPath, stdLibPath.appending(component: "shims"))
-    } else if driver.targetTriple.isWindows {
-      if let sdkroot = try driver.toolchain.defaultSDKPath(driver.targetTriple) {
-        return (sdkroot.appending(components: "usr", "lib", "swift", "windows"),
-                sdkroot.appending(components: "usr", "lib", "swift", "shims"))
-      }
-      return (toolchainRootPath
-                .appending(component: "lib")
-                .appending(component: "swift")
-                .appending(component: driver.targetTriple.osNameUnversioned),
-              toolchainRootPath
-                .appending(component: "lib")
-                .appending(component: "swift")
-                .appending(component: "shims"))
-    } else {
-      return (toolchainRootPath.appending(component: "lib")
-                .appending(component: "swift")
-                .appending(component: driver.targetTriple.osNameUnversioned),
-              toolchainRootPath.appending(component: "lib")
-                .appending(component: "swift")
-                .appending(component: "shims"))
-    }
-  }
-
-  private func getDriverArtifactsForScanning() throws -> (stdLibPath: AbsolutePath,
-                                                          shimsPath: AbsolutePath,
-                                                          toolchain: Toolchain,
-                                                          hostTriple: Triple) {
-    // Just instantiating to get at the toolchain path
-    let driver = try Driver(args: ["swiftc", "-explicit-module-build",
-                                   "-module-name", "testDependencyScanning",
-                                   "test.swift"])
-    let (stdLibPath, shimsPath) = try getStdlibShimsPaths(driver)
-    XCTAssertTrue(localFileSystem.exists(stdLibPath),
-                  "expected Swift StdLib at: \(stdLibPath.description)")
-    XCTAssertTrue(localFileSystem.exists(shimsPath),
-                  "expected Swift Shims at: \(shimsPath.description)")
-    return (stdLibPath, shimsPath, driver.toolchain, driver.hostTriple)
-  }
-
   /// Test the libSwiftScan dependency scanning (import-prescan).
   func testDependencyImportPrescan() throws {
     let (stdLibPath, shimsPath, toolchain, _) = try getDriverArtifactsForScanning()
@@ -1395,8 +1414,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
     // queries.
     let dependencyOracle = InterModuleDependencyOracle()
     let scanLibPath = try XCTUnwrap(toolchain.lookupSwiftScanLib())
-    try dependencyOracle.verifyOrCreateScannerInstance(fileSystem: localFileSystem,
-                                                       swiftScanLibPath: scanLibPath)
+    try dependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
 
     // Create a simple test case.
     try withTemporaryDirectory { path in
@@ -1501,8 +1519,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
     // queries.
     let dependencyOracle = InterModuleDependencyOracle()
     let scanLibPath = try XCTUnwrap(toolchain.lookupSwiftScanLib())
-    try dependencyOracle.verifyOrCreateScannerInstance(fileSystem: localFileSystem,
-                                                       swiftScanLibPath: scanLibPath)
+    try dependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
     guard try dependencyOracle.supportsScannerDiagnostics() else {
       throw XCTSkip("libSwiftScan does not support diagnostics query.")
     }
@@ -1663,8 +1680,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
     // queries.
     let dependencyOracle = InterModuleDependencyOracle()
     let scanLibPath = try XCTUnwrap(toolchain.lookupSwiftScanLib())
-    try dependencyOracle.verifyOrCreateScannerInstance(fileSystem: localFileSystem,
-                                                       swiftScanLibPath: scanLibPath)
+    try dependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
 
     // Create a simple test case.
     try withTemporaryDirectory { path in
@@ -1704,6 +1720,10 @@ final class ExplicitModuleBuildTests: XCTestCase {
         scannerCommand.removeFirst()
       }
 
+      if driver.isFrontendArgSupported(.scannerModuleValidation) {
+        XCTAssertTrue(scannerCommand.contains("-scanner-module-validation"))
+      }
+
       // Ensure we do not propagate the usual PCH-handling arguments to the scanner invocation
       XCTAssertFalse(scannerCommand.contains("-pch-output-dir"))
       XCTAssertFalse(scannerCommand.contains("Foo.o"))
@@ -1715,12 +1735,12 @@ final class ExplicitModuleBuildTests: XCTestCase {
       // #if __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ < 110000
       let expectedNumberOfDependencies: Int
       if hostTriple.isMacOSX,
-         hostTriple.version(for: .macOS) >= Triple.Version(11, 0, 0) {
-        expectedNumberOfDependencies = 11
+         hostTriple.version(for: .macOS) < Triple.Version(11, 0, 0) {
+        expectedNumberOfDependencies = 12
       } else if driver.targetTriple.isWindows {
         expectedNumberOfDependencies = 14
       } else {
-        expectedNumberOfDependencies = 12
+        expectedNumberOfDependencies = 11
       }
 
       // Dispatch several iterations in parallel
@@ -1838,8 +1858,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
     // queries.
     let dependencyOracle = InterModuleDependencyOracle()
     let scanLibPath = try XCTUnwrap(toolchain.lookupSwiftScanLib())
-    try dependencyOracle.verifyOrCreateScannerInstance(fileSystem: localFileSystem,
-                                                       swiftScanLibPath: scanLibPath)
+    try dependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
     if !(try dependencyOracle.supportsPerScanDiagnostics()) {
       throw XCTSkip("Scanner does not support per-scan diagnostics")
     }
@@ -2029,8 +2048,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let (stdlibPath, shimsPath, toolchain, _) = try getDriverArtifactsForScanning()
       let dependencyOracle = InterModuleDependencyOracle()
       let scanLibPath = try XCTUnwrap(toolchain.lookupSwiftScanLib())
-      try dependencyOracle.verifyOrCreateScannerInstance(fileSystem: localFileSystem,
-                                                         swiftScanLibPath: scanLibPath)
+      try dependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
       // Create a simple test case.
       try withTemporaryDirectory { path in
         let main = path.appending(component: "testDependencyScanning.swift")
@@ -2080,9 +2098,11 @@ final class ExplicitModuleBuildTests: XCTestCase {
         XCTAssertTrue(contents.contains("\"G\" [style=bold, color=orange"))
         XCTAssertTrue(contents.contains("\"E\" [style=bold, color=orange, style=filled"))
         XCTAssertTrue(contents.contains("\"C (C)\" [style=bold, color=lightskyblue, style=filled"))
-        XCTAssertTrue(contents.contains("\"Swift\" [style=bold, color=orange, style=filled"))
+        XCTAssertTrue(contents.contains("\"Swift\" [style=bold, color=orange, style=filled") ||
+                      contents.contains("\"Swift (Prebuilt)\" [style=bold, color=darkorange3, style=filled"))
         XCTAssertTrue(contents.contains("\"SwiftShims (C)\" [style=bold, color=lightskyblue, style=filled"))
-        XCTAssertTrue(contents.contains("\"Swift\" -> \"SwiftShims (C)\" [color=black];"))
+        XCTAssertTrue(contents.contains("\"Swift\" -> \"SwiftShims (C)\" [color=black];") ||
+	              contents.contains("\"Swift (Prebuilt)\" -> \"SwiftShims (C)\" [color=black];"))
       }
   }
 
@@ -2129,8 +2149,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let scanLibPath = try XCTUnwrap(toolchain.lookupSwiftScanLib())
       // Run the first scan and serialize the cache contents.
       let firstDependencyOracle = InterModuleDependencyOracle()
-      try firstDependencyOracle.verifyOrCreateScannerInstance(fileSystem: localFileSystem,
-                                                              swiftScanLibPath: scanLibPath)
+      try firstDependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
       var firstScanDiagnostics: [ScannerDiagnosticPayload] = []
       let firstScanGraph =
         try firstDependencyOracle.getDependencies(workingDirectory: path,
@@ -2140,8 +2159,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
 
       // Run the second scan, re-using the serialized cache contents.
       let secondDependencyOracle = InterModuleDependencyOracle()
-      try secondDependencyOracle.verifyOrCreateScannerInstance(fileSystem: localFileSystem,
-                                                               swiftScanLibPath: scanLibPath)
+      try secondDependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
       XCTAssertFalse(secondDependencyOracle.loadScannerCache(from: cacheSavePath))
       var secondScanDiagnostics: [ScannerDiagnosticPayload] = []
       let secondScanGraph =
@@ -2227,7 +2245,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let moduleCachePath = path.appending(component: "ModuleCache")
       try localFileSystem.createDirectory(moduleCachePath)
       let main = path.appending(component: "testTraceDependency.swift")
-      try localFileSystem.writeFileContents(main, bytes: 
+      try localFileSystem.writeFileContents(main, bytes:
         """
         import C;\
         import E;\
@@ -2242,30 +2260,99 @@ final class ExplicitModuleBuildTests: XCTestCase {
           try testInputsPath.appending(component: "ExplicitModuleBuilds")
                             .appending(component: "Swift")
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+
+      // Detailed explain (all possible paths)
+      do {
+        var driver = try Driver(args: ["swiftc",
+                                       "-I", cHeadersPath.nativePathString(escaped: true),
+                                       "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                       "-explicit-module-build", "-v",
+                                       "-module-cache-path", moduleCachePath.nativePathString(escaped: true),
+                                       "-working-directory", path.nativePathString(escaped: true),
+                                       "-explain-module-dependency-detailed", "A",
+                                       main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
+                                env: ProcessEnv.vars)
+        let jobs = try driver.planBuild()
+        try driver.run(jobs: jobs)
+        XCTAssertTrue(!driver.diagnosticEngine.diagnostics.isEmpty)
+        XCTAssertTrue(driver.diagnosticEngine.diagnostics.contains { $0.behavior == .remark &&
+          $0.message.text == "Module 'testTraceDependency' depends on 'A'"})
+
+        for diag in driver.diagnosticEngine.diagnostics {
+          print(diag.behavior)
+          print(diag.message)
+        }
+        XCTAssertEqual(driver.diagnosticEngine.diagnostics.filter { $0.behavior == .note}.count, 2)
+        XCTAssertTrue(driver.diagnosticEngine.diagnostics.contains { $0.behavior == .note &&
+          $0.message.text == "[testTraceDependency] -> [A] -> [A](ObjC)"})
+        XCTAssertTrue(driver.diagnosticEngine.diagnostics.contains { $0.behavior == .note &&
+          $0.message.text == "[testTraceDependency] -> [C](ObjC) -> [B](ObjC) -> [A](ObjC)"})
+      }
+
+      // Simple explain (first available path)
+      do {
+        var driver = try Driver(args: ["swiftc",
+                                       "-I", cHeadersPath.nativePathString(escaped: true),
+                                       "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                       "-explicit-module-build", "-v",
+                                       "-module-cache-path", moduleCachePath.nativePathString(escaped: true),
+                                       "-working-directory", path.nativePathString(escaped: true),
+                                       "-explain-module-dependency", "A",
+                                       main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
+                                env: ProcessEnv.vars)
+        let jobs = try driver.planBuild()
+        try driver.run(jobs: jobs)
+        XCTAssertTrue(!driver.diagnosticEngine.diagnostics.isEmpty)
+        XCTAssertTrue(driver.diagnosticEngine.diagnostics.contains { $0.behavior == .remark &&
+          $0.message.text == "Module 'testTraceDependency' depends on 'A'"})
+
+        for diag in driver.diagnosticEngine.diagnostics {
+          print(diag.behavior)
+          print(diag.message)
+        }
+        XCTAssertEqual(driver.diagnosticEngine.diagnostics.filter { $0.behavior == .note}.count, 1)
+        XCTAssertTrue(driver.diagnosticEngine.diagnostics.contains { $0.behavior == .note &&
+          ($0.message.text == "[testTraceDependency] -> [A] -> [A](ObjC)" ||
+           $0.message.text == "[testTraceDependency] -> [C](ObjC) -> [B](ObjC) -> [A](ObjC)")})
+      }
+    }
+  }
+
+  func testEmitModuleSeparatelyJobs() throws {
+    try withTemporaryDirectory { path in
+      try localFileSystem.changeCurrentWorkingDirectory(to: path)
+      let moduleCachePath = path.appending(component: "ModuleCache")
+      try localFileSystem.createDirectory(moduleCachePath)
+      let fileA = path.appending(component: "fileA.swift")
+      try localFileSystem.writeFileContents(fileA, bytes:
+        """
+        public struct A {}
+        """
+      )
+      let fileB = path.appending(component: "fileB.swift")
+      try localFileSystem.writeFileContents(fileB, bytes:
+        """
+        public struct B {}
+        """
+      )
+
+      let outputModule = path.appending(component: "Test.swiftmodule")
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       var driver = try Driver(args: ["swiftc",
-                                     "-I", cHeadersPath.nativePathString(escaped: true),
-                                     "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
-                                     "-explicit-module-build", "-v",
+                                     "-explicit-module-build", "-v", "-module-name", "Test",
                                      "-module-cache-path", moduleCachePath.nativePathString(escaped: true),
                                      "-working-directory", path.nativePathString(escaped: true),
-                                     "-explain-module-dependency", "A",
-                                     main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
+                                     "-emit-module", outputModule.nativePathString(escaped: true),
+                                     "-experimental-emit-module-separately",
+                                     fileA.nativePathString(escaped: true), fileB.nativePathString(escaped: true)] + sdkArgumentsForTesting,
                               env: ProcessEnv.vars)
       let jobs = try driver.planBuild()
+      let compileJobs = jobs.filter({ $0.kind == .compile })
+      XCTAssertEqual(compileJobs.count, 0)
+      let emitModuleJob = jobs.filter({ $0.kind == .emitModule })
+      XCTAssertEqual(emitModuleJob.count, 1)
       try driver.run(jobs: jobs)
-      XCTAssertTrue(!driver.diagnosticEngine.diagnostics.isEmpty)
-      XCTAssertTrue(driver.diagnosticEngine.diagnostics.contains { $0.behavior == .remark &&
-                                                                   $0.message.text == "Module 'testTraceDependency' depends on 'A'"})
-
-      for diag in driver.diagnosticEngine.diagnostics {
-        print(diag.behavior)
-        print(diag.message)
-      }
-      XCTAssertEqual(driver.diagnosticEngine.diagnostics.filter { $0.behavior == .note}.count, 2)
-      XCTAssertTrue(driver.diagnosticEngine.diagnostics.contains { $0.behavior == .note &&
-                                                                   $0.message.text == "[testTraceDependency] -> [A] -> [A](ObjC)"})
-      XCTAssertTrue(driver.diagnosticEngine.diagnostics.contains { $0.behavior == .note &&
-                                                                   $0.message.text == "[testTraceDependency] -> [C](ObjC) -> [B](ObjC) -> [A](ObjC)"})
+      XCTAssertFalse(driver.diagnosticEngine.hasErrors)
     }
   }
 

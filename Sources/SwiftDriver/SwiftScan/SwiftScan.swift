@@ -32,7 +32,7 @@ public enum DependencyScanningError: LocalizedError, DiagnosticData, Equatable {
   case moduleNameDecodeFailure(String)
   case unsupportedDependencyDetailsKind(Int)
   case invalidStringPtr
-  case scanningLibraryInvocationMismatch(AbsolutePath, AbsolutePath)
+  case scanningLibraryInvocationMismatch(String, String)
   case scanningLibraryNotFound(AbsolutePath)
   case argumentQueryFailed
   case unsupportedConfigurationForCaching(String)
@@ -56,7 +56,7 @@ public enum DependencyScanningError: LocalizedError, DiagnosticData, Equatable {
       case .invalidStringPtr:
         return "Dependency module details contains a corrupted string reference"
       case .scanningLibraryInvocationMismatch(let path1, let path2):
-        return "Dependency Scanning library differs across driver invocations: \(path1.description) and \(path2.description)"
+        return "Dependency Scanning library differs across driver invocations: \(path1) and \(path2)"
       case .scanningLibraryNotFound(let path):
         return "Dependency Scanning library not found at path: \(path)"
       case .argumentQueryFailed:
@@ -112,7 +112,7 @@ private extension String {
 /// Wrapper for libSwiftScan, taking care of initialization, shutdown, and dispatching dependency scanning queries.
 @_spi(Testing) public final class SwiftScan {
   /// The path to the libSwiftScan dylib.
-  let path: AbsolutePath
+  let path: AbsolutePath?
 
   /// The handle to the dylib.
   let dylib: Loader.Handle
@@ -123,13 +123,21 @@ private extension String {
   /// Instance of a scanner, which maintains shared state across scan queries.
   let scanner: swiftscan_scanner_t;
 
-  @_spi(Testing) public init(dylib path: AbsolutePath) throws {
+  @_spi(Testing) public init(dylib path: AbsolutePath? = nil) throws {
     self.path = path
-    #if os(Windows)
-    self.dylib = try Loader.load(path.pathString, mode: [])
-    #else
-    self.dylib = try Loader.load(path.pathString, mode: [.lazy, .local, .first])
-    #endif
+    if let externalPath = path {
+#if os(Windows)
+      self.dylib = try Loader.load(externalPath.pathString, mode: [])
+#else
+      self.dylib = try Loader.load(externalPath.pathString, mode: [.lazy, .local, .first])
+#endif
+    } else {
+#if os(Windows)
+      self.dylib = try Loader.getSelfHandle(mode: [])
+#else
+      self.dylib = try Loader.getSelfHandle(mode: [.lazy, .local, .first])
+#endif
+    }
     self.api = try swiftscan_functions_t(self.dylib)
     guard let scanner = api.swiftscan_scanner_create() else {
       throw DependencyScanningError.failedToInstantiateScanner
@@ -535,7 +543,7 @@ private extension swiftscan_functions_t {
 
     // MARK: Optional Methods
     // Future optional methods can be queried here
-    func loadOptional<T>(_ symbol: String) throws -> T? {
+    func loadOptional<T>(_ symbol: String) -> T? {
       guard let sym: T = Loader.lookup(symbol: symbol, in: swiftscan) else {
         return nil
       }
@@ -543,130 +551,130 @@ private extension swiftscan_functions_t {
     }
     // Supported features/flags query
     self.swiftscan_string_set_dispose =
-      try loadOptional("swiftscan_string_set_dispose")
+      loadOptional("swiftscan_string_set_dispose")
     self.swiftscan_compiler_supported_arguments_query =
-      try loadOptional("swiftscan_compiler_supported_arguments_query")
+      loadOptional("swiftscan_compiler_supported_arguments_query")
     self.swiftscan_compiler_supported_features_query =
-      try loadOptional("swiftscan_compiler_supported_features_query")
+      loadOptional("swiftscan_compiler_supported_features_query")
 
     // Target Info query
     self.swiftscan_compiler_target_info_query_v2 =
-      try loadOptional("swiftscan_compiler_target_info_query_v2")
+      loadOptional("swiftscan_compiler_target_info_query_v2")
 
     // Dependency scanner serialization/deserialization features
     self.swiftscan_scanner_cache_serialize =
-      try loadOptional("swiftscan_scanner_cache_serialize")
+      loadOptional("swiftscan_scanner_cache_serialize")
     self.swiftscan_scanner_cache_load =
-      try loadOptional("swiftscan_scanner_cache_load")
+      loadOptional("swiftscan_scanner_cache_load")
     self.swiftscan_scanner_cache_reset =
-      try loadOptional("swiftscan_scanner_cache_reset")
+      loadOptional("swiftscan_scanner_cache_reset")
 
     // Clang dependency captured PCM args
     self.swiftscan_clang_detail_get_captured_pcm_args =
-      try loadOptional("swiftscan_clang_detail_get_captured_pcm_args")
+      loadOptional("swiftscan_clang_detail_get_captured_pcm_args")
 
     // Scanner diagnostic emission query
     self.swiftscan_scanner_diagnostics_query =
-      try loadOptional("swiftscan_scanner_diagnostics_query")
+      loadOptional("swiftscan_scanner_diagnostics_query")
     self.swiftscan_scanner_diagnostics_reset =
-      try loadOptional("swiftscan_scanner_diagnostics_reset")
+      loadOptional("swiftscan_scanner_diagnostics_reset")
     self.swiftscan_diagnostic_get_message =
-      try loadOptional("swiftscan_diagnostic_get_message")
+      loadOptional("swiftscan_diagnostic_get_message")
     self.swiftscan_diagnostic_get_severity =
-      try loadOptional("swiftscan_diagnostic_get_severity")
+      loadOptional("swiftscan_diagnostic_get_severity")
     self.swiftscan_diagnostics_set_dispose =
-      try loadOptional("swiftscan_diagnostics_set_dispose")
+      loadOptional("swiftscan_diagnostics_set_dispose")
     self.swiftscan_string_dispose =
-      try loadOptional("swiftscan_string_dispose")
+      loadOptional("swiftscan_string_dispose")
 
     // isFramework on binary module dependencies
     self.swiftscan_swift_binary_detail_get_is_framework =
-      try loadOptional("swiftscan_swift_binary_detail_get_is_framework")
+      loadOptional("swiftscan_swift_binary_detail_get_is_framework")
 
     // Clang module dependencies of header input of binary module dependencies
     self.swiftscan_swift_binary_detail_get_header_dependency_module_dependencies =
-      try loadOptional("swiftscan_swift_binary_detail_get_header_dependency_module_dependencies")
+      loadOptional("swiftscan_swift_binary_detail_get_header_dependency_module_dependencies")
 
     // Bridging PCH build command-line
     self.swiftscan_swift_textual_detail_get_bridging_pch_command_line =
-      try loadOptional("swiftscan_swift_textual_detail_get_bridging_pch_command_line")
+      loadOptional("swiftscan_swift_textual_detail_get_bridging_pch_command_line")
 
     // Caching related APIs.
     self.swiftscan_swift_textual_detail_get_module_cache_key =
-      try loadOptional("swiftscan_swift_textual_detail_get_module_cache_key")
+      loadOptional("swiftscan_swift_textual_detail_get_module_cache_key")
     self.swiftscan_swift_binary_detail_get_module_cache_key =
-      try loadOptional("swiftscan_swift_binary_detail_get_module_cache_key")
+      loadOptional("swiftscan_swift_binary_detail_get_module_cache_key")
     self.swiftscan_clang_detail_get_module_cache_key =
-      try loadOptional("swiftscan_clang_detail_get_module_cache_key")
+      loadOptional("swiftscan_clang_detail_get_module_cache_key")
 
-    self.swiftscan_cas_options_create = try loadOptional("swiftscan_cas_options_create")
-    self.swiftscan_cas_options_set_plugin_path = try loadOptional("swiftscan_cas_options_set_plugin_path")
-    self.swiftscan_cas_options_set_ondisk_path = try loadOptional("swiftscan_cas_options_set_ondisk_path")
-    self.swiftscan_cas_options_set_plugin_option = try loadOptional("swiftscan_cas_options_set_plugin_option")
-    self.swiftscan_cas_options_dispose = try loadOptional("swiftscan_cas_options_dispose")
-    self.swiftscan_cas_create_from_options = try loadOptional("swiftscan_cas_create_from_options")
-    self.swiftscan_cas_get_ondisk_size = try loadOptional("swiftscan_cas_get_ondisk_size")
-    self.swiftscan_cas_set_ondisk_size_limit = try loadOptional("swiftscan_cas_set_ondisk_size_limit")
-    self.swiftscan_cas_prune_ondisk_data = try loadOptional("swiftscan_cas_prune_ondisk_data")
-    self.swiftscan_cas_dispose = try loadOptional("swiftscan_cas_dispose")
-    self.swiftscan_cache_compute_key = try loadOptional("swiftscan_cache_compute_key")
-    self.swiftscan_cache_compute_key_from_input_index = try loadOptional("swiftscan_cache_compute_key_from_input_index")
-    self.swiftscan_cas_store = try loadOptional("swiftscan_cas_store")
+    self.swiftscan_cas_options_create = loadOptional("swiftscan_cas_options_create")
+    self.swiftscan_cas_options_set_plugin_path = loadOptional("swiftscan_cas_options_set_plugin_path")
+    self.swiftscan_cas_options_set_ondisk_path = loadOptional("swiftscan_cas_options_set_ondisk_path")
+    self.swiftscan_cas_options_set_plugin_option = loadOptional("swiftscan_cas_options_set_plugin_option")
+    self.swiftscan_cas_options_dispose = loadOptional("swiftscan_cas_options_dispose")
+    self.swiftscan_cas_create_from_options = loadOptional("swiftscan_cas_create_from_options")
+    self.swiftscan_cas_get_ondisk_size = loadOptional("swiftscan_cas_get_ondisk_size")
+    self.swiftscan_cas_set_ondisk_size_limit = loadOptional("swiftscan_cas_set_ondisk_size_limit")
+    self.swiftscan_cas_prune_ondisk_data = loadOptional("swiftscan_cas_prune_ondisk_data")
+    self.swiftscan_cas_dispose = loadOptional("swiftscan_cas_dispose")
+    self.swiftscan_cache_compute_key = loadOptional("swiftscan_cache_compute_key")
+    self.swiftscan_cache_compute_key_from_input_index = loadOptional("swiftscan_cache_compute_key_from_input_index")
+    self.swiftscan_cas_store = loadOptional("swiftscan_cas_store")
 
-    self.swiftscan_cache_query = try loadOptional("swiftscan_cache_query")
-    self.swiftscan_cache_query_async = try loadOptional("swiftscan_cache_query_async")
+    self.swiftscan_cache_query = loadOptional("swiftscan_cache_query")
+    self.swiftscan_cache_query_async = loadOptional("swiftscan_cache_query_async")
 
-    self.swiftscan_cached_compilation_get_num_outputs = try loadOptional("swiftscan_cached_compilation_get_num_outputs")
-    self.swiftscan_cached_compilation_get_output = try loadOptional("swiftscan_cached_compilation_get_output")
-    self.swiftscan_cached_compilation_make_global_async = try loadOptional("swiftscan_cached_compilation_make_global_async")
-    self.swiftscan_cached_compilation_is_uncacheable = try loadOptional("swiftscan_cached_compilation_is_uncacheable")
-    self.swiftscan_cached_compilation_dispose = try loadOptional("swiftscan_cached_compilation_dispose")
+    self.swiftscan_cached_compilation_get_num_outputs = loadOptional("swiftscan_cached_compilation_get_num_outputs")
+    self.swiftscan_cached_compilation_get_output = loadOptional("swiftscan_cached_compilation_get_output")
+    self.swiftscan_cached_compilation_make_global_async = loadOptional("swiftscan_cached_compilation_make_global_async")
+    self.swiftscan_cached_compilation_is_uncacheable = loadOptional("swiftscan_cached_compilation_is_uncacheable")
+    self.swiftscan_cached_compilation_dispose = loadOptional("swiftscan_cached_compilation_dispose")
 
-    self.swiftscan_cached_output_load = try loadOptional("swiftscan_cached_output_load")
-    self.swiftscan_cached_output_load_async = try loadOptional("swiftscan_cached_output_load_async")
-    self.swiftscan_cached_output_is_materialized = try loadOptional("swiftscan_cached_output_is_materialized")
-    self.swiftscan_cached_output_get_casid = try loadOptional("swiftscan_cached_output_get_casid")
-    self.swiftscan_cached_output_get_name = try loadOptional("swiftscan_cached_output_get_name")
-    self.swiftscan_cached_output_dispose = try loadOptional("swiftscan_cached_output_dispose")
+    self.swiftscan_cached_output_load = loadOptional("swiftscan_cached_output_load")
+    self.swiftscan_cached_output_load_async = loadOptional("swiftscan_cached_output_load_async")
+    self.swiftscan_cached_output_is_materialized = loadOptional("swiftscan_cached_output_is_materialized")
+    self.swiftscan_cached_output_get_casid = loadOptional("swiftscan_cached_output_get_casid")
+    self.swiftscan_cached_output_get_name = loadOptional("swiftscan_cached_output_get_name")
+    self.swiftscan_cached_output_dispose = loadOptional("swiftscan_cached_output_dispose")
 
-    self.swiftscan_cache_action_cancel = try loadOptional("swiftscan_cache_action_cancel")
-    self.swiftscan_cache_cancellation_token_dispose = try loadOptional("swiftscan_cache_cancellation_token_dispose")
+    self.swiftscan_cache_action_cancel = loadOptional("swiftscan_cache_action_cancel")
+    self.swiftscan_cache_cancellation_token_dispose = loadOptional("swiftscan_cache_cancellation_token_dispose")
 
-    self.swiftscan_cache_download_cas_object_async = try loadOptional("swiftscan_cache_download_cas_object_async")
+    self.swiftscan_cache_download_cas_object_async = loadOptional("swiftscan_cache_download_cas_object_async")
 
-    self.swiftscan_cache_replay_instance_create = try loadOptional("swiftscan_cache_replay_instance_create")
-    self.swiftscan_cache_replay_instance_dispose = try loadOptional("swiftscan_cache_replay_instance_dispose")
-    self.swiftscan_cache_replay_compilation = try loadOptional("swiftscan_cache_replay_compilation")
+    self.swiftscan_cache_replay_instance_create = loadOptional("swiftscan_cache_replay_instance_create")
+    self.swiftscan_cache_replay_instance_dispose = loadOptional("swiftscan_cache_replay_instance_dispose")
+    self.swiftscan_cache_replay_compilation = loadOptional("swiftscan_cache_replay_compilation")
 
-    self.swiftscan_cache_replay_result_get_stdout = try loadOptional("swiftscan_cache_replay_result_get_stdout")
-    self.swiftscan_cache_replay_result_get_stderr = try loadOptional("swiftscan_cache_replay_result_get_stderr")
-    self.swiftscan_cache_replay_result_dispose = try loadOptional("swiftscan_cache_replay_result_dispose")
+    self.swiftscan_cache_replay_result_get_stdout = loadOptional("swiftscan_cache_replay_result_get_stdout")
+    self.swiftscan_cache_replay_result_get_stderr = loadOptional("swiftscan_cache_replay_result_get_stderr")
+    self.swiftscan_cache_replay_result_dispose = loadOptional("swiftscan_cache_replay_result_dispose")
 
-    self.swiftscan_diagnostic_get_source_location = try loadOptional("swiftscan_diagnostic_get_source_location")
-    self.swiftscan_source_location_get_buffer_identifier = try loadOptional("swiftscan_source_location_get_buffer_identifier")
-    self.swiftscan_source_location_get_line_number = try loadOptional("swiftscan_source_location_get_line_number")
-    self.swiftscan_source_location_get_column_number = try loadOptional("swiftscan_source_location_get_column_number")
+    self.swiftscan_diagnostic_get_source_location = loadOptional("swiftscan_diagnostic_get_source_location")
+    self.swiftscan_source_location_get_buffer_identifier = loadOptional("swiftscan_source_location_get_buffer_identifier")
+    self.swiftscan_source_location_get_line_number = loadOptional("swiftscan_source_location_get_line_number")
+    self.swiftscan_source_location_get_column_number = loadOptional("swiftscan_source_location_get_column_number")
 
-    self.swiftscan_module_info_get_link_libraries = try loadOptional("swiftscan_module_info_get_link_libraries")
-    self.swiftscan_link_library_info_get_link_name = try loadOptional("swiftscan_link_library_info_get_link_name")
-    self.swiftscan_link_library_info_get_is_framework = try loadOptional("swiftscan_link_library_info_get_is_framework")
-    self.swiftscan_link_library_info_get_should_force_load = try loadOptional("swiftscan_link_library_info_get_should_force_load")
+    self.swiftscan_module_info_get_link_libraries = loadOptional("swiftscan_module_info_get_link_libraries")
+    self.swiftscan_link_library_info_get_link_name = loadOptional("swiftscan_link_library_info_get_link_name")
+    self.swiftscan_link_library_info_get_is_framework = loadOptional("swiftscan_link_library_info_get_is_framework")
+    self.swiftscan_link_library_info_get_should_force_load = loadOptional("swiftscan_link_library_info_get_should_force_load")
 
     // Swift Overlay Dependencies
     self.swiftscan_swift_textual_detail_get_swift_overlay_dependencies =
-      try loadOptional("swiftscan_swift_textual_detail_get_swift_overlay_dependencies")
+      loadOptional("swiftscan_swift_textual_detail_get_swift_overlay_dependencies")
 
     // Header dependencies of binary modules
     self.swiftscan_swift_binary_detail_get_header_dependencies =
-      try loadOptional("swiftscan_swift_binary_detail_get_header_dependencies")
+      loadOptional("swiftscan_swift_binary_detail_get_header_dependencies")
     self.swiftscan_swift_binary_detail_get_header_dependency =
-      try loadOptional("swiftscan_swift_binary_detail_get_header_dependency")
+      loadOptional("swiftscan_swift_binary_detail_get_header_dependency")
 
     // Per-scan-query diagnostic output
     self.swiftscan_dependency_graph_get_diagnostics =
-      try loadOptional("swiftscan_dependency_graph_get_diagnostics")
+      loadOptional("swiftscan_dependency_graph_get_diagnostics")
     self.swiftscan_import_set_get_diagnostics =
-      try loadOptional("swiftscan_import_set_get_diagnostics")
+      loadOptional("swiftscan_import_set_get_diagnostics")
 
     // MARK: Required Methods
     func loadRequired<T>(_ symbol: String) throws -> T {
@@ -787,8 +795,8 @@ private extension swiftscan_functions_t {
 
 // TODO: Move to TSC?
 /// Perform an  `action` passing it a `const char **` constructed out of `[String]`
-func withArrayOfCStrings<T>(_ strings: [String],
-                            _ action:  (UnsafeMutablePointer<UnsafePointer<Int8>?>?) -> T) -> T
+@_spi(Testing) public func withArrayOfCStrings<T>(_ strings: [String],
+                                                  _ action:  (UnsafeMutablePointer<UnsafePointer<Int8>?>?) -> T) -> T
 {
   let cstrings = strings.map { strdup($0) } + [nil]
   let unsafeCStrings = cstrings.map { UnsafePointer($0) }

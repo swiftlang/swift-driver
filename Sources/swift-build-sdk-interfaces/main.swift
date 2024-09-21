@@ -206,6 +206,9 @@ do {
       if let jsonPath = jsonPath {
         try! delegate.emitJsonOutput(to: jsonPath)
       }
+      if !delegate.checkCriticalModulesGenerated() {
+        exit(1)
+      }
     }
     do {
       try executor.execute(workload: DriverExecutorWorkload.init(jobs, nil, nil, continueBuildingAfterErrors: true),

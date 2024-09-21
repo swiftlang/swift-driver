@@ -106,6 +106,19 @@ extension GenericUnixToolchain {
         commandLine.appendFlag("-pie")
       }
 
+      // On some platforms we want to enable --build-id
+      if targetTriple.os == .linux
+           || targetTriple.os == .freeBSD
+           || targetTriple.os == .openbsd
+           || parsedOptions.hasArgument(.buildId) {
+        commandLine.appendFlag("-Xlinker")
+        if let buildId = parsedOptions.getLastArgument(.buildId)?.asSingle {
+          commandLine.appendFlag("--build-id=\(buildId)")
+        } else {
+          commandLine.appendFlag("--build-id")
+        }
+      }
+
       let staticStdlib = parsedOptions.hasFlag(positive: .staticStdlib,
                                                negative: .noStaticStdlib,
                                                    default: false)
@@ -147,14 +160,24 @@ extension GenericUnixToolchain {
         }
       }
 
+      if targetInfo.sdkPath != nil {
+        for libpath in targetInfo.runtimeLibraryImportPaths {
+          commandLine.appendFlag(.L)
+          commandLine.appendPath(VirtualPath.lookup(libpath.path))
+        }
+      }
+
       if !isEmbeddedEnabled && !parsedOptions.hasArgument(.nostartfiles) {
-        let swiftrtPath = VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
-          .appending(
-            components: targetTriple.platformName() ?? "",
-            String(majorArchitectureName(for: targetTriple)),
-            "swiftrt.o"
-          )
-        commandLine.appendPath(swiftrtPath)
+        let rsrc: VirtualPath
+        // Prefer the swiftrt.o runtime file from the SDK if it's specified.
+        if let sdk = targetInfo.sdkPath {
+          rsrc = VirtualPath.lookup(sdk.path).appending(components: "usr", "lib", "swift")
+        } else {
+          rsrc = VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
+        }
+        let platform: String = targetTriple.platformName() ?? ""
+        let architecture: String = majorArchitectureName(for: targetTriple)
+        commandLine.appendPath(rsrc.appending(components: platform, architecture, "swiftrt.o"))
       }
 
       // If we are linking statically, we need to add all
@@ -194,7 +217,15 @@ extension GenericUnixToolchain {
         commandLine.appendPath(try VirtualPath(path: opt.argument.asSingle))
       }
 
-      if let path = targetInfo.sdkPath?.path {
+      if targetTriple.environment == .android {
+        if let sysroot = parsedOptions.getLastArgument(.sysroot)?.asSingle {
+          commandLine.appendFlag("--sysroot")
+          try commandLine.appendPath(VirtualPath(path: sysroot))
+        } else if let sysroot = AndroidNDK.getDefaultSysrootPath(in: self.env) {
+          commandLine.appendFlag("--sysroot")
+          try commandLine.appendPath(VirtualPath(path: sysroot.pathString))
+        }
+      } else if let path = targetInfo.sdkPath?.path {
         commandLine.appendFlag("--sysroot")
         commandLine.appendPath(VirtualPath.lookup(path))
       }
@@ -254,9 +285,10 @@ extension GenericUnixToolchain {
       }
 
       if parsedOptions.hasArgument(.profileGenerate) {
+        let environment = (targetTriple.environment == .android) ? "-android" : ""
         let libProfile = VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
           .appending(components: "clang", "lib", targetTriple.osName,
-                                 "libclang_rt.profile-\(targetTriple.archName).a")
+                                 "libclang_rt.profile-\(targetTriple.archName)\(environment).a")
         commandLine.appendPath(libProfile)
 
         // HACK: Hard-coded from llvm::getInstrProfRuntimeHookVarName()
