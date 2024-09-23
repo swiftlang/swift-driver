@@ -59,19 +59,18 @@ extension Toolchain {
 extension Driver {
 
   static func computeSupportedCompilerArgs(of toolchain: Toolchain,
-                                           libSwiftScan: SwiftScan?,
                                            parsedOptions: inout ParsedOptions,
                                            diagnosticsEngine: DiagnosticsEngine,
                                            fileSystem: FileSystem,
                                            executor: DriverExecutor)
   throws -> Set<String> {
-    if let libSwiftScanInstance = libSwiftScan,
-       libSwiftScanInstance.canQuerySupportedArguments() {
-      do {
-        return try libSwiftScanInstance.querySupportedArguments()
-      } catch {
-        diagnosticsEngine.emit(.remark_inprocess_supported_features_query_failed(error.localizedDescription))
+    do {
+      if let supportedArgs =
+          try querySupportedCompilerArgsInProcess(of: toolchain, fileSystem: fileSystem) {
+        return supportedArgs
       }
+    } catch {
+      diagnosticsEngine.emit(.remark_inprocess_supported_features_query_failed(error.localizedDescription))
     }
 
     // Fallback: Invoke `swift-frontend -emit-supported-features` and decode the output
@@ -87,6 +86,20 @@ extension Driver {
       forceResponseFiles: false,
       recordedInputModificationDates: [:]).SupportedArguments
     return Set(decodedSupportedFlagList)
+  }
+
+  static func querySupportedCompilerArgsInProcess(of toolchain: Toolchain,
+                                                  fileSystem: FileSystem)
+  throws -> Set<String>? {
+    let optionalSwiftScanLibPath = try toolchain.lookupSwiftScanLib()
+    if let swiftScanLibPath = optionalSwiftScanLibPath,
+       fileSystem.exists(swiftScanLibPath) {
+      let libSwiftScanInstance = try SwiftScan(dylib: swiftScanLibPath)
+      if libSwiftScanInstance.canQuerySupportedArguments() {
+        return try libSwiftScanInstance.querySupportedArguments()
+      }
+    }
+    return nil
   }
 
   static func computeSupportedCompilerFeatures(of toolchain: Toolchain,
