@@ -161,19 +161,6 @@ extension Loader {
     return Handle(value: handle)
   }
 
-  public static func getSelfHandle(mode: Flags) throws -> Handle {
-#if os(Windows)
-    guard let handle = GetModuleHandleW(nil) else  {
-      throw Loader.Error.open("GetModuleHandleW(nil) failure: \(GetLastError())")
-    }
-#else
-    guard let handle = dlopen(nil, mode.rawValue) else {
-      throw Loader.Error.open(Loader.error() ?? "unknown error")
-    }
-#endif
-    return Handle(value: handle)
-  }
-
   public static func lookup<T>(symbol: String, in module: Handle) -> T? {
 #if os(Windows)
     guard let pointer = GetProcAddress(module.value!, symbol) else {
