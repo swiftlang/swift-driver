@@ -44,6 +44,27 @@ extension Driver {
   public static func sdkArgumentsForTesting() throws -> [String]? {
     try cachedSDKPath.map {["-sdk", try $0.get()]}
   }
+
+
+  public func verifyBeingAbleToQueryTargetInfoInProcess(workingDirectory: AbsolutePath?,
+                                                        invocationCommand: [String],
+                                                        expectedSDKPath: String) throws -> Bool {
+    guard let targetInfo = try Self.queryTargetInfoInProcess(of: toolchain,
+                                                             fileSystem: fileSystem,
+                                                             workingDirectory: workingDirectory,
+                                                             invocationCommand: invocationCommand) else {
+      return false
+    }
+
+    guard let sdkPath = targetInfo.sdkPath else {
+      return false
+    }
+
+    if sdkPath.path.description != expectedSDKPath {
+      return false
+    }
+    return true
+  }
 }
 
 /// Set to nil if cannot perform on this host

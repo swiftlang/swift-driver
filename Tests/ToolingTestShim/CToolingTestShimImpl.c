@@ -1,7 +1,7 @@
 #include "include/tooling_shim.h"
 
-bool swift_getSingleFrontendInvocationFromDriverArgumentsV3(const char *, int, const char**, bool(int, const char**),
-                                                      void(swiftdriver_tooling_diagnostic_kind, const char*), bool, bool);
+bool swift_getSingleFrontendInvocationFromDriverArgumentsV2(const char *, int, const char**, bool(int, const char**),
+                                                      void(swiftdriver_tooling_diagnostic_kind, const char*), bool);
 bool getSingleFrontendInvocationFromDriverArgumentsTest(const char *driverPath,
                                                         int argListCount,
                                                         const char** argList,
@@ -9,6 +9,6 @@ bool getSingleFrontendInvocationFromDriverArgumentsTest(const char *driverPath,
                                                         void diagnosticCallback(swiftdriver_tooling_diagnostic_kind diagnosticKind,
                                                                                 const char* message),
                                                         bool forceNoOutputs) {
-  return swift_getSingleFrontendInvocationFromDriverArgumentsV3(driverPath, argListCount, argList,
-                                                                action, diagnosticCallback, false, forceNoOutputs);
+  return swift_getSingleFrontendInvocationFromDriverArgumentsV2(driverPath, argListCount, argList,
+                                                                action, diagnosticCallback, forceNoOutputs);
 }
