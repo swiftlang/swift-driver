@@ -47,7 +47,7 @@ enum HelpTopic: ExpressibleByArgument, CustomStringConvertible {
 }
 
 enum Subcommand: String, CaseIterable {
-  case build, package, run, test, repl
+  case build, package, format, run, test, repl
 
   var description: String {
     switch self {
@@ -61,6 +61,8 @@ enum Subcommand: String, CaseIterable {
       return "Run package tests"
     case .repl:
       return "Experiment with Swift code interactively"
+    case .format:
+      return "Format or lint Swift source code"
     }
   }
 }
