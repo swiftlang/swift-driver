@@ -419,12 +419,27 @@ public final class DarwinToolchain: Toolchain {
     // doesn't always match the macosx sdk version so the compiler may fail to find
     // the prebuilt module in the versioned sub-dir.
     if frontendTargetInfo.target.triple.isMacCatalyst {
+      let resourceDirPath = VirtualPath.lookup(frontendTargetInfo.runtimeResourcePath.path)
+      let basePrebuiltModulesPath = resourceDirPath.appending(components: "macosx", "prebuilt-modules")
+
+      // Ensure we pass a path that exists. This matches logic used in the Swift frontend.
+      let prebuiltModulesPath: VirtualPath = try {
+        var versionString = sdkInfo.versionString
+        repeat {
+          let versionedPrebuiltModulesPath =
+            basePrebuiltModulesPath.appending(component: versionString)
+          if try fileSystem.exists(versionedPrebuiltModulesPath) {
+            return versionedPrebuiltModulesPath
+          } else if versionString.hasSuffix(".0") {
+            versionString.removeLast(2)
+          } else {
+            return basePrebuiltModulesPath
+          }
+        } while true
+      }()
+
       commandLine.appendFlag(.prebuiltModuleCachePath)
-      commandLine.appendPath(try getToolPath(.swiftCompiler).parentDirectory/*bin*/
-        .parentDirectory/*usr*/
-        .appending(component: "lib").appending(component: "swift")
-        .appending(component: "macosx").appending(component: "prebuilt-modules")
-        .appending(component: sdkInfo.versionString))
+      commandLine.appendPath(prebuiltModulesPath)
     }
 
     // Pass down -clang-target.
