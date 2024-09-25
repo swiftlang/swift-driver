@@ -705,6 +705,7 @@ extension Option {
   public static let protocolRequirementAllowList: Option = Option("-protocol-requirement-allow-list", .separate, attributes: [.noDriver, .argumentIsPath], metaVar: "<path>", helpText: "File containing a new-line separated list of protocol names")
   public static let protocolRequirementAllowList_: Option = Option("--protocol-requirement-allow-list", .separate, alias: Option.protocolRequirementAllowList, attributes: [.noDriver, .argumentIsPath], metaVar: "<path>", helpText: "File containing a new-line separated list of protocol names")
   public static let publicAutolinkLibrary: Option = Option("-public-autolink-library", .separate, attributes: [.helpHidden, .frontend, .noDriver, .moduleInterface], helpText: "Add public dependent library")
+  public static let publicModuleName: Option = Option("-public-module-name", .separate, attributes: [.frontend], helpText: "Public facing module name to use in diagnostics and documentation")
   public static let RaccessNoteEQ: Option = Option("-Raccess-note=", .joined, alias: Option.RaccessNote, attributes: [.frontend, .noDriver])
   public static let RaccessNote: Option = Option("-Raccess-note", .separate, attributes: [.frontend, .noDriver], metaVar: "none|failures|all|all-validate", helpText: "Control access note remarks (default: all)")
   public static let cacheRemarks: Option = Option("-Rcache-compile-job", .flag, attributes: [.frontend, .cacheInvariant], helpText: "Show remarks for compiler caching")
@@ -1581,6 +1582,7 @@ extension Option {
       Option.protocolRequirementAllowList,
       Option.protocolRequirementAllowList_,
       Option.publicAutolinkLibrary,
+      Option.publicModuleName,
       Option.RaccessNoteEQ,
       Option.RaccessNote,
       Option.cacheRemarks,

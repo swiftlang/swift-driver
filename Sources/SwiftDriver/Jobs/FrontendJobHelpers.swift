@@ -339,6 +339,10 @@ extension Driver {
       commandLine.appendFlag(ver)
     }
 
+    if isFrontendArgSupported(.publicModuleName) {
+      try commandLine.appendLast(.publicModuleName, from: &parsedOptions)
+    }
+
     // Pass down -validate-clang-modules-once if we are working with a compiler that
     // supports it.
     if isFrontendArgSupported(.validateClangModulesOnce),
