@@ -837,6 +837,22 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssert(compileJob.commandLine.contains(.flag("ABIMod")))
   }
 
+  func testPublicModuleName() throws {
+    var driver = try Driver(
+      args: ["swiftc", "foo.swift", "-public-module-name", "PublicFacing"]
+    )
+    let jobs = try driver.planBuild()
+    let compileJob = try jobs.findJob(.compile)
+
+    if driver.isFrontendArgSupported(.publicModuleName) {
+      XCTAssert(compileJob.commandLine.contains(.flag("-public-module-name")))
+      XCTAssert(compileJob.commandLine.contains(.flag("PublicFacing")))
+    } else {
+      XCTAssertFalse(compileJob.commandLine.contains(.flag("-public-module-name")))
+      XCTAssertFalse(compileJob.commandLine.contains(.flag("PublicFacing")))
+    }
+  }
+
   func testStandardCompileJobs() throws {
     var driver1 = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test"])
     let plannedJobs = try driver1.planBuild().removingAutolinkExtractJobs()
