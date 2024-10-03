@@ -72,6 +72,9 @@ public enum FileType: String, Hashable, CaseIterable, Codable {
   /// Raw sib file
   case raw_sib
 
+  /// Raw LLVM IR file
+  case raw_llvmIr
+
   /// LLVM IR file
   case llvmIR = "ll"
 
@@ -188,6 +191,9 @@ extension FileType: CustomStringConvertible {
     case .raw_sib:
       return "raw-sib"
 
+    case .raw_llvmIr:
+      return "raw-llvm-ir"
+
     case .llvmIR:
       return "llvm-ir"
 
@@ -285,7 +291,7 @@ extension FileType {
          .jsonDependencies, .clangModuleMap, .jsonTargetInfo, .jsonCompilerFeatures,
          .jsonSwiftArtifacts, .indexUnitOutputPath, .modDepCache, .jsonAPIBaseline,
          .jsonABIBaseline, .swiftConstValues, .jsonAPIDescriptor,
-         .moduleSummary, .moduleSemanticInfo, .cachedDiagnostics:
+         .moduleSummary, .moduleSemanticInfo, .cachedDiagnostics, .raw_llvmIr:
       return false
     }
   }
@@ -352,6 +358,8 @@ extension FileType {
       return "raw-sil"
     case .raw_sib:
       return "raw-sib"
+    case .raw_llvmIr:
+      return "raw-llvm-ir"
     case .llvmIR:
       return "llvm-ir"
     case .llvmBitcode:
@@ -412,7 +420,8 @@ extension FileType {
          .moduleTrace, .yamlOptimizationRecord, .swiftInterface, .privateSwiftInterface, .packageSwiftInterface,
          .jsonDependencies, .clangModuleMap, .jsonCompilerFeatures, .jsonTargetInfo,
          .jsonSwiftArtifacts, .jsonAPIBaseline, .jsonABIBaseline, .swiftConstValues,
-         .jsonAPIDescriptor, .moduleSummary, .moduleSemanticInfo, .cachedDiagnostics:
+         .jsonAPIDescriptor, .moduleSummary, .moduleSemanticInfo, .cachedDiagnostics,
+         .raw_llvmIr:
       return true
     case .image, .object, .dSYM, .pch, .sib, .raw_sib, .swiftModule,
          .swiftDocumentation, .swiftSourceInfoFile, .llvmBitcode, .diagnostics,
@@ -436,7 +445,8 @@ extension FileType {
          .modDepCache, .bitstreamOptimizationRecord, .pcm, .pch, .jsonDependencies,
          .clangModuleMap, .jsonCompilerFeatures, .jsonTargetInfo, .jsonSwiftArtifacts,
          .indexUnitOutputPath, .jsonAPIBaseline, .jsonABIBaseline, .swiftConstValues,
-         .jsonAPIDescriptor, .moduleSummary, .moduleSemanticInfo, .cachedDiagnostics:
+         .jsonAPIDescriptor, .moduleSummary, .moduleSemanticInfo, .cachedDiagnostics,
+         .raw_llvmIr:
       return false
     }
   }
@@ -446,7 +456,7 @@ extension FileType {
     switch self {
     case .swift, .ast, .indexData, .indexUnitOutputPath, .jsonCompilerFeatures, .jsonTargetInfo:
       return false
-    case .sil, .sib, .image, .object, .dSYM, .dependencies, .autolink, .swiftModule, .swiftDocumentation, .swiftInterface, .privateSwiftInterface, .packageSwiftInterface, .swiftSourceInfoFile, .swiftConstValues, .assembly, .raw_sil, .raw_sib, .llvmIR, .llvmBitcode, .diagnostics, .emitModuleDiagnostics, .emitModuleDependencies, .objcHeader, .swiftDeps, .modDepCache, .remap, .importedModules, .tbd, .jsonDependencies, .jsonSwiftArtifacts, .moduleTrace, .yamlOptimizationRecord, .bitstreamOptimizationRecord, .pcm, .pch, .clangModuleMap, .jsonAPIBaseline, .jsonABIBaseline, .jsonAPIDescriptor, .moduleSummary, .moduleSemanticInfo, .cachedDiagnostics:
+    case .sil, .sib, .image, .object, .dSYM, .dependencies, .autolink, .swiftModule, .swiftDocumentation, .swiftInterface, .privateSwiftInterface, .packageSwiftInterface, .swiftSourceInfoFile, .swiftConstValues, .assembly, .raw_sil, .raw_sib, .llvmIR, .llvmBitcode, .diagnostics, .emitModuleDiagnostics, .emitModuleDependencies, .objcHeader, .swiftDeps, .modDepCache, .remap, .importedModules, .tbd, .jsonDependencies, .jsonSwiftArtifacts, .moduleTrace, .yamlOptimizationRecord, .bitstreamOptimizationRecord, .pcm, .pch, .clangModuleMap, .jsonAPIBaseline, .jsonABIBaseline, .jsonAPIDescriptor, .moduleSummary, .moduleSemanticInfo, .cachedDiagnostics, .raw_llvmIr:
       return true
     }
   }
@@ -468,7 +478,7 @@ extension FileType {
          .moduleTrace, .indexData, .yamlOptimizationRecord,
          .bitstreamOptimizationRecord, .pcm, .pch, .jsonDependencies,
          .jsonAPIBaseline, .jsonABIBaseline, .swiftConstValues, .jsonAPIDescriptor,
-         .moduleSummary, .moduleSemanticInfo, .cachedDiagnostics:
+         .moduleSummary, .moduleSemanticInfo, .cachedDiagnostics, .raw_llvmIr:
       return true
     }
   }
