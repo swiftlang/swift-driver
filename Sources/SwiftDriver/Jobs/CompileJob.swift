@@ -75,8 +75,8 @@ extension Driver {
   /// Is this compile job top-level
   func isTopLevelOutput(type: FileType?) -> Bool {
     switch type {
-    case .assembly, .sil, .raw_sil, .llvmIR, .ast, .jsonDependencies, .sib, .raw_sib,
-         .importedModules, .indexData:
+    case .assembly, .sil, .raw_sil, .raw_llvmIr, .llvmIR, .ast, .jsonDependencies, .sib,
+          .raw_sib, .importedModules, .indexData:
       return true
     case .object:
       return (linkerOutputType == nil)
@@ -463,6 +463,8 @@ extension FileType {
       return .emitSibgen
     case .sib:
       return .emitSib
+    case .raw_llvmIr:
+      return .emitIrgen
     case .llvmIR:
       return .emitIr
     case .llvmBitcode:

@@ -8166,6 +8166,26 @@ final class SwiftDriverTests: XCTestCase {
     }
     try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-emit-module", "-cache-compile-job", "-explicit-module-build")
   }
+
+  func testEmitLLVMIR() throws {
+    do {
+      var driver = try Driver(args: ["swiftc", "-emit-irgen", "file.swift"])
+      let jobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(jobs.count, 1)
+
+      XCTAssertTrue(jobs[0].commandLine.contains("-emit-irgen"))
+      XCTAssertTrue(!jobs[0].commandLine.contains("-emit-ir"))
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-emit-ir", "file.swift"])
+      let jobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(jobs.count, 1)
+
+      XCTAssertTrue(jobs[0].commandLine.contains("-emit-ir"))
+      XCTAssertTrue(!jobs[0].commandLine.contains("-emit-irgen"))
+    }
+  }
 }
 
 func assertString(
