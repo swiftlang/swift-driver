@@ -181,46 +181,39 @@ extension Toolchain {
 }
 
 extension Driver {
-  @_spi(Testing) public static func queryTargetInfoInProcess(of toolchain: Toolchain,
+  @_spi(Testing) public static func queryTargetInfoInProcess(libSwiftScanInstance: SwiftScan,
+                                                             toolchain: Toolchain,
                                                              fileSystem: FileSystem,
                                                              workingDirectory: AbsolutePath?,
-                                                             invocationCommand: [String]) throws -> FrontendTargetInfo? {
-    let optionalSwiftScanLibPath = try toolchain.lookupSwiftScanLib()
-    if let swiftScanLibPath = optionalSwiftScanLibPath,
-       fileSystem.exists(swiftScanLibPath) {
-      let libSwiftScanInstance = try SwiftScan(dylib: swiftScanLibPath)
-      if libSwiftScanInstance.canQueryTargetInfo() {
-        let cwd = try workingDirectory ?? fileSystem.tempDirectory
-        let compilerExecutablePath = try toolchain.resolvedTool(.swiftCompiler).path
-        let targetInfoData =
-          try libSwiftScanInstance.queryTargetInfoJSON(workingDirectory: cwd,
-                                                       compilerExecutablePath: compilerExecutablePath,
-                                                       invocationCommand: invocationCommand)
-        do {
-          return try JSONDecoder().decode(FrontendTargetInfo.self, from: targetInfoData)
-        } catch let decodingError as DecodingError {
-          let stringToDecode = String(data: targetInfoData, encoding: .utf8)
-          let errorDesc: String
-          switch decodingError {
-            case let .typeMismatch(type, context):
-              errorDesc = "type mismatch: \(type), path: \(context.codingPath)"
-            case let .valueNotFound(type, context):
-              errorDesc = "value missing: \(type), path: \(context.codingPath)"
-            case let .keyNotFound(key, context):
-              errorDesc = "key missing: \(key), path: \(context.codingPath)"
-           case let .dataCorrupted(context):
-              errorDesc = "data corrupted at path: \(context.codingPath)"
-            @unknown default:
-              errorDesc = "unknown decoding error"
-          }
-          throw Error.unableToDecodeFrontendTargetInfo(
-            stringToDecode,
-            invocationCommand,
-            errorDesc)
-        }
+                                                             invocationCommand: [String]) throws -> FrontendTargetInfo {
+    let cwd = try workingDirectory ?? fileSystem.tempDirectory
+    let compilerExecutablePath = try toolchain.resolvedTool(.swiftCompiler).path
+    let targetInfoData =
+    try libSwiftScanInstance.queryTargetInfoJSON(workingDirectory: cwd,
+                                                 compilerExecutablePath: compilerExecutablePath,
+                                                 invocationCommand: invocationCommand)
+    do {
+      return try JSONDecoder().decode(FrontendTargetInfo.self, from: targetInfoData)
+    } catch let decodingError as DecodingError {
+      let stringToDecode = String(data: targetInfoData, encoding: .utf8)
+      let errorDesc: String
+      switch decodingError {
+      case let .typeMismatch(type, context):
+        errorDesc = "type mismatch: \(type), path: \(context.codingPath)"
+      case let .valueNotFound(type, context):
+        errorDesc = "value missing: \(type), path: \(context.codingPath)"
+      case let .keyNotFound(key, context):
+        errorDesc = "key missing: \(key), path: \(context.codingPath)"
+      case let .dataCorrupted(context):
+        errorDesc = "data corrupted at path: \(context.codingPath)"
+      @unknown default:
+        errorDesc = "unknown decoding error"
       }
+      throw Error.unableToDecodeFrontendTargetInfo(
+        stringToDecode,
+        invocationCommand,
+        errorDesc)
     }
-    return nil
   }
 
   static func computeTargetInfo(target: Triple?,
@@ -231,6 +224,7 @@ extension Driver {
                                 requiresInPlaceExecution: Bool = false,
                                 useStaticResourceDir: Bool = false,
                                 swiftCompilerPrefixArgs: [String],
+                                libSwiftScan: SwiftScan?,
                                 toolchain: Toolchain,
                                 fileSystem: FileSystem,
                                 workingDirectory: AbsolutePath?,
@@ -243,20 +237,19 @@ extension Driver {
                                        requiresInPlaceExecution: requiresInPlaceExecution,
                                        useStaticResourceDir: useStaticResourceDir,
                                        swiftCompilerPrefixArgs: swiftCompilerPrefixArgs)
-    var command = try Self.itemizedJobCommand(of: frontendTargetInfoJob,
-                                              useResponseFiles: .disabled,
-                                              using: executor.resolver)
-    Self.sanitizeCommandForLibScanInvocation(&command)
-
-    do {
-      if let targetInfo =
-          try Self.queryTargetInfoInProcess(of: toolchain, fileSystem: fileSystem,
-                                            workingDirectory: workingDirectory,
-                                            invocationCommand: command) {
-        return targetInfo
+    if let libSwiftScanInstance = libSwiftScan,
+       libSwiftScanInstance.canQueryTargetInfo() {
+      do {
+        var command = try Self.itemizedJobCommand(of: frontendTargetInfoJob,
+                                                  useResponseFiles: .disabled,
+                                                  using: executor.resolver)
+        Self.sanitizeCommandForLibScanInvocation(&command)
+        return try Self.queryTargetInfoInProcess(libSwiftScanInstance: libSwiftScanInstance, toolchain: toolchain,
+                                                 fileSystem: fileSystem, workingDirectory: workingDirectory,
+                                                 invocationCommand: command)
+      } catch {
+        diagnosticsEngine.emit(.remark_inprocess_target_info_query_failed(error.localizedDescription))
       }
-    } catch {
-      diagnosticsEngine.emit(.remark_inprocess_target_info_query_failed(error.localizedDescription))
     }
 
     // Fallback: Invoke `swift-frontend -print-target-info` and decode the output
