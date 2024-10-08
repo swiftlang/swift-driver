@@ -186,7 +186,7 @@ extension Driver {
                                                              fileSystem: FileSystem,
                                                              workingDirectory: AbsolutePath?,
                                                              invocationCommand: [String]) throws -> FrontendTargetInfo {
-    let cwd = try workingDirectory ?? fileSystem.tempDirectory
+    let cwd = try workingDirectory ?? fileSystem.currentWorkingDirectory ?? fileSystem.tempDirectory
     let compilerExecutablePath = try toolchain.resolvedTool(.swiftCompiler).path
     let targetInfoData =
     try libSwiftScanInstance.queryTargetInfoJSON(workingDirectory: cwd,
