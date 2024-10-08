@@ -154,10 +154,13 @@ extension Loader {
       throw Loader.Error.open("LoadLibraryW failure: \(GetLastError())")
     }
 #else
+    debugDiagnosticPrint("--- Loader.load(\(path ?? "n/a")")
     guard let handle = dlopen(path, mode.rawValue) else {
+      debugDiagnosticPrint("--- Loader.load error: (\(Loader.error() ?? "unknown error")")
       throw Loader.Error.open(Loader.error() ?? "unknown error")
     }
 #endif
+    debugDiagnosticPrint("--- Loader handle acquired: \(handle)")
     return Handle(value: handle)
   }
 

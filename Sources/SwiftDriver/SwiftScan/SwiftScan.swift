@@ -22,6 +22,8 @@ import protocol TSCBasic.DiagnosticData
 import struct TSCBasic.AbsolutePath
 import struct TSCBasic.Diagnostic
 import protocol TSCBasic.DiagnosticLocation
+import var TSCBasic.stderrStream
+import var TSCBasic.stdoutStream
 
 public enum DependencyScanningError: LocalizedError, DiagnosticData, Equatable {
   case missingRequiredSymbol(String)
@@ -109,6 +111,14 @@ private extension String {
   }
 }
 
+internal func debugDiagnosticPrint(_ input: String) {
+  Driver.stdErrQueue.sync {
+    stderrStream.send(input)
+    stderrStream.send("\n")
+    stderrStream.flush()
+  }
+}
+
 /// Wrapper for libSwiftScan, taking care of initialization, shutdown, and dispatching dependency scanning queries.
 @_spi(Testing) public final class SwiftScan {
   /// The path to the libSwiftScan dylib.
@@ -126,11 +136,13 @@ private extension String {
   @_spi(Testing) public init(dylib path: AbsolutePath? = nil) throws {
     self.path = path
     if let externalPath = path {
+      debugDiagnosticPrint("--- About to 'dlopen' \(externalPath.pathString)")
 #if os(Windows)
       self.dylib = try Loader.load(externalPath.pathString, mode: [])
 #else
       self.dylib = try Loader.load(externalPath.pathString, mode: [.lazy, .local, .first])
 #endif
+      debugDiagnosticPrint("--- Successfully opened \(externalPath.pathString)...")
     } else {
 #if os(Windows)
       self.dylib = try Loader.getSelfHandle(mode: [])
@@ -138,10 +150,14 @@ private extension String {
       self.dylib = try Loader.getSelfHandle(mode: [.lazy, .local, .first])
 #endif
     }
+    debugDiagnosticPrint("--- About to dlsym optional and required entry-points")
     self.api = try swiftscan_functions_t(self.dylib)
+    debugDiagnosticPrint("--- Successfully computed symbol addresses...")
+    debugDiagnosticPrint("--- About to invoke 'swiftscan_scanner_create()'")
     guard let scanner = api.swiftscan_scanner_create() else {
       throw DependencyScanningError.failedToInstantiateScanner
     }
+    debugDiagnosticPrint("--- Completed SwiftScan initialization.")
     self.scanner = scanner
   }
 
@@ -686,6 +702,7 @@ private extension swiftscan_functions_t {
 
     self.swiftscan_scanner_create =
       try loadRequired("swiftscan_scanner_create")
+    debugDiagnosticPrint("--- 'swiftscan_scanner_create' loaded at: \(String(describing: self.swiftscan_scanner_create))")
     self.swiftscan_scanner_dispose =
       try loadRequired("swiftscan_scanner_dispose")
     self.swiftscan_scan_invocation_get_working_directory =

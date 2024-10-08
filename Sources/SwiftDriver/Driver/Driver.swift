@@ -3324,6 +3324,7 @@ extension Driver {
     interModuleDependencyOracle: InterModuleDependencyOracle,
     fileSystem: FileSystem,
     compilerIntegratedTooling: Bool) throws -> SwiftScan? {
+      debugDiagnosticPrint("--- Initialize Swift Scan Instance")
       guard !parsedOptions.hasArgument(.driverScanDependenciesNonLib) else {
         return nil
       }
