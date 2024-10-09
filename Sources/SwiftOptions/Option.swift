@@ -25,7 +25,7 @@ public struct OptionAttributes: OptionSet, Hashable {
   public static let doesNotAffectIncrementalBuild = OptionAttributes(rawValue: 0x20)
   public static let autolinkExtract               = OptionAttributes(rawValue: 0x40)
   public static let moduleWrap                    = OptionAttributes(rawValue: 0x80)
-  public static let indent                        = OptionAttributes(rawValue: 0x100)
+  public static let synthesizeInterface           = OptionAttributes(rawValue: 0x100)
   public static let argumentIsPath                = OptionAttributes(rawValue: 0x200)
   public static let moduleInterface               = OptionAttributes(rawValue: 0x400)
   public static let supplementaryOutput           = OptionAttributes(rawValue: 0x800)
