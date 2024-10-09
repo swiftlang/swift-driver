@@ -106,6 +106,8 @@ extension WebAssemblyToolchain {
           return .responseFilePath(input.file)
         } else if input.type == .object {
           return .path(input.file)
+        } else if lto != nil && input.type == .llvmBitcode {
+          return .path(input.file)
         } else {
           return nil
         }
@@ -160,6 +162,15 @@ extension WebAssemblyToolchain {
 
       guard !parsedOptions.hasArgument(.profileGenerate) else {
         throw Error.profilingUnsupportedForTarget(targetTriple.triple)
+      }
+
+      if let lto = lto {
+        switch lto {
+        case .llvmFull:
+          commandLine.appendFlag("-flto=full")
+        case .llvmThin:
+          commandLine.appendFlag("-flto=thin")
+        }
       }
 
       // Run clang++ in verbose mode if "-v" is set
