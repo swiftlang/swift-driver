@@ -2172,6 +2172,27 @@ final class SwiftDriverTests: XCTestCase {
       let linkJob3 = try plannedJobs3.findJob(.link)
       XCTAssertTrue(linkJob3.tool.name.contains("clang"))
       XCTAssertTrue(linkJob3.commandLine.contains(.flag("-flto=full")))
+
+      try withTemporaryDirectory { path in
+        try localFileSystem.writeFileContents(path.appending(components: "wasi", "static-executable-args.lnk")) {
+          $0.send("garbage")
+        }
+        var driver4 = try Driver(args: commonArgs + [
+          "-emit-executable", "-target", "wasm32-unknown-wasi", "-lto=llvm-thin", "baz.bc",
+          "-resource-dir", path.pathString
+        ], env: env)
+        let plannedJobs4 = try driver4.planBuild()
+        XCTAssertFalse(plannedJobs4.containsJob(.autolinkExtract))
+        let linkJob4 = try plannedJobs4.findJob(.link)
+        XCTAssertTrue(linkJob4.tool.name.contains("clang"))
+        XCTAssertTrue(linkJob4.commandLine.contains(.flag("-flto=thin")))
+        for linkBcInput in ["foo", "bar", "baz.bc"] {
+          XCTAssertTrue(
+            linkJob4.inputs.contains { $0.file.basename.hasPrefix(linkBcInput) && $0.type == .llvmBitcode },
+            "Missing input \(linkBcInput)"
+          )
+        }
+      }
     }
 
     do {
