@@ -45,12 +45,15 @@ private var testInputsPath: AbsolutePath {
   }
 }
 
-func toPath(_ path: String, base: AbsolutePath = localFileSystem.currentWorkingDirectory!) throws -> VirtualPath {
-  return try VirtualPath(path: path).resolvedRelativePath(base: base)
+func toPath(_ path: String, isRelative: Bool = true) throws -> VirtualPath {
+  if isRelative {
+    return VirtualPath.relative(try .init(validating: path))
+  }
+  return try VirtualPath(path: path).resolvedRelativePath(base: localFileSystem.currentWorkingDirectory!)
 }
 
-func toPathOption(_ path: String, base:  AbsolutePath = localFileSystem.currentWorkingDirectory!) throws -> Job.ArgTemplate {
-  return .path(try toPath(path, base: base))
+func toPathOption(_ path: String, isRelative: Bool = true) throws -> Job.ArgTemplate {
+  return .path(try toPath(path, isRelative: isRelative))
 }
 
 final class SwiftDriverTests: XCTestCase {
@@ -351,7 +354,7 @@ final class SwiftDriverTests: XCTestCase {
       ])
       XCTAssertEqual(driver.recordedInputModificationDates, [
         .init(file: VirtualPath.absolute(main).intern(), type: .swift) : mainMDate,
-        .init(file: VirtualPath.absolute(util).intern(), type: .swift) : utilMDate,
+        .init(file: VirtualPath.relative(utilRelative).intern(), type: .swift) : utilMDate,
       ])
     }
   }
@@ -1295,12 +1298,11 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
       XCTAssertEqual(plannedJobs.count, 3)
       XCTAssertEqual(plannedJobs[0].kind, .compile)
-      XCTAssertTrue(plannedJobs[0].primaryInputs.map{ $0.file.description }.elementsEqual([rebase("foo.swift"),
-                                                                                           rebase("bar.swift")]))
+      XCTAssertTrue(plannedJobs[0].primaryInputs.map{ $0.file.description }.elementsEqual(["foo.swift", "bar.swift"]))
       XCTAssertTrue(plannedJobs[0].commandLine.contains("-emit-const-values-path"))
       XCTAssertEqual(plannedJobs[0].outputs.filter({ $0.type == .swiftConstValues }).count, 2)
       XCTAssertEqual(plannedJobs[1].kind, .compile)
-      XCTAssertTrue(plannedJobs[1].primaryInputs.map{ $0.file.description }.elementsEqual([rebase("baz.swift")]))
+      XCTAssertTrue(plannedJobs[1].primaryInputs.map{ $0.file.description }.elementsEqual(["baz.swift"]))
       XCTAssertTrue(plannedJobs[1].commandLine.contains("-emit-const-values-path"))
       XCTAssertEqual(plannedJobs[1].outputs.filter({ $0.type == .swiftConstValues }).count, 1)
       XCTAssertEqual(plannedJobs[2].kind, .link)
@@ -1331,13 +1333,12 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
       XCTAssertEqual(plannedJobs.count, 3)
       XCTAssertEqual(plannedJobs[0].kind, .compile)
-      XCTAssertTrue(plannedJobs[0].primaryInputs.map{ $0.file.description }.elementsEqual([rebase("foo.swift"),
-                                                                                           rebase("bar.swift")]))
+      XCTAssertTrue(plannedJobs[0].primaryInputs.map{ $0.file.description }.elementsEqual(["foo.swift", "bar.swift"]))
       XCTAssertTrue(plannedJobs[0].commandLine.contains(subsequence: [.flag("-emit-const-values-path"), .path(.absolute(try .init(validating: "/tmp/foo.build/foo.swiftconstvalues")))]))
       XCTAssertTrue(plannedJobs[0].commandLine.contains(subsequence: [.flag("-emit-const-values-path"), .path(.absolute(try .init(validating: "/tmp/foo.build/bar.swiftconstvalues")))]))
       XCTAssertEqual(plannedJobs[0].outputs.filter({ $0.type == .swiftConstValues }).count, 2)
       XCTAssertEqual(plannedJobs[1].kind, .compile)
-      XCTAssertTrue(plannedJobs[1].primaryInputs.map{ $0.file.description }.elementsEqual([rebase("baz.swift")]))
+      XCTAssertTrue(plannedJobs[1].primaryInputs.map{ $0.file.description }.elementsEqual(["baz.swift"]))
       XCTAssertTrue(plannedJobs[1].commandLine.contains("-emit-const-values-path"))
       XCTAssertEqual(plannedJobs[1].outputs.filter({ $0.type == .swiftConstValues }).count, 1)
       XCTAssertTrue(plannedJobs[1].commandLine.contains(subsequence: [.flag("-emit-const-values-path"), .path(.absolute(try .init(validating: "/tmp/foo.build/baz.swiftconstvalues")))]))
@@ -3060,10 +3061,10 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertEqual(emitModuleJob.outputs[0].file, try toPath("Test.swiftmodule"))
     XCTAssertEqual(emitModuleJob.outputs[1].file, try toPath("Test.swiftdoc"))
     XCTAssertEqual(emitModuleJob.outputs[2].file, try toPath("Test.swiftsourceinfo"))
-    XCTAssertEqual(emitModuleJob.outputs[3].file, try toPath("Test.swiftinterface"))
+    XCTAssertEqual(emitModuleJob.outputs[3].file, try VirtualPath(path: "./Test.swiftinterface"))
     XCTAssertEqual(emitModuleJob.outputs[4].file, try toPath("Test.private.swiftinterface"))
     XCTAssertEqual(emitModuleJob.outputs[5].file, try toPath("Test-Swift.h"))
-    XCTAssertEqual(emitModuleJob.outputs[6].file, try toPath("Test.tbd"))
+    XCTAssertEqual(emitModuleJob.outputs[6].file, try VirtualPath(path: "./Test.tbd"))
     if driver1.targetTriple.isDarwin {
         XCTAssertEqual(emitModuleJob.outputs[7].file, try toPath("Test.abi.json"))
     }
@@ -5209,7 +5210,7 @@ final class SwiftDriverTests: XCTestCase {
     // Reset the temporary store to ensure predictable results.
     VirtualPath.resetTemporaryFileStore()
     var driver = try Driver(args: [
-      "swiftc", "-emit-executable", "test.swift", "-emit-module", "-avoid-emit-module-source-info", "-experimental-emit-module-separately"
+      "swiftc", "-emit-executable", "test.swift", "-emit-module", "-avoid-emit-module-source-info", "-experimental-emit-module-separately", "-working-directory", localFileSystem.currentWorkingDirectory!.description
     ])
     let plannedJobs = try driver.planBuild()
 
@@ -7255,6 +7256,83 @@ final class SwiftDriverTests: XCTestCase {
       })
     }
   }
+  
+  func testRelativeInputs() throws {
+    do {
+      // Inputs with relative paths with no -working-directory flag should remain relative
+      var driver = try Driver(args: ["swiftc",
+                                     "-target", "arm64-apple-ios13.1",
+                                     "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      let compileJob = plannedJobs[0]
+      XCTAssertEqual(compileJob.kind, .compile)
+      XCTAssertTrue(compileJob.commandLine.contains(subsequence: ["-primary-file", try toPathOption("foo.swift", isRelative: true)]))
+    }
+
+    do {
+      // Inputs with relative paths with -working-directory flag should prefix all inputs
+      var driver = try Driver(args: ["swiftc",
+                                     "-target", "arm64-apple-ios13.1",
+                                     "foo.swift",
+                                     "-working-directory", "/foo/bar"])
+      let plannedJobs = try driver.planBuild()
+      let compileJob = plannedJobs[0]
+      XCTAssertEqual(compileJob.kind, .compile)
+      XCTAssertTrue(compileJob.commandLine.contains(subsequence: ["-primary-file", try toPathOption("/foo/bar/foo.swift", isRelative: false)]))
+    }
+    
+    try withTemporaryFile { fileMapFile in
+      let outputMapContents: ByteString = """
+      {
+        "": {
+          "diagnostics": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.dia",
+          "emit-module-diagnostics": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.emit-module.dia"
+        },
+        "foo.swift": {
+          "object": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.o"
+        }
+      }
+      """
+      try localFileSystem.writeFileContents(fileMapFile.path, bytes: outputMapContents)
+      
+      // Inputs with relative paths should be found in output file maps
+      var driver = try Driver(args: ["swiftc",
+                                     "-target", "arm64-apple-ios13.1",
+                                     "foo.swift",
+                                     "-output-file-map", fileMapFile.path.description])
+      let plannedJobs = try driver.planBuild()
+      let compileJob = plannedJobs[0]
+      XCTAssertEqual(compileJob.kind, .compile)
+      XCTAssertTrue(compileJob.commandLine.contains(subsequence: ["-o", try toPathOption("/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.o", isRelative: false)]))
+    }
+    
+    try withTemporaryFile { fileMapFile in
+      let outputMapContents: ByteString = """
+      {
+        "": {
+          "diagnostics": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.dia",
+          "emit-module-diagnostics": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.emit-module.dia"
+        },
+        "/some/workingdir/foo.swift": {
+          "object": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.o"
+        }
+      }
+      """
+      try localFileSystem.writeFileContents(fileMapFile.path, bytes: outputMapContents)
+      
+      // Inputs with relative paths and working-dir should use absolute paths in output file maps
+      var driver = try Driver(args: ["swiftc",
+                                     "-target", "arm64-apple-ios13.1",
+                                     "foo.swift",
+                                     "-working-directory", "/some/workingdir",
+                                     "-output-file-map", fileMapFile.path.description])
+      let plannedJobs = try driver.planBuild()
+      let compileJob = plannedJobs[0]
+      XCTAssertEqual(compileJob.kind, .compile)
+      XCTAssertTrue(compileJob.commandLine.contains(subsequence: ["-o", try toPathOption("/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.o", isRelative: false)]))
+    }
+    
+  }
 
   func testRelativeResourceDir() throws {
     do {
@@ -7295,7 +7373,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(compileJob.kind, .compile)
       let linkJob = plannedJobs[1]
       XCTAssertEqual(linkJob.kind, .link)
-      XCTAssertTrue(linkJob.commandLine.contains(try toPathOption(sdkRoot.pathString + "/usr/lib/swift/linux/x86_64/swiftrt.o")))
+      XCTAssertTrue(linkJob.commandLine.contains(try toPathOption(sdkRoot.pathString + "/usr/lib/swift/linux/x86_64/swiftrt.o", isRelative: false)))
     }
   }
 
