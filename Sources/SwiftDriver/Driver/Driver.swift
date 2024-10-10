@@ -329,7 +329,8 @@ public struct Driver {
     case .absolute(let path):
       return path
     case .relative(let path):
-      return workingDirectory.map { AbsolutePath($0, path) }
+      let cwd = workingDirectory ?? fileSystem.currentWorkingDirectory
+      return cwd.map { AbsolutePath($0, path) }
     case .standardInput, .standardOutput, .temporary, .temporaryWithKnownContents, .fileList:
       fatalError("Frontend target information will never include a path of this type.")
     }
@@ -688,14 +689,14 @@ public struct Driver {
                                                                                         compilerMode: compilerMode)
 
     // Compute the working directory.
-    let cwd = fileSystem.currentWorkingDirectory
-    workingDirectory = try parsedOptions.getLastArgument(.workingDirectory).map { workingDirectoryArg in
+    self.workingDirectory = try parsedOptions.getLastArgument(.workingDirectory).map { workingDirectoryArg in
+      let cwd = fileSystem.currentWorkingDirectory
       return try cwd.map{ try AbsolutePath(validating: workingDirectoryArg.asSingle, relativeTo: $0) } ?? AbsolutePath(validating: workingDirectoryArg.asSingle)
-    } ?? cwd
-
-    // Apply the working directory to the parsed options.
-    if let workingDirectory = self.workingDirectory {
-      try Self.applyWorkingDirectory(workingDirectory, to: &self.parsedOptions)
+    }
+    
+    if let specifiedWorkingDir = self.workingDirectory {
+      // Apply the working directory to the parsed options if passed explicitly.
+      try Self.applyWorkingDirectory(specifiedWorkingDir, to: &self.parsedOptions)
     }
 
     let staticExecutable = parsedOptions.hasFlag(positive: .staticExecutable,
@@ -776,6 +777,8 @@ public struct Driver {
       }
 
       if let workingDirectory = self.workingDirectory {
+        // Input paths are prefixed with the working directory when specified,
+        // apply the same logic to the output file map keys.
         self.outputFileMap = outputFileMap?.resolveRelativePaths(relativeTo: workingDirectory)
       } else {
         self.outputFileMap = outputFileMap
@@ -854,7 +857,7 @@ public struct Driver {
     self.buildRecordInfo = BuildRecordInfo(
       actualSwiftVersion: self.frontendTargetInfo.compilerVersion,
       compilerOutputType: compilerOutputType,
-      workingDirectory: self.workingDirectory,
+      workingDirectory: self.workingDirectory ?? fileSystem.currentWorkingDirectory,
       diagnosticEngine: diagnosticEngine,
       fileSystem: fileSystem,
       moduleOutputInfo: moduleOutputInfo,
@@ -3099,7 +3102,7 @@ extension Driver {
     }
 
     if let profileArgs = parsedOptions.getLastArgument(.profileUse)?.asMultiple,
-       let workingDirectory = workingDirectory {
+       let workingDirectory = workingDirectory ?? fileSystem.currentWorkingDirectory {
       for profilingData in profileArgs {
         if let path = try? AbsolutePath(validating: profilingData,
                                           relativeTo: workingDirectory) {
