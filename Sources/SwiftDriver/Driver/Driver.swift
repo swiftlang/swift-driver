@@ -2875,19 +2875,19 @@ extension Driver {
 
     // Validate the SDK if we found one.
     if let sdkPath = sdkPath {
-      let path: AbsolutePath
+      let path: VirtualPath
 
       // FIXME: TSC should provide a better utility for this.
       if let absPath = try? AbsolutePath(validating: sdkPath) {
-        path = absPath
-      } else if let cwd = fileSystem.currentWorkingDirectory, let absPath = try? AbsolutePath(validating: sdkPath, relativeTo: cwd) {
-        path = absPath
+        path = .absolute(absPath)
+      } else if let relPath = try? RelativePath(validating: sdkPath) {
+        path = .relative(relPath)
       } else {
         diagnosticsEngine.emit(.warning_no_such_sdk(sdkPath))
         return nil
       }
 
-      if !fileSystem.exists(path) {
+      if (try? fileSystem.exists(path)) != true {
         diagnosticsEngine.emit(.warning_no_such_sdk(sdkPath))
       } else if (targetTriple?.isDarwin ?? (defaultToolchainType == DarwinToolchain.self)) {
         if isSDKTooOld(sdkPath: path, fileSystem: fileSystem,
@@ -2897,7 +2897,7 @@ extension Driver {
         }
       }
 
-      return .absolute(path)
+      return path
     }
 
     return nil
@@ -2906,15 +2906,15 @@ extension Driver {
 
 // SDK checking: attempt to diagnose if the SDK we are pointed at is too old.
 extension Driver {
-  static func isSDKTooOld(sdkPath: AbsolutePath, fileSystem: FileSystem,
+  static func isSDKTooOld(sdkPath: VirtualPath, fileSystem: FileSystem,
                           diagnosticsEngine: DiagnosticsEngine) -> Bool {
-    let sdkInfoReadAttempt = DarwinToolchain.readSDKInfo(fileSystem, VirtualPath.absolute(sdkPath).intern())
+    let sdkInfoReadAttempt = DarwinToolchain.readSDKInfo(fileSystem, sdkPath.intern())
     guard let sdkInfo = sdkInfoReadAttempt else {
-      diagnosticsEngine.emit(.warning_no_sdksettings_json(sdkPath.pathString))
+      diagnosticsEngine.emit(.warning_no_sdksettings_json(sdkPath.name))
       return false
     }
     guard let sdkVersion = try? Version(string: sdkInfo.versionString, lenient: true) else {
-      diagnosticsEngine.emit(.warning_fail_parse_sdk_ver(sdkInfo.versionString, sdkPath.pathString))
+      diagnosticsEngine.emit(.warning_fail_parse_sdk_ver(sdkInfo.versionString, sdkPath.name))
       return false
     }
     if sdkInfo.canonicalName.hasPrefix("macos") {
