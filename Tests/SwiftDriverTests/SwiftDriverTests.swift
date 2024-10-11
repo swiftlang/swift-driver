@@ -7262,23 +7262,31 @@ final class SwiftDriverTests: XCTestCase {
       // Inputs with relative paths with no -working-directory flag should remain relative
       var driver = try Driver(args: ["swiftc",
                                      "-target", "arm64-apple-ios13.1",
+                                     "-resource-dir", "relresourcepath",
+                                     "-sdk", "relsdkpath",
                                      "foo.swift"])
       let plannedJobs = try driver.planBuild()
       let compileJob = plannedJobs[0]
       XCTAssertEqual(compileJob.kind, .compile)
       XCTAssertTrue(compileJob.commandLine.contains(subsequence: ["-primary-file", try toPathOption("foo.swift", isRelative: true)]))
+      XCTAssertTrue(compileJob.commandLine.contains(subsequence: ["-resource-dir", try toPathOption("relresourcepath", isRelative: true)]))
+      XCTAssertTrue(compileJob.commandLine.contains(subsequence: ["-sdk", try toPathOption("relsdkpath", isRelative: true)]))
     }
 
     do {
       // Inputs with relative paths with -working-directory flag should prefix all inputs
       var driver = try Driver(args: ["swiftc",
                                      "-target", "arm64-apple-ios13.1",
+                                     "-resource-dir", "relresourcepath",
+                                     "-sdk", "relsdkpath",
                                      "foo.swift",
                                      "-working-directory", "/foo/bar"])
       let plannedJobs = try driver.planBuild()
       let compileJob = plannedJobs[0]
       XCTAssertEqual(compileJob.kind, .compile)
       XCTAssertTrue(compileJob.commandLine.contains(subsequence: ["-primary-file", try toPathOption("/foo/bar/foo.swift", isRelative: false)]))
+      XCTAssertTrue(compileJob.commandLine.contains(subsequence: ["-resource-dir", try toPathOption("/foo/bar/relresourcepath", isRelative: false)]))
+      XCTAssertTrue(compileJob.commandLine.contains(subsequence: ["-sdk", try toPathOption("/foo/bar/relsdkpath", isRelative: false)]))
     }
     
     try withTemporaryFile { fileMapFile in
@@ -7331,7 +7339,6 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(compileJob.kind, .compile)
       XCTAssertTrue(compileJob.commandLine.contains(subsequence: ["-o", try toPathOption("/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.o", isRelative: false)]))
     }
-    
   }
 
   func testRelativeResourceDir() throws {
