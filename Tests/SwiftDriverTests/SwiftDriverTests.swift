@@ -4463,6 +4463,27 @@ final class SwiftDriverTests: XCTestCase {
     }
     #endif
 
+    // -profile-generate should add libclang_rt.profile for WebAssembly targets
+    try withTemporaryDirectory { resourceDir in
+      try localFileSystem.writeFileContents(resourceDir.appending(components: "wasi", "static-executable-args.lnk")) {
+        $0.send("garbage")
+      }
+
+      for triple in ["wasm32-unknown-wasi", "wasm32-unknown-wasip1-threads"] {
+        var driver = try Driver(args: [
+          "swiftc", "-profile-generate", "-target", triple, "test.swift",
+          "-resource-dir", resourceDir.pathString
+        ])
+        let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+
+        XCTAssertEqual(plannedJobs.count, 2)
+        XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+        XCTAssertEqual(plannedJobs[1].kind, .link)
+        XCTAssert(plannedJobs[1].commandLine.containsPathWithBasename("libclang_rt.profile-wasm32.a"))
+      }
+    }
+
     for explicitUseLd in [true, false] {
       var args = ["swiftc", "-profile-generate", "-target", "x86_64-unknown-windows-msvc", "test.swift"]
       if explicitUseLd {
