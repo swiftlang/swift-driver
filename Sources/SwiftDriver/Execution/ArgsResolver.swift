@@ -170,17 +170,26 @@ public final class ArgsResolver {
       // it sometimes outputs mappings in explicit block format (https://yaml.org/spec/1.2/spec.html#id2798057)
       // and the frontend (llvm) only seems to support implicit block format.
       try fileSystem.writeFileContents(absPath) { out in
+        var res = ""
         for (input, map) in outputFileMap.entries {
           out.send("\(quoteAndEscape(path: VirtualPath.lookup(input))):")
+          res += "\(quoteAndEscape(path: VirtualPath.lookup(input))):"
           if map.isEmpty {
             out.send(" {}\n")
+            res += " {}\n"
           } else {
             out.send("\n")
+            res += "\n"
             for (type, output) in map {
               out.send("  \(type.name): \(quoteAndEscape(path: VirtualPath.lookup(output)))\n")
+              res += "  \(type.name): \(quoteAndEscape(path: VirtualPath.lookup(output)))\n"
             }
           }
         }
+        print("""
+        \(absPath):
+        \(res)
+        """)
       }
     }
   }
