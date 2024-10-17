@@ -5707,7 +5707,7 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
-      var driver = try Driver(args: ["swift", "-warnings-as-errors", "-no-warnings-as-errors", "-suppress-warnings", "foo.swift"])
+      var driver = try Driver(args: ["swift", "-warnings-as-errors", "-no-warnings-as-errors", "-suppress-warnings", "-suppress-remarks", "foo.swift"])
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 1)
       let job = plannedJobs[0]
@@ -5715,6 +5715,7 @@ final class SwiftDriverTests: XCTestCase {
         subsequence: [.flag("-warnings-as-errors"), .flag("-no-warnings-as-errors")]
       ))
       XCTAssertTrue(job.commandLine.contains(.flag("-suppress-warnings")))
+      XCTAssertTrue(job.commandLine.contains(.flag("-suppress-remarks")))
     }
 
     do {
