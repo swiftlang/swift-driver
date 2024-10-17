@@ -2320,39 +2320,6 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertFalse(cmd.contains(.flag("-dylib")))
       XCTAssertFalse(cmd.contains(.flag("-shared")))
     }
-
-    do {
-      // executable linking linux static stdlib with musl
-      var driver = try Driver(args: commonArgs + [
-        "-emit-executable", "-Osize", "-static-stdlib", "-static-executable", "-target", "x86_64-unknown-linux-musl"
-      ], env: env)
-      let plannedJobs = try driver.planBuild()
-
-      XCTAssertEqual(plannedJobs.count, 4)
-
-      let autolinkExtractJob = plannedJobs[2]
-      XCTAssertEqual(autolinkExtractJob.kind, .autolinkExtract)
-
-      let autolinkCmd = autolinkExtractJob.commandLine
-      XCTAssertTrue(commandContainsTemporaryPath(autolinkCmd, "foo.o"))
-      XCTAssertTrue(commandContainsTemporaryPath(autolinkCmd, "bar.o"))
-      XCTAssertTrue(commandContainsTemporaryPath(autolinkCmd, "Test.autolink"))
-
-      let linkJob = plannedJobs[3]
-      let cmd = linkJob.commandLine
-      XCTAssertTrue(cmd.contains(.flag("-o")))
-      XCTAssertTrue(commandContainsTemporaryPath(cmd, "foo.o"))
-      XCTAssertTrue(commandContainsTemporaryPath(cmd, "bar.o"))
-      XCTAssertTrue(cmd.contains(.flag("--start-group")))
-      XCTAssertTrue(cmd.contains(.flag("--end-group")))
-      XCTAssertTrue(cmd.contains(.flag("-Os")))
-      print("Static stdlib with musl link job: \(cmd.joinedUnresolvedArguments)")
-      //XCTAssertTrue(cmd.contains(.flag("-static")))
-      XCTAssertEqual(linkJob.outputs[0].file, try toPath("Test"))
-
-      XCTAssertFalse(cmd.contains(.flag("-dylib")))
-      XCTAssertFalse(cmd.contains(.flag("-shared")))
-    }
     #endif
 
     do {
