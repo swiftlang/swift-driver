@@ -196,9 +196,6 @@ public final class ArgsResolver {
   }
 
   private func createResponseFileIfNeeded(for job: Job, resolvedArguments: inout [String], useResponseFiles: ResponseFileHandling) throws -> Bool {
-    func quote(_ string: String) -> String {
-      return "\"\(String(string.flatMap { ["\\", "\""].contains($0) ? "\\\($0)" : "\($0)" }))\""
-    }
     guard useResponseFiles != .disabled else {
       return false
     }
@@ -214,11 +211,8 @@ public final class ArgsResolver {
 
       // FIXME: Need a way to support this for distributed build systems...
       if let absPath = responseFilePath.absolutePath {
-        // Adopt the same technique as clang -
-        //   Wrap all arguments in double quotes to ensure that both Unix and
-        //   Windows tools understand the response file.
         try fileSystem.writeFileContents(absPath) {
-          $0.send(resolvedArguments[2...].map { quote($0) }.joined(separator: "\n"))
+          $0.send(resolvedArguments[2...].map { $0.spm_shellEscaped() }.joined(separator: "\n"))
         }
         resolvedArguments = [resolvedArguments[0], resolvedArguments[1], "@\(absPath.pathString)"]
       }

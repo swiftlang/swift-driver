@@ -49,6 +49,15 @@ extension Driver {
   mutating func linkJob(inputs: [TypedVirtualPath]) throws -> Job {
     var commandLine: [Job.ArgTemplate] = []
 
+    #if os(Windows)
+    // We invoke clang as `clang.exe`, which expects a POSIX-style response file by default (`clang-cl.exe` expects
+    // Windows-style response files).
+    // The driver is outputting Windows-style response files because swift-frontend expects Windows-style response
+    // files.
+    // Force `clang.exe` into parsing Windows-style response files.
+    commandLine.appendFlag("--rsp-quoting=windows")
+    #endif
+
     // Compute the final output file
     let outputFile: VirtualPath
     if let output = parsedOptions.getLastArgument(.o) {

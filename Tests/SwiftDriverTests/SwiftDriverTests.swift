@@ -1696,9 +1696,9 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(resolvedArgs[2].first, "@")
       let responseFilePath = try AbsolutePath(validating: String(resolvedArgs[2].dropFirst()))
       let contents = try localFileSystem.readFileContents(responseFilePath).description
-      XCTAssertTrue(contents.hasPrefix("\"-interpret\"\n\"/foo.swift\""))
-      XCTAssertTrue(contents.contains("\"-D\"\n\"TEST_20000\""))
-      XCTAssertTrue(contents.contains("\"-D\"\n\"TEST_1\""))
+      XCTAssertTrue(contents.hasPrefix("-interpret\n/foo.swift"))
+      XCTAssertTrue(contents.contains("-D\nTEST_20000"))
+      XCTAssertTrue(contents.contains("-D\nTEST_1"))
     }
 
     // Needs response file + disable override
@@ -1725,7 +1725,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(resolvedArgs[2].first, "@")
       let responseFilePath = try AbsolutePath(validating: String(resolvedArgs[2].dropFirst()))
       let contents = try localFileSystem.readFileContents(responseFilePath).description
-      XCTAssertTrue(contents.hasPrefix("\"-interpret\"\n\"/foo.swift\""))
+      XCTAssertTrue(contents.hasPrefix("-interpret\n/foo.swift"))
     }
 
     // No response file
