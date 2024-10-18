@@ -160,8 +160,11 @@ extension WebAssemblyToolchain {
         throw Error.sanitizersUnsupportedForTarget(targetTriple.triple)
       }
 
-      guard !parsedOptions.hasArgument(.profileGenerate) else {
-        throw Error.profilingUnsupportedForTarget(targetTriple.triple)
+      if parsedOptions.hasArgument(.profileGenerate) {
+        let libProfile = VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
+          .appending(components: "clang", "lib", targetTriple.osName,
+                                 "libclang_rt.profile-\(targetTriple.archName).a")
+        commandLine.appendPath(libProfile)
       }
 
       if let lto = lto {
