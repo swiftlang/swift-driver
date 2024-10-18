@@ -61,7 +61,7 @@ enum SwiftFlags {
   DoesNotAffectIncrementalBuild = (1 << 8),
   AutolinkExtractOption = (1 << 9),
   ModuleWrapOption = (1 << 10),
-  SwiftIndentOption = (1 << 11),
+  SwiftSynthesizeInterfaceOption = (1 << 11),
   ArgumentIsPath = (1 << 12),
   ModuleInterfaceOption = (1 << 13),
   SupplementaryOutput = (1 << 14),
@@ -337,7 +337,7 @@ int makeOptions_main() {
         emitFlagIf(DoesNotAffectIncrementalBuild, ".doesNotAffectIncrementalBuild");
         emitFlagIf(AutolinkExtractOption, ".autolinkExtract");
         emitFlagIf(ModuleWrapOption, ".moduleWrap");
-        emitFlagIf(SwiftIndentOption, ".indent");
+        emitFlagIf(SwiftSynthesizeInterfaceOption, ".synthesizeInterface");
         if (option.kind == OptionKind::Input)
           emitFlag(".argumentIsPath");
         else
