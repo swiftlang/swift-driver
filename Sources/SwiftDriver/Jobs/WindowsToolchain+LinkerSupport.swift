@@ -94,6 +94,13 @@ extension WindowsToolchain {
     let clangTool: Tool = cxxCompatEnabled ? .clangxx : .clang
     var clang = try getToolPath(clangTool)
 
+    // We invoke clang as `clang.exe`, which expects a POSIX-style response file by default (`clang-cl.exe` expects
+    // Windows-style response files).
+    // The driver is outputting Windows-style response files because swift-frontend expects Windows-style response
+    // files.
+    // Force `clang.exe` into parsing Windows-style response files.
+    commandLine.appendFlag("--rsp-quoting=windows")
+
     let targetTriple = targetInfo.target.triple
     if !targetTriple.triple.isEmpty {
       commandLine.appendFlag("-target")
