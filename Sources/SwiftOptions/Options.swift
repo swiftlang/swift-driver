@@ -76,14 +76,15 @@ extension Option {
   public static let casEmitCasidFile: Option = Option("-cas-emit-casid-file", .flag, attributes: [.frontend, .noDriver], helpText: "Emit .casid file next to object file when CAS Backend is enabled")
   public static let casFs: Option = Option("-cas-fs", .separate, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<cas-id>", helpText: "Root CASID for CAS FileSystem")
   public static let casPath: Option = Option("-cas-path", .separate, attributes: [.frontend, .cacheInvariant], metaVar: "<path>", helpText: "Path to CAS")
-  public static let casPluginOption: Option = Option("-cas-plugin-option", .separate, attributes: [.frontend], metaVar: "<name>=<option>", helpText: "Option pass to CAS Plugin")
-  public static let casPluginPath: Option = Option("-cas-plugin-path", .separate, attributes: [.frontend], metaVar: "<path>", helpText: "Path to CAS Plugin")
+  public static let casPluginOption: Option = Option("-cas-plugin-option", .separate, attributes: [.frontend, .cacheInvariant], metaVar: "<name>=<option>", helpText: "Option pass to CAS Plugin")
+  public static let casPluginPath: Option = Option("-cas-plugin-path", .separate, attributes: [.frontend, .cacheInvariant], metaVar: "<path>", helpText: "Path to CAS Plugin")
   public static let checkApiAvailabilityOnly: Option = Option("-check-api-availability-only", .flag, attributes: [.helpHidden, .frontend, .noInteractive], helpText: "Deprecated, has no effect")
   public static let checkOnoneCompleteness: Option = Option("-check-onone-completeness", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Print errors if the compile OnoneSupport module is missing symbols")
   public static let checkedAsyncObjcBridging: Option = Option("-checked-async-objc-bridging=", .joined, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Control whether checked continuations are used when bridging async calls from Swift to ObjC: 'on', 'off' ")
   public static let clangBuildSessionFile: Option = Option("-clang-build-session-file", .separate, attributes: [.frontend, .argumentIsPath], helpText: "Use the last modification time of <file> as the underlying Clang build session timestamp")
   public static let clangHeaderExposeDecls: Option = Option("-clang-header-expose-decls=", .joined, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "all-public|has-expose-attr", helpText: "Which declarations should be exposed in the generated clang header.")
   public static let clangHeaderExposeModule: Option = Option("-clang-header-expose-module", .separate, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<imported-module-name>=<generated-header-name>", helpText: "Allow the compiler to assume that APIs from the specified module are exposed to C/C++/Objective-C in another generated header, so that APIs in the current module that depend on declarations from the specified module can be exposed in the generated header.")
+  public static let clangIncludeTreeFilelist: Option = Option("-clang-include-tree-filelist", .separate, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<cas-id>", helpText: "Clang Include Tree FileList CASID")
   public static let clangIncludeTreeRoot: Option = Option("-clang-include-tree-root", .separate, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<cas-id>", helpText: "Clang Include Tree CASID")
   public static let clangScannerModuleCachePath: Option = Option("-clang-scanner-module-cache-path", .separate, attributes: [.frontend, .doesNotAffectIncrementalBuild, .argumentIsPath], helpText: "Specifies the Clang dependency scanner module cache path")
   public static let clangTarget: Option = Option("-clang-target", .separate, attributes: [.frontend, .synthesizeInterface], helpText: "Separately set the target we should use for internal Clang instance")
@@ -234,6 +235,7 @@ extension Option {
   public static let disablePreviousImplementationCallsInDynamicReplacements: Option = Option("-disable-previous-implementation-calls-in-dynamic-replacements", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable calling the previous implementation in dynamic replacements")
   public static let disablePrintMissingImportsInModuleInterface: Option = Option("-disable-print-missing-imports-in-module-interface", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable adding to the module interface imports used from API and missing from the sources")
   public static let disablePrintPackageNameForNonPackageInterface: Option = Option("-disable-print-package-name-for-non-package-interface", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "No op; package name is only printed in package interface by default")
+  public static let disableProfilingMarkerThunks: Option = Option("-disable-profiling-marker-thunks", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable profiling marker thunks")
   public static let disableReadonlyStaticObjects: Option = Option("-disable-readonly-static-objects", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Avoid allocating static objects in a read-only data section")
   public static let disableReflectionMetadata: Option = Option("-disable-reflection-metadata", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable emission of reflection metadata for nominal types")
   public static let disableReflectionNames: Option = Option("-disable-reflection-names", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable emission of names of stored properties and enum cases inreflection metadata")
@@ -461,6 +463,7 @@ extension Option {
   public static let enablePackMetadataStackPromotion: Option = Option("-enable-pack-metadata-stack-promotion=", .joined, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "true|false", helpText: "Whether to skip heapifying stack metadata packs when possible.")
   public static let enablePackMetadataStackPromotionNoArg: Option = Option("-enable-pack-metadata-stack-promotion", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Skip heapifying stack metadata packs when possible.")
   public static let enablePrivateImports: Option = Option("-enable-private-imports", .flag, attributes: [.helpHidden, .frontend, .noInteractive], helpText: "Allows this module's internal and private API to be accessed")
+  public static let enableProfilingMarkerThunks: Option = Option("-enable-profiling-marker-thunks", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable profiling marker thunks")
   public static let enableRelativeProtocolWitnessTables: Option = Option("-enable-relative-protocol-witness-tables", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable relative protocol witness tables")
   public static let enableRemoveDeprecatedCheck: Option = Option("-enable-remove-deprecated-check", .flag, attributes: [.noDriver], helpText: "Diagnosing removal of deprecated symbols")
   public static let enableRemoveDeprecatedCheck_: Option = Option("--enable-remove-deprecated-check", .flag, alias: Option.enableRemoveDeprecatedCheck, attributes: [.noDriver], helpText: "Diagnosing removal of deprecated symbols")
@@ -710,6 +713,7 @@ extension Option {
   public static let printPreprocessedExplicitDependencyGraph: Option = Option("-print-preprocessed-explicit-dependency-graph", .flag, attributes: [.helpHidden], helpText: "Print the result of module dependency scanning to output")
   public static let printStats: Option = Option("-print-stats", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Print various statistics")
   public static let printTargetInfo: Option = Option("-print-target-info", .flag, attributes: [.frontend], metaVar: "<triple>", helpText: "Print target information for the given target <triple>, such as x86_64-apple-macos10.9")
+  public static let printZeroStats: Option = Option("-print-zero-stats", .flag, attributes: [.helpHidden, .frontend], helpText: "Prints all stats even if they are zero")
   public static let profileCoverageMapping: Option = Option("-profile-coverage-mapping", .flag, attributes: [.frontend, .noInteractive], helpText: "Generate coverage data for use with profiled execution counts")
   public static let profileGenerate: Option = Option("-profile-generate", .flag, attributes: [.frontend, .noInteractive], helpText: "Generate instrumented code to collect execution counts")
   public static let profileStatsEntities: Option = Option("-profile-stats-entities", .flag, attributes: [.helpHidden, .frontend], helpText: "Profile changes to stats in -stats-output-dir, subdivided by source entity")
@@ -975,6 +979,7 @@ extension Option {
       Option.clangBuildSessionFile,
       Option.clangHeaderExposeDecls,
       Option.clangHeaderExposeModule,
+      Option.clangIncludeTreeFilelist,
       Option.clangIncludeTreeRoot,
       Option.clangScannerModuleCachePath,
       Option.clangTarget,
@@ -1125,6 +1130,7 @@ extension Option {
       Option.disablePreviousImplementationCallsInDynamicReplacements,
       Option.disablePrintMissingImportsInModuleInterface,
       Option.disablePrintPackageNameForNonPackageInterface,
+      Option.disableProfilingMarkerThunks,
       Option.disableReadonlyStaticObjects,
       Option.disableReflectionMetadata,
       Option.disableReflectionNames,
@@ -1352,6 +1358,7 @@ extension Option {
       Option.enablePackMetadataStackPromotion,
       Option.enablePackMetadataStackPromotionNoArg,
       Option.enablePrivateImports,
+      Option.enableProfilingMarkerThunks,
       Option.enableRelativeProtocolWitnessTables,
       Option.enableRemoveDeprecatedCheck,
       Option.enableRemoveDeprecatedCheck_,
@@ -1601,6 +1608,7 @@ extension Option {
       Option.printPreprocessedExplicitDependencyGraph,
       Option.printStats,
       Option.printTargetInfo,
+      Option.printZeroStats,
       Option.profileCoverageMapping,
       Option.profileGenerate,
       Option.profileStatsEntities,
