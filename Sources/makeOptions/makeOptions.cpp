@@ -38,8 +38,9 @@ enum class OptionKind {
 };
 
 #define LLVM_MAKE_OPT_ID_WITH_ID_PREFIX(ID_PREFIX, PREFIX, NAME, ID, KIND,     \
-                                        GROUP, ALIAS, ALIASARGS, FLAGS, PARAM, \
-                                        HELPTEXT, METAVAR, VALUES)             \
+                                        GROUP, ALIAS, ALIASARGS, FLAGS,        \
+                                        VISIBILITY, PARAM, HELPTEXT,           \
+                                        HELPTEXTFORVARIANTS, METAVAR, VALUES)  \
   ID_PREFIX##ID
 
 //. The IDs of each option
@@ -134,9 +135,10 @@ struct RawOption {
 #undef PREFIX
 
 static const RawOption rawOptions[] = {
-#define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS, PARAM,  \
-               HELPTEXT, METAVAR, VALUES)                                      \
- { OptionID::Opt_##ID, PREFIX, NAME, swiftify(#ID), OptionKind::KIND, \
+#define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS,         \
+               VISIBILITY, PARAM, HELPTEXT, HELPTEXTFORVARIANTS, METAVAR,      \
+               VALUES)                                                         \
+ { OptionID::Opt_##ID, PREFIX, NAME, swiftify(#ID), OptionKind::KIND,          \
    OptionID::Opt_##GROUP, OptionID::Opt_##ALIAS, FLAGS, HELPTEXT, METAVAR, PARAM },
 #include "swift/Option/Options.inc"
 #undef OPTION
