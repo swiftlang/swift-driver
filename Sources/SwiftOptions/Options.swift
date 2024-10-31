@@ -591,6 +591,7 @@ extension Option {
   public static let inputFileKey: Option = Option("-input-file-key", .separate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Cache Key for input file")
   public static let inputPaths: Option = Option("-input-paths", .separate, attributes: [.noDriver, .argumentIsPath], metaVar: "<path>", helpText: "The SDK contents under comparison")
   public static let inputPaths_: Option = Option("--input-paths", .separate, alias: Option.inputPaths, attributes: [.noDriver, .argumentIsPath], metaVar: "<path>", helpText: "The SDK contents under comparison")
+  public static let swiftinterfaceCompilerVersion: Option = Option("-interface-compiler-version", .separate, attributes: [.helpHidden, .frontend], metaVar: "<intcvers>", helpText: "The version of the Swift compiler used to generate a .swiftinterface file")
   public static let internalizeAtLink: Option = Option("-internalize-at-link", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Allow internalizing public symbols and vtables at link time (assume all client code of public types is part of the same link unit, or that external symbols are explicitly requested via -exported_symbols_list)")
   public static let interpret: Option = Option("-interpret", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Immediate mode", group: .modes)
   public static let I: Option = Option("-I", .joinedOrSeparate, attributes: [.frontend, .synthesizeInterface, .argumentIsPath], helpText: "Add directory to the import search path")
@@ -1486,6 +1487,7 @@ extension Option {
       Option.inputFileKey,
       Option.inputPaths,
       Option.inputPaths_,
+      Option.swiftinterfaceCompilerVersion,
       Option.internalizeAtLink,
       Option.interpret,
       Option.I,
