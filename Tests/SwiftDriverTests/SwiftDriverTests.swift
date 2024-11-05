@@ -7026,7 +7026,7 @@ final class SwiftDriverTests: XCTestCase {
     var driver = try Driver(
       args: ["swiftc", "-emit-library", "foo.swift", "bar.o", "-o", "foo.l"],
       env: env)
-    let jobs = try driver.planBuild()
+    let jobs = try driver.planBuild().removingAutolinkExtractJobs()
     XCTAssertEqual(jobs.count, 2)
     let linkJob = jobs[1]
     XCTAssertEqual(linkJob.tool.name, swiftClang.pathString)
