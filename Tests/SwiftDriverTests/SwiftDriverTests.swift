@@ -7805,7 +7805,7 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertNotNil(envPlatformPluginPathIndex)
 
     if let platformPluginPathIndex, let envPlatformPluginPathIndex {
-      XCTAssertLessThan(platformPluginPathIndex, envPlatformPluginPathIndex)
+      XCTAssertLessThan(envPlatformPluginPathIndex, platformPluginPathIndex)
     }
 
     let toolchainPluginPathIndex = job.commandLine.firstIndex(of: .path(.absolute(try driver.toolchain.executableDir.parentDirectory.appending(components: "lib", "swift", "host", "plugins"))))

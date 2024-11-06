@@ -456,6 +456,17 @@ public final class DarwinToolchain: Toolchain {
     }
 
     if driver.isFrontendArgSupported(.externalPluginPath) {
+      // If the PLATFORM_DIR environment variable is set, also add plugin
+      // paths into it. Since this is a user override, it comes beore the
+      // default platform path that's based on the SDK.
+      if let platformDir = env["PLATFORM_DIR"],
+         let platformPath = try? VirtualPath(path: platformDir) {
+        addPluginPaths(
+          forPlatform: platformPath,
+          commandLine: &commandLine
+        )
+      }
+
       // Determine the platform path based on the SDK path.
       addPluginPaths(
         forPlatform: VirtualPath.lookup(sdkPath)
@@ -464,16 +475,6 @@ public final class DarwinToolchain: Toolchain {
           .parentDirectory,
         commandLine: &commandLine
       )
-
-      // If the PLATFORM_DIR environment variable is set, also add plugin
-      // paths into it.
-      if let platformDir = env["PLATFORM_DIR"],
-         let platformPath = try? VirtualPath(path: platformDir) {
-        addPluginPaths(
-          forPlatform: platformPath,
-          commandLine: &commandLine
-        )
-      }
     }
   }
 
