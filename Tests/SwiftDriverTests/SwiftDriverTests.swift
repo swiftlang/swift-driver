@@ -7749,7 +7749,12 @@ final class SwiftDriverTests: XCTestCase {
   func pluginPathTest(platform: String, sdk: String, searchPlatform: String) throws {
     let sdkRoot = try testInputsPath.appending(
       components: ["Platform Checks", "\(platform).platform", "Developer", "SDKs", "\(sdk).sdk"])
-    var driver = try Driver(args: ["swiftc", "-typecheck", "foo.swift", "-sdk", VirtualPath.absolute(sdkRoot).name, "-plugin-path", "PluginA", "-external-plugin-path", "Plugin~B#Bexe", "-load-plugin-library", "PluginB2", "-plugin-path", "PluginC", "-working-directory", "/tmp"])
+    var env = ProcessEnv.vars
+    env["PLATFORM_DIR"] = "/tmp/PlatformDir/\(platform).platform"
+    var driver = try Driver(
+      args: ["swiftc", "-typecheck", "foo.swift", "-sdk", VirtualPath.absolute(sdkRoot).name, "-plugin-path", "PluginA", "-external-plugin-path", "Plugin~B#Bexe", "-load-plugin-library", "PluginB2", "-plugin-path", "PluginC", "-working-directory", "/tmp"],
+      env: env
+    )
     guard driver.isFrontendArgSupported(.pluginPath) && driver.isFrontendArgSupported(.externalPluginPath) else {
       return
     }
@@ -7790,6 +7795,18 @@ final class SwiftDriverTests: XCTestCase {
     let platformLocalPluginPathIndex = job.commandLine.firstIndex(of: .flag("\(platformLocalPluginPath)#\(platformServerPath)"))
     XCTAssertNotNil(platformLocalPluginPathIndex)
     XCTAssertLessThan(platformPluginPathIndex!, platformLocalPluginPathIndex!)
+
+    // Plugin paths that come from the PLATFORM_DIR environment variable.
+    let envOrigPlatformPath = try AbsolutePath(validating: "/tmp/PlatformDir/\(searchPlatform).platform")
+    let envPlatformPath = envOrigPlatformPath.appending(components: "Developer", "usr")
+    let envPlatformServerPath = envPlatformPath.appending(components: "bin", "swift-plugin-server").pathString
+    let envPlatformPluginPath = envPlatformPath.appending(components: "lib", "swift", "host", "plugins")
+    let envPlatformPluginPathIndex = job.commandLine.firstIndex(of: .flag("\(envPlatformPluginPath)#\(envPlatformServerPath)"))
+    XCTAssertNotNil(envPlatformPluginPathIndex)
+
+    if let platformPluginPathIndex, let envPlatformPluginPathIndex {
+      XCTAssertLessThan(platformPluginPathIndex, envPlatformPluginPathIndex)
+    }
 
     let toolchainPluginPathIndex = job.commandLine.firstIndex(of: .path(.absolute(try driver.toolchain.executableDir.parentDirectory.appending(components: "lib", "swift", "host", "plugins"))))
     XCTAssertNotNil(toolchainPluginPathIndex)

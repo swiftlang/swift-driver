@@ -456,29 +456,52 @@ public final class DarwinToolchain: Toolchain {
     }
 
     if driver.isFrontendArgSupported(.externalPluginPath) {
-      // Determine the platform path. For simulator platforms, look into the
-      // corresponding device platform instance.
-      let origPlatformPath = VirtualPath.lookup(sdkPath)
-        .parentDirectory
-        .parentDirectory
-        .parentDirectory
-      let platformPath: VirtualPath
-      if let simulatorRange = origPlatformPath.basename.range(of: "Simulator.platform") {
-        let devicePlatform = origPlatformPath.basename.replacingCharacters(in: simulatorRange, with: "OS.platform")
-        platformPath = origPlatformPath.parentDirectory.appending(component: devicePlatform)
-      } else {
-        platformPath = origPlatformPath
+      // Determine the platform path based on the SDK path.
+      addPluginPaths(
+        forPlatform: VirtualPath.lookup(sdkPath)
+          .parentDirectory
+          .parentDirectory
+          .parentDirectory,
+        commandLine: &commandLine
+      )
+
+      // If the PLATFORM_DIR environment variable is set, also add plugin
+      // paths into it.
+      if let platformDir = env["PLATFORM_DIR"],
+         let platformPath = try? VirtualPath(path: platformDir) {
+        addPluginPaths(
+          forPlatform: platformPath,
+          commandLine: &commandLine
+        )
       }
-
-      // Default paths for compiler plugins within the platform (accessed via that
-      // platform's plugin server).
-      let platformPathRoot = platformPath.appending(components: "Developer", "usr")
-      commandLine.appendFlag(.externalPluginPath)
-      commandLine.appendFlag("\(platformPathRoot.pluginPath.name)#\(platformPathRoot.pluginServerPath.name)")
-
-      commandLine.appendFlag(.externalPluginPath)
-      commandLine.appendFlag("\(platformPathRoot.localPluginPath.name)#\(platformPathRoot.pluginServerPath.name)")
     }
+  }
+
+  /// Given the platform path (e.g., a path into something like iPhoneOS.platform),
+  /// add external plugin path arguments for compiler plugins that are distributed
+  /// within that path.
+  func addPluginPaths(
+    forPlatform origPlatformPath: VirtualPath,
+    commandLine: inout [Job.ArgTemplate]
+  ) {
+    // For simulator platforms, look into the corresponding device platform instance,
+    // because they share compiler plugins.
+    let platformPath: VirtualPath
+    if let simulatorRange = origPlatformPath.basename.range(of: "Simulator.platform") {
+      let devicePlatform = origPlatformPath.basename.replacingCharacters(in: simulatorRange, with: "OS.platform")
+      platformPath = origPlatformPath.parentDirectory.appending(component: devicePlatform)
+    } else {
+      platformPath = origPlatformPath
+    }
+
+    // Default paths for compiler plugins within the platform (accessed via that
+    // platform's plugin server).
+    let platformPathRoot = platformPath.appending(components: "Developer", "usr")
+    commandLine.appendFlag(.externalPluginPath)
+    commandLine.appendFlag("\(platformPathRoot.pluginPath.name)#\(platformPathRoot.pluginServerPath.name)")
+
+    commandLine.appendFlag(.externalPluginPath)
+    commandLine.appendFlag("\(platformPathRoot.localPluginPath.name)#\(platformPathRoot.pluginServerPath.name)")
   }
 }
 
