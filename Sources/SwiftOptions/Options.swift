@@ -20,7 +20,6 @@
 extension Option {
   public static let INPUT: Option = Option("<input>", .input, attributes: [.argumentIsPath])
   public static let HASHHASHHASH: Option = Option("-###", .flag, alias: Option.driverPrintJobs)
-  public static let abiCommentsInModuleInterface: Option = Option("-abi-comments-in-module-interface", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "When emitting a module interface, emit comments with ABI details")
   public static let abi: Option = Option("-abi", .flag, attributes: [.noDriver], helpText: "Dumping ABI interface")
   public static let abi_: Option = Option("--abi", .flag, alias: Option.abi, attributes: [.noDriver], helpText: "Dumping ABI interface")
   public static let abortOnModuleFail: Option = Option("-abort-on-module-fail", .flag, attributes: [.noDriver], helpText: "Abort if a module failed to load")
@@ -579,6 +578,7 @@ extension Option {
   public static let inPlace: Option = Option("-in-place", .flag, attributes: [.noInteractive, .noBatch], helpText: "Overwrite input file with formatted file.", group: .codeFormatting)
   public static let inProcessPluginServerPath: Option = Option("-in-process-plugin-server-path", .separate, attributes: [.frontend, .argumentIsPath], helpText: "Path to dynamic library plugin server")
   public static let includeSpiSymbols: Option = Option("-include-spi-symbols", .flag, attributes: [.helpHidden, .frontend, .noInteractive, .supplementaryOutput], helpText: "Add symbols with SPI information to the symbol graph")
+  public static let includeSubmodules: Option = Option("-include-submodules", .flag, attributes: [.noDriver, .synthesizeInterface], helpText: "Also print the declarations synthesized for any Clang submodules")
   public static let incremental: Option = Option("-incremental", .flag, attributes: [.helpHidden, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Perform an incremental build if possible")
   public static let indentSwitchCase: Option = Option("-indent-switch-case", .flag, attributes: [.noInteractive, .noBatch], helpText: "Indent cases in switch statements.", group: .codeFormatting)
   public static let indentWidth: Option = Option("-indent-width", .separate, attributes: [.noInteractive, .noBatch], metaVar: "<n>", helpText: "Number of characters to indent.", group: .codeFormatting)
@@ -712,6 +712,7 @@ extension Option {
   public static let printDiagnosticGroups: Option = Option("-print-diagnostic-groups", .flag, attributes: [.helpHidden, .frontend, .doesNotAffectIncrementalBuild], helpText: "Include diagnostic groups in printed diagnostic output, if available")
   public static let printEducationalNotes: Option = Option("-print-educational-notes", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Include educational notes in printed diagnostic output, if available")
   public static let printExplicitDependencyGraph: Option = Option("-print-explicit-dependency-graph", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Print the result of module dependency scanning after external module resolution to output")
+  public static let printFullyQualifiedTypes: Option = Option("-print-fully-qualified-types", .flag, attributes: [.noDriver, .synthesizeInterface], helpText: "Always print fully qualified type names")
   public static let printInstCounts: Option = Option("-print-inst-counts", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Before IRGen, count all the various SIL instructions. Must be used in conjunction with -print-stats.")
   public static let printLlvmInlineTree: Option = Option("-print-llvm-inline-tree", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Print the LLVM inline tree.")
   public static let printModule: Option = Option("-print-module", .flag, attributes: [.noDriver], helpText: "Print module names in diagnostics")
@@ -922,7 +923,6 @@ extension Option {
     return [
       Option.INPUT,
       Option.HASHHASHHASH,
-      Option.abiCommentsInModuleInterface,
       Option.abi,
       Option.abi_,
       Option.abortOnModuleFail,
@@ -1481,6 +1481,7 @@ extension Option {
       Option.inPlace,
       Option.inProcessPluginServerPath,
       Option.includeSpiSymbols,
+      Option.includeSubmodules,
       Option.incremental,
       Option.indentSwitchCase,
       Option.indentWidth,
@@ -1614,6 +1615,7 @@ extension Option {
       Option.printDiagnosticGroups,
       Option.printEducationalNotes,
       Option.printExplicitDependencyGraph,
+      Option.printFullyQualifiedTypes,
       Option.printInstCounts,
       Option.printLlvmInlineTree,
       Option.printModule,
