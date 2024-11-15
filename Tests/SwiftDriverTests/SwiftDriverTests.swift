@@ -3187,7 +3187,7 @@ final class SwiftDriverTests: XCTestCase {
         "-emit-library", "-driver-filelist-threshold=0"
     ])
 
-    var jobs = try driver.planBuild()
+    var jobs = try driver.planBuild().removingAutolinkExtractJobs()
     XCTAssertEqual(jobs.count, 4)
     XCTAssertEqual(getFileListElements(for: "-filelist", job: jobs[2]),
         [.temporary(try .init(validating: "hello-1.o"))])
@@ -3513,7 +3513,7 @@ final class SwiftDriverTests: XCTestCase {
       // We don't expect partial jobs when asking only for the swiftmodule with
       // -experimental-emit-module-separately.
       var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-experimental-emit-module-separately"])
-      let plannedJobs = try driver.planBuild()
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
       XCTAssertEqual(plannedJobs.count, 3)
       XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.emitModule, .compile]))
       XCTAssertTrue(plannedJobs[0].tool.name.contains("swift"))
@@ -3529,7 +3529,7 @@ final class SwiftDriverTests: XCTestCase {
     do {
       // Specifying -no-emit-module-separately uses a mergeModule job.
       var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", "/foo/bar/Test.swiftmodule", "-experimental-emit-module-separately", "-no-emit-module-separately" ])
-      let plannedJobs = try driver.planBuild()
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
       XCTAssertEqual(plannedJobs.count, 3)
       XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .mergeModule]))
     }
@@ -3538,7 +3538,7 @@ final class SwiftDriverTests: XCTestCase {
       // Calls using the driver to link a library shouldn't trigger an emit-module job, like in LLDB tests.
       var driver = try Driver(args: ["swiftc", "-emit-library", "foo.swiftmodule", "foo.o", "-emit-module-path", "foo.swiftmodule", "-experimental-emit-module-separately", "-target", "x86_64-apple-macosx10.15", "-module-name", "Test"],
                               env: envVars)
-      let plannedJobs = try driver.planBuild()
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
       XCTAssertEqual(plannedJobs.count, 1)
       XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.link]))
     }
@@ -3547,7 +3547,7 @@ final class SwiftDriverTests: XCTestCase {
       // Use emit-module to build sil files.
       var driver = try Driver(args: ["swiftc", "foo.sil", "bar.sil", "-module-name", "Test", "-emit-module-path", "/foo/bar/Test.swiftmodule", "-experimental-emit-module-separately", "-emit-library", "-target", "x86_64-apple-macosx10.15"],
                               env: envVars)
-      let plannedJobs = try driver.planBuild()
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
       XCTAssertEqual(plannedJobs.count, 4)
       XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .emitModule, .link]))
     }
@@ -3556,7 +3556,7 @@ final class SwiftDriverTests: XCTestCase {
       // Schedule an emit-module separately job even if there are non-compilable inputs.
       var driver = try Driver(args: ["swiftc", "foo.swift", "bar.dylib", "-emit-library", "foo.dylib", "-emit-module-path", "foo.swiftmodule"],
                               env: envVars)
-      let plannedJobs = try driver.planBuild()
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
       XCTAssertEqual(plannedJobs.count, 3)
       XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .emitModule, .link]))
 
@@ -5212,14 +5212,14 @@ final class SwiftDriverTests: XCTestCase {
         """
         digraph Jobs {
           "emitModule (\(executableName("swift-frontend")))" [style=bold];
-          "\rebase("test.swift")" [fontsize=12];
-          "\rebase("test.swift")" -> "emitModule (\(executableName("swift-frontend")))" [color=blue];
-          "\rebase("test.swiftmodule")" [fontsize=12];
-          "emitModule (\(executableName("swift-frontend")))" -> "\rebase("test.swiftmodule")" [color=green];
-          "\rebase("test.swiftdoc")" [fontsize=12];
-          "emitModule (\(executableName("swift-frontend")))" -> "\rebase("test.swiftdoc")" [color=green];
+          "\(rebase("test.swift"))" [fontsize=12];
+          "\(rebase("test.swift"))" -> "emitModule (\(executableName("swift-frontend")))" [color=blue];
+          "\(rebase("test.swiftmodule"))" [fontsize=12];
+          "emitModule (\(executableName("swift-frontend")))" -> "\(rebase("test.swiftmodule"))" [color=green];
+          "\(rebase("test.swiftdoc"))" [fontsize=12];
+          "emitModule (\(executableName("swift-frontend")))" -> "\(rebase("test.swiftdoc"))" [color=green];
           "compile (\(executableName("swift-frontend")))" [style=bold];
-          "\rebase("test.swift")" -> "compile (\(executableName("swift-frontend")))" [color=blue];
+          "\(rebase("test.swift"))" -> "compile (\(executableName("swift-frontend")))" [color=blue];
           "test-1.o" [fontsize=12];
           "compile (\(executableName("swift-frontend")))" -> "test-1.o" [color=green];
           "autolinkExtract (\(executableName("swift-autolink-extract")))" [style=bold];
@@ -7047,7 +7047,7 @@ final class SwiftDriverTests: XCTestCase {
     var driver = try Driver(
       args: ["swiftc", "-emit-library", "foo.swift", "bar.o", "-o", "foo.l"],
       env: env)
-    let jobs = try driver.planBuild()
+    let jobs = try driver.planBuild().removingAutolinkExtractJobs()
     XCTAssertEqual(jobs.count, 2)
     let linkJob = jobs[1]
     XCTAssertEqual(linkJob.tool.name, swiftClang.pathString)
