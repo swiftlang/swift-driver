@@ -52,6 +52,14 @@ extension Driver {
     case computed
   }
 
+  /// If the given option is specified but the frontend doesn't support it, throw an error.
+  func verifyFrontendSupportsOptionIfNecessary(_ option: Option) throws {
+    if parsedOptions.hasArgument(option) && !isFrontendArgSupported(option) {
+      diagnosticEngine.emit(.error_unsupported_opt_for_frontend(option: option))
+      throw ErrorDiagnostics.emitted
+    }
+  }
+
   /// Add frontend options that are common to different frontend invocations.
   mutating func addCommonFrontendOptions(
     commandLine: inout [Job.ArgTemplate],
@@ -153,6 +161,9 @@ extension Driver {
       diagnosticEngine.emit(.error_no_objc_interop_embedded)
       throw ErrorDiagnostics.emitted
     }
+
+    try verifyFrontendSupportsOptionIfNecessary(.disableUpcomingFeature)
+    try verifyFrontendSupportsOptionIfNecessary(.disableExperimentalFeature)
 
     // Handle the CPU and its preferences.
     try commandLine.appendLast(.targetCpu, from: &parsedOptions)
@@ -275,14 +286,11 @@ extension Driver {
     if isFrontendArgSupported(.compilerAssertions) {
       try commandLine.appendLast(.compilerAssertions, from: &parsedOptions)
     }
-    if isFrontendArgSupported(.enableExperimentalFeature) {
-      try commandLine.appendAll(
-        .enableExperimentalFeature, from: &parsedOptions)
-    }
-    if isFrontendArgSupported(.enableUpcomingFeature) {
-      try commandLine.appendAll(
-        .enableUpcomingFeature, from: &parsedOptions)
-    }
+    try commandLine.appendAll(.enableExperimentalFeature,
+                              .disableExperimentalFeature,
+                              .enableUpcomingFeature,
+                              .disableUpcomingFeature,
+                              from: &parsedOptions)
     try commandLine.appendAll(.moduleAlias, from: &parsedOptions)
     if isFrontendArgSupported(.enableBareSlashRegex) {
       try commandLine.appendLast(.enableBareSlashRegex, from: &parsedOptions)

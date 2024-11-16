@@ -35,6 +35,10 @@ extension Diagnostic.Message {
     .error("unsupported argument '\(argument)' to option '\(option.spelling)'")
   }
 
+  static func error_unsupported_opt_for_frontend(option: Option) -> Diagnostic.Message {
+    .error("frontend does not support option '\(option.spelling)'")
+  }
+
   static func error_option_requires_sanitizer(option: Option) -> Diagnostic.Message {
     .error("option '\(option.spelling)' requires a sanitizer to be enabled. Use -sanitize= to enable a sanitizer")
   }

@@ -8295,6 +8295,45 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(!jobs[0].commandLine.contains("-emit-irgen"))
     }
   }
+
+  func testEnableFeatures() throws {
+    do {
+      let featureArgs = [
+        "-enable-upcoming-feature", "MemberImportVisibility",
+        "-enable-experimental-feature", "ParserValidation",
+        "-enable-upcoming-feature", "ConcisePoundFile",
+      ]
+      var driver = try Driver(args: ["swiftc", "file.swift"] + featureArgs)
+      let jobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(jobs.count, 2)
+
+      // Verify that the order of both upcoming and experimental features is preserved.
+      XCTAssertTrue(jobs[0].commandLine.contains(subsequence: featureArgs.map { Job.ArgTemplate.flag($0) }))
+    }
+  }
+
+  func testDisableFeatures() throws {
+    let driver = try Driver(args: ["swiftc", "foo.swift"])
+    guard driver.isFrontendArgSupported(.disableUpcomingFeature) else {
+      throw XCTSkip("Skipping: compiler does not support '-disable-upcoming-feature'")
+    }
+
+    do {
+      let featureArgs = [
+        "-enable-upcoming-feature", "MemberImportVisibility",
+        "-disable-upcoming-feature", "MemberImportVisibility",
+        "-disable-experimental-feature", "ParserValidation",
+        "-enable-experimental-feature", "ParserValidation",
+      ]
+
+      var driver = try Driver(args: ["swiftc", "file.swift"] + featureArgs)
+      let jobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(jobs.count, 2)
+
+      // Verify that the order of both upcoming and experimental features is preserved.
+      XCTAssertTrue(jobs[0].commandLine.contains(subsequence: featureArgs.map { Job.ArgTemplate.flag($0) }))
+    }
+  }
 }
 
 func assertString(

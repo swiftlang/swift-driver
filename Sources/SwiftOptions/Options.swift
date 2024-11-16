@@ -184,6 +184,7 @@ extension Option {
   public static let disableDynamicActorIsolation: Option = Option("-disable-dynamic-actor-isolation", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Disable dynamic actor isolation checks")
   public static let disableEmitGenericClassRoTList: Option = Option("-disable-emit-generic-class-ro_t-list", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable emission of a section with references to class_ro_t of generic class patterns")
   public static let disableExperimentalClangImporterDiagnostics: Option = Option("-disable-experimental-clang-importer-diagnostics", .flag, attributes: [.helpHidden, .frontend, .noDriver, .moduleInterface], helpText: "Disable experimental diagnostics when importing C, C++, and Objective-C libraries")
+  public static let disableExperimentalFeature: Option = Option("-disable-experimental-feature", .separate, attributes: [.frontend, .moduleInterface], helpText: "Disable an experimental feature")
   public static let disableExperimentalLifetimeDependenceInference: Option = Option("-disable-experimental-lifetime-dependence-inference", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable experimental lifetime dependence inference")
   public static let disableExperimentalOpenedExistentialTypes: Option = Option("-disable-experimental-opened-existential-types", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable experimental support for implicitly opened existentials")
   public static let disableExperimentalParserRoundTrip: Option = Option("-disable-experimental-parser-round-trip", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable round trip through the new swift parser")
@@ -263,6 +264,7 @@ extension Option {
   public static let disableThrowsPrediction: Option = Option("-disable-throws-prediction", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disables optimization assumption that functions rarely throw errors.")
   public static let disableTypeLayouts: Option = Option("-disable-type-layout", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable type layout based lowering")
   public static let disableTypoCorrection: Option = Option("-disable-typo-correction", .flag, attributes: [.frontend, .noDriver], helpText: "Disable typo correction")
+  public static let disableUpcomingFeature: Option = Option("-disable-upcoming-feature", .separate, attributes: [.frontend, .moduleInterface], helpText: "Disable a feature that will be introduced in an upcoming language version")
   public static let disableVerifyExclusivity: Option = Option("-disable-verify-exclusivity", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable verification of access markers used to enforce exclusivity.")
   public static let disallowForwardingDriver: Option = Option("-disallow-use-new-driver", .flag, helpText: "Disable using new swift-driver")
   public static let downgradeTypecheckInterfaceError: Option = Option("-downgrade-typecheck-interface-error", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Downgrade error to warning when typechecking emitted module interfaces")
@@ -1087,6 +1089,7 @@ extension Option {
       Option.disableDynamicActorIsolation,
       Option.disableEmitGenericClassRoTList,
       Option.disableExperimentalClangImporterDiagnostics,
+      Option.disableExperimentalFeature,
       Option.disableExperimentalLifetimeDependenceInference,
       Option.disableExperimentalOpenedExistentialTypes,
       Option.disableExperimentalParserRoundTrip,
@@ -1166,6 +1169,7 @@ extension Option {
       Option.disableThrowsPrediction,
       Option.disableTypeLayouts,
       Option.disableTypoCorrection,
+      Option.disableUpcomingFeature,
       Option.disableVerifyExclusivity,
       Option.disallowForwardingDriver,
       Option.downgradeTypecheckInterfaceError,
