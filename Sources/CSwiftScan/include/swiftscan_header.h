@@ -17,8 +17,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define SWIFTSCAN_VERSION_MAJOR 0
-#define SWIFTSCAN_VERSION_MINOR 10
+#define SWIFTSCAN_VERSION_MAJOR 1
+#define SWIFTSCAN_VERSION_MINOR 0
 
 //=== Public Scanner Data Types -------------------------------------------===//
 
@@ -65,18 +65,6 @@ typedef struct {
   swiftscan_link_library_info_t *link_libraries;
   size_t count;
 } swiftscan_link_library_set_t;
-
-//=== Batch Scan Input Specification --------------------------------------===//
-
-typedef struct swiftscan_batch_scan_entry_s *swiftscan_batch_scan_entry_t;
-typedef struct {
-  swiftscan_batch_scan_entry_t *modules;
-  size_t count;
-} swiftscan_batch_scan_input_t;
-typedef struct {
-  swiftscan_dependency_graph_t *results;
-  size_t count;
-} swiftscan_batch_scan_result_t;
 
 //=== Scanner Invocation Specification ------------------------------------===//
 
@@ -198,28 +186,6 @@ typedef struct {
   swiftscan_string_ref_t
   (*swiftscan_clang_detail_get_module_cache_key)(swiftscan_module_details_t);
 
-  //=== Batch Scan Input Functions ------------------------------------------===//
-  swiftscan_batch_scan_input_t *
-  (*swiftscan_batch_scan_input_create)(void);
-  void
-  (*swiftscan_batch_scan_input_set_modules)(swiftscan_batch_scan_input_t *, int, swiftscan_batch_scan_entry_t *);
-
-  //=== Batch Scan Entry Functions ------------------------------------------===//
-  swiftscan_batch_scan_entry_t
-  (*swiftscan_batch_scan_entry_create)(void);
-  void
-  (*swiftscan_batch_scan_entry_set_module_name)(swiftscan_batch_scan_entry_t, const char *);
-  void
-  (*swiftscan_batch_scan_entry_set_arguments)(swiftscan_batch_scan_entry_t, const char *);
-  void
-  (*swiftscan_batch_scan_entry_set_is_swift)(swiftscan_batch_scan_entry_t, bool);
-  swiftscan_string_ref_t
-  (*swiftscan_batch_scan_entry_get_module_name)(swiftscan_batch_scan_entry_t);
-  swiftscan_string_ref_t
-  (*swiftscan_batch_scan_entry_get_arguments)(swiftscan_batch_scan_entry_t);
-  bool
-  (*swiftscan_batch_scan_entry_get_is_swift)(swiftscan_batch_scan_entry_t);
-
   //=== Prescan Result Functions --------------------------------------------===//
   swiftscan_string_set_t *
   (*swiftscan_import_set_get_imports)(swiftscan_import_set_t);
@@ -249,14 +215,6 @@ typedef struct {
   (*swiftscan_dependency_graph_dispose)(swiftscan_dependency_graph_t);
   void
   (*swiftscan_import_set_dispose)(swiftscan_import_set_t);
-  void
-  (*swiftscan_batch_scan_entry_dispose)(swiftscan_batch_scan_entry_t);
-  void
-  (*swiftscan_batch_scan_input_dispose)(swiftscan_batch_scan_input_t *);
-  void
-  (*swiftscan_batch_scan_result_dispose)(swiftscan_batch_scan_result_t *);
-  void
-  (*swiftscan_scan_invocation_dispose)(swiftscan_scan_invocation_t);
 
   //=== Target Info Functions-------- ---------------------------------------===//
   swiftscan_string_ref_t
@@ -274,10 +232,6 @@ typedef struct {
   void (*swiftscan_scanner_dispose)(swiftscan_scanner_t);
   swiftscan_dependency_graph_t
   (*swiftscan_dependency_graph_create)(swiftscan_scanner_t, swiftscan_scan_invocation_t);
-  swiftscan_batch_scan_result_t *
-  (*swiftscan_batch_scan_result_create)(swiftscan_scanner_t,
-                                        swiftscan_batch_scan_input_t *,
-                                        swiftscan_scan_invocation_t);
   swiftscan_import_set_t
   (*swiftscan_import_set_create)(swiftscan_scanner_t, swiftscan_scan_invocation_t);
 
@@ -294,6 +248,8 @@ typedef struct {
   (*swiftscan_diagnostic_get_source_location)(swiftscan_diagnostic_info_t);
   void
   (*swiftscan_diagnostics_set_dispose)(swiftscan_diagnostic_set_t*);
+  void
+  (*swiftscan_scan_invocation_dispose)(swiftscan_scan_invocation_t);
 
   //=== Source Location -----------------------------------------------------===//
   swiftscan_string_ref_t

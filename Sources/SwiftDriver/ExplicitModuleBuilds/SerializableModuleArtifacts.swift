@@ -100,49 +100,6 @@
   }
 }
 
-/// Describes a given module's batch dependency scanning input info
-/// - Module Name
-/// - Extra PCM build arguments (for Clang modules only)
-/// - Dependency graph output path
-public enum BatchScanModuleInfo: Encodable {
-  case swift(BatchScanSwiftModuleInfo)
-  case clang(BatchScanClangModuleInfo)
-}
-
-public struct BatchScanSwiftModuleInfo: Encodable {
-  var swiftModuleName: String
-  var output: String
-
-  init(moduleName: String, outputPath: String) {
-    self.swiftModuleName = moduleName
-    self.output = outputPath
-  }
-}
-
-public struct BatchScanClangModuleInfo: Encodable {
-  var clangModuleName: String
-  var arguments: String
-  var output: String
-
-  init(moduleName: String, pcmArgs: String, outputPath: String) {
-    self.clangModuleName = moduleName
-    self.arguments = pcmArgs
-    self.output = outputPath
-  }
-}
-
-public extension BatchScanModuleInfo {
-  func encode(to encoder: Encoder) throws {
-    var container = encoder.singleValueContainer()
-    switch self {
-      case .swift(let swiftInfo):
-        try container.encode(swiftInfo)
-      case .clang(let clangInfo):
-        try container.encode(clangInfo)
-    }
-  }
-}
-
 extension SwiftModuleArtifactInfo: Comparable {
   public static func < (lhs: SwiftModuleArtifactInfo, rhs: SwiftModuleArtifactInfo) -> Bool {
     return lhs.moduleName < rhs.moduleName

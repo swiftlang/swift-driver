@@ -53,40 +53,6 @@ internal extension SwiftScan {
     }
     return InterModuleDependencyImports(imports: try toSwiftStringArray(importsRef.pointee), moduleAliases: moduleAliases)
   }
-
-  /// From a reference to a binary-format dependency graph collection returned by libSwiftScan batch scan query,
-  /// corresponding to the specified batch scan input (`BatchScanModuleInfo`), construct instances of
-  /// `InterModuleDependencyGraph` for each result.
-  func constructBatchResultGraphs(for batchInfos: [BatchScanModuleInfo],
-                                  moduleAliases: [String: String]?,
-                                  from batchResultRef: swiftscan_batch_scan_result_t) throws
-  -> [ModuleDependencyId: [InterModuleDependencyGraph]] {
-    var resultMap: [ModuleDependencyId: [InterModuleDependencyGraph]] = [:]
-    let resultGraphRefArray = Array(UnsafeBufferPointer(start: batchResultRef.results,
-                                                        count: Int(batchResultRef.count)))
-    // Note, respective indices of the batch scan input and the returned result must be aligned.
-    for (index, resultGraphRefOrNull) in resultGraphRefArray.enumerated() {
-      guard let resultGraphRef = resultGraphRefOrNull else {
-        throw DependencyScanningError.dependencyScanFailed("Unable to produce dependency graph from batch scan result")
-      }
-      let decodedGraph = try constructGraph(from: resultGraphRef, moduleAliases: moduleAliases)
-
-      let moduleId: ModuleDependencyId
-      switch batchInfos[index] {
-        case .swift(let swiftModuleBatchScanInfo):
-          moduleId = .swift(swiftModuleBatchScanInfo.swiftModuleName)
-        case .clang(let clangModuleBatchScanInfo):
-          moduleId = .clang(clangModuleBatchScanInfo.clangModuleName)
-      }
-      // Update the map with either yet another graph or create an entry for this module
-      if resultMap[moduleId] != nil {
-        resultMap[moduleId]!.append(decodedGraph)
-      } else {
-        resultMap[moduleId] = [decodedGraph]
-      }
-    }
-    return resultMap
-  }
 }
 
 private extension SwiftScan {

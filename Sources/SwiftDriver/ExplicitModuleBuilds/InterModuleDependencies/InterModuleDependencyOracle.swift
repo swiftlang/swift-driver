@@ -56,20 +56,6 @@ public class InterModuleDependencyOracle {
                                                       diagnostics: &diagnostics)
   }
 
-  @_spi(Testing) public func getBatchDependencies(workingDirectory: AbsolutePath,
-                                                  moduleAliases: [String: String]? = nil,
-                                                  commandLine: [String],
-                                                  batchInfos: [BatchScanModuleInfo],
-                                                  diagnostics: inout [ScannerDiagnosticPayload])
-  throws -> [ModuleDependencyId: [InterModuleDependencyGraph]] {
-    precondition(hasScannerInstance)
-    return try swiftScanLibInstance!.batchScanDependencies(workingDirectory: workingDirectory,
-                                                           moduleAliases: moduleAliases,
-                                                           invocationCommand: commandLine,
-                                                           batchInfos: batchInfos,
-                                                           diagnostics: &diagnostics)
-  }
-
   @_spi(Testing) public func getImports(workingDirectory: AbsolutePath,
                                         moduleAliases: [String: String]? = nil,
                                         commandLine: [String],

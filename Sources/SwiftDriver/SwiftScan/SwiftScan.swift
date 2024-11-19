@@ -220,70 +220,6 @@ private extension String {
     return try constructGraph(from: graphRef, moduleAliases: moduleAliases)
   }
 
-  func batchScanDependencies(workingDirectory: AbsolutePath,
-                             moduleAliases: [String: String]?,
-                             invocationCommand: [String],
-                             batchInfos: [BatchScanModuleInfo],
-                             diagnostics: inout [ScannerDiagnosticPayload])
-  throws -> [ModuleDependencyId: [InterModuleDependencyGraph]] {
-    // Create and configure the scanner invocation
-    let invocationRef = api.swiftscan_scan_invocation_create()
-    defer { api.swiftscan_scan_invocation_dispose(invocationRef) }
-    api.swiftscan_scan_invocation_set_working_directory(invocationRef,
-                                                        workingDirectory
-                                                          .description
-                                                          .cString(using: String.Encoding.utf8))
-    withArrayOfCStrings(invocationCommand) { invocationStringArray in
-      api.swiftscan_scan_invocation_set_argv(invocationRef,
-                                             Int32(invocationCommand.count),
-                                             invocationStringArray)
-    }
-
-    // Create and populate a batch scan input `swiftscan_batch_scan_input_t`
-    let moduleEntriesPtr =
-      UnsafeMutablePointer<swiftscan_batch_scan_entry_t?>.allocate(capacity: batchInfos.count)
-    for (index, batchEntryInfo) in batchInfos.enumerated() {
-      // Create and populate an individual `swiftscan_batch_scan_entry_t`
-      let entryRef = api.swiftscan_batch_scan_entry_create()
-      switch batchEntryInfo {
-        case .clang(let clangEntryInfo):
-          api.swiftscan_batch_scan_entry_set_module_name(entryRef,
-                                                     clangEntryInfo.clangModuleName
-                                                      .cString(using: String.Encoding.utf8))
-          api.swiftscan_batch_scan_entry_set_is_swift(entryRef, false)
-          api.swiftscan_batch_scan_entry_set_arguments(entryRef, clangEntryInfo.arguments
-                                                        .cString(using: String.Encoding.utf8))
-        case .swift(let swiftEntryInfo):
-          api.swiftscan_batch_scan_entry_set_module_name(entryRef,
-                                                         swiftEntryInfo.swiftModuleName
-                                                          .cString(using: String.Encoding.utf8))
-          api.swiftscan_batch_scan_entry_set_is_swift(entryRef, true)
-      }
-      (moduleEntriesPtr + index).initialize(to: entryRef)
-    }
-    let inputRef = api.swiftscan_batch_scan_input_create()
-    // Disposing of the input frees memory of the contained entries, as well.
-    defer { api.swiftscan_batch_scan_input_dispose(inputRef) }
-    api.swiftscan_batch_scan_input_set_modules(inputRef, Int32(batchInfos.count),
-                                               moduleEntriesPtr)
-
-    let batchResultRefOrNull = api.swiftscan_batch_scan_result_create(scanner,
-                                                                      inputRef,
-                                                                      invocationRef)
-    guard let batchResultRef = batchResultRefOrNull else {
-      throw DependencyScanningError.dependencyScanFailed("Unable to produce batch scan results")
-    }
-    // Translate `swiftscan_batch_scan_result_t`
-    // into `[ModuleDependencyId: [InterModuleDependencyGraph]]`
-    let resultGraphMap = try constructBatchResultGraphs(for: batchInfos,
-                                                        moduleAliases:  moduleAliases,
-                                                        from: batchResultRef.pointee)
-    // Free the memory allocated for the in-memory representation of the batch scan
-    // result, now that we have translated it.
-    api.swiftscan_batch_scan_result_dispose(batchResultRefOrNull)
-    return resultGraphMap
-  }
-
   @_spi(Testing) public var hasBinarySwiftModuleIsFramework : Bool {
     api.swiftscan_swift_binary_detail_get_is_framework != nil
   }
@@ -698,24 +634,6 @@ private extension swiftscan_functions_t {
       try loadRequired("swiftscan_scan_invocation_create")
     self.swiftscan_import_set_get_imports =
       try loadRequired("swiftscan_import_set_get_imports")
-    self.swiftscan_batch_scan_entry_create =
-      try loadRequired("swiftscan_batch_scan_entry_create")
-    self.swiftscan_batch_scan_entry_get_is_swift =
-      try loadRequired("swiftscan_batch_scan_entry_get_is_swift")
-    self.swiftscan_batch_scan_entry_get_arguments =
-      try loadRequired("swiftscan_batch_scan_entry_get_arguments")
-    self.swiftscan_batch_scan_entry_get_module_name =
-      try loadRequired("swiftscan_batch_scan_entry_get_module_name")
-    self.swiftscan_batch_scan_entry_set_is_swift =
-      try loadRequired("swiftscan_batch_scan_entry_set_is_swift")
-    self.swiftscan_batch_scan_entry_set_arguments =
-      try loadRequired("swiftscan_batch_scan_entry_set_arguments")
-    self.swiftscan_batch_scan_entry_set_module_name =
-      try loadRequired("swiftscan_batch_scan_entry_set_module_name")
-    self.swiftscan_batch_scan_input_set_modules =
-      try loadRequired("swiftscan_batch_scan_input_set_modules")
-    self.swiftscan_batch_scan_input_create =
-      try loadRequired("swiftscan_batch_scan_input_create")
     self.swiftscan_clang_detail_get_command_line =
       try loadRequired("swiftscan_clang_detail_get_command_line")
     self.swiftscan_clang_detail_get_context_hash =
@@ -776,18 +694,10 @@ private extension swiftscan_functions_t {
       try loadRequired("swiftscan_dependency_graph_dispose")
     self.swiftscan_import_set_dispose =
       try loadRequired("swiftscan_import_set_dispose")
-    self.swiftscan_batch_scan_entry_dispose =
-      try loadRequired("swiftscan_batch_scan_entry_dispose")
-    self.swiftscan_batch_scan_input_dispose =
-      try loadRequired("swiftscan_batch_scan_input_dispose")
-    self.swiftscan_batch_scan_result_dispose =
-      try loadRequired("swiftscan_batch_scan_result_dispose")
     self.swiftscan_scan_invocation_dispose =
       try loadRequired("swiftscan_scan_invocation_dispose")
     self.swiftscan_dependency_graph_create =
       try loadRequired("swiftscan_dependency_graph_create")
-    self.swiftscan_batch_scan_result_create =
-      try loadRequired("swiftscan_batch_scan_result_create")
     self.swiftscan_import_set_create =
       try loadRequired("swiftscan_import_set_create")
   }
