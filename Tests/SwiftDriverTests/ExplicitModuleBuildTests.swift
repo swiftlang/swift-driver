@@ -578,6 +578,10 @@ final class ExplicitModuleBuildTests: XCTestCase {
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang("C"),
                                             dependencyGraph: dependencyGraph)
           }
+          else if relativeOutputPathFileName.starts(with: "D-") {
+            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("D"),
+                                            dependencyGraph: dependencyGraph)
+          }
           else if relativeOutputPathFileName.starts(with: "G-") {
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang("G"),
                                             dependencyGraph: dependencyGraph)
@@ -719,6 +723,10 @@ final class ExplicitModuleBuildTests: XCTestCase {
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang("C"),
                                             dependencyGraph: dependencyGraph)
           }
+          else if relativeOutputPathFileName.starts(with: "D-") {
+            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("D"),
+                                            dependencyGraph: dependencyGraph)
+          }
           else if relativeOutputPathFileName.starts(with: "G-") {
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang("G"),
                                             dependencyGraph: dependencyGraph)
@@ -844,6 +852,10 @@ final class ExplicitModuleBuildTests: XCTestCase {
           }
           else if relativeOutputPathFileName.starts(with: "C-") {
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang("C"),
+                                            dependencyGraph: dependencyGraph)
+          }
+          else if relativeOutputPathFileName.starts(with: "D-") {
+            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("D"),
                                             dependencyGraph: dependencyGraph)
           }
           else if relativeOutputPathFileName.starts(with: "G-") {
@@ -1736,11 +1748,11 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let expectedNumberOfDependencies: Int
       if hostTriple.isMacOSX,
          hostTriple.version(for: .macOS) < Triple.Version(11, 0, 0) {
-        expectedNumberOfDependencies = 12
+        expectedNumberOfDependencies = 13
       } else if driver.targetTriple.isWindows {
-        expectedNumberOfDependencies = 14
+        expectedNumberOfDependencies = 15
       } else {
-        expectedNumberOfDependencies = 11
+        expectedNumberOfDependencies = 12
       }
 
       // Dispatch several iterations in parallel
