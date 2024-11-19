@@ -12,5 +12,8 @@ target_link_libraries(swift-driver PUBLIC
   SwiftDriver
   SwiftDriverExecution)
 
+set_target_properties(swift-driver PROPERTIES
+  INSTALL_RPATH "$<$<PLATFORM_ID:Darwin>:@executable_path/../lib/swift/macosx>")
+
 install(TARGETS swift-driver
   DESTINATION bin)

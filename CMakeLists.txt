@@ -48,6 +48,7 @@ find_package(dispatch QUIET)
 find_package(Foundation QUIET)
 
 include(FetchContent)
+include(SwiftSupport)
 
 set(_SD_SAVED_BUILD_TESTING ${BUILD_TESTING})
 set(_SD_SAVED_BUILD_EXAMPLES ${BUILD_EXAMPLES})

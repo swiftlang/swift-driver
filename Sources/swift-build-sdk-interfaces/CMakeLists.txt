@@ -12,5 +12,8 @@ target_link_libraries(swift-build-sdk-interfaces PUBLIC
   SwiftDriver
   SwiftDriverExecution)
 
+set_target_properties(swift-build-sdk-interfaces PROPERTIES
+  INSTALL_RPATH "$<$<PLATFORM_ID:Darwin>:@executable_path/../lib/swift/macosx>")
+
 install(TARGETS swift-build-sdk-interfaces
   DESTINATION bin)

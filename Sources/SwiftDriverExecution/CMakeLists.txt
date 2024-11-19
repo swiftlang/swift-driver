@@ -25,7 +25,7 @@ set_property(GLOBAL APPEND PROPERTY SWIFTDRIVER_EXPORTS SwiftDriverExecution)
 set_target_properties(SwiftDriverExecution PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
 
-install(TARGETS SwiftDriverExecution
-  ARCHIVE DESTINATION lib
-  LIBRARY DESTINATION lib
-  RUNTIME DESTINATION bin)
+set_target_properties(SwiftDriverExecution PROPERTIES
+  INSTALL_RPATH "$<$<PLATFORM_ID:Darwin>:@loader_path/../pm/llbuild>")
+
+_install_target(SwiftDriverExecution)

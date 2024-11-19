@@ -13,5 +13,8 @@ target_link_libraries(swift-help PUBLIC
   ArgumentParser
   TSCBasic)
 
+set_target_properties(swift-help PROPERTIES
+  INSTALL_RPATH "$<$<PLATFORM_ID:Darwin>:@executable_path/../lib/swift/macosx>")
+
 install(TARGETS swift-help
   DESTINATION bin)
