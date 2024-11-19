@@ -287,6 +287,29 @@ internal extension InterModuleDependencyGraph {
     return modulesRequiringRebuild
   }
 
+  /// From a set of provided module dependency pre-compilation jobs,
+  /// filter out those with a fully up-to-date output
+  func filterMandatoryModuleDependencyCompileJobs(_ allJobs: [Job],
+                                                  fileSystem: FileSystem,
+                                                  reporter: IncrementalCompilationState.Reporter? = nil) throws -> [Job] {
+    // Determine which module pre-build jobs must be re-run
+    let modulesRequiringReBuild =
+      try computeInvalidatedModuleDependencies(fileSystem: fileSystem, forRebuild: true, reporter: reporter)
+
+    // Filter the `.generatePCM` and `.compileModuleFromInterface` jobs for
+    // modules which do *not* need re-building.
+    return allJobs.filter { job in
+      switch job.kind {
+      case .generatePCM:
+        return modulesRequiringReBuild.contains(.clang(job.moduleName))
+      case .compileModuleFromInterface:
+        return modulesRequiringReBuild.contains(.swift(job.moduleName))
+      default:
+        return true
+      }
+    }
+  }
+
   /// Perform a postorder DFS to locate modules which are out-of-date with respect
   /// to their inputs. Upon encountering such a module, add it to the set of invalidated
   /// modules, along with the path from the root to this module.

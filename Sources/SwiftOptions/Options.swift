@@ -30,6 +30,7 @@ extension Option {
   public static let allowNonResilientAccess: Option = Option("-allow-non-resilient-access", .flag, attributes: [.frontend], helpText: "Ensures all contents are generated besides exportable decls in the binary module, so non-resilient access can be allowed")
   public static let allowableClient: Option = Option("-allowable-client", .separate, attributes: [.frontend, .moduleInterface], metaVar: "<vers>", helpText: "Module names that are allowed to import this module")
   public static let alwaysCompileOutputFiles: Option = Option("-always-compile-output-files", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Always compile output files even it might not change the results")
+  public static let alwaysRebuildModuleDependencies: Option = Option("-always-rebuild-module-dependencies", .flag, attributes: [.helpHidden], helpText: "Always rebuild module dependencies")
   public static let analyzeRequestEvaluator: Option = Option("-analyze-request-evaluator", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Print out request evaluator cache statistics at the end of the compilation job")
   public static let analyzeRequirementMachine: Option = Option("-analyze-requirement-machine", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Print out requirement machine statistics at the end of the compilation job")
   public static let apiDiffDataDir: Option = Option("-api-diff-data-dir", .separate, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild, .argumentIsPath], metaVar: "<path>", helpText: "Load platform and version specific API migration data files from <path>. Ignored if -api-diff-data-file is specified.")
@@ -934,6 +935,7 @@ extension Option {
       Option.allowNonResilientAccess,
       Option.allowableClient,
       Option.alwaysCompileOutputFiles,
+      Option.alwaysRebuildModuleDependencies,
       Option.analyzeRequestEvaluator,
       Option.analyzeRequirementMachine,
       Option.apiDiffDataDir,

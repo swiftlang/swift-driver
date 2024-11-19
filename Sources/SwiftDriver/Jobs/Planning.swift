@@ -84,8 +84,8 @@ struct CompileJobGroup {
   }
 
   @_spi(Testing) public static var none = JobsInPhases(beforeCompiles: [],
-                                 compileGroups: [],
-                                 afterCompiles: [])
+                                                       compileGroups: [],
+                                                       afterCompiles: [])
 }
 
 // MARK: Standard build planning
@@ -106,7 +106,8 @@ extension Driver {
     interModuleDependencyGraph = try computeInterModuleDependencyGraph(with: initialIncrementalState)
 
     // Compute the set of all jobs required to build this module
-    let jobsInPhases = try computeJobsForPhasedStandardBuild(with: interModuleDependencyGraph)
+    let jobsInPhases = try computeJobsForPhasedStandardBuild(moduleDependencyGraph: interModuleDependencyGraph,
+                                                             initialIncrementalState: initialIncrementalState)
 
     // Determine the state for incremental compilation
     let incrementalCompilationState: IncrementalCompilationState?
@@ -153,7 +154,11 @@ extension Driver {
 
   /// Construct a build plan consisting of *all* jobs required for building the current module (non-incrementally).
   /// At build time, incremental state will be used to distinguish which of these jobs must run.
-  @_spi(Testing) public mutating func computeJobsForPhasedStandardBuild(with dependencyGraph: InterModuleDependencyGraph?)
+  ///
+  /// For Explicitly-Built module dependencies, filter out all up-to-date modules.
+  @_spi(Testing) public mutating func computeJobsForPhasedStandardBuild(moduleDependencyGraph: InterModuleDependencyGraph?,
+                                                                        initialIncrementalState:
+                                                                        IncrementalCompilationState.InitialStateForPlanning? = nil)
   throws -> JobsInPhases {
     // Centralize job accumulation here.
     // For incremental compilation, must separate jobs happening before,
@@ -175,7 +180,8 @@ extension Driver {
       jobsAfterCompiles.append(j)
     }
 
-    try addPrecompileModuleDependenciesJobs(dependencyGraph: dependencyGraph,
+    try addPrecompileModuleDependenciesJobs(dependencyGraph: moduleDependencyGraph,
+                                            initialIncrementalState: initialIncrementalState,
                                             addJob: addJobBeforeCompiles)
     try addPrecompileBridgingHeaderJob(addJob: addJobBeforeCompiles)
     let linkerInputs = try addJobsFeedingLinker(
@@ -195,6 +201,7 @@ extension Driver {
 
   private mutating func addPrecompileModuleDependenciesJobs(
     dependencyGraph: InterModuleDependencyGraph?,
+    initialIncrementalState: IncrementalCompilationState.InitialStateForPlanning?,
     addJob: (Job) -> Void)
   throws {
     guard let resolvedDependencyGraph = dependencyGraph else {
@@ -206,7 +213,32 @@ extension Driver {
     // We may have a dependency graph but not be required to add pre-compile jobs to the build plan,
     // for example when `-explain-dependency` is being used.
     guard parsedOptions.contains(.driverExplicitModuleBuild) else { return }
-    modulePrebuildJobs.forEach(addJob)
+
+    // If the initial incremental state deemed the entire dependency graph up-to-date,
+    // then no modules need compilation.
+    guard initialIncrementalState?.upToDatePriorInterModuleDependencyGraph == nil else {
+      return
+    }
+
+    // Filter out the tasks for building module dependencies which are already up-to-date
+    let mandatoryModuleCompileJobs: [Job]
+    // If -always-rebuild-module-dependencies is specified, no filtering needed
+    if parsedOptions.contains(.alwaysRebuildModuleDependencies) {
+      mandatoryModuleCompileJobs = modulePrebuildJobs
+    // If this is an initial incremental build (no prior build record), no filtering required
+    } else if let initialState = initialIncrementalState,
+              initialState.graph.buildRecord.inputInfos.isEmpty {
+      mandatoryModuleCompileJobs = modulePrebuildJobs
+    } else {
+      let enableIncrementalRemarks = initialIncrementalState != nil && initialIncrementalState!.incrementalOptions.contains(.showIncremental)
+      let reporter: IncrementalCompilationState.Reporter? = enableIncrementalRemarks ?
+                                     IncrementalCompilationState.Reporter(diagnosticEngine: diagnosticEngine, outputFileMap: outputFileMap) : nil
+      mandatoryModuleCompileJobs =
+        try resolvedDependencyGraph.filterMandatoryModuleDependencyCompileJobs(modulePrebuildJobs,
+                                                                               fileSystem: fileSystem,
+                                                                               reporter: reporter)
+    }
+    mandatoryModuleCompileJobs.forEach(addJob)
   }
 
 
@@ -803,6 +835,7 @@ extension Driver {
         try parsedOptions.contains(.driverExplicitModuleBuild) ?
           gatherModuleDependencies() : nil
       try addPrecompileModuleDependenciesJobs(dependencyGraph: moduleDependencyGraph,
+                                              initialIncrementalState: nil,
                                               addJob: { jobs.append($0) })
       jobs.append(try interpretJob(inputs: inputFiles))
       return (jobs, nil)

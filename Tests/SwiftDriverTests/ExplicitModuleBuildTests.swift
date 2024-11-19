@@ -248,7 +248,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
         return
       }
       XCTAssertTrue(kPrebuiltDetails.isFramework)
-      let jobsInPhases = try driver.computeJobsForPhasedStandardBuild(with: moduleDependencyGraph)
+      let jobsInPhases = try driver.computeJobsForPhasedStandardBuild(moduleDependencyGraph: moduleDependencyGraph)
       let job = try XCTUnwrap(jobsInPhases.allJobs.first(where: { $0.kind == .compile }))
       // Load the dependency JSON and verify this dependency was encoded correctly
       let explicitDepsFlag =
@@ -625,6 +625,60 @@ final class ExplicitModuleBuildTests: XCTestCase {
           }
         }
       }
+    }
+  }
+
+  // Ensure that (even when not in '-incremental' mode) up-to-date module dependencies
+  // do not get re-built
+  func testExplicitModuleBuildIncrementalEndToEnd() throws {
+    try withTemporaryDirectory { path in
+      try localFileSystem.changeCurrentWorkingDirectory(to: path)
+      let moduleCachePath = path.appending(component: "ModuleCache")
+      try localFileSystem.createDirectory(moduleCachePath)
+      let main = path.appending(component: "testExplicitModuleBuildEndToEnd.swift")
+      try localFileSystem.writeFileContents(main, bytes:
+        """
+        import C;
+        import E;
+        import G;
+        """
+      )
+
+      let cHeadersPath: AbsolutePath =
+          try testInputsPath.appending(component: "ExplicitModuleBuilds")
+                            .appending(component: "CHeaders")
+      let swiftModuleInterfacesPath: AbsolutePath =
+          try testInputsPath.appending(component: "ExplicitModuleBuilds")
+                            .appending(component: "Swift")
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+      let invocationArguments = ["swiftc",
+                                 "-I", cHeadersPath.nativePathString(escaped: true),
+                                 "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                 "-explicit-module-build",
+                                 "-module-cache-path", moduleCachePath.nativePathString(escaped: true),
+                                 "-working-directory", path.nativePathString(escaped: true),
+                                 main.nativePathString(escaped: true)] + sdkArgumentsForTesting
+      var driver = try Driver(args: invocationArguments,
+                              env: ProcessEnv.vars)
+      let jobs = try driver.planBuild()
+      try driver.run(jobs: jobs)
+      XCTAssertFalse(driver.diagnosticEngine.hasErrors)
+
+      // Plan the same build one more time and ensure it does not contain dependency compilation jobs
+      var incrementalDriver = try Driver(args: invocationArguments,
+                                         env: ProcessEnv.vars)
+      let incrementalJobs = try incrementalDriver.planBuild()
+      XCTAssertFalse(incrementalJobs.contains { $0.kind == .generatePCM })
+      XCTAssertFalse(incrementalJobs.contains { $0.kind == .compileModuleFromInterface })
+
+      // Ensure that passing '-always-rebuild-module-dependencies' results in re-building module dependencies
+      // even when up-to-date.
+      var incrementalAlwaysRebuildDriver = try Driver(args: invocationArguments + ["-always-rebuild-module-dependencies"],
+                                                      env: ProcessEnv.vars)
+      let incrementalAlwaysRebuildJobs = try incrementalAlwaysRebuildDriver.planBuild()
+      XCTAssertFalse(incrementalAlwaysRebuildDriver.diagnosticEngine.hasErrors)
+      XCTAssertTrue(incrementalAlwaysRebuildJobs.contains { $0.kind == .generatePCM })
+      XCTAssertTrue(incrementalAlwaysRebuildJobs.contains { $0.kind == .compileModuleFromInterface })
     }
   }
 

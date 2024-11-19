@@ -123,7 +123,6 @@ extension IncrementalCompilationState.FirstWaveComputer {
         : compileGroups[input]
     }
 
-    let mandatoryBeforeCompilesJobs = try computeMandatoryBeforeCompilesJobs()
     let batchedCompilationJobs = try batchJobFormer.formBatchedJobs(
       mandatoryCompileGroupsInOrder.flatMap {$0.allJobs()},
       showJobLifecycle: showJobLifecycle,
@@ -133,46 +132,9 @@ extension IncrementalCompilationState.FirstWaveComputer {
     // we can skip running `beforeCompiles` jobs if we also ensure that none of the `afterCompiles` jobs
     // have any dependencies on them.
     let skipAllJobs = batchedCompilationJobs.isEmpty ? !nonVerifyAfterCompileJobsDependOnBeforeCompileJobs() : false
-    let mandatoryJobsInOrder = skipAllJobs ? [] : mandatoryBeforeCompilesJobs + batchedCompilationJobs
+    let mandatoryJobsInOrder = skipAllJobs ? [] : jobsInPhases.beforeCompiles + batchedCompilationJobs
     return (initiallySkippedCompileGroups: initiallySkippedCompileGroups,
             mandatoryJobsInOrder: mandatoryJobsInOrder)
-  }
-
-  /// In an explicit module build, filter out dependency module pre-compilation tasks
-  /// for modules up-to-date from a prior compile.
-  private func computeMandatoryBeforeCompilesJobs() throws -> [Job] {
-    // In an implicit module build, we have nothing to filter/compute here
-    guard let moduleDependencyGraph = interModuleDependencyGraph else {
-      return jobsInPhases.beforeCompiles
-    }
-
-    // If a prior compile's dependency graph was fully up-to-date, we can skip
-    // re-building all dependency modules.
-    guard !self.explicitModuleDependenciesGuaranteedUpToDate else {
-      return jobsInPhases.beforeCompiles.filter { $0.kind != .generatePCM && 
-                                                  $0.kind != .compileModuleFromInterface }
-    }
-
-    // Determine which module pre-build jobs must be re-run
-    let modulesRequiringReBuild =
-      try moduleDependencyGraph.computeInvalidatedModuleDependencies(fileSystem: fileSystem,
-                                                                     forRebuild: true,
-                                                                     reporter: reporter)
-
-    // Filter the `.generatePCM` and `.compileModuleFromInterface` jobs for 
-    // modules which do *not* need re-building.
-    let mandatoryBeforeCompilesJobs = jobsInPhases.beforeCompiles.filter { job in
-      switch job.kind {
-      case .generatePCM:
-        return modulesRequiringReBuild.contains(.clang(job.moduleName))
-      case .compileModuleFromInterface:
-        return modulesRequiringReBuild.contains(.swift(job.moduleName))
-      default:
-        return true
-      }
-    }
-
-    return mandatoryBeforeCompilesJobs
   }
 
   /// Determine if any of the jobs in the `afterCompiles` group depend on outputs produced by jobs in
