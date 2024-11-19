@@ -357,6 +357,15 @@ internal extension InterModuleDependencyGraph {
       return false
     }
 
+    // We do not verify the binary module itself being out-of-date if we do not have a textual
+    // interface it was built from, but we can safely treat it as up-to-date, particularly
+    // because if it is newer than any of the modules they depend on it, they will
+    // still get invalidated in the check below for whether a module has
+    // any dependencies newer than it.
+    if case .swiftPrebuiltExternal(_) = moduleID {
+      return true
+    }
+
     // Check if a dependency of this module has a newer output than this module
     for dependencyId in checkedModuleInfo.directDependencies ?? [] {
       let dependencyInfo = try moduleInfo(of: dependencyId)
@@ -400,11 +409,6 @@ internal extension InterModuleDependencyGraph {
         }
       }
     case .swiftPrebuiltExternal(_):
-      // We do not verify the binary module itself being out-of-date if we do not have a textual
-      // interface it was built from, but we can safely treat it as up-to-date, particularly
-      // because if it is newer than any of the modules they depend on it, they will
-      // still get invalidated in the check above for whether a module has
-      // any dependencies newer than it.
       return true;
     case .swiftPlaceholder(_):
       // TODO: This should never ever happen. Hard error?

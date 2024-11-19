@@ -302,6 +302,10 @@ final class CachingBuildTests: XCTestCase {
             try checkCachingBuildJob(job: job, moduleId: .clang("G"),
                                      dependencyGraph: dependencyGraph)
           }
+          else if relativeOutputPathFileName.starts(with: "D-") {
+            try checkCachingBuildJob(job: job, moduleId: .clang("D"),
+                                     dependencyGraph: dependencyGraph)
+          }
           else if relativeOutputPathFileName.starts(with: "F-") {
             try checkCachingBuildJob(job: job, moduleId: .clang("F"),
                                      dependencyGraph: dependencyGraph)
@@ -555,6 +559,10 @@ final class CachingBuildTests: XCTestCase {
             try checkCachingBuildJob(job: job, moduleId: .clang("C"),
                                      dependencyGraph: dependencyGraph)
           }
+          else if relativeOutputPathFileName.starts(with: "D-") {
+            try checkCachingBuildJob(job: job, moduleId: .clang("D"),
+                                     dependencyGraph: dependencyGraph)
+          }
           else if relativeOutputPathFileName.starts(with: "G-") {
             try checkCachingBuildJob(job: job, moduleId: .clang("G"),
                                      dependencyGraph: dependencyGraph)
@@ -775,11 +783,11 @@ final class CachingBuildTests: XCTestCase {
       let expectedNumberOfDependencies: Int
       if driver.hostTriple.isMacOSX,
          driver.hostTriple.version(for: .macOS) < Triple.Version(11, 0, 0) {
-        expectedNumberOfDependencies = 12
+        expectedNumberOfDependencies = 13
       } else if driver.targetTriple.isWindows {
-        expectedNumberOfDependencies = 14
+        expectedNumberOfDependencies = 15
       } else {
-        expectedNumberOfDependencies = 11
+        expectedNumberOfDependencies = 12
       }
 
       // Dispatch several iterations in parallel

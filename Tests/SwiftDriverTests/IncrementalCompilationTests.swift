@@ -533,9 +533,14 @@ extension IncrementalCompilationTests {
     try! localFileSystem.removeFileTree(try AbsolutePath(validating: explicitSwiftDependenciesPath.appending(component: "G.swiftinterface").pathString))
     try buildInitialState(checkDiagnostics: false, explicitModuleBuild: true)
 
-    // Touch one of the inputs to actually trigger the incremental build, so that we can ensure
-    // no module deps get re-built
+    // Touch one of the inputs to actually trigger the incremental build
     touch(inputPath(basename: "other"))
+
+    // Touch the output of a dependency of 'G', to ensure that it is newer than 'G', but 'G' still does not
+    // get "invalidated",
+    let nameOfDModule = try XCTUnwrap(modCacheEntries.first { $0.hasPrefix("D") && $0.hasSuffix(".pcm")})
+    let pathToDModule = explicitModuleCacheDir.appending(component: nameOfDModule)
+    touch(pathToDModule)
 
     try doABuild(
       "Unchanged binary dependency (G)",
@@ -563,7 +568,6 @@ extension IncrementalCompilationTests {
       reading(deps: "other")
       schedulingPostCompileJobs
       linking
-
     }
   }
 }
