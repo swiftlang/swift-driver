@@ -2371,6 +2371,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertFalse(cmd.contains(.flag("-dylib")))
       XCTAssertFalse(cmd.contains(.flag("-static")))
       XCTAssertFalse(cmd.contains(.flag("-shared")))
+      XCTAssertFalse(commandContainsTemporaryPath(cmd, "Test.autolink"))
     }
 
     do {

@@ -198,7 +198,7 @@ extension WebAssemblyToolchain {
       commandLine.appendFlag("crs")
       commandLine.appendPath(outputFile)
 
-      commandLine.append(contentsOf: inputs.map { .path($0.file) })
+      commandLine.append(contentsOf: inputs.lazy.filter { $0.type != .autolink }.map { .path($0.file) })
       return try resolvedTool(.staticLinker(lto))
     }
   }
