@@ -259,11 +259,6 @@ typedef struct {
   int64_t
   (*swiftscan_source_location_get_column_number)(swiftscan_source_location_t);
 
-  //=== Scanner Cache Functions ---------------------------------------------===//
-  void (*swiftscan_scanner_cache_serialize)(swiftscan_scanner_t scanner, const char * path);
-  bool (*swiftscan_scanner_cache_load)(swiftscan_scanner_t scanner, const char * path);
-  void (*swiftscan_scanner_cache_reset)(swiftscan_scanner_t scanner);
-
   //=== Scanner CAS Operations ----------------------------------------------===//
   swiftscan_cas_options_t (*swiftscan_cas_options_create)(void);
   int64_t (*swiftscan_cas_get_ondisk_size)(swiftscan_cas_t,

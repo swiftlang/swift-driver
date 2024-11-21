@@ -228,12 +228,6 @@ private extension String {
     api.swiftscan_swift_binary_detail_get_header_dependency_module_dependencies != nil
   }
 
-  @_spi(Testing) public var canLoadStoreScannerCache : Bool {
-    api.swiftscan_scanner_cache_load != nil &&
-    api.swiftscan_scanner_cache_serialize != nil &&
-    api.swiftscan_scanner_cache_reset != nil
-  }
-
   @_spi(Testing) public var clangDetailsHaveCapturedPCMArgs : Bool {
     api.swiftscan_clang_detail_get_captured_pcm_args != nil
   }
@@ -317,20 +311,6 @@ private extension String {
            api.swiftscan_link_library_info_get_link_name != nil &&
            api.swiftscan_link_library_info_get_is_framework != nil &&
            api.swiftscan_link_library_info_get_should_force_load != nil
-  }
-
-  func serializeScannerCache(to path: AbsolutePath) {
-    api.swiftscan_scanner_cache_serialize(scanner,
-                                          path.description.cString(using: String.Encoding.utf8))
-  }
-
-  func loadScannerCache(from path: AbsolutePath) -> Bool {
-    return api.swiftscan_scanner_cache_load(scanner,
-                                            path.description.cString(using: String.Encoding.utf8))
-  }
-
-  func resetScannerCache() {
-    api.swiftscan_scanner_cache_reset(scanner)
   }
 
   internal func mapToDriverDiagnosticPayload(_ diagnosticSetRef: UnsafeMutablePointer<swiftscan_diagnostic_set_t>) throws -> [ScannerDiagnosticPayload] {
@@ -496,14 +476,6 @@ private extension swiftscan_functions_t {
     // Target Info query
     self.swiftscan_compiler_target_info_query_v2 =
       loadOptional("swiftscan_compiler_target_info_query_v2")
-
-    // Dependency scanner serialization/deserialization features
-    self.swiftscan_scanner_cache_serialize =
-      loadOptional("swiftscan_scanner_cache_serialize")
-    self.swiftscan_scanner_cache_load =
-      loadOptional("swiftscan_scanner_cache_load")
-    self.swiftscan_scanner_cache_reset =
-      loadOptional("swiftscan_scanner_cache_reset")
 
     // Clang dependency captured PCM args
     self.swiftscan_clang_detail_get_captured_pcm_args =
