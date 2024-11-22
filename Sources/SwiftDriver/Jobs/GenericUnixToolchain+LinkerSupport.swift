@@ -78,7 +78,7 @@ extension GenericUnixToolchain {
       // just using `clang` and avoid a dependency on the C++ runtime.
       var cxxCompatEnabled = parsedOptions.hasArgument(.enableExperimentalCxxInterop)
       if let cxxInteropMode = parsedOptions.getLastArgument(.cxxInteroperabilityMode) {
-        if cxxInteropMode.asSingle == "swift-5.9" {
+        if cxxInteropMode.asSingle != "off" {
           cxxCompatEnabled = true
         }
       }
