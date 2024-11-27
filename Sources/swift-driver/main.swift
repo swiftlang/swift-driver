@@ -25,6 +25,7 @@ import Android
 #endif
 
 import Dispatch
+import Foundation
 
 #if os(Windows)
 import WinSDK
@@ -73,13 +74,18 @@ do {
   // Fallback to legacy driver if forced to
   if CommandLine.arguments.contains(Option.disallowForwardingDriver.spelling) ||
      ProcessEnv.vars["SWIFT_USE_OLD_DRIVER"] != nil {
-    if let legacyExecutablePath = Process.findExecutable(CommandLine.arguments[0] + "-legacy-driver"),
-       localFileSystem.exists(legacyExecutablePath) {
-      let legacyDriverCommand = [legacyExecutablePath.pathString] +
-                                  CommandLine.arguments[1...]
-      try exec(path: legacyExecutablePath.pathString, args: legacyDriverCommand)
+    let executable: URL = URL(fileURLWithPath: CommandLine.arguments[0])
+    let legacyExecutablePath: URL =
+        executable.deletingLastPathComponent()
+                  .appendingPathComponent("\(executable.deletingPathExtension().lastPathComponent)-legacy-driver")
+                  .appendingPathExtension(executable.pathExtension)
+    let path: String = legacyExecutablePath.withUnsafeFileSystemRepresentation { String(cString: $0!) }
+
+    if localFileSystem.exists(AbsolutePath(path)) {
+      let legacyDriverCommand = [path] + CommandLine.arguments[1...]
+      try exec(path: path, args: legacyDriverCommand)
     } else {
-      throw Driver.Error.unknownOrMissingSubcommand(CommandLine.arguments[0] + "-legacy-driver")
+      throw Driver.Error.unknownOrMissingSubcommand(legacyExecutablePath.lastPathComponent)
     }
   }
 
