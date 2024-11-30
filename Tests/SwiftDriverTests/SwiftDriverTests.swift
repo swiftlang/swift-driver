@@ -4437,11 +4437,14 @@ final class SwiftDriverTests: XCTestCase {
         $0.send("garbage")
       }
 
+      var env = ProcessEnv.vars
+      env["SWIFT_DRIVER_SWIFT_AUTOLINK_EXTRACT_EXEC"] = "//bin/swift-autolink-extract"
+
       for triple in ["wasm32-unknown-wasi", "wasm32-unknown-wasip1-threads"] {
         var driver = try Driver(args: [
           "swiftc", "-profile-generate", "-target", triple, "test.swift",
           "-resource-dir", resourceDir.pathString
-        ])
+        ], env: env)
         let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
 
         XCTAssertEqual(plannedJobs.count, 2)
@@ -4589,6 +4592,9 @@ final class SwiftDriverTests: XCTestCase {
 
       // WASI toolchain
       do {
+        var env = ProcessEnv.vars
+        env["SWIFT_DRIVER_SWIFT_AUTOLINK_EXTRACT_EXEC"] = "//bin/swift-autolink-extract"
+
         try withTemporaryDirectory { resourceDir in
           try localFileSystem.writeFileContents(resourceDir.appending(components: "wasi", "static-executable-args.lnk")) {
             $0.send("garbage")
