@@ -173,7 +173,10 @@ extension WindowsToolchain {
       // finally falling back to the target information.
       let rsrc: VirtualPath
       if let resourceDir = parsedOptions.getLastArgument(.resourceDir) {
-        rsrc = try VirtualPath(path: resourceDir.asSingle)
+        rsrc = try VirtualPath(path: AbsolutePath(validating: resourceDir.asSingle)
+                                        .appending(components: targetTriple.platformName() ?? "",
+                                                   architecture(for: targetTriple))
+                                        .pathString)
       } else if let sdk = parsedOptions.getLastArgument(.sdk)?.asSingle ?? env["SDKROOT"], !sdk.isEmpty {
         rsrc = try VirtualPath(path: AbsolutePath(validating: sdk)
                                         .appending(components: "usr", "lib", "swift",
@@ -182,6 +185,8 @@ extension WindowsToolchain {
                                         .pathString)
       } else {
         rsrc = VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
+                          .appending(components: targetTriple.platformName() ?? "",
+                                     architecture(for: targetTriple))
       }
       commandLine.appendPath(rsrc.appending(component: "swiftrt.obj"))
     }
