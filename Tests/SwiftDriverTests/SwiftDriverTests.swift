@@ -7065,7 +7065,7 @@ final class SwiftDriverTests: XCTestCase {
     env["SWIFT_DRIVER_CLANGXX_EXEC"] = swiftClangxx.pathString
 
     var driver = try Driver(
-      args: ["swiftc", "-cxx-interoperability-mode=swift-5.9", "-emit-library",
+      args: ["swiftc", "-cxx-interoperability-mode=swift-6", "-emit-library",
              "foo.swift", "bar.o", "-o", "foo.l"],
       env: env)
 
@@ -7708,7 +7708,7 @@ final class SwiftDriverTests: XCTestCase {
 #else
       VirtualPath.resetTemporaryFileStore()
       var driver = try Driver(args: [
-        "swiftc", "-cxx-interoperability-mode=swift-5.9", "-emit-library", "-o", "library.dll", "library.obj"
+        "swiftc", "-cxx-interoperability-mode=upcoming-swift", "-emit-library", "-o", "library.dll", "library.obj"
       ])
       let jobs = try driver.planBuild().removingAutolinkExtractJobs()
       XCTAssertEqual(jobs.count, 1)
