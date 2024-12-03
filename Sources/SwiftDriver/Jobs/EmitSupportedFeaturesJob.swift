@@ -64,14 +64,16 @@ extension Driver {
                                            fileSystem: FileSystem,
                                            executor: DriverExecutor)
   throws -> Set<String> {
-    do {
-      if let supportedArgs =
-          try querySupportedCompilerArgsInProcess(of: toolchain, fileSystem: fileSystem) {
-        return supportedArgs
-      }
-    } catch {
-      diagnosticsEngine.emit(.remark_inprocess_supported_features_query_failed(error.localizedDescription))
-    }
+    // Disable in-process supported features query due to a race condition in the compiler's current
+    // build system where libSwiftScan may not be ready when building the Swift standard library.
+//    do {
+//      if let supportedArgs =
+//          try querySupportedCompilerArgsInProcess(of: toolchain, fileSystem: fileSystem) {
+//        return supportedArgs
+//      }
+//    } catch {
+//      diagnosticsEngine.emit(.remark_inprocess_supported_features_query_failed(error.localizedDescription))
+//    }
 
     // Fallback: Invoke `swift-frontend -emit-supported-features` and decode the output
     let frontendOverride = try FrontendOverride(&parsedOptions, diagnosticsEngine)
