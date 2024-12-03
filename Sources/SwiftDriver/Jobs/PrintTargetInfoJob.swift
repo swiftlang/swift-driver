@@ -248,16 +248,18 @@ extension Driver {
                                               using: executor.resolver)
     Self.sanitizeCommandForLibScanInvocation(&command)
 
-    do {
-      if let targetInfo =
-          try Self.queryTargetInfoInProcess(of: toolchain, fileSystem: fileSystem,
-                                            workingDirectory: workingDirectory,
-                                            invocationCommand: command) {
-        return targetInfo
-      }
-    } catch {
-      diagnosticsEngine.emit(.remark_inprocess_target_info_query_failed(error.localizedDescription))
-    }
+    // Disable in-process target query due to a race condition in the compiler's current
+    // build system where libSwiftScan may not be ready when building the Swift standard library.
+//    do {
+//      if let targetInfo =
+//          try Self.queryTargetInfoInProcess(of: toolchain, fileSystem: fileSystem,
+//                                            workingDirectory: workingDirectory,
+//                                            invocationCommand: command) {
+//        return targetInfo
+//      }
+//    } catch {
+//      diagnosticsEngine.emit(.remark_inprocess_target_info_query_failed(error.localizedDescription))
+//    }
 
     // Fallback: Invoke `swift-frontend -print-target-info` and decode the output
     return try executor.execute(
