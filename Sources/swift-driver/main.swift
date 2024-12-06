@@ -74,10 +74,18 @@ do {
   // Fallback to legacy driver if forced to
   if CommandLine.arguments.contains(Option.disallowForwardingDriver.spelling) ||
      ProcessEnv.vars["SWIFT_USE_OLD_DRIVER"] != nil {
-    let executable: URL = URL(fileURLWithPath: CommandLine.arguments[0])
+    // If CommandLine.argument[0] is not an absolute path, we would form a path
+    // relative to the current directory rather than relative to the actual
+    // location of the binary. Use the Founation `NSProcessInfo` type to compute
+    // the executable that is being run and then form the invocation from the
+    // `CommandLine.arguments[0]`. This allows us to merge both to form a path
+    // relative to the location of the executable but with the desired
+    // invocation for a multi-call binary.
+    let executable: URL = URL(fileURLWithPath: ProcessInfo.processInfo.arguments[0])
+    let invocation: URL = URL(fileURLWithPath: CommandLine.arguments[0])
     let legacyExecutablePath: URL =
         executable.deletingLastPathComponent()
-                  .appendingPathComponent("\(executable.deletingPathExtension().lastPathComponent)-legacy-driver")
+                  .appendingPathComponent("\(invocation.deletingPathExtension().lastPathComponent)-legacy-driver")
                   .appendingPathExtension(executable.pathExtension)
     let path: String = legacyExecutablePath.withUnsafeFileSystemRepresentation { String(cString: $0!) }
 
