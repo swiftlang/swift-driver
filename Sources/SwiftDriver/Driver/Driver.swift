@@ -3095,15 +3095,27 @@ extension Driver {
                                     fileSystem: FileSystem,
                                     workingDirectory: AbsolutePath?,
                                     diagnosticEngine: DiagnosticsEngine) {
-    if parsedOptions.hasArgument(.profileGenerate) &&
-        parsedOptions.hasArgument(.profileUse) {
-      diagnosticEngine.emit(.error(Error.conflictingOptions(.profileGenerate, .profileUse)),
-                            location: nil)
+    let conflictingProfArgs: [Option] = [.profileGenerate,
+                                         .profileUse,
+                                         .profileSampleUse]
+
+    // Find out which of the mutually exclusive profiling arguments were provided.
+    let provided = conflictingProfArgs.filter { parsedOptions.hasArgument($0) }
+
+    // If there's at least two of them, there's a conflict.
+    if provided.count >= 2 {
+      for i in 1..<provided.count {
+        let error = Error.conflictingOptions(provided[i-1], provided[i])
+        diagnosticEngine.emit(.error(error), location: nil)
+      }
     }
 
-    if let profileArgs = parsedOptions.getLastArgument(.profileUse)?.asMultiple,
-       let workingDirectory = workingDirectory ?? fileSystem.currentWorkingDirectory {
-      for profilingData in profileArgs {
+    // Ensure files exist for the given paths.
+    func checkForMissingProfilingData(_ profileDataArgs: [String]) {
+      guard let workingDirectory = workingDirectory ?? fileSystem.currentWorkingDirectory else {
+        return
+      }
+      for profilingData in profileDataArgs {
         if let path = try? AbsolutePath(validating: profilingData,
                                           relativeTo: workingDirectory) {
           if !fileSystem.exists(path) {
@@ -3112,6 +3124,14 @@ extension Driver {
           }
         }
       }
+    }
+
+    if let profileUseArgs = parsedOptions.getLastArgument(.profileUse)?.asMultiple {
+      checkForMissingProfilingData(profileUseArgs)
+    }
+
+    if let profileSampleUseArg = parsedOptions.getLastArgument(.profileSampleUse)?.asSingle {
+      checkForMissingProfilingData([profileSampleUseArg])
     }
   }
 

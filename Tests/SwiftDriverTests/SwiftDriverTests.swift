@@ -4305,6 +4305,12 @@ final class SwiftDriverTests: XCTestCase {
       $1.expect(.error(Driver.Error.missingProfilingData(try toPath("profile.profdata").name)))
     }
 
+    try assertDriverDiagnostics(args: ["swiftc", "foo.swift", "-profile-sample-use=profile1.profdata", "-profile-use=profile2.profdata"]) {
+      $1.expect(.error(Driver.Error.conflictingOptions(.profileUse, .profileSampleUse)))
+      $1.expect(.error(Driver.Error.missingProfilingData(try toPath("profile1.profdata").name)))
+      $1.expect(.error(Driver.Error.missingProfilingData(try toPath("profile2.profdata").name)))
+    }
+
     try assertDriverDiagnostics(args: ["swiftc", "foo.swift", "-profile-use=profile.profdata"]) {
       $1.expect(.error(Driver.Error.missingProfilingData(try toPath("profile.profdata").name)))
     }
@@ -4312,6 +4318,7 @@ final class SwiftDriverTests: XCTestCase {
     try withTemporaryDirectory { path in
       try localFileSystem.writeFileContents(path.appending(component: "profile.profdata"), bytes: .init())
       try assertNoDriverDiagnostics(args: "swiftc", "-working-directory", path.pathString, "foo.swift", "-profile-use=profile.profdata")
+      try assertNoDriverDiagnostics(args: "swiftc", "-working-directory", path.pathString, "foo.swift", "-profile-sample-use=profile.profdata")
     }
 
     try withTemporaryDirectory { path in
@@ -4320,7 +4327,47 @@ final class SwiftDriverTests: XCTestCase {
                                          "-profile-use=profile.profdata,profile2.profdata"]) {
         $1.expect(.error(Driver.Error.missingProfilingData(path.appending(component: "profile2.profdata").pathString)))
       }
+      // -profile-sample-use does not accept more than one path, so commas are not split.
+      try assertDriverDiagnostics(args: ["swiftc", "-working-directory", path.pathString, "foo.swift",
+                                         "-profile-sample-use=profile.profdata,profile2.profdata"]) {
+        $1.expect(.error(Driver.Error.missingProfilingData(path.appending(component: "profile.profdata,profile2.profdata").pathString)))
+      }
     }
+  }
+
+  func testProfileSampleUseFrontendFlags() throws {
+    // Check that the LLVM option for 'profi' is inferred and passed to frontend
+    // in addition to the usual flag.
+    try withTemporaryDirectory { path in
+      let completePath: AbsolutePath = path.appending(component: "profile.profdata")
+      
+      try localFileSystem.writeFileContents(completePath, bytes: .init())
+      var driver = try Driver(args: ["swiftc", "foo.swift",
+        "-working-directory", path.pathString,
+        "-profile-sample-use=profile.profdata"])
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+      let job: Job = plannedJobs[0]
+      let command: [Job.ArgTemplate] = job.commandLine
+
+      XCTAssertTrue(command.contains(
+        .joinedOptionAndPath("-profile-sample-use=", .absolute(completePath))))
+
+      // assuming it's preceded by -Xllvm, or else it wouldn't work anyway.
+      XCTAssertTrue(command.contains(.flag("-sample-profile-use-profi")))
+    }
+  }
+
+  func testDebugInfoForProfilingFlag() throws {
+    // Check that the '-debug-info-for-profiling' flag is passed to frontend.
+    var driver = try Driver(args: ["swiftc", "-g", "-debug-info-for-profiling", "foo.swift"])
+    let plannedJobs = try driver.planBuild()
+    XCTAssertEqual(plannedJobs.count, 4)
+    XCTAssertEqual(plannedJobs[0].kind, .emitModule)
+    let job = plannedJobs[0]
+    XCTAssertTrue(job.commandLine.contains(.flag("-debug-info-for-profiling")))
   }
 
   func testProfileLinkerArgs() throws {
