@@ -236,6 +236,13 @@ extension Driver {
     try commandLine.appendLast(.profileGenerate, from: &parsedOptions)
     try commandLine.appendLast(.profileUse, from: &parsedOptions)
     try commandLine.appendLast(.profileCoverageMapping, from: &parsedOptions)
+    try commandLine.appendLast(.debugInfoForProfiling, from: &parsedOptions)
+    if parsedOptions.hasArgument(.profileSampleUse) {
+        try commandLine.appendLast(.profileSampleUse, from: &parsedOptions)
+        // Use LLVM's "profi" to infer missing sample data from the profile.
+        commandLine.appendFlag(.Xllvm)
+        commandLine.appendFlag("-sample-profile-use-profi")
+    }
     try commandLine.appendAllExcept(
       includeList: [.warningTreating], 
       excludeList: [], 
