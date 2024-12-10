@@ -1573,8 +1573,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       }
 
       let scannerJob = try driver.dependencyScanningJob()
-      XCTAssertTrue(scannerJob.commandLine.contains(subsequence: [.flag("-clang-scanner-module-cache-path"),
-                                                                  .path(.absolute(scannerCachePath))]))
+      XCTAssertCommandLineContains(scannerJob.commandLine, .flag("-clang-scanner-module-cache-path"), .path(.absolute(scannerCachePath)))
     }
   }
 
