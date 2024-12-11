@@ -83,10 +83,16 @@ do {
     // invocation for a multi-call binary.
     let executable: URL = URL(fileURLWithPath: ProcessInfo.processInfo.arguments[0])
     let invocation: URL = URL(fileURLWithPath: CommandLine.arguments[0])
-    let legacyExecutablePath: URL =
+    var legacyExecutablePath: URL =
         executable.deletingLastPathComponent()
                   .appendingPathComponent("\(invocation.deletingPathExtension().lastPathComponent)-legacy-driver")
-                  .appendingPathExtension(executable.pathExtension)
+    // Check if the original path has a non-empty extension because
+    // `url.deletingPathExtension().appendingPathExtension(url.pathExtension)`
+    // will not be equal to `url` but be `\(url).` if `url` doesn't have an
+    // extension.
+    if !executable.pathExtension.isEmpty {
+        legacyExecutablePath.appendPathExtension(executable.pathExtension)
+    }
     let path: String = legacyExecutablePath.withUnsafeFileSystemRepresentation { String(cString: $0!) }
 
     if localFileSystem.exists(AbsolutePath(path)) {
