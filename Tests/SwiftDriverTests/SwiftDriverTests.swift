@@ -3337,7 +3337,7 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver1.planBuild().removingAutolinkExtractJobs()
       XCTAssertEqual(plannedJobs.count, 2)
       XCTAssertEqual(plannedJobs[0].kind, .compile)
-      print(plannedJobs[0].commandLine.joinedUnresolvedArguments)
+
       let outFileMap = try XCTUnwrap(plannedJobs[0].commandLine.supplementaryOutputFilemap)
       XCTAssertEqual(outFileMap.entries.values.first?.keys.first, fileType)
     }
@@ -4463,7 +4463,6 @@ final class SwiftDriverTests: XCTestCase {
       }
       var driver = try Driver(args: args)
       let plannedJobs = try driver.planBuild()
-      print(plannedJobs[1].commandLine)
 
       XCTAssertEqual(plannedJobs.count, 2)
       XCTAssertEqual(plannedJobs[0].kind, .compile)
@@ -4485,7 +4484,6 @@ final class SwiftDriverTests: XCTestCase {
       // don't use '-lld-allow-duplicate-weak'
       var driver = try Driver(args: ["swiftc", "-profile-generate", "-use-ld=link", "-target", "x86_64-unknown-windows-msvc", "test.swift"])
       let plannedJobs = try driver.planBuild()
-      print(plannedJobs[1].commandLine)
 
       XCTAssertEqual(plannedJobs.count, 2)
       XCTAssertEqual(plannedJobs[0].kind, .compile)
@@ -4505,7 +4503,6 @@ final class SwiftDriverTests: XCTestCase {
       // If we're not building for profiling, don't add '-lld-allow-duplicate-weak'.
       var driver = try Driver(args: ["swiftc", "-use-ld=lld", "-target", "x86_64-unknown-windows-msvc", "test.swift"])
       let plannedJobs = try driver.planBuild()
-      print(plannedJobs[1].commandLine)
 
       XCTAssertEqual(plannedJobs.count, 2)
       XCTAssertEqual(plannedJobs[0].kind, .compile)
