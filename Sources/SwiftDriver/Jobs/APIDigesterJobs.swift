@@ -46,7 +46,10 @@ extension Driver {
     var commandLine = [Job.ArgTemplate]()
     commandLine.appendFlag("-dump-sdk")
 
-    try addCommonDigesterOptions(&commandLine, modulePath: modulePath, mode: mode)
+    try addCommonDigesterOptions(&commandLine,
+      modulePath: modulePath,
+      swiftModuleInterfacePath: self.moduleOutputPaths.swiftInterfacePath,
+      mode: mode)
 
     commandLine.appendFlag(.o)
     commandLine.appendPath(VirtualPath.lookup(outputPath))
@@ -74,7 +77,11 @@ extension Driver {
     }
     guard let currentABI = getDescriptorPath(for: mode) else {
       // we don't have existing descriptor to use so we have to load the module from interface/swiftmodule
-      return try digesterCompareToBaselineJob(modulePath: modulePath, baselinePath: baselinePath, mode: digesterMode)
+      return try digesterCompareToBaselineJob(
+        modulePath: modulePath,
+        swiftModuleInterfacePath: self.moduleOutputPaths.swiftInterfacePath,
+        baselinePath: baselinePath,
+        mode: digesterMode)
     }
     var commandLine = [Job.ArgTemplate]()
     commandLine.appendFlag("-diagnose-sdk")
@@ -105,14 +112,20 @@ extension Driver {
     )
   }
 
-  mutating func digesterCompareToBaselineJob(modulePath: VirtualPath.Handle, baselinePath: VirtualPath.Handle, mode: DigesterMode) throws -> Job {
+  mutating func digesterCompareToBaselineJob(modulePath: VirtualPath.Handle,
+    swiftModuleInterfacePath: VirtualPath.Handle?,
+    baselinePath: VirtualPath.Handle,
+    mode: DigesterMode) throws -> Job {
     var commandLine = [Job.ArgTemplate]()
     commandLine.appendFlag("-diagnose-sdk")
     commandLine.appendFlag("-disable-fail-on-error")
     commandLine.appendFlag("-baseline-path")
     commandLine.appendPath(VirtualPath.lookup(baselinePath))
 
-    try addCommonDigesterOptions(&commandLine, modulePath: modulePath, mode: mode)
+    try addCommonDigesterOptions(&commandLine,
+      modulePath: modulePath,
+      swiftModuleInterfacePath: swiftModuleInterfacePath,
+      mode: mode)
 
     var serializedDiagnosticsPath: VirtualPath.Handle?
     if let arg = parsedOptions.getLastArgument(.serializeBreakingChangesPath)?.asSingle {
@@ -130,7 +143,7 @@ extension Driver {
     var inputs: [TypedVirtualPath] = [.init(file: modulePath, type: .swiftModule),
                                       .init(file: baselinePath, type: mode.baselineFileType)]
     // If a module interface was emitted, treat it as an input in ABI mode.
-    if let interfacePath = self.swiftInterfacePath, mode == .abi {
+    if let interfacePath = swiftModuleInterfacePath, mode == .abi {
       inputs.append(.init(file: interfacePath, type: .swiftInterface))
     }
 
@@ -147,6 +160,7 @@ extension Driver {
 
   private mutating func addCommonDigesterOptions(_ commandLine: inout [Job.ArgTemplate],
                                                  modulePath: VirtualPath.Handle,
+                                                 swiftModuleInterfacePath: VirtualPath.Handle?,
                                                  mode: DigesterMode) throws {
     commandLine.appendFlag("-module")
     commandLine.appendFlag(moduleOutputInfo.name)
@@ -160,7 +174,7 @@ extension Driver {
     let searchPath = VirtualPath.lookup(modulePath).parentDirectory
     commandLine.appendFlag(.I)
     commandLine.appendPath(searchPath)
-    if let interfacePath = self.swiftInterfacePath  {
+    if let interfacePath = swiftModuleInterfacePath {
       let interfaceSearchPath = VirtualPath.lookup(interfacePath).parentDirectory
       if interfaceSearchPath != searchPath {
         commandLine.appendFlag(.I)

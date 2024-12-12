@@ -17,6 +17,7 @@ extension Driver {
   mutating func addCommonModuleOptions(
       commandLine: inout [Job.ArgTemplate],
       outputs: inout [TypedVirtualPath],
+      moduleOutputPaths: SupplementalModuleTargetOutputPaths,
       isMergeModule: Bool
   ) throws {
     // Add supplemental outputs.
@@ -28,12 +29,12 @@ extension Driver {
       outputs.append(.init(file: path, type: type))
     }
 
-    addSupplementalOutput(path: moduleDocOutputPath, flag: "-emit-module-doc-path", type: .swiftDocumentation)
-    addSupplementalOutput(path: moduleSourceInfoPath, flag: "-emit-module-source-info-path", type: .swiftSourceInfoFile)
-    addSupplementalOutput(path: swiftInterfacePath, flag: "-emit-module-interface-path", type: .swiftInterface)
-    addSupplementalOutput(path: swiftPrivateInterfacePath, flag: "-emit-private-module-interface-path", type: .privateSwiftInterface)
+    addSupplementalOutput(path: moduleOutputPaths.moduleDocOutputPath, flag: "-emit-module-doc-path", type: .swiftDocumentation)
+    addSupplementalOutput(path: moduleOutputPaths.moduleSourceInfoPath, flag: "-emit-module-source-info-path", type: .swiftSourceInfoFile)
+    addSupplementalOutput(path: moduleOutputPaths.swiftInterfacePath, flag: "-emit-module-interface-path", type: .swiftInterface)
+    addSupplementalOutput(path: moduleOutputPaths.swiftPrivateInterfacePath, flag: "-emit-private-module-interface-path", type: .privateSwiftInterface)
     if let pkgName = packageName, !pkgName.isEmpty {
-      addSupplementalOutput(path: swiftPackageInterfacePath, flag: "-emit-package-module-interface-path", type: .packageSwiftInterface)
+      addSupplementalOutput(path: moduleOutputPaths.swiftPackageInterfacePath, flag: "-emit-package-module-interface-path", type: .packageSwiftInterface)
     }
     addSupplementalOutput(path: objcGeneratedHeaderPath, flag: "-emit-objc-header-path", type: .objcHeader)
     addSupplementalOutput(path: tbdPath, flag: "-emit-tbd-path", type: .tbd)
@@ -102,7 +103,7 @@ extension Driver {
     try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs, kind: .emitModule)
     // FIXME: Add MSVC runtime library flags
 
-    try addCommonModuleOptions(commandLine: &commandLine, outputs: &outputs, isMergeModule: false)
+    try addCommonModuleOptions(commandLine: &commandLine, outputs: &outputs, moduleOutputPaths: moduleOutputPaths,isMergeModule: false)
     try addCommonSymbolGraphOptions(commandLine: &commandLine)
 
     try commandLine.appendLast(.checkApiAvailabilityOnly, from: &parsedOptions)

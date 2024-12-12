@@ -546,6 +546,8 @@ extension Driver {
                                                         primaryInputs: [TypedVirtualPath],
                                                         inputsGeneratingCodeCount: Int,
                                                         inputOutputMap: inout [TypedVirtualPath: [TypedVirtualPath]],
+                                                        moduleOutputInfo: ModuleOutputInfo,
+                                                        moduleOutputPaths: SupplementalModuleTargetOutputPaths,
                                                         includeModuleTracePath: Bool,
                                                         indexFilePath: TypedVirtualPath?) throws -> [TypedVirtualPath] {
     var flaggedInputOutputPairs: [(flag: String, input: TypedVirtualPath?, output: TypedVirtualPath)] = []
@@ -592,7 +594,9 @@ extension Driver {
     }
 
     /// Add all of the outputs needed for a given input.
-    func addAllOutputsFor(input: TypedVirtualPath?) throws {
+    func addAllOutputsFor(input: TypedVirtualPath?,
+        moduleOutputInfo: ModuleOutputInfo,
+        moduleOutputPaths: SupplementalModuleTargetOutputPaths) throws {
       if !emitModuleSeparately {
         // Generate the module files with the main job.
         try addOutputOfType(
@@ -602,12 +606,12 @@ extension Driver {
           flag: "-emit-module-path")
         try addOutputOfType(
           outputType: .swiftDocumentation,
-          finalOutputPath: moduleDocOutputPath,
+          finalOutputPath: moduleOutputPaths.moduleDocOutputPath,
           input: input,
           flag: "-emit-module-doc-path")
         try addOutputOfType(
           outputType: .swiftSourceInfoFile,
-          finalOutputPath: moduleSourceInfoPath,
+          finalOutputPath: moduleOutputPaths.moduleSourceInfoPath,
           input: input,
           flag: "-emit-module-source-info-path")
       }
@@ -645,10 +649,14 @@ extension Driver {
 
     if compilerMode.usesPrimaryFileInputs {
       for input in primaryInputs {
-        try addAllOutputsFor(input: input)
+        try addAllOutputsFor(input: input,
+            moduleOutputInfo: moduleOutputInfo,
+            moduleOutputPaths: moduleOutputPaths)
       }
     } else {
-      try addAllOutputsFor(input: nil)
+      try addAllOutputsFor(input: nil,
+        moduleOutputInfo: moduleOutputInfo,
+        moduleOutputPaths: moduleOutputPaths)
 
       if !emitModuleSeparately {
         // Outputs that only make sense when the whole module is processed
@@ -661,20 +669,20 @@ extension Driver {
 
         try addOutputOfType(
           outputType: .swiftInterface,
-          finalOutputPath: swiftInterfacePath,
+          finalOutputPath: moduleOutputPaths.swiftInterfacePath,
           input: nil,
           flag: "-emit-module-interface-path")
 
         try addOutputOfType(
           outputType: .privateSwiftInterface,
-          finalOutputPath: swiftPrivateInterfacePath,
+          finalOutputPath: moduleOutputPaths.swiftPrivateInterfacePath,
           input: nil,
           flag: "-emit-private-module-interface-path")
 
         if let pkgName = packageName, !pkgName.isEmpty {
           try addOutputOfType(
             outputType: .packageSwiftInterface,
-            finalOutputPath: swiftPackageInterfacePath,
+            finalOutputPath: moduleOutputPaths.swiftPackageInterfacePath,
             input: nil,
             flag: "-emit-package-module-interface-path")
         }
