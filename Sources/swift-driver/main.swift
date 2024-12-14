@@ -83,10 +83,26 @@ do {
     // invocation for a multi-call binary.
     let executable: URL = URL(fileURLWithPath: ProcessInfo.processInfo.arguments[0])
     let invocation: URL = URL(fileURLWithPath: CommandLine.arguments[0])
+
+    #if compiler(>=6.2)
     let legacyExecutablePath: URL =
+         executable.deletingLastPathComponent()
+                   .appendingPathComponent("\(invocation.deletingPathExtension().lastPathComponent)-legacy-driver")
+                   .appendingPathExtension(executable.pathExtension)
+    #else
+    // WORKAROUND: Check if the original path has a non-empty extension because
+    // `url.deletingPathExtension().appendingPathExtension(url.pathExtension)`
+    // will not be equal to `url` but be `\(url).` if `url` doesn't have an
+    // extension on Swift 6.0. Remove this when we drop support for Swift 6.0
+    // as a bootstrapping compiler.
+    // See https://github.com/swiftlang/swift-foundation/issues/1080
+    var legacyExecutablePath: URL =
         executable.deletingLastPathComponent()
                   .appendingPathComponent("\(invocation.deletingPathExtension().lastPathComponent)-legacy-driver")
-                  .appendingPathExtension(executable.pathExtension)
+    if !executable.pathExtension.isEmpty {
+        legacyExecutablePath.appendPathExtension(executable.pathExtension)
+    }
+    #endif
     let path: String = legacyExecutablePath.withUnsafeFileSystemRepresentation { String(cString: $0!) }
 
     if localFileSystem.exists(AbsolutePath(path)) {
