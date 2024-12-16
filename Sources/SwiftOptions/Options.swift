@@ -51,6 +51,7 @@ extension Option {
   public static let badFileDescriptorRetryCount: Option = Option("-bad-file-descriptor-retry-count", .separate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Number of retrying opening a file if previous open returns a bad file descriptor error.")
   public static let baselineDir: Option = Option("-baseline-dir", .joinedOrSeparate, attributes: [.noDriver, .argumentIsPath], helpText: "The path to a directory containing baseline files: macos.json, iphoneos.json, appletvos.json, watchos.json, and iosmac.json")
   public static let baselinePath: Option = Option("-baseline-path", .joinedOrSeparate, attributes: [.noDriver, .argumentIsPath], helpText: "The path to the Json file that we should use as the baseline")
+  public static let batchScanInputFile: Option = Option("-batch-scan-input-file", .separate, attributes: [.frontend, .noDriver], metaVar: "<path>", helpText: "Specify a JSON file containing modules to perform batch dependencies scanning")
   public static let BFEQ: Option = Option("-BF=", .joined, alias: Option.BF, attributes: [.noDriver])
   public static let BF: Option = Option("-BF", .joinedOrSeparate, attributes: [.noDriver, .argumentIsPath], helpText: "add a directory to the baseline framework search path")
   public static let BIEQ: Option = Option("-BI=", .joined, alias: Option.BI, attributes: [.noDriver])
@@ -615,6 +616,7 @@ extension Option {
   public static let linkObjcRuntime: Option = Option("-link-objc-runtime", .flag, attributes: [.doesNotAffectIncrementalBuild], helpText: "Deprecated")
   public static let lldbRepl: Option = Option("-lldb-repl", .flag, attributes: [.helpHidden, .noBatch], helpText: "LLDB-enhanced REPL mode", group: .modes)
   public static let reuseDependencyScanCache: Option = Option("-load-dependency-scan-cache", .flag, attributes: [.frontend, .noDriver], helpText: "After performing a dependency scan, serialize the scanner's internal state.")
+  public static let loadPassPluginEQ: Option = Option("-load-pass-plugin=", .joined, attributes: [.frontend, .argumentIsPath], metaVar: "<path>", helpText: "Load LLVM pass plugin from a dynamic shared object file.")
   public static let loadPluginExecutable: Option = Option("-load-plugin-executable", .separate, attributes: [.frontend, .doesNotAffectIncrementalBuild, .argumentIsPath], metaVar: "<path>#<module-names>", helpText: "Path to a compiler plugin executable and a comma-separated list of module names where the macro types are declared", group: .pluginSearch)
   public static let loadPluginLibrary: Option = Option("-load-plugin-library", .separate, attributes: [.frontend, .doesNotAffectIncrementalBuild, .argumentIsPath], metaVar: "<path>", helpText: "Path to a dynamic library containing compiler plugins such as macros", group: .pluginSearch)
   public static let loadResolvedPlugin: Option = Option("-load-resolved-plugin", .separate, attributes: [.frontend, .doesNotAffectIncrementalBuild, .argumentIsPath], metaVar: "<library-path>#<executable-path>#<module-names>", helpText: "Path to resolved plugin configuration and a comma-separated list of module names where the macro types are declared. Library path and exectuable path can be empty if not used", group: .pluginSearch)
@@ -725,7 +727,7 @@ extension Option {
   public static let printZeroStats: Option = Option("-print-zero-stats", .flag, attributes: [.helpHidden, .frontend], helpText: "Prints all stats even if they are zero")
   public static let profileCoverageMapping: Option = Option("-profile-coverage-mapping", .flag, attributes: [.frontend, .noInteractive], helpText: "Generate coverage data for use with profiled execution counts")
   public static let profileGenerate: Option = Option("-profile-generate", .flag, attributes: [.frontend, .noInteractive], helpText: "Generate instrumented code to collect execution counts")
-  public static let profileSampleUse: Option = Option("-profile-sample-use=", .commaJoined, attributes: [.frontend, .noInteractive, .argumentIsPath], metaVar: "<profile data>", helpText: "Supply sampling-based profiling data from llvm-profdata to enable profile-guided optimization")
+  public static let profileSampleUse: Option = Option("-profile-sample-use=", .joined, attributes: [.frontend, .noInteractive, .argumentIsPath], metaVar: "<profile data>", helpText: "Supply sampling-based profiling data from llvm-profdata to enable profile-guided optimization")
   public static let profileStatsEntities: Option = Option("-profile-stats-entities", .flag, attributes: [.helpHidden, .frontend], helpText: "Profile changes to stats in -stats-output-dir, subdivided by source entity")
   public static let profileStatsEvents: Option = Option("-profile-stats-events", .flag, attributes: [.helpHidden, .frontend], helpText: "Profile changes to stats in -stats-output-dir")
   public static let profileUse: Option = Option("-profile-use=", .commaJoined, attributes: [.frontend, .noInteractive, .argumentIsPath], metaVar: "<profdata>", helpText: "Supply a profdata file to enable profile-guided optimization")
@@ -807,7 +809,9 @@ extension Option {
   public static let solverDisableShrink: Option = Option("-solver-disable-shrink", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable the shrink phase of expression type checking")
   public static let solverExpressionTimeThresholdEQ: Option = Option("-solver-expression-time-threshold=", .joined, attributes: [.helpHidden, .frontend, .noDriver])
   public static let solverMemoryThreshold: Option = Option("-solver-memory-threshold", .separate, attributes: [.helpHidden, .frontend, .doesNotAffectIncrementalBuild], helpText: "Set the upper bound for memory consumption, in bytes, by the constraint solver")
+  public static let solverScopeThresholdEQ: Option = Option("-solver-scope-threshold=", .joined, attributes: [.helpHidden, .frontend, .noDriver])
   public static let solverShrinkUnsolvedThreshold: Option = Option("-solver-shrink-unsolved-threshold", .separate, attributes: [.helpHidden, .frontend, .doesNotAffectIncrementalBuild], helpText: "Set The upper bound to number of sub-expressions unsolved before termination of the shrink phrase")
+  public static let solverTrailThresholdEQ: Option = Option("-solver-trail-threshold=", .joined, attributes: [.helpHidden, .frontend, .noDriver])
   public static let stackPromotionLimit: Option = Option("-stack-promotion-limit", .separate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Limit the size of stack promoted objects to the provided number of bytes.")
   public static let staticExecutable: Option = Option("-static-executable", .flag, helpText: "Statically link the executable")
   public static let staticStdlib: Option = Option("-static-stdlib", .flag, attributes: [.doesNotAffectIncrementalBuild], helpText: "Statically link the Swift standard library")
@@ -914,7 +918,7 @@ extension Option {
   public static let workingDirectory: Option = Option("-working-directory", .separate, metaVar: "<path>", helpText: "Resolve file paths relative to the specified directory")
   public static let Wwarning: Option = Option("-Wwarning", .separate, attributes: [.helpHidden, .frontend], metaVar: "<diagnostic_group>", helpText: "Treat this warning group as warning", group: .warningTreating)
   public static let Xcc: Option = Option("-Xcc", .separate, attributes: [.frontend, .synthesizeInterface], metaVar: "<arg>", helpText: "Pass <arg> to the C/C++/Objective-C compiler")
-  public static let XclangLinker: Option = Option("-Xclang-linker", .separate, attributes: [.helpHidden], metaVar: "<arg>", helpText: "Pass <arg> to Clang when it is use for linking.")
+  public static let XclangLinker: Option = Option("-Xclang-linker", .separate, attributes: [.helpHidden], metaVar: "<arg>", helpText: "Pass <arg> to Clang when it is used for linking.")
   public static let Xfrontend: Option = Option("-Xfrontend", .separate, attributes: [.helpHidden], metaVar: "<arg>", helpText: "Pass <arg> to the Swift frontend")
   public static let Xlinker: Option = Option("-Xlinker", .separate, attributes: [.doesNotAffectIncrementalBuild], helpText: "Specifies an option which should be passed to the linker")
   public static let Xllvm: Option = Option("-Xllvm", .separate, attributes: [.helpHidden, .frontend], metaVar: "<arg>", helpText: "Pass <arg> to LLVM.")
@@ -957,6 +961,7 @@ extension Option {
       Option.badFileDescriptorRetryCount,
       Option.baselineDir,
       Option.baselinePath,
+      Option.batchScanInputFile,
       Option.BFEQ,
       Option.BF,
       Option.BIEQ,
@@ -1521,6 +1526,7 @@ extension Option {
       Option.linkObjcRuntime,
       Option.lldbRepl,
       Option.reuseDependencyScanCache,
+      Option.loadPassPluginEQ,
       Option.loadPluginExecutable,
       Option.loadPluginLibrary,
       Option.loadResolvedPlugin,
@@ -1712,7 +1718,9 @@ extension Option {
       Option.solverDisableShrink,
       Option.solverExpressionTimeThresholdEQ,
       Option.solverMemoryThreshold,
+      Option.solverScopeThresholdEQ,
       Option.solverShrinkUnsolvedThreshold,
+      Option.solverTrailThresholdEQ,
       Option.stackPromotionLimit,
       Option.staticExecutable,
       Option.staticStdlib,
