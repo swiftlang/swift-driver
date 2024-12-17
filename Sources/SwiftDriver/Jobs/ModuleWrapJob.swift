@@ -18,7 +18,6 @@ extension Driver {
 
     // Add the input.
     commandLine.append(.path(moduleInput.file))
-    assert(compilerOutputType == .object, "-modulewrap mode only produces object files")
 
     commandLine.appendFlags("-target", targetTriple.triple)
 

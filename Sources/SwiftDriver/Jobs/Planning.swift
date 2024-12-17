@@ -674,21 +674,20 @@ extension Driver {
                                                  addJob: (Job) -> Void,
                                                  addLinkerInput: (TypedVirtualPath) -> Void)
   throws {
-    guard case .astTypes = debugInfo.level
-    else { return }
-    if targetTriple.objectFormat != .macho {
+    guard case .astTypes = debugInfo.level else { return }
+
+    let mergeModuleOutputs = mergeJob.outputs.filter { $0.type == .swiftModule }
+    assert(mergeModuleOutputs.count == 1,
+            "Merge module job should only have one swiftmodule output")
+
+    if targetTriple.objectFormat == .macho {
+      addLinkerInput(mergeModuleOutputs[0])
+    } else {
       // Module wrapping is required.
-      let mergeModuleOutputs = mergeJob.outputs.filter { $0.type == .swiftModule }
-      assert(mergeModuleOutputs.count == 1,
-             "Merge module job should only have one swiftmodule output")
       let wrapJob = try moduleWrapJob(moduleInput: mergeModuleOutputs[0])
       addJob(wrapJob)
+
       wrapJob.outputs.forEach(addLinkerInput)
-    } else {
-      let mergeModuleOutputs = mergeJob.outputs.filter { $0.type == .swiftModule }
-      assert(mergeModuleOutputs.count == 1,
-             "Merge module job should only have one swiftmodule output")
-      addLinkerInput(mergeModuleOutputs[0])
     }
   }
 
