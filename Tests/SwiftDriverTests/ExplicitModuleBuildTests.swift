@@ -251,8 +251,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let job = try XCTUnwrap(jobsInPhases.allJobs.first(where: { $0.kind == .compile }))
       // Load the dependency JSON and verify this dependency was encoded correctly
       XCTAssertJobInvocationMatches(job, .flag("-explicit-swift-module-map-file"))
-      let jsonDepsPathIndex = job.commandLine.firstIndex(of: .flag("-explicit-swift-module-map-file"))
-      let jsonDepsPathArg = job.commandLine[jsonDepsPathIndex! + 1]
+      let jsonDepsPathIndex = try XCTUnwrap(job.commandLine.firstIndex(of: .flag("-explicit-swift-module-map-file")))
+      let jsonDepsPathArg = job.commandLine[jsonDepsPathIndex + 1]
       guard case .path(let jsonDepsPath) = jsonDepsPathArg else {
         return XCTFail("No JSON dependency file path found.")
       }
@@ -312,10 +312,10 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let explicitDepsFlag = SwiftDriver.Job.ArgTemplate.flag(String("-explicit-swift-module-map-file"))
       XCTAssertJobInvocationMatches(compileJob0, explicitDepsFlag)
       XCTAssertJobInvocationMatches(compileJob1, explicitDepsFlag)
-      let jsonDeps0PathIndex = compileJob0.commandLine.firstIndex(of: explicitDepsFlag)
-      let jsonDeps0PathArg = compileJob0.commandLine[jsonDeps0PathIndex! + 1]
-      let jsonDeps1PathIndex = compileJob1.commandLine.firstIndex(of: explicitDepsFlag)
-      let jsonDeps1PathArg = compileJob1.commandLine[jsonDeps1PathIndex! + 1]
+      let jsonDeps0PathIndex = try XCTUnwrap(compileJob0.commandLine.firstIndex(of: explicitDepsFlag))
+      let jsonDeps0PathArg = compileJob0.commandLine[jsonDeps0PathIndex + 1]
+      let jsonDeps1PathIndex = try XCTUnwrap(compileJob1.commandLine.firstIndex(of: explicitDepsFlag))
+      let jsonDeps1PathArg = compileJob1.commandLine[jsonDeps1PathIndex + 1]
       XCTAssertEqual(jsonDeps0PathArg, jsonDeps1PathArg)
     }
   }
@@ -362,8 +362,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let explicitDepsFlag =
         SwiftDriver.Job.ArgTemplate.flag(String("-explicit-swift-module-map-file"))
       XCTAssertJobInvocationMatches(compileJob, explicitDepsFlag)
-      let jsonDepsPathIndex = compileJob.commandLine.firstIndex(of: explicitDepsFlag)
-      let jsonDepsPathArg = compileJob.commandLine[jsonDepsPathIndex! + 1]
+      let jsonDepsPathIndex = try XCTUnwrap(compileJob.commandLine.firstIndex(of: explicitDepsFlag))
+      let jsonDepsPathArg = compileJob.commandLine[jsonDepsPathIndex + 1]
       guard case .path(let jsonDepsPath) = jsonDepsPathArg else {
         return XCTFail("No JSON dependency file path found.")
       }

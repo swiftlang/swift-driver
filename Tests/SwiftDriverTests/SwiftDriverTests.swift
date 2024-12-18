@@ -3075,7 +3075,7 @@ final class SwiftDriverTests: XCTestCase {
     // This is to match the legacy driver behavior
     // Make sure the supplementary output map has an entry for the Swift file
     // under indexing and its indexData entry is the primary output file
-    let entry = map.entries[VirtualPath.absolute(try AbsolutePath(validating: "/tmp/foo5.swift")).intern()]!
+    let entry = try XCTUnwrap(map.entries[VirtualPath.absolute(try AbsolutePath(validating: "/tmp/foo5.swift")).intern()])
     XCTAssert(VirtualPath.lookup(entry[.indexData]!) == .absolute(try .init(validating: "/tmp/t.o")))
   }
 
@@ -7777,20 +7777,16 @@ final class SwiftDriverTests: XCTestCase {
     let job = jobs.first!
 
     // Check that the we have the plugin paths we expect, in the order we expect.
-    let pluginAIndex = job.commandLine.firstIndex(of: .path(VirtualPath.absolute(try .init(validating: "/tmp/PluginA"))))
-    XCTAssertNotNil(pluginAIndex)
+    let pluginAIndex = try XCTUnwrap(job.commandLine.firstIndex(of: .path(VirtualPath.absolute(try .init(validating: "/tmp/PluginA")))))
 
-    let pluginBIndex = job.commandLine.firstIndex(of: .path(VirtualPath.absolute(try .init(validating: "/tmp/Plugin~B#Bexe"))))
-    XCTAssertNotNil(pluginBIndex)
-    XCTAssertLessThan(pluginAIndex!, pluginBIndex!)
+    let pluginBIndex = try XCTUnwrap(job.commandLine.firstIndex(of: .path(VirtualPath.absolute(try .init(validating: "/tmp/Plugin~B#Bexe")))))
+    XCTAssertLessThan(pluginAIndex, pluginBIndex)
 
-    let pluginB2Index = job.commandLine.firstIndex(of: .path(VirtualPath.absolute(try .init(validating: "/tmp/PluginB2"))))
-    XCTAssertNotNil(pluginB2Index)
-    XCTAssertLessThan(pluginBIndex!, pluginB2Index!)
+    let pluginB2Index = try XCTUnwrap(job.commandLine.firstIndex(of: .path(VirtualPath.absolute(try .init(validating: "/tmp/PluginB2")))))
+    XCTAssertLessThan(pluginBIndex, pluginB2Index)
 
-    let pluginCIndex = job.commandLine.firstIndex(of: .path(VirtualPath.absolute(try .init(validating: "/tmp/PluginC"))))
-    XCTAssertNotNil(pluginCIndex)
-    XCTAssertLessThan(pluginB2Index!, pluginCIndex!)
+    let pluginCIndex = try XCTUnwrap(job.commandLine.firstIndex(of: .path(VirtualPath.absolute(try .init(validating: "/tmp/PluginC")))))
+    XCTAssertLessThan(pluginB2Index, pluginCIndex)
 
     #if os(macOS)
     let origPlatformPath =
@@ -7801,36 +7797,29 @@ final class SwiftDriverTests: XCTestCase {
     let platformServerPath = platformPath.appending(components: "bin", "swift-plugin-server").pathString
 
     let platformPluginPath = platformPath.appending(components: "lib", "swift", "host", "plugins")
-    let platformPluginPathIndex = job.commandLine.firstIndex(of: .flag("\(platformPluginPath)#\(platformServerPath)"))
-    XCTAssertNotNil(platformPluginPathIndex)
+    let platformPluginPathIndex = try XCTUnwrap(job.commandLine.firstIndex(of: .flag("\(platformPluginPath)#\(platformServerPath)")))
 
     let platformLocalPluginPath = platformPath.appending(components: "local", "lib", "swift", "host", "plugins")
-    let platformLocalPluginPathIndex = job.commandLine.firstIndex(of: .flag("\(platformLocalPluginPath)#\(platformServerPath)"))
-    XCTAssertNotNil(platformLocalPluginPathIndex)
-    XCTAssertLessThan(platformPluginPathIndex!, platformLocalPluginPathIndex!)
+    let platformLocalPluginPathIndex = try XCTUnwrap(job.commandLine.firstIndex(of: .flag("\(platformLocalPluginPath)#\(platformServerPath)")))
+    XCTAssertLessThan(platformPluginPathIndex, platformLocalPluginPathIndex)
 
     // Plugin paths that come from the PLATFORM_DIR environment variable.
     let envOrigPlatformPath = try AbsolutePath(validating: "/tmp/PlatformDir/\(searchPlatform).platform")
     let envPlatformPath = envOrigPlatformPath.appending(components: "Developer", "usr")
     let envPlatformServerPath = envPlatformPath.appending(components: "bin", "swift-plugin-server").pathString
     let envPlatformPluginPath = envPlatformPath.appending(components: "lib", "swift", "host", "plugins")
-    let envPlatformPluginPathIndex = job.commandLine.firstIndex(of: .flag("\(envPlatformPluginPath)#\(envPlatformServerPath)"))
-    XCTAssertNotNil(envPlatformPluginPathIndex)
+    let envPlatformPluginPathIndex = try XCTUnwrap(job.commandLine.firstIndex(of: .flag("\(envPlatformPluginPath)#\(envPlatformServerPath)")))
+    XCTAssertLessThan(envPlatformPluginPathIndex, platformPluginPathIndex)
 
-    if let platformPluginPathIndex, let envPlatformPluginPathIndex {
-      XCTAssertLessThan(envPlatformPluginPathIndex, platformPluginPathIndex)
-    }
-
-    let toolchainPluginPathIndex = job.commandLine.firstIndex(of: .path(.absolute(try driver.toolchain.executableDir.parentDirectory.appending(components: "lib", "swift", "host", "plugins"))))
-    XCTAssertNotNil(toolchainPluginPathIndex)
+    let toolchainPluginPathIndex = try XCTUnwrap(job.commandLine.firstIndex(of: .path(.absolute(try driver.toolchain.executableDir.parentDirectory.appending(components: "lib", "swift", "host", "plugins")))))
 
     let toolchainStdlibPath = VirtualPath.lookup(driver.frontendTargetInfo.runtimeResourcePath.path)
       .appending(components: driver.frontendTargetInfo.target.triple.platformName() ?? "", "Swift.swiftmodule")
     let hasToolchainStdlib = try driver.fileSystem.exists(toolchainStdlibPath)
     if hasToolchainStdlib {
-      XCTAssertGreaterThan(platformLocalPluginPathIndex!, toolchainPluginPathIndex!)
+      XCTAssertGreaterThan(platformLocalPluginPathIndex, toolchainPluginPathIndex)
     } else {
-      XCTAssertLessThan(platformLocalPluginPathIndex!, toolchainPluginPathIndex!)
+      XCTAssertLessThan(platformLocalPluginPathIndex, toolchainPluginPathIndex)
     }
     #endif
 
