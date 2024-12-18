@@ -926,6 +926,10 @@ extension Option {
   public static let Xlinker: Option = Option("-Xlinker", .separate, attributes: [.doesNotAffectIncrementalBuild], helpText: "Specifies an option which should be passed to the linker")
   public static let Xllvm: Option = Option("-Xllvm", .separate, attributes: [.helpHidden, .frontend], metaVar: "<arg>", helpText: "Pass <arg> to LLVM.")
   public static let DASHDASH: Option = Option("--", .remaining, attributes: [.frontend, .doesNotAffectIncrementalBuild])
+
+  public static let emitVariantModulePath: Option = Option("-emit-variant-module-path", .separate, attributes: [.noInteractive, .supplementaryOutput, .argumentIsPath], helpText: "Emit an importable module for the target variant at the specified path")
+  public static let emitVariantModuleInterface: Option = Option("-emit-variant-module-interface", .flag, attributes: [.noInteractive, .supplementaryOutput], helpText: "Emit an importable module for the target variant")
+
 }
 
 extension Option {
@@ -1839,6 +1843,8 @@ extension Option {
       Option.Xlinker,
       Option.Xllvm,
       Option.DASHDASH,
+      Option.emitVariantModulePath,
+      Option.emitVariantModuleInterface,
     ]
   }
 }

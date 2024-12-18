@@ -4090,6 +4090,36 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testTargetVariantEmitModule() throws {
+    do {
+      var driver = try Driver(args: ["swiftc",
+        "-target", "x86_64-apple-macosx10.14",
+        "-target-variant", "x86_64-apple-ios13.1-macabi",
+        "-enable-library-evolution",
+        "-emit-module",
+        "-emit-module-path", "foo.swiftmodule/target.swiftmodule",
+        "-emit-variant-module-path", "foo.swiftmodule/variant.swiftmodule",
+        "foo.swift"])
+
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(plannedJobs.count, 3)
+
+      let targetModuleJob = plannedJobs[0]
+      let variantModuleJob = plannedJobs[1]
+
+      XCTAssert(targetModuleJob.commandLine.contains(.flag("-emit-module")))
+      XCTAssert(variantModuleJob.commandLine.contains(.flag("-emit-module")))
+
+      XCTAssert(targetModuleJob.commandLine.contains(.path(.relative(try .init(validating: "foo.swiftmodule/target.swiftdoc")))))
+      XCTAssert(targetModuleJob.commandLine.contains(.path(.relative(try .init(validating: "foo.swiftmodule/target.swiftsourceinfo")))))
+      XCTAssertTrue(targetModuleJob.commandLine.contains(subsequence: [.flag("-o"), .path(.relative(try .init(validating: "foo.swiftmodule/target.swiftmodule")))]))
+
+      XCTAssert(variantModuleJob.commandLine.contains(.path(.relative(try .init(validating: "foo.swiftmodule/variant.swiftdoc")))))
+      XCTAssert(variantModuleJob.commandLine.contains(.path(.relative(try .init(validating: "foo.swiftmodule/variant.swiftsourceinfo")))))
+      XCTAssertTrue(variantModuleJob.commandLine.contains(subsequence: [.flag("-o"), .path(.relative(try .init(validating: "foo.swiftmodule/variant.swiftmodule")))]))
+    }
+  }
+
   func testValidDeprecatedTargetiOS() throws {
     var driver = try Driver(args: ["swiftc", "-emit-module", "-target", "armv7-apple-ios13.0", "foo.swift"])
     let plannedJobs = try driver.planBuild()

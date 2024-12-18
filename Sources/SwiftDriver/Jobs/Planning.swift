@@ -256,13 +256,21 @@ extension Driver {
     )
   }
 
-  private mutating func addEmitModuleJob(addJobBeforeCompiles: (Job) -> Void, pchCompileJob: Job?) throws -> Job? {
-    if emitModuleSeparately {
-      let emitJob = try emitModuleJob(pchCompileJob: pchCompileJob)
-      addJobBeforeCompiles(emitJob)
-      return emitJob
-    }
-    return nil
+  private mutating func addEmitModuleJob(
+    addJobBeforeCompiles: (Job) -> Void,
+    pchCompileJob: Job?,
+    isVariantModule: Bool = false) throws -> Job? {
+      // The target variant module is always emitted separately, so we need to
+      // add an explicit job regardless of whether the primary target was
+      // emitted separately
+      if emitModuleSeparately || isVariantModule {
+        let emitJob = try emitModuleJob(
+          pchCompileJob: pchCompileJob,
+          isVariantJob: isVariantModule)
+        addJobBeforeCompiles(emitJob)
+        return emitJob
+      }
+      return nil
   }
 
   private mutating func addJobsFeedingLinker(
@@ -335,6 +343,13 @@ extension Driver {
         debugInfo: debugInfo,
         addJob: addJobAfterCompiles,
         addLinkerInput: addLinkerInput)
+    }
+
+    if variantModuleOutputInfo != nil {
+      _ = try addEmitModuleJob(
+        addJobBeforeCompiles: addJobBeforeCompiles,
+        pchCompileJob: jobCreatingPch,
+        isVariantModule: true)
     }
 
     try addJobsForPrimaryInputs(

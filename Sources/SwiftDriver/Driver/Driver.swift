@@ -259,6 +259,9 @@ public struct Driver {
   /// The information about the module to produce.
   @_spi(Testing) public let moduleOutputInfo: ModuleOutputInfo
 
+  /// Information about the target variant module to produce if applicable
+  @_spi(Testing) public let variantModuleOutputInfo: ModuleOutputInfo?
+
   /// Name of the package containing a target module or file.
   @_spi(Testing) public let packageName: String?
 
@@ -493,6 +496,9 @@ public struct Driver {
 
   /// Structure storing paths to supplemental outputs for the target module
   let moduleOutputPaths: SupplementalModuleTargetOutputPaths
+
+  /// Structure storing paths to supplemental outputs for the target variant
+  let variantModuleOutputPaths: SupplementalModuleTargetOutputPaths?
 
   /// File type for the optimization record.
   let optimizationRecordFileType: FileType?
@@ -946,9 +952,23 @@ public struct Driver {
 
     // Determine the module we're building and whether/how the module file itself will be emitted.
     self.moduleOutputInfo = try Self.computeModuleInfo(
-      &parsedOptions, compilerOutputType: compilerOutputType, compilerMode: compilerMode, linkerOutputType: linkerOutputType,
-      debugInfoLevel: debugInfo.level, diagnosticsEngine: diagnosticEngine,
+      &parsedOptions,
+      modulePath: parsedOptions.getLastArgument(.emitModulePath)?.asSingle,
+      compilerOutputType: compilerOutputType,
+      compilerMode: compilerMode,
+      linkerOutputType: linkerOutputType,
+      debugInfoLevel: debugInfo.level,
+      diagnosticsEngine: diagnosticEngine,
       workingDirectory: self.workingDirectory)
+
+    self.variantModuleOutputInfo = try Self.computeVariantModuleInfo(
+      &parsedOptions,
+      compilerOutputType: compilerOutputType,
+      compilerMode: compilerMode,
+      linkerOutputType: linkerOutputType,
+      debugInfoLevel: debugInfo.level,
+      diagnosticsEngine: diagnosticsEngine,
+      workingDirectory: workingDirectory)
 
     // Should we schedule a separate emit-module job?
     self.emitModuleSeparately = Self.computeEmitModuleSeparately(parsedOptions: &parsedOptions,
@@ -1141,6 +1161,21 @@ public struct Driver {
       emitModuleSeparately: emitModuleSeparately,
       outputFileMap: self.outputFileMap,
       projectDirectory: projectDirectory)
+
+    if let variantModuleOutputInfo = self.variantModuleOutputInfo {
+      self.variantModuleOutputPaths = try Self.computeModuleOutputPaths(
+        &parsedOptions,
+        moduleName: variantModuleOutputInfo.name,
+        packageName: self.packageName,
+        moduleOutputInfo: variantModuleOutputInfo,
+        compilerOutputType: compilerOutputType,
+        compilerMode: compilerMode,
+        emitModuleSeparately: true, // variant module is always independent
+        outputFileMap: self.outputFileMap,
+        projectDirectory: projectDirectory)
+    } else {
+      self.variantModuleOutputPaths = nil
+    }
 
     self.digesterBaselinePath = try Self.computeDigesterBaselineOutputPath(
       &parsedOptions,
@@ -2673,9 +2708,37 @@ extension Driver {
     return ""
   }
 
+  private static func computeVariantModuleInfo(
+    _ parsedOptions: inout ParsedOptions,
+    compilerOutputType: FileType?,
+    compilerMode: CompilerMode,
+    linkerOutputType: LinkOutputType?,
+    debugInfoLevel: DebugInfo.Level?,
+    diagnosticsEngine: DiagnosticsEngine,
+    workingDirectory: AbsolutePath?
+  ) throws -> ModuleOutputInfo? {
+    // If there is no target variant, then there is no target variant module.
+    // If there is no emit-variant-module, then there is not target variant
+    // module.
+    guard let variantModulePath = parsedOptions.getLastArgument(.emitVariantModulePath),
+      parsedOptions.hasArgument(.targetVariant) else {
+        return nil
+    }
+    return try computeModuleInfo(&parsedOptions,
+        modulePath: variantModulePath.asSingle,
+        compilerOutputType: compilerOutputType,
+        compilerMode: compilerMode,
+        linkerOutputType: linkerOutputType,
+        debugInfoLevel: debugInfoLevel,
+        diagnosticsEngine: diagnosticsEngine,
+        workingDirectory: workingDirectory)
+    return nil
+  }
+
   /// Determine how the module will be emitted and the name of the module.
   private static func computeModuleInfo(
     _ parsedOptions: inout ParsedOptions,
+    modulePath: String?,
     compilerOutputType: FileType?,
     compilerMode: CompilerMode,
     linkerOutputType: LinkOutputType?,
@@ -2690,7 +2753,7 @@ extension Driver {
     }
 
     var moduleOutputKind: ModuleOutputKind?
-    if parsedOptions.hasArgument(.emitModule, .emitModulePath) {
+    if parsedOptions.hasArgument(.emitModule) || modulePath != nil {
       // The user has requested a module, so generate one and treat it as
       // top-level output.
       moduleOutputKind = .topLevel
@@ -2772,9 +2835,9 @@ extension Driver {
 
     // FIXME: Look in the output file map. It looks like it is weirdly
     // anchored to the first input?
-    if let modulePathArg = parsedOptions.getLastArgument(.emitModulePath) {
+    if let modulePathArg = modulePath {
       // The module path was specified.
-      moduleOutputPath = try VirtualPath(path: modulePathArg.asSingle)
+      moduleOutputPath = try VirtualPath(path: modulePathArg)
     } else if moduleOutputKind == .topLevel {
       // FIXME: Logic to infer from primary outputs, etc.
       let moduleFilename = moduleName.appendingFileTypeExtension(.swiftModule)

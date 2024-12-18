@@ -79,8 +79,13 @@ extension Driver {
   }
 
   /// Form a job that emits a single module
-  @_spi(Testing) public mutating func emitModuleJob(pchCompileJob: Job?) throws -> Job {
-    let moduleOutputPath = moduleOutputInfo.output!.outputPath
+  @_spi(Testing) public mutating func emitModuleJob(pchCompileJob: Job?, isVariantJob: Bool = false) throws -> Job {
+    precondition(!isVariantJob || (isVariantJob &&
+      variantModuleOutputInfo != nil && variantModuleOutputPaths != nil),
+      "target variant module requested without a target variant")
+
+    let moduleOutputPath = isVariantJob ? variantModuleOutputInfo!.output!.outputPath : moduleOutputInfo.output!.outputPath
+    let moduleOutputPaths = isVariantJob ? variantModuleOutputPaths! : moduleOutputPaths
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
     var inputs: [TypedVirtualPath] = []
     var outputs: [TypedVirtualPath] = [
@@ -103,7 +108,12 @@ extension Driver {
     try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs, kind: .emitModule)
     // FIXME: Add MSVC runtime library flags
 
-    try addCommonModuleOptions(commandLine: &commandLine, outputs: &outputs, moduleOutputPaths: moduleOutputPaths,isMergeModule: false)
+    try addCommonModuleOptions(
+      commandLine: &commandLine,
+      outputs: &outputs,
+      moduleOutputPaths: moduleOutputPaths,
+      isMergeModule: false)
+
     try addCommonSymbolGraphOptions(commandLine: &commandLine)
 
     try commandLine.appendLast(.checkApiAvailabilityOnly, from: &parsedOptions)
