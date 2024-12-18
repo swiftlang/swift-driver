@@ -3043,7 +3043,7 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertEqual(plannedJobs[0].kind, .compile)
     XCTAssertEqual(plannedJobs[0].outputs.count, 1)
     XCTAssertTrue(matchTemporary(plannedJobs[0].outputs[0].file, "Test.o"))
-    XCTAssert(!plannedJobs[0].commandLine.contains(.flag("-primary-file")))
+    XCTAssertFalse(plannedJobs[0].commandLine.contains(.flag("-primary-file")))
 
     let emitModuleJob = try plannedJobs.findJob(.emitModule)
     XCTAssertEqual(emitModuleJob.outputs.count, driver1.targetTriple.isDarwin ? 8 : 7)
@@ -3057,7 +3057,7 @@ final class SwiftDriverTests: XCTestCase {
     if driver1.targetTriple.isDarwin {
         XCTAssertEqual(emitModuleJob.outputs[7].file, try toPath("Test.abi.json"))
     }
-    XCTAssert(!emitModuleJob.commandLine.contains(.flag("-primary-file")))
+    XCTAssertFalse(emitModuleJob.commandLine.contains(.flag("-primary-file")))
     XCTAssertJobInvocationMatches(emitModuleJob, .flag("-emit-module-interface-path"))
     XCTAssertJobInvocationMatches(emitModuleJob, .flag("-emit-private-module-interface-path"))
   }
