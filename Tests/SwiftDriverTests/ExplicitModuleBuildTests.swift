@@ -49,7 +49,7 @@ throws {
           XCTAssertTrue(job.inputs.contains(typedCandidatePath))
           XCTAssertTrue(job.commandLine.contains(.flag(VirtualPath.lookup(candidatePath).description)))
         }
-        XCTAssertTrue(job.commandLine.filter {$0 == .flag("-candidate-module-file")}.count == compiledCandidateList.count)
+        XCTAssertEqual(job.commandLine.filter { $0 == .flag("-candidate-module-file") }.count, compiledCandidateList.count)
       }
     case .clang(_):
       XCTAssertEqual(job.kind, .generatePCM)
@@ -724,7 +724,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       for job in jobs {
         if (job.outputs.count == 0) {
           // This is the verify module job as it should be the only job scheduled to have no output.
-          XCTAssertTrue(job.kind == .verifyModuleInterface)
+          XCTAssertEqual(job.kind, .verifyModuleInterface)
           // Check the explicit module flags exists.
           XCTAssertJobInvocationMatches(job, .flag("-explicit-interface-module-build"))
           XCTAssertJobInvocationMatches(job, .flag("-explicit-swift-module-map-file"))
@@ -1846,8 +1846,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
             }
             lock.unlock()
           }
-          XCTAssertTrue(dependencyGraph.modules.count ==
-                        adjustedExpectedNumberOfDependencies)
+          XCTAssertEqual(dependencyGraph.modules.count, adjustedExpectedNumberOfDependencies)
         } catch {
           XCTFail("Unexpected error: \(error)")
         }
