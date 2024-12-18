@@ -701,7 +701,7 @@ extension Driver {
 
         try addOutputOfType(
           outputType: .jsonAPIDescriptor,
-          finalOutputPath: apiDescriptorFilePath,
+          finalOutputPath: moduleOutputPaths.apiDescriptorFilePath,
           input: nil,
           flag: "-emit-api-descriptor-path")
       }
