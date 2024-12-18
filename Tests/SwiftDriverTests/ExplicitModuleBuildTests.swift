@@ -254,12 +254,10 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let jsonDepsPathIndex = job.commandLine.firstIndex(of: .flag("-explicit-swift-module-map-file"))
       let jsonDepsPathArg = job.commandLine[jsonDepsPathIndex! + 1]
       guard case .path(let jsonDepsPath) = jsonDepsPathArg else {
-        XCTFail("No JSON dependency file path found.")
-        return
+        return XCTFail("No JSON dependency file path found.")
       }
       guard case let .temporaryWithKnownContents(_, contents) = jsonDepsPath else {
-        XCTFail("Unexpected path type")
-        return
+        return XCTFail("Unexpected path type")
       }
       let dependencyInfoList = try JSONDecoder().decode(Array<SwiftModuleArtifactInfo>.self,
                                                     from: contents)
@@ -367,12 +365,10 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let jsonDepsPathIndex = compileJob.commandLine.firstIndex(of: explicitDepsFlag)
       let jsonDepsPathArg = compileJob.commandLine[jsonDepsPathIndex! + 1]
       guard case .path(let jsonDepsPath) = jsonDepsPathArg else {
-        XCTFail("No JSON dependency file path found.")
-        return
+        return XCTFail("No JSON dependency file path found.")
       }
       guard case let .temporaryWithKnownContents(_, contents) = jsonDepsPath else {
-        XCTFail("Unexpected path type")
-        return
+        return XCTFail("Unexpected path type")
       }
       let jsonDepsDecoded = try JSONDecoder().decode(Array<ModuleDependencyArtifactInfo>.self, from: contents)
 
