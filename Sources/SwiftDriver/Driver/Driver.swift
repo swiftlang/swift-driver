@@ -395,6 +395,9 @@ public struct Driver {
 
     /// Path to the Swift module source information file.
     let moduleSourceInfoPath: VirtualPath.Handle?
+
+    /// Path to the emitted API descriptor file.
+    let apiDescriptorFilePath: VirtualPath.Handle?
   }
 
   private static func computeModuleOutputPaths(
@@ -423,6 +426,24 @@ public struct Driver {
         outputFileMap: outputFileMap,
         moduleName: moduleOutputInfo.name,
         projectDirectory: projectDirectory)
+
+    // ---------------------
+    // API Descriptor Path
+    let apiDescriptorFilePath: VirtualPath.Handle?
+    if let apiDescriptorDirectory = apiDescriptorDirectory {
+      apiDescriptorFilePath = apiDescriptorDirectory
+        .appending(component: "\(moduleOutputInfo.name).\(target.moduleTriple.triple).swift.sdkdb")
+        .intern()
+    } else {
+      apiDescriptorFilePath = try Self.computeSupplementaryOutputPath(
+        &parsedOptions, type: .jsonAPIDescriptor, isOutputOptions: [],
+        outputPath: .emitApiDescriptorPath,
+        compilerOutputType: compilerOutputType,
+        compilerMode: compilerMode,
+        emitModuleSeparately: emitModuleSeparately,
+        outputFileMap: outputFileMap,
+        moduleName: moduleOutputInfo.name)
+    }
 
     // ---------------------
     // Swift interface paths
@@ -492,6 +513,7 @@ public struct Driver {
       swiftPrivateInterfacePath: swiftPrivateInterfacePath,
       swiftPackageInterfacePath: swiftPackageInterfacePath,
       moduleSourceInfoPath: moduleSourceInfoPath)
+      apiDescriptorFilePath: apiDescriptorFilePath)
   }
 
   /// Structure storing paths to supplemental outputs for the target module
@@ -509,8 +531,6 @@ public struct Driver {
   /// Path to the module's digester baseline file.
   let digesterBaselinePath: VirtualPath.Handle?
 
-  /// Path to the emitted API descriptor file.
-  let apiDescriptorFilePath: VirtualPath.Handle?
 
   /// The mode the API digester should run in.
   let digesterMode: DigesterMode
@@ -1151,6 +1171,13 @@ public struct Driver {
       moduleOutputPath: moduleOutputInfo.output?.outputPath,
       fileSystem: self.fileSystem)
 
+    var apiDescriptorDirectory: VirtualPath? = nil
+    if let apiDescriptorDirectoryEnvVar = env["TAPI_SDKDB_OUTPUT_PATH"] {
+        apiDescriptorDirectory = try VirtualPath(path: apiDescriptorDirectoryEnvVar)
+    } else if let ldTraceFileEnvVar = env["LD_TRACE_FILE"] {
+        apiDescriptorDirectory = try VirtualPath(path: ldTraceFileEnvVar).parentDirectory.appending(component: "SDKDB")
+    }
+
     self.moduleOutputPaths = try Self.computeModuleOutputPaths(
       &parsedOptions,
       moduleName: moduleOutputInfo.name,
@@ -1161,8 +1188,11 @@ public struct Driver {
       emitModuleSeparately: emitModuleSeparately,
       outputFileMap: self.outputFileMap,
       projectDirectory: projectDirectory)
+      apiDescriptorDirectory: apiDescriptorDirectory,
+      target: frontendTargetInfo.target)
 
     if let variantModuleOutputInfo = self.variantModuleOutputInfo {
+       let targetVariant = self.frontendTargetInfo.targetVariant {
       self.variantModuleOutputPaths = try Self.computeModuleOutputPaths(
         &parsedOptions,
         moduleName: variantModuleOutputInfo.name,
@@ -1172,7 +1202,9 @@ public struct Driver {
         compilerMode: compilerMode,
         emitModuleSeparately: true, // variant module is always independent
         outputFileMap: self.outputFileMap,
-        projectDirectory: projectDirectory)
+        projectDirectory: projectDirectory,
+        apiDescriptorDirectory: apiDescriptorDirectory,
+        target: targetVariant)
     } else {
       self.variantModuleOutputPaths = nil
     }
@@ -1209,27 +1241,6 @@ public struct Driver {
         emitModuleSeparately: emitModuleSeparately,
         outputFileMap: self.outputFileMap,
         moduleName: moduleOutputInfo.name)
-
-    var apiDescriptorDirectory: VirtualPath? = nil
-    if let apiDescriptorDirectoryEnvVar = env["TAPI_SDKDB_OUTPUT_PATH"] {
-        apiDescriptorDirectory = try VirtualPath(path: apiDescriptorDirectoryEnvVar)
-    } else if let ldTraceFileEnvVar = env["LD_TRACE_FILE"] {
-        apiDescriptorDirectory = try VirtualPath(path: ldTraceFileEnvVar).parentDirectory.appending(component: "SDKDB")
-    }
-    if let apiDescriptorDirectory = apiDescriptorDirectory {
-        self.apiDescriptorFilePath = apiDescriptorDirectory
-          .appending(component: "\(moduleOutputInfo.name).\(frontendTargetInfo.target.moduleTriple.triple).swift.sdkdb")
-          .intern()
-    } else {
-        self.apiDescriptorFilePath = try Self.computeSupplementaryOutputPath(
-            &parsedOptions, type: .jsonAPIDescriptor, isOutputOptions: [],
-            outputPath: .emitApiDescriptorPath,
-            compilerOutputType: compilerOutputType,
-            compilerMode: compilerMode,
-            emitModuleSeparately: emitModuleSeparately,
-            outputFileMap: self.outputFileMap,
-            moduleName: moduleOutputInfo.name)
-    }
 
     Self.validateDigesterArgs(&parsedOptions,
                               moduleOutputInfo: moduleOutputInfo,

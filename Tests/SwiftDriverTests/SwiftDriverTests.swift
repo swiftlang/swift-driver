@@ -4118,6 +4118,36 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssert(variantModuleJob.commandLine.contains(.path(.relative(try .init(validating: "foo.swiftmodule/variant.swiftsourceinfo")))))
       XCTAssertTrue(variantModuleJob.commandLine.contains(subsequence: [.flag("-o"), .path(.relative(try .init(validating: "foo.swiftmodule/variant.swiftmodule")))]))
     }
+
+#if os(macOS)
+    do {
+      try withTemporaryDirectory { path in
+        var env = ProcessEnv.vars
+        env["LD_TRACE_FILE"] = path.appending(component: ".LD_TRACE").nativePathString(escaped: false)
+        var driver = try Driver(args: ["swiftc",
+          "-target", "x86_64-apple-macosx10.14",
+          "-target-variant", "x86_64-apple-ios13.1-macabi",
+          "-emit-variant-module-path", "foo.swiftmodule/x86_64-apple-ios13.1-macabi.swiftmodule",
+          "-enable-library-evolution",
+          "-emit-module",
+          "foo.swift"], env: env)
+
+        let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+        let targetModuleJob = plannedJobs[0]
+        let variantModuleJob = plannedJobs[1]
+
+        XCTAssert(targetModuleJob.commandLine.contains(subsequence: [
+          .flag("-emit-api-descriptor-path"),
+          .path(.absolute(path.appending(components: "SDKDB", "foo.\(driver.frontendTargetInfo.target.moduleTriple.triple).swift.sdkdb"))),
+        ]))
+
+        XCTAssert(variantModuleJob.commandLine.contains(subsequence: [
+          .flag("-emit-api-descriptor-path"),
+          .path(.absolute(path.appending(components: "SDKDB", "foo.\(driver.frontendTargetInfo.targetVariant!.moduleTriple.triple).swift.sdkdb"))),
+        ]))
+      }
+    }
+#endif
   }
 
   func testValidDeprecatedTargetiOS() throws {
