@@ -562,42 +562,33 @@ final class ExplicitModuleBuildTests: XCTestCase {
           if relativeOutputPathFileName.starts(with: "A-") {
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang("A"),
                                             dependencyGraph: dependencyGraph)
-          }
-          else if relativeOutputPathFileName.starts(with: "B-") {
+          } else if relativeOutputPathFileName.starts(with: "B-") {
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang("B"),
                                             dependencyGraph: dependencyGraph)
-          }
-          else if relativeOutputPathFileName.starts(with: "C-") {
+          } else if relativeOutputPathFileName.starts(with: "C-") {
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang("C"),
                                             dependencyGraph: dependencyGraph)
-          }
-          else if relativeOutputPathFileName.starts(with: "D-") {
+          } else if relativeOutputPathFileName.starts(with: "D-") {
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang("D"),
                                             dependencyGraph: dependencyGraph)
-          }
-          else if relativeOutputPathFileName.starts(with: "G-") {
+          } else if relativeOutputPathFileName.starts(with: "G-") {
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang("G"),
                                             dependencyGraph: dependencyGraph)
-          }
-          else if relativeOutputPathFileName.starts(with: "F-") {
+          } else if relativeOutputPathFileName.starts(with: "F-") {
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang("F"),
                                             dependencyGraph: dependencyGraph)
-          }
-          else if relativeOutputPathFileName.starts(with: "SwiftShims-") {
+          } else if relativeOutputPathFileName.starts(with: "SwiftShims-") {
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang("SwiftShims"),
                                             dependencyGraph: dependencyGraph)
-          }
-          else if relativeOutputPathFileName.starts(with: "_SwiftConcurrencyShims-") {
+          } else if relativeOutputPathFileName.starts(with: "_SwiftConcurrencyShims-") {
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang("_SwiftConcurrencyShims"),
                                             dependencyGraph: dependencyGraph)
-          }
-          else if hostTriple.isMacOSX,
+          } else if hostTriple.isMacOSX,
              hostTriple.version(for: .macOS) < Triple.Version(11, 0, 0),
              relativeOutputPathFileName.starts(with: "X-") {
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang("X"),
                                             dependencyGraph: dependencyGraph)
-          }
-          else {
+          } else {
             XCTFail("Unexpected module dependency build job output: \(outputFilePath)")
           }
         } else {
@@ -761,36 +752,28 @@ final class ExplicitModuleBuildTests: XCTestCase {
           if relativeOutputPathFileName.starts(with: "A-") {
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang("A"),
                                             dependencyGraph: dependencyGraph)
-          }
-          else if relativeOutputPathFileName.starts(with: "B-") {
+          } else if relativeOutputPathFileName.starts(with: "B-") {
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang("B"),
                                             dependencyGraph: dependencyGraph)
-          }
-          else if relativeOutputPathFileName.starts(with: "C-") {
+          } else if relativeOutputPathFileName.starts(with: "C-") {
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang("C"),
                                             dependencyGraph: dependencyGraph)
-          }
-          else if relativeOutputPathFileName.starts(with: "D-") {
+          } else if relativeOutputPathFileName.starts(with: "D-") {
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang("D"),
                                             dependencyGraph: dependencyGraph)
-          }
-          else if relativeOutputPathFileName.starts(with: "G-") {
+          } else if relativeOutputPathFileName.starts(with: "G-") {
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang("G"),
                                             dependencyGraph: dependencyGraph)
-          }
-          else if relativeOutputPathFileName.starts(with: "F-") {
+          } else if relativeOutputPathFileName.starts(with: "F-") {
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang("F"),
                                             dependencyGraph: dependencyGraph)
-          }
-          else if relativeOutputPathFileName.starts(with: "SwiftShims-") {
+          } else if relativeOutputPathFileName.starts(with: "SwiftShims-") {
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang("SwiftShims"),
                                             dependencyGraph: dependencyGraph)
-          }
-          else if relativeOutputPathFileName.starts(with: "_SwiftConcurrencyShims-") {
+          } else if relativeOutputPathFileName.starts(with: "_SwiftConcurrencyShims-") {
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang("_SwiftConcurrencyShims"),
                                             dependencyGraph: dependencyGraph)
-          }
-          else {
+          } else {
             XCTFail("Unexpected module dependency build job output: \(outputFilePath)")
           }
         } else {
@@ -892,36 +875,28 @@ final class ExplicitModuleBuildTests: XCTestCase {
           if relativeOutputPathFileName.starts(with: "A-") {
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang("A"),
                                             dependencyGraph: dependencyGraph)
-          }
-          else if relativeOutputPathFileName.starts(with: "B-") {
+          } else if relativeOutputPathFileName.starts(with: "B-") {
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang("B"),
                                             dependencyGraph: dependencyGraph)
-          }
-          else if relativeOutputPathFileName.starts(with: "C-") {
+          } else if relativeOutputPathFileName.starts(with: "C-") {
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang("C"),
                                             dependencyGraph: dependencyGraph)
-          }
-          else if relativeOutputPathFileName.starts(with: "D-") {
+          } else if relativeOutputPathFileName.starts(with: "D-") {
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang("D"),
                                             dependencyGraph: dependencyGraph)
-          }
-          else if relativeOutputPathFileName.starts(with: "G-") {
+          } else if relativeOutputPathFileName.starts(with: "G-") {
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang("G"),
                                             dependencyGraph: dependencyGraph)
-          }
-          else if relativeOutputPathFileName.starts(with: "F-") {
+          } else if relativeOutputPathFileName.starts(with: "F-") {
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang("F"),
                                             dependencyGraph: dependencyGraph)
-          }
-          else if relativeOutputPathFileName.starts(with: "SwiftShims-") {
+          } else if relativeOutputPathFileName.starts(with: "SwiftShims-") {
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang("SwiftShims"),
                                             dependencyGraph: dependencyGraph)
-          }
-          else if relativeOutputPathFileName.starts(with: "_SwiftConcurrencyShims-") {
+          } else if relativeOutputPathFileName.starts(with: "_SwiftConcurrencyShims-") {
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang("_SwiftConcurrencyShims"),
                                             dependencyGraph: dependencyGraph)
-          }
-          else {
+          } else {
             XCTFail("Unexpected module dependency build job output: \(outputFilePath)")
           }
         // Bridging header
@@ -1025,24 +1000,19 @@ final class ExplicitModuleBuildTests: XCTestCase {
           if relativeOutputPathFileName.starts(with: "A-") {
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang("A"),
                                             dependencyGraph: dependencyGraph)
-          }
-          else if relativeOutputPathFileName.starts(with: "B-") {
+          } else if relativeOutputPathFileName.starts(with: "B-") {
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang("B"),
                                             dependencyGraph: dependencyGraph)
-          }
-          else if relativeOutputPathFileName.starts(with: "C-") {
+          } else if relativeOutputPathFileName.starts(with: "C-") {
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang("C"),
                                             dependencyGraph: dependencyGraph)
-          }
-          else if relativeOutputPathFileName.starts(with: "SwiftShims-") {
+          } else if relativeOutputPathFileName.starts(with: "SwiftShims-") {
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang("SwiftShims"),
                                             dependencyGraph: dependencyGraph)
-          }
-          else if relativeOutputPathFileName.starts(with: "_SwiftConcurrencyShims-") {
+          } else if relativeOutputPathFileName.starts(with: "_SwiftConcurrencyShims-") {
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang("_SwiftConcurrencyShims"),
                                             dependencyGraph: dependencyGraph)
-          }
-          else {
+          } else {
             XCTFail("Unexpected module dependency build job output: \(outputFilePath)")
           }
         } else {
