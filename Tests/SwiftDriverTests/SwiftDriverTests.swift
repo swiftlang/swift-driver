@@ -3058,8 +3058,8 @@ final class SwiftDriverTests: XCTestCase {
         XCTAssertEqual(emitModuleJob.outputs[7].file, try toPath("Test.abi.json"))
     }
     XCTAssert(!emitModuleJob.commandLine.contains(.flag("-primary-file")))
-    XCTAssert(emitModuleJob.commandLine.contains(.flag("-emit-module-interface-path")))
-    XCTAssert(emitModuleJob.commandLine.contains(.flag("-emit-private-module-interface-path")))
+    XCTAssertJobInvocationMatches(emitModuleJob, .flag("-emit-module-interface-path"))
+    XCTAssertJobInvocationMatches(emitModuleJob, .flag("-emit-private-module-interface-path"))
   }
 
 

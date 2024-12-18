@@ -34,7 +34,8 @@ throws {
   let moduleInfo = try dependencyGraph.moduleInfo(of: moduleId)
   switch moduleInfo.details {
     case .swift(let swiftModuleDetails):
-      XCTAssertTrue(job.commandLine.contains(.flag(String("-disable-implicit-swift-modules"))))
+      XCTAssertJobInvocationMatches(job, .flag("-disable-implicit-swift-modules"))
+
       let moduleInterfacePath =
         TypedVirtualPath(file: swiftModuleDetails.moduleInterfacePath!.path,
                          type: .swiftInterface)
@@ -59,7 +60,7 @@ throws {
       XCTFail("Placeholder dependency found.")
   }
   // Ensure the frontend was prohibited from doing implicit module builds
-  XCTAssertTrue(job.commandLine.contains(.flag(String("-fno-implicit-modules"))))
+  XCTAssertJobInvocationMatches(job, .flag("-fno-implicit-modules"))
   try checkExplicitModuleBuildJobDependencies(job: job,
                                               moduleInfo: moduleInfo,
                                               dependencyGraph: dependencyGraph)
@@ -74,8 +75,7 @@ private func checkExplicitModuleBuildJobDependencies(job: Job,
   let validateSwiftCommandLineDependency: (ModuleDependencyId, ModuleInfo) -> Void = { dependencyId, dependencyInfo in
     let inputModulePath = dependencyInfo.modulePath.path
     XCTAssertTrue(job.inputs.contains(TypedVirtualPath(file: inputModulePath, type: .swiftModule)))
-    XCTAssertTrue(job.commandLine.contains(
-      .flag(String("-swift-module-file=\(dependencyId.moduleName)=\(inputModulePath.description)"))))
+    XCTAssertJobInvocationMatches(job, .flag("-swift-module-file=\(dependencyId.moduleName)=\(inputModulePath.description)"))
   }
 
   let validateClangCommandLineDependency: (ModuleDependencyId,
@@ -85,8 +85,7 @@ private func checkExplicitModuleBuildJobDependencies(job: Job,
     let clangDependencyModulePath =
       TypedVirtualPath(file: clangDependencyModulePathString, type: .pcm)
     XCTAssertTrue(job.inputs.contains(clangDependencyModulePath))
-    XCTAssertTrue(job.commandLine.contains(
-      .flag(String("-fmodule-file=\(dependencyId.moduleName)=\(clangDependencyModulePathString)"))))
+    XCTAssertJobInvocationMatches(job, .flag("-fmodule-file=\(dependencyId.moduleName)=\(clangDependencyModulePathString)"))
   }
 
   for dependencyId in moduleInfo.directDependencies! {
@@ -251,10 +250,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let jobsInPhases = try driver.computeJobsForPhasedStandardBuild(moduleDependencyGraph: moduleDependencyGraph)
       let job = try XCTUnwrap(jobsInPhases.allJobs.first(where: { $0.kind == .compile }))
       // Load the dependency JSON and verify this dependency was encoded correctly
-      let explicitDepsFlag =
-        SwiftDriver.Job.ArgTemplate.flag(String("-explicit-swift-module-map-file"))
-      XCTAssert(job.commandLine.contains(explicitDepsFlag))
-      let jsonDepsPathIndex = job.commandLine.firstIndex(of: explicitDepsFlag)
+      XCTAssertJobInvocationMatches(job, .flag("-explicit-swift-module-map-file"))
+      let jsonDepsPathIndex = job.commandLine.firstIndex(of: .flag("-explicit-swift-module-map-file"))
       let jsonDepsPathArg = job.commandLine[jsonDepsPathIndex! + 1]
       guard case .path(let jsonDepsPath) = jsonDepsPathArg else {
         XCTFail("No JSON dependency file path found.")
@@ -315,8 +312,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let compileJob0 = compileJobs[0]
       let compileJob1 = compileJobs[1]
       let explicitDepsFlag = SwiftDriver.Job.ArgTemplate.flag(String("-explicit-swift-module-map-file"))
-      XCTAssert(compileJob0.commandLine.contains(explicitDepsFlag))
-      XCTAssert(compileJob1.commandLine.contains(explicitDepsFlag))
+      XCTAssertJobInvocationMatches(compileJob0, explicitDepsFlag)
+      XCTAssertJobInvocationMatches(compileJob1, explicitDepsFlag)
       let jsonDeps0PathIndex = compileJob0.commandLine.firstIndex(of: explicitDepsFlag)
       let jsonDeps0PathArg = compileJob0.commandLine[jsonDeps0PathIndex! + 1]
       let jsonDeps1PathIndex = compileJob1.commandLine.firstIndex(of: explicitDepsFlag)
@@ -366,7 +363,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       // Load the dependency JSON and verify this dependency was encoded correctly
       let explicitDepsFlag =
         SwiftDriver.Job.ArgTemplate.flag(String("-explicit-swift-module-map-file"))
-      XCTAssert(compileJob.commandLine.contains(explicitDepsFlag))
+      XCTAssertJobInvocationMatches(compileJob, explicitDepsFlag)
       let jsonDepsPathIndex = compileJob.commandLine.firstIndex(of: explicitDepsFlag)
       let jsonDepsPathArg = compileJob.commandLine[jsonDepsPathIndex! + 1]
       guard case .path(let jsonDepsPath) = jsonDepsPathArg else {
@@ -729,9 +726,9 @@ final class ExplicitModuleBuildTests: XCTestCase {
           // This is the verify module job as it should be the only job scheduled to have no output.
           XCTAssertTrue(job.kind == .verifyModuleInterface)
           // Check the explicit module flags exists.
-          XCTAssertTrue(job.commandLine.contains(.flag(String("-explicit-interface-module-build"))))
-          XCTAssertTrue(job.commandLine.contains(.flag(String("-explicit-swift-module-map-file"))))
-          XCTAssertTrue(job.commandLine.contains(.flag(String("-disable-implicit-swift-modules"))))
+          XCTAssertJobInvocationMatches(job, .flag("-explicit-interface-module-build"))
+          XCTAssertJobInvocationMatches(job, .flag("-explicit-swift-module-map-file"))
+          XCTAssertJobInvocationMatches(job, .flag("-disable-implicit-swift-modules"))
           continue
         }
         let outputFilePath = job.outputs[0].file
@@ -990,9 +987,9 @@ final class ExplicitModuleBuildTests: XCTestCase {
       XCTAssertEqual(interpretJobs.count, 1)
       let interpretJob = interpretJobs[0]
       XCTAssertTrue(interpretJob.requiresInPlaceExecution)
-      XCTAssertTrue(interpretJob.commandLine.contains(subsequence: ["-frontend", "-interpret"]))
-      //XCTAssertTrue(interpretJob.commandLine.contains("-disable-implicit-swift-modules"))
-      XCTAssertTrue(interpretJob.commandLine.contains(subsequence: ["-Xcc", "-fno-implicit-modules"]))
+      XCTAssertJobInvocationMatches(interpretJob, .flag("-frontend"), .flag("-interpret"))
+      // XCTAssertJobInvocationMatches(interpretJob, .flag("-disable-implicit-swift-modules"))
+      XCTAssertJobInvocationMatches(interpretJob, .flag("-Xcc"), .flag("-fno-implicit-modules"))
 
       // Figure out which Triples to use.
       let dependencyGraph = try driver.gatherModuleDependencies()
