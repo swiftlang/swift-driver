@@ -1385,7 +1385,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       var driver = try Driver(args: ["swiftc",
                                      "-I", cHeadersPath.nativePathString(escaped: true),
                                      "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
-                                     "-explicit-module-build", "-v",
+                                     "-explicit-module-build",
                                      "-module-cache-path", moduleCachePath.nativePathString(escaped: true),
                                      "-working-directory", path.nativePathString(escaped: true),
                                      main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
@@ -2266,7 +2266,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
         var driver = try Driver(args: ["swiftc",
                                        "-I", cHeadersPath.nativePathString(escaped: true),
                                        "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
-                                       "-explicit-module-build", "-v",
+                                       "-explicit-module-build",
                                        "-module-cache-path", moduleCachePath.nativePathString(escaped: true),
                                        "-working-directory", path.nativePathString(escaped: true),
                                        "-explain-module-dependency-detailed", "A",
@@ -2294,7 +2294,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
         var driver = try Driver(args: ["swiftc",
                                        "-I", cHeadersPath.nativePathString(escaped: true),
                                        "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
-                                       "-explicit-module-build", "-v",
+                                       "-explicit-module-build",
                                        "-module-cache-path", moduleCachePath.nativePathString(escaped: true),
                                        "-working-directory", path.nativePathString(escaped: true),
                                        "-explain-module-dependency", "A",
@@ -2339,7 +2339,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let outputModule = path.appending(component: "Test.swiftmodule")
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       var driver = try Driver(args: ["swiftc",
-                                     "-explicit-module-build", "-v", "-module-name", "Test",
+                                     "-explicit-module-build", "-module-name", "Test",
                                      "-module-cache-path", moduleCachePath.nativePathString(escaped: true),
                                      "-working-directory", path.nativePathString(escaped: true),
                                      "-emit-module", outputModule.nativePathString(escaped: true),
@@ -2401,7 +2401,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
     let interfaceMap = try collector.collectSwiftInterfaceMap().inputMap
 
     let extraArgs = try {
-        let driver = try Driver(args: ["swiftc", "-v"])
+        let driver = try Driver(args: ["swiftc"])
         if driver.isFrontendArgSupported(.moduleLoadMode) {
           return ["-Xfrontend", "-module-load-mode", "-Xfrontend", "prefer-interface"]
         }
