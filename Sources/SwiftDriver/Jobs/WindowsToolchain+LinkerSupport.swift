@@ -40,34 +40,40 @@ extension WindowsToolchain {
                                             targetInfo: FrontendTargetInfo)
     throws -> ResolvedTool {
     // Check to see whether we need to use lld as the linker.
-    let requiresLLD = {
-      if let ld = parsedOptions.getLastArgument(.useLd)?.asSingle {
-        switch ld {
-        case "lld", "lld.exe", "lld-link", "lld-link.exe":
-          return true
-        default:
-          return false
-        }
-      }
-      if lto != nil {
-        return true
-      }
+    let bForceLLD: Bool = {
+      // If LTO is enabled, we need to use lld-link to handle LLVM bitcode.
+      guard lto == nil else { return true }
+
       // Profiling currently relies on the ability to emit duplicate weak
       // symbols across translation units and having the linker coalesce them.
       // Unfortunately link.exe does not support this, so require lld-link
       // for now, which supports the behavior via a flag.
       // TODO: Once we've changed coverage to no longer rely on emitting
       // duplicate weak symbols (rdar://131295678), we can remove this.
-      if parsedOptions.hasArgument(.profileGenerate) {
-        return true
-      }
+      if parsedOptions.hasArgument(.profileGenerate) { return true }
+
       return false
     }()
+
+#if swift(<6.0)
+    let bUseLLD: Bool
+    switch parsedOptions.getLastArgument(.useLd)?.asSingle {
+    case .some("lld"), .some("lld.exe"), .some("lld-link"), .some("lld-link.exe"):
+        bUseLLD = true
+    default:
+        bUseLLD = false
+    }
+#else
+    let bUseLLD: Bool = switch parsedOptions.getLastArgument(.useLd)?.asSingle {
+      case .some("lld"), .some("lld.exe"), .some("lld-link"), .some("lld-link.exe"): true
+      default: false
+    }
+#endif
 
     // Special case static linking as clang cannot drive the operation.
     if linkerOutputType == .staticLibrary {
       let librarian: String
-      if requiresLLD {
+      if bForceLLD || bUseLLD {
         librarian = "lld-link"
       } else if let ld = parsedOptions.getLastArgument(.useLd)?.asSingle {
         librarian = ld
@@ -85,20 +91,18 @@ extension WindowsToolchain {
       return try resolvedTool(.staticLinker(lto), pathOverride: lookup(executable: librarian))
     }
 
-    var cxxCompatEnabled = parsedOptions.hasArgument(.enableExperimentalCxxInterop)
-    if let cxxInteropMode = parsedOptions.getLastArgument(.cxxInteroperabilityMode) {
-      if cxxInteropMode.asSingle != "off" {
-        cxxCompatEnabled = true
-      }
-    }
-    let clangTool: Tool = cxxCompatEnabled ? .clangxx : .clang
+    let enableCxxInterop =
+        parsedOptions.hasArgument(.enableExperimentalCxxInterop) ||
+        ![nil, "off"].contains(parsedOptions.getLastArgument(.cxxInteroperabilityMode)?.asSingle)
+
+    let clangTool: Tool = enableCxxInterop ? .clangxx : .clang
     var clang = try getToolPath(clangTool)
 
-    // We invoke clang as `clang.exe`, which expects a POSIX-style response file by default (`clang-cl.exe` expects
-    // Windows-style response files).
-    // The driver is outputting Windows-style response files because swift-frontend expects Windows-style response
-    // files.
-    // Force `clang.exe` into parsing Windows-style response files.
+    // We invoke clang as `clang.exe`, which expects a POSIX-style response file
+    // by default (`clang-cl.exe` expects Windows-style response files). The
+    // driver is outputting Windows-style response files because swift-frontend
+    // expects Windows-style response files. Force `clang.exe` into parsing
+    // Windows-style response files.
     commandLine.appendFlag("--rsp-quoting=windows")
 
     let targetTriple = targetInfo.target.triple
@@ -129,10 +133,10 @@ extension WindowsToolchain {
     }
 
     // Select the linker to use.
-    if let arg = parsedOptions.getLastArgument(.useLd)?.asSingle {
-      commandLine.appendFlag("-fuse-ld=\(arg)")
-    } else if requiresLLD {
+    if bForceLLD || bUseLLD {
       commandLine.appendFlag("-fuse-ld=lld")
+    } else if let arg = parsedOptions.getLastArgument(.useLd)?.asSingle {
+      commandLine.appendFlag("-fuse-ld=\(arg)")
     }
 
     if let arg = parsedOptions.getLastArgument(.ldPath)?.asSingle {
@@ -222,17 +226,14 @@ extension WindowsToolchain {
     // FIXME(compnerd) render asan/ubsan runtime link for executables
 
     if parsedOptions.contains(.profileGenerate) {
-      commandLine.appendFlag("-Xlinker")
-      // FIXME(compnerd) wrap llvm::getInstrProfRuntimeHookVarName()
-      commandLine.appendFlag("-include:__llvm_profile_runtime")
-      commandLine.appendFlag("-lclang_rt.profile")
+      assert(bForceLLD,
+             "LLD is currently required for profiling (rdar://131295678)")
 
+      commandLine.appendFlag("-fprofile-generate")
       // FIXME(rdar://131295678): Currently profiling requires the ability to
-      // emit duplicate weak symbols. Assuming we're using lld, pass
-      // -lld-allow-duplicate-weak to enable this behavior.
-      if requiresLLD {
-        commandLine.appendFlags("-Xlinker", "-lld-allow-duplicate-weak")
-      }
+      // emit duplicate weak symbols. Assume we're using lld and pass
+      // `-lld-allow-duplicate-weak` to enable this behavior.
+      commandLine.appendFlags("-Xlinker", "-lld-allow-duplicate-weak")
     }
 
     try addExtraClangLinkerArgs(to: &commandLine, parsedOptions: &parsedOptions)
