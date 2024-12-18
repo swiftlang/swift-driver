@@ -4541,6 +4541,8 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[1].kind, .link)
 
       let linkCmds = plannedJobs[1].commandLine
+      XCTAssert(linkCmds.contains(.flag("-include:__llvm_profile_runtime")))
+      XCTAssert(linkCmds.contains(.flag("-lclang_rt.profile")))
 
       // rdar://131295678 - Make sure we force the use of lld and pass
       // '-lld-allow-duplicate-weak'.
@@ -4548,9 +4550,9 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssert(linkCmds.contains([.flag("-Xlinker"), .flag("-lld-allow-duplicate-weak")]))
     }
 
-    // rdar://131295678 - Make sure we force the use of lld and pass
-    // '-lld-allow-duplicate-weak' even if the user requests something else.
     do {
+      // If the user passes -use-ld for a non-lld linker, respect that and
+      // don't use '-lld-allow-duplicate-weak'
       var driver = try Driver(args: ["swiftc", "-profile-generate", "-use-ld=link", "-target", "x86_64-unknown-windows-msvc", "test.swift"])
       let plannedJobs = try driver.planBuild()
 
@@ -4560,10 +4562,12 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[1].kind, .link)
 
       let linkCmds = plannedJobs[1].commandLine
+      XCTAssert(linkCmds.contains(.flag("-include:__llvm_profile_runtime")))
+      XCTAssert(linkCmds.contains(.flag("-lclang_rt.profile")))
 
-      XCTAssertFalse(linkCmds.contains(.flag("-fuse-ld=link")))
-      XCTAssertTrue(linkCmds.contains(.flag("-fuse-ld=lld")))
-      XCTAssertTrue(linkCmds.contains(.flag("-lld-allow-duplicate-weak")))
+      XCTAssertTrue(linkCmds.contains(.flag("-fuse-ld=link")))
+      XCTAssertFalse(linkCmds.contains(.flag("-fuse-ld=lld")))
+      XCTAssertFalse(linkCmds.contains(.flag("-lld-allow-duplicate-weak")))
     }
 
     do {
