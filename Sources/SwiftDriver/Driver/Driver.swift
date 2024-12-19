@@ -409,10 +409,41 @@ public struct Driver {
     compilerMode: CompilerMode,
     emitModuleSeparately: Bool,
     outputFileMap: OutputFileMap?,
-    projectDirectory: VirtualPath.Handle?) throws -> SupplementalModuleTargetOutputPaths {
+    projectDirectory: VirtualPath.Handle?,
+    apiDescriptorDirectory: VirtualPath?,
+    target: FrontendTargetInfo.Target,
+    isVariant: Bool) throws -> SupplementalModuleTargetOutputPaths {
+      struct SupplementalPathOptions {
+        let moduleDocPath: Option
+        let sourceInfoPath: Option
+        let apiDescriptorPath: Option
+        let moduleInterfacePath: Option
+        let privateInterfacePath: Option
+        let packageInterfacePath: Option
+
+        static let targetPathOptions = SupplementalPathOptions(
+          moduleDocPath: .emitModuleDocPath,
+          sourceInfoPath: .emitModuleSourceInfoPath,
+          apiDescriptorPath: .emitApiDescriptorPath,
+          moduleInterfacePath: .emitModuleInterfacePath,
+          privateInterfacePath: .emitPrivateModuleInterfacePath,
+          packageInterfacePath: .emitPackageModuleInterfacePath)
+
+        static let variantTargetPathOptions = SupplementalPathOptions(
+          moduleDocPath: .emitVariantModuleDocPath,
+          sourceInfoPath: .emitVariantModuleSourceInfoPath,
+          apiDescriptorPath: .emitVariantApiDescriptorPath,
+          moduleInterfacePath: .emitVariantModuleInterfacePath,
+          privateInterfacePath: .emitVariantPrivateModuleInterfacePath,
+          packageInterfacePath: .emitVariantPackageModuleInterfacePath)
+      }
+
+    let pathOptions: SupplementalPathOptions = isVariant ? .variantTargetPathOptions : .targetPathOptions
+
     let moduleDocOutputPath = try Self.computeModuleDocOutputPath(
       &parsedOptions,
       moduleOutputPath: moduleOutputInfo.output?.outputPath,
+      outputOption: pathOptions.moduleDocPath,
       compilerOutputType: compilerOutputType,
       compilerMode: compilerMode,
       outputFileMap: outputFileMap,
@@ -421,6 +452,7 @@ public struct Driver {
     let moduleSourceInfoPath = try Self.computeModuleSourceInfoOutputPath(
         &parsedOptions,
         moduleOutputPath: moduleOutputInfo.output?.outputPath,
+        outputOption: pathOptions.sourceInfoPath,
         compilerOutputType: compilerOutputType,
         compilerMode: compilerMode,
         outputFileMap: outputFileMap,
@@ -437,7 +469,7 @@ public struct Driver {
     } else {
       apiDescriptorFilePath = try Self.computeSupplementaryOutputPath(
         &parsedOptions, type: .jsonAPIDescriptor, isOutputOptions: [],
-        outputPath: .emitApiDescriptorPath,
+        outputPath: pathOptions.apiDescriptorPath,
         compilerOutputType: compilerOutputType,
         compilerMode: compilerMode,
         emitModuleSeparately: emitModuleSeparately,
@@ -449,7 +481,7 @@ public struct Driver {
     // Swift interface paths
     let swiftInterfacePath = try Self.computeSupplementaryOutputPath(
         &parsedOptions, type: .swiftInterface, isOutputOptions: [.emitModuleInterface],
-        outputPath: .emitModuleInterfacePath,
+        outputPath: pathOptions.moduleInterfacePath,
         compilerOutputType: compilerOutputType,
         compilerMode: compilerMode,
         emitModuleSeparately: emitModuleSeparately,
@@ -458,7 +490,7 @@ public struct Driver {
 
     let givenPrivateInterfacePath = try Self.computeSupplementaryOutputPath(
         &parsedOptions, type: .privateSwiftInterface, isOutputOptions: [],
-        outputPath: .emitPrivateModuleInterfacePath,
+        outputPath: pathOptions.privateInterfacePath,
         compilerOutputType: compilerOutputType,
         compilerMode: compilerMode,
         emitModuleSeparately: emitModuleSeparately,
@@ -466,7 +498,7 @@ public struct Driver {
         moduleName: moduleOutputInfo.name)
     let givenPackageInterfacePath = try Self.computeSupplementaryOutputPath(
         &parsedOptions, type: .packageSwiftInterface, isOutputOptions: [],
-        outputPath: .emitPackageModuleInterfacePath,
+        outputPath: pathOptions.packageInterfacePath,
         compilerOutputType: compilerOutputType,
         compilerMode: compilerMode,
         emitModuleSeparately: emitModuleSeparately,
@@ -512,7 +544,7 @@ public struct Driver {
       swiftInterfacePath: swiftInterfacePath,
       swiftPrivateInterfacePath: swiftPrivateInterfacePath,
       swiftPackageInterfacePath: swiftPackageInterfacePath,
-      moduleSourceInfoPath: moduleSourceInfoPath)
+      moduleSourceInfoPath: moduleSourceInfoPath,
       apiDescriptorFilePath: apiDescriptorFilePath)
   }
 
@@ -1187,11 +1219,12 @@ public struct Driver {
       compilerMode: compilerMode,
       emitModuleSeparately: emitModuleSeparately,
       outputFileMap: self.outputFileMap,
-      projectDirectory: projectDirectory)
+      projectDirectory: projectDirectory,
       apiDescriptorDirectory: apiDescriptorDirectory,
-      target: frontendTargetInfo.target)
+      target: frontendTargetInfo.target,
+      isVariant: false)
 
-    if let variantModuleOutputInfo = self.variantModuleOutputInfo {
+    if let variantModuleOutputInfo = self.variantModuleOutputInfo,
        let targetVariant = self.frontendTargetInfo.targetVariant {
       self.variantModuleOutputPaths = try Self.computeModuleOutputPaths(
         &parsedOptions,
@@ -1204,7 +1237,8 @@ public struct Driver {
         outputFileMap: self.outputFileMap,
         projectDirectory: projectDirectory,
         apiDescriptorDirectory: apiDescriptorDirectory,
-        target: targetVariant)
+        target: targetVariant,
+        isVariant: true)
     } else {
       self.variantModuleOutputPaths = nil
     }
@@ -3744,6 +3778,7 @@ extension Driver {
   static func computeModuleDocOutputPath(
     _ parsedOptions: inout ParsedOptions,
     moduleOutputPath: VirtualPath.Handle?,
+    outputOption: Option,
     compilerOutputType: FileType?,
     compilerMode: CompilerMode,
     outputFileMap: OutputFileMap?,
@@ -3753,7 +3788,7 @@ extension Driver {
                                                 moduleOutputPath: moduleOutputPath,
                                                 type: .swiftDocumentation,
                                                 isOutput: .emitModuleDoc,
-                                                outputPath: .emitModuleDocPath,
+                                                outputPath: outputOption,
                                                 compilerOutputType: compilerOutputType,
                                                 compilerMode: compilerMode,
                                                 outputFileMap: outputFileMap,
@@ -3764,6 +3799,7 @@ extension Driver {
   static func computeModuleSourceInfoOutputPath(
     _ parsedOptions: inout ParsedOptions,
     moduleOutputPath: VirtualPath.Handle?,
+    outputOption: Option,
     compilerOutputType: FileType?,
     compilerMode: CompilerMode,
     outputFileMap: OutputFileMap?,
@@ -3775,7 +3811,7 @@ extension Driver {
                                                 moduleOutputPath: moduleOutputPath,
                                                 type: .swiftSourceInfoFile,
                                                 isOutput: .emitModuleSourceInfo,
-                                                outputPath: .emitModuleSourceInfoPath,
+                                                outputPath: outputOption,
                                                 compilerOutputType: compilerOutputType,
                                                 compilerMode: compilerMode,
                                                 outputFileMap: outputFileMap,

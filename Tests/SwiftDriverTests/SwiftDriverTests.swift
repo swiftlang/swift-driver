@@ -4147,6 +4147,32 @@ final class SwiftDriverTests: XCTestCase {
         ]))
       }
     }
+
+    do {
+      var driver = try Driver(args: ["swiftc",
+        "-target", "x86_64-apple-macosx10.14",
+        "-target-variant", "x86_64-apple-ios13.1-macabi",
+        "-emit-variant-module-path", "foo.swiftmodule/x86_64-apple-ios13.1-macabi.swiftmodule",
+        "-enable-library-evolution",
+        "-emit-module",
+        "-emit-api-descriptor-path", "foo.swiftmodule/target.api.json",
+        "-emit-variant-api-descriptor-path", "foo.swiftmodule/variant.api.json",
+        "foo.swift"])
+
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      let targetModuleJob = plannedJobs[0]
+      let variantModuleJob = plannedJobs[1]
+
+      XCTAssert(targetModuleJob.commandLine.contains(subsequence: [
+        .flag("-emit-api-descriptor-path"),
+        .path(.relative(try .init(validating: "foo.swiftmodule/target.api.json")))
+      ]))
+
+      XCTAssert(variantModuleJob.commandLine.contains(subsequence: [
+        .flag("-emit-api-descriptor-path"),
+        .path(.relative(try .init(validating: "foo.swiftmodule/variant.api.json")))
+      ]))
+    }
 #endif
   }
 
