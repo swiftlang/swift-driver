@@ -7675,8 +7675,7 @@ final class SwiftDriverTests: XCTestCase {
                                        "-c",
                                        "-incremental",
                                        "-output-file-map", ofm.nativePathString(escaped: true),
-                                       main.nativePathString(escaped: true)] + sdkArguments,
-                                env: ProcessEnv.vars)
+                                       main.nativePathString(escaped: true)] + sdkArguments)
         let jobs = try driver.planBuild()
         do {try driver.run(jobs: jobs)}
         catch {return false}
