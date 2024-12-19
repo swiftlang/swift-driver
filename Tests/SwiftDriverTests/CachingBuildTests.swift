@@ -386,7 +386,6 @@ final class CachingBuildTests: XCTestCase {
                                      "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: true),
                                      "-emit-module", "-o", modulePath.nativePathString(escaped: true),
                                      main.nativePathString(escaped: true), other.nativePathString(escaped: true)] + sdkArgumentsForTesting,
-                              env: ProcessEnv.vars,
                               interModuleDependencyOracle: dependencyOracle)
       let jobs = try driver.planBuild()
       try driver.run(jobs: jobs)
@@ -444,7 +443,6 @@ final class CachingBuildTests: XCTestCase {
                                      "-Xfrontend", "-disable-implicit-concurrency-module-import",
                                      "-Xfrontend", "-disable-implicit-string-processing-module-import",
                                      main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
-                              env: ProcessEnv.vars,
                               interModuleDependencyOracle: dependencyOracle)
       let jobs = try driver.planBuild()
       for job in jobs {
@@ -635,7 +633,6 @@ final class CachingBuildTests: XCTestCase {
                                      "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: true),
                                      "-working-directory", path.nativePathString(escaped: true),
                                      main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
-                              env: ProcessEnv.vars,
                               interModuleDependencyOracle: dependencyOracle)
       let jobs = try driver.planBuild()
       try driver.run(jobs: jobs)
@@ -692,7 +689,6 @@ final class CachingBuildTests: XCTestCase {
                                              "-pch-output-dir", PCHPath.nativePathString(escaped: true),
                                              FooInstallPath.appending(component: "Foo.swiftmodule").nativePathString(escaped: true)]
                                       + sdkArgumentsForTesting,
-                                      env: ProcessEnv.vars,
                                       interModuleDependencyOracle: dependencyOracle)
 
       let scanLibPath = try XCTUnwrap(fooBuildDriver.getSwiftScanLibPath())
@@ -721,7 +717,6 @@ final class CachingBuildTests: XCTestCase {
                                      "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: true),
                                      "-working-directory", path.nativePathString(escaped: true),
                                      main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
-                              env: ProcessEnv.vars,
                               interModuleDependencyOracle: dependencyOracle)
       // This is currently not supported.
       XCTAssertThrowsError(try driver.planBuild()) {
@@ -760,7 +755,6 @@ final class CachingBuildTests: XCTestCase {
                                      "-Xcc", "-ivfsoverlay", "-Xcc", vfsoverlay.nativePathString(escaped: true),
                                      "-disable-clang-target",
                                      main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
-                              env: ProcessEnv.vars,
                               interModuleDependencyOracle: dependencyOracle)
       let scanLibPath = try XCTUnwrap(driver.getSwiftScanLibPath())
       try dependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
@@ -908,7 +902,6 @@ final class CachingBuildTests: XCTestCase {
                                      "-scanner-prefix-map", testInputsPath.description + "=/^src",
                                      "-scanner-prefix-map", path.description + "=/^tmp",
                                      main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
-                              env: ProcessEnv.vars,
                               interModuleDependencyOracle: dependencyOracle)
       guard driver.isFrontendArgSupported(.scannerPrefixMap) else {
         throw XCTSkip("frontend doesn't support prefix map")
@@ -973,7 +966,6 @@ final class CachingBuildTests: XCTestCase {
                                      "-output-file-map", ofm.nativePathString(escaped: true),
                                      "-working-directory", path.nativePathString(escaped: true),
                                      main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
-                              env: ProcessEnv.vars,
                               interModuleDependencyOracle: dependencyOracle)
       let jobs = try driver.planBuild()
       try driver.run(jobs: jobs)

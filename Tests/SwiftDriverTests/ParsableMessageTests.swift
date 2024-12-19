@@ -413,7 +413,6 @@ final class ParsableMessageTests: XCTestCase {
           let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
           var driver = try Driver(args: ["swiftc", main.pathString,
                                          "-o", output.pathString] + sdkArgumentsForTesting,
-                                  env: ProcessEnv.vars,
                                   diagnosticsEngine: diags,
                                   fileSystem: localFileSystem,
                                   integratedDriver: true)
@@ -438,7 +437,6 @@ final class ParsableMessageTests: XCTestCase {
           var driver = try Driver(args: ["swiftc", main.pathString,
                                          "-use-frontend-parseable-output",
                                          "-o", output.pathString] + sdkArgumentsForTesting,
-                                  env: ProcessEnv.vars,
                                   diagnosticsEngine: diags,
                                   fileSystem: localFileSystem,
                                   integratedDriver: false)
