@@ -5447,11 +5447,11 @@ final class SwiftDriverTests: XCTestCase {
       }
     }
     do {
-      var driver = try Driver(args: ["swiftc", "-v"])
+      var driver = try Driver(args: ["swiftc"])
       XCTAssertNoThrow(try driver.planBuild())
     }
     do {
-      var driver = try Driver(args: ["swiftc", "-v", "-whole-module-optimization"])
+      var driver = try Driver(args: ["swiftc", "-whole-module-optimization"])
       XCTAssertNoThrow(try driver.planBuild())
     }
     do {
@@ -5702,7 +5702,7 @@ final class SwiftDriverTests: XCTestCase {
       try localFileSystem.writeFileContents(input, bytes: "print(\"Hello, World\")")
       let binDir = try bundleRoot()
       let driver = binDir.appending(component: "swift-driver")
-      let args = [driver.description, "--driver-mode=swift", "-v", input.description]
+      let args = [driver.description, "--driver-mode=swift", input.description]
       // Immediate mode takes over the process with `exec` so we need to create
       // a separate process to capture its output here
       let result = try TSCBasic.Process.checkNonZeroExit(
@@ -6238,7 +6238,7 @@ final class SwiftDriverTests: XCTestCase {
       try testInputsPath.appending(component: "testLoadPackageInterface")
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       var driver = try Driver(args: ["swiftc", main.nativePathString(escaped: true),
-                                     "-typecheck", "-v",
+                                     "-typecheck",
                                      "-package-name", "foopkg",
                                      "-experimental-package-interface-load",
                                      "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
@@ -6935,7 +6935,6 @@ final class SwiftDriverTests: XCTestCase {
     do {
       var driver = try Driver(args: [
         "swiftc",
-        "-v",
         "-L",
         "/TestApp/.build/aarch64-none-none-elf/release",
         "-o",
