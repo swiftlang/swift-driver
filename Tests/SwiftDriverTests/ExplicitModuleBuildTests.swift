@@ -424,7 +424,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
         throw XCTSkip("libSwiftScan does not support link library reporting.")
       }
 
-      var args = ["swiftc",
+      let args = ["swiftc",
                   "-I", cHeadersPath.nativePathString(escaped: true),
                   "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
                   "-explicit-module-build",
