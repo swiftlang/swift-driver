@@ -1759,9 +1759,9 @@ final class SwiftDriverTests: XCTestCase {
   }
     
   func testResponseFileDeterministicNaming() throws {
-    #if !os(macOS)
-    throw XCTSkip("Test assumes macOS response file quoting behavior")
-    #endif
+#if !os(macOS)
+    try XCTSkipIf(true, "Test assumes macOS response file quoting behavior")
+#endif
     do {
       let testJob = Job(moduleName: "Foo",
                         kind: .compile,
@@ -3113,7 +3113,7 @@ final class SwiftDriverTests: XCTestCase {
 
   func testEmitABIDescriptor() throws {
 #if !os(macOS)
-    throw XCTSkip("Skipping: ABI descriptor is only emitted on Darwin platforms.")
+    try XCTSkipIf(true, "Skipping: ABI descriptor is only emitted on Darwin platforms.")
 #endif
     do {
       var driver = try Driver(args: ["swiftc", "-module-name=ThisModule", "-wmo", "main.swift", "multi-threaded.swift", "-emit-module", "-o", "test.swiftmodule"])
@@ -3142,7 +3142,6 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[2].kind, .mergeModule)
       XCTAssertJobInvocationMatches(plannedJobs[2], .flag("-emit-abi-descriptor-path"))
     }
-
   }
 
   func testWMOWithNonSourceInput() throws {
