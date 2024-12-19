@@ -6230,7 +6230,7 @@ final class SwiftDriverTests: XCTestCase {
       try testInputsPath.appending(component: "testLoadPackageInterface")
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       var driver = try Driver(args: ["swiftc", main.nativePathString(escaped: true),
-                                     "-typecheck", "-v",
+                                     "-typecheck",
                                      "-package-name", "foopkg",
                                      "-experimental-package-interface-load",
                                      "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
@@ -6927,7 +6927,6 @@ final class SwiftDriverTests: XCTestCase {
     do {
       var driver = try Driver(args: [
         "swiftc",
-        "-v",
         "-L",
         "/TestApp/.build/aarch64-none-none-elf/release",
         "-o",

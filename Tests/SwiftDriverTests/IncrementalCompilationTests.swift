@@ -141,7 +141,7 @@ final class IncrementalCompilationTests: XCTestCase {
       }
     }
 
-    let driver = try! Driver(args: ["swiftc", "-v"])
+    let driver = try! Driver(args: ["swiftc"])
     if driver.isFrontendArgSupported(.moduleLoadMode) {
       self.extraExplicitBuildArgs = ["-Xfrontend", "-module-load-mode", "-Xfrontend", "prefer-interface"]
     }
