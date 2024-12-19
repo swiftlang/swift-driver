@@ -1665,7 +1665,7 @@ extension IncrementalCompilationTests {
     let diagnosticEngine = DiagnosticsEngine(handlers: [
       {print($0, to: &stderrStream); stderrStream.flush()}
     ])
-    var driver = try Driver(args: arguments, env: ProcessEnv.vars,
+    var driver = try Driver(args: arguments,
                             diagnosticsEngine: diagnosticEngine,
                             fileSystem: localFileSystem)
     doTheCompile(&driver)

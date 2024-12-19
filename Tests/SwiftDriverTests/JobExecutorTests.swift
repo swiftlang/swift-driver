@@ -483,7 +483,6 @@ final class JobExecutorTests: XCTestCase {
         var driver = try Driver(args: ["swiftc", main.pathString,
                                        "-driver-filelist-threshold", "0",
                                        "-o", outputPath.pathString] + getHostToolchainSdkArg(executor),
-                                env: ProcessEnv.vars,
                                 diagnosticsOutput: .engine(diags),
                                 fileSystem: localFileSystem,
                                 executor: executor)
@@ -519,7 +518,6 @@ final class JobExecutorTests: XCTestCase {
                                        "-save-temps",
                                        "-driver-filelist-threshold", "0",
                                        "-o", outputPath.pathString] + getHostToolchainSdkArg(executor),
-                                env: ProcessEnv.vars,
                                 diagnosticsOutput: .engine(diags),
                                 fileSystem: localFileSystem,
                                 executor: executor)
@@ -555,7 +553,6 @@ final class JobExecutorTests: XCTestCase {
                                        "-driver-filelist-threshold", "0",
                                        "-Xfrontend", "-debug-crash-immediately",
                                        "-o", outputPath.pathString] + getHostToolchainSdkArg(executor),
-                                env: ProcessEnv.vars,
                                 diagnosticsOutput: .engine(diags),
                                 fileSystem: localFileSystem,
                                 executor: executor)
