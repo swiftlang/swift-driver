@@ -41,7 +41,7 @@ func getArgument(_ flag: String, _ env: String? = nil) -> String? {
     }
   }
   if let env = env {
-    return ProcessEnv.vars[env]
+    return ProcessEnv.block[.init(env)]
   }
   return nil
 }
@@ -92,9 +92,8 @@ do {
   if !localFileSystem.exists(outputDir) {
     try localFileSystem.createDirectory(outputDir, recursive: true)
   }
-  let swiftcPathRaw = ProcessEnv.vars["SWIFT_EXEC"]
   var swiftcPath: AbsolutePath
-  if let swiftcPathRaw = swiftcPathRaw {
+  if let swiftcPathRaw = ProcessEnv.block["SWIFT_EXEC"] {
     let virtualPath = try VirtualPath(path: swiftcPathRaw)
     guard let absolutePath = virtualPath.absolutePath else {
       diagnosticsEngine.emit(error: "value of SWIFT_EXEC is not a valid absolute path: \(swiftcPathRaw)")

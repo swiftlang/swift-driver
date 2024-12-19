@@ -5385,8 +5385,8 @@ final class SwiftDriverTests: XCTestCase {
 
   func testToolchainClangPath() throws {
     // Overriding the swift executable to a specific location breaks this.
-    guard ProcessEnv.vars["SWIFT_DRIVER_SWIFT_EXEC"] == nil,
-          ProcessEnv.vars["SWIFT_DRIVER_SWIFT_FRONTEND_EXEC"] == nil else {
+    guard ProcessEnv.block["SWIFT_DRIVER_SWIFT_EXEC"] == nil,
+          ProcessEnv.block["SWIFT_DRIVER_SWIFT_FRONTEND_EXEC"] == nil else {
       return
     }
     // TODO: remove this conditional check once DarwinToolchain does not requires xcrun to look for clang.

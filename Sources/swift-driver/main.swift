@@ -73,7 +73,7 @@ do {
 
   // Fallback to legacy driver if forced to
   if CommandLine.arguments.contains(Option.disallowForwardingDriver.spelling) ||
-     ProcessEnv.vars["SWIFT_USE_OLD_DRIVER"] != nil {
+     ProcessEnv.block["SWIFT_USE_OLD_DRIVER"] != nil {
     // If CommandLine.argument[0] is not an absolute path, we would form a path
     // relative to the current directory rather than relative to the actual
     // location of the binary. Use the Founation `NSProcessInfo` type to compute
@@ -113,7 +113,7 @@ do {
     }
   }
 
-  if ProcessEnv.vars["SWIFT_ENABLE_EXPLICIT_MODULE"] != nil {
+  if ProcessEnv.block["SWIFT_ENABLE_EXPLICIT_MODULE"] != nil {
     CommandLine.arguments.append("-explicit-module-build")
   }
 
