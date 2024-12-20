@@ -1257,15 +1257,24 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let moduleBarPath = path.appending(component: "Bar.swiftmodule").nativePathString(escaped: true)
       try localFileSystem.writeFileContents(srcBar, bytes: "public class KlassBar {}")
 
+      // Explicitly use an output file map to avoid an in-place job.
+      let outputFileMap = path.appending(component: "output-file-map.json")
+      try localFileSystem.writeFileContents(outputFileMap, bytes: """
+      {
+        "": {
+          "swift-dependencies": "Bar.swiftdeps"
+        }
+      }
+      """)
+
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       let (stdLibPath, shimsPath, _, _) = try getDriverArtifactsForScanning()
 
       var driver1 = try Driver(args: ["swiftc",
                                       "-explicit-module-build",
-                                      "-module-name",
-                                      "Bar",
-                                      "-working-directory",
-                                      path.nativePathString(escaped: true),
+                                      "-module-name", "Bar",
+                                      "-working-directory", path.nativePathString(escaped: true),
+                                      "-output-file-map", outputFileMap.nativePathString(escaped: false),
                                       "-emit-module",
                                       "-emit-module-path", moduleBarPath,
                                       "-module-cache-path", moduleCachePath.nativePathString(escaped: true),
@@ -1298,15 +1307,13 @@ final class ExplicitModuleBuildTests: XCTestCase {
       var driver2 = try Driver(args: ["swiftc",
                                       "-I", path.nativePathString(escaped: true),
                                       "-explicit-module-build",
-                                      "-module-name",
-                                      "Foo",
-                                      "-working-directory",
-                                      path.nativePathString(escaped: true),
+                                      "-module-name", "Foo",
+                                      "-working-directory", path.nativePathString(escaped: true),
+                                      "-output-file-map", outputFileMap.nativePathString(escaped: false),
                                       "-emit-module",
                                       "-emit-module-path", moduleFooPath,
                                       "-module-cache-path", moduleCachePath.nativePathString(escaped: true),
-                                      "-module-alias",
-                                      "Car=Bar",
+                                      "-module-alias", "Car=Bar",
                                       srcFoo.nativePathString(escaped: true),
                                       "-I", stdLibPath.nativePathString(escaped: true),
                                       "-I", shimsPath.nativePathString(escaped: true),
