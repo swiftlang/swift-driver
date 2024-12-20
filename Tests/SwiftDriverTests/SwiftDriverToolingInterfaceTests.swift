@@ -116,7 +116,7 @@ final class SwiftDriverToolingInterfaceTests: XCTestCase {
                 // Bridge argc back to [String]
                 let argvBufferPtr = UnsafeBufferPointer<UnsafePointer<CChar>?>(start: argvPtr, count: Int(argc))
                 let resultingFrontendArgs = argvBufferPtr.map { String(cString: $0!) }
-                print(resultingFrontendArgs)
+
                 XCTAssertTrue(resultingFrontendArgs.contains("-frontend"))
                 XCTAssertTrue(resultingFrontendArgs.contains("-c"))
                 XCTAssertTrue(resultingFrontendArgs.contains("-emit-module-path"))
