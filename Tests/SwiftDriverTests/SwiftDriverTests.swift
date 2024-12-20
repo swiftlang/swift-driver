@@ -7517,24 +7517,20 @@ final class SwiftDriverTests: XCTestCase {
       let inputsFlag = job.commandLine.firstIndex(of: .flag("-filelist"))!
       let inputFileListArgument = job.commandLine[job.commandLine.index(after: inputsFlag)]
       guard case let .path(.fileList(_, inputFileList)) = inputFileListArgument else {
-        XCTFail("Argument wasn't a filelist")
-        return
+        return XCTFail("Argument wasn't a filelist")
       }
       guard case let .list(inputs) = inputFileList else {
-        XCTFail("FileList wasn't List")
-        return
+        return XCTFail("FileList wasn't List")
       }
       XCTAssertEqual(inputs, [try toPath("a.swift"), try toPath("b.swift"), try toPath("c.swift")])
 
       let outputsFlag = job.commandLine.firstIndex(of: .flag("-output-filelist"))!
       let outputFileListArgument = job.commandLine[job.commandLine.index(after: outputsFlag)]
       guard case let .path(.fileList(_, outputFileList)) = outputFileListArgument else {
-        XCTFail("Argument wasn't a filelist")
-        return
+        return XCTFail("Argument wasn't a filelist")
       }
       guard case let .list(outputs) = outputFileList else {
-        XCTFail("FileList wasn't List")
-        return
+        return XCTFail("FileList wasn't List")
       }
       XCTAssertEqual(outputs, [try toPath("main.o")])
     }
@@ -7547,12 +7543,10 @@ final class SwiftDriverTests: XCTestCase {
       let outputsFlag = job.commandLine.firstIndex(of: .flag("-output-filelist"))!
       let outputFileListArgument = job.commandLine[job.commandLine.index(after: outputsFlag)]
       guard case let .path(.fileList(_, outputFileList)) = outputFileListArgument else {
-        XCTFail("Argument wasn't a filelist")
-        return
+        return XCTFail("Argument wasn't a filelist")
       }
       guard case let .list(outputs) = outputFileList else {
-        XCTFail("FileList wasn't List")
-        return
+        return XCTFail("FileList wasn't List")
       }
       XCTAssertEqual(outputs, [try toPath("a.o"), try toPath("b.o"), try toPath("c.o")])
     }
@@ -7565,12 +7559,10 @@ final class SwiftDriverTests: XCTestCase {
       let outputsFlag = job.commandLine.firstIndex(of: .flag("-output-filelist"))!
       let outputFileListArgument = job.commandLine[job.commandLine.index(after: outputsFlag)]
       guard case let .path(.fileList(_, outputFileList)) = outputFileListArgument else {
-        XCTFail("Argument wasn't a filelist")
-        return
+        return XCTFail("Argument wasn't a filelist")
       }
       guard case let .list(outputs) = outputFileList else {
-        XCTFail("FileList wasn't List")
-        return
+        return XCTFail("FileList wasn't List")
       }
       XCTAssertEqual(outputs.count, 3)
       XCTAssertTrue(matchTemporary(outputs[0], "a.bc"))
@@ -7586,12 +7578,10 @@ final class SwiftDriverTests: XCTestCase {
       let inputsFlag = job.commandLine.firstIndex(of: .flag("-filelist"))!
       let inputFileListArgument = job.commandLine[job.commandLine.index(after: inputsFlag)]
       guard case let .path(.fileList(_, inputFileList)) = inputFileListArgument else {
-        XCTFail("Argument wasn't a filelist")
-        return
+        return XCTFail("Argument wasn't a filelist")
       }
       guard case let .list(inputs) = inputFileList else {
-        XCTFail("FileList wasn't List")
-        return
+        return XCTFail("FileList wasn't List")
       }
       XCTAssertEqual(inputs.count, 3)
       XCTAssertTrue(matchTemporary(inputs[0], "a.o"))
@@ -7607,12 +7597,10 @@ final class SwiftDriverTests: XCTestCase {
       let inputsFlag = job.commandLine.firstIndex(of: .flag("-filelist"))!
       let inputFileListArgument = job.commandLine[job.commandLine.index(after: inputsFlag)]
       guard case let .path(.fileList(_, inputFileList)) = inputFileListArgument else {
-        XCTFail("Argument wasn't a filelist")
-        return
+        return XCTFail("Argument wasn't a filelist")
       }
       guard case let .list(inputs) = inputFileList else {
-        XCTFail("FileList wasn't List")
-        return
+        return XCTFail("FileList wasn't List")
       }
       XCTAssertEqual(inputs.count, 3)
       XCTAssertTrue(matchTemporary(inputs[0], "a.o"))
