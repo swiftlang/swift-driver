@@ -142,8 +142,7 @@ final class SwiftDriverToolingInterfaceTests: XCTestCase {
               { argc, argvPtr in false },
               { diagKind, diagMessage in
                 guard let nonOptionalDiagMessage = diagMessage else {
-                  XCTFail("Invalid tooling diagnostic handler message")
-                  return
+                  return XCTFail("Invalid tooling diagnostic handler message")
                 }
                 XCTAssertEqual(diagKind, SWIFTDRIVER_TOOLING_DIAGNOSTIC_ERROR)
                 XCTAssertEqual(String(cString: nonOptionalDiagMessage),
