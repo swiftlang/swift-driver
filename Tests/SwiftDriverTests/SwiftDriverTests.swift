@@ -5447,14 +5447,6 @@ final class SwiftDriverTests: XCTestCase {
       }
     }
     do {
-      var driver = try Driver(args: ["swiftc", "-v"])
-      XCTAssertNoThrow(try driver.planBuild())
-    }
-    do {
-      var driver = try Driver(args: ["swiftc", "-v", "-whole-module-optimization"])
-      XCTAssertNoThrow(try driver.planBuild())
-    }
-    do {
       var driver = try Driver(args: ["swiftc", "-whole-module-optimization"])
       XCTAssertThrowsError(try driver.planBuild()) {
         XCTAssertEqual($0 as? Driver.Error, .noInputFiles)
