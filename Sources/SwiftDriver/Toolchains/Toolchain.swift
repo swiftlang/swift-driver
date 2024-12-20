@@ -222,7 +222,7 @@ extension Toolchain {
               let path = lookupExecutablePath(filename: executableName(executable), currentWorkingDirectory: nil, searchPaths: [toolDir]) {
       // Looking for tools from the tools directory.
       return path
-    } else if let path = lookupExecutablePath(filename: executableName(executable), currentWorkingDirectory: nil, searchPaths: [try executableDir]) {
+    } else if let path = lookupExecutablePath(filename: executableName(executable), currentWorkingDirectory: fileSystem.currentWorkingDirectory, searchPaths: [try executableDir]) {
       return path
     } else if let path = try? xcrunFind(executable: executableName(executable)) {
       return path
