@@ -384,6 +384,7 @@ extension Option {
   public static let emitTbdPathEQ: Option = Option("-emit-tbd-path=", .joined, alias: Option.emitTbdPath, attributes: [.frontend, .noInteractive, .argumentIsPath, .supplementaryOutput, .cacheInvariant])
   public static let emitTbdPath: Option = Option("-emit-tbd-path", .separate, attributes: [.frontend, .noInteractive, .argumentIsPath, .supplementaryOutput, .cacheInvariant], metaVar: "<path>", helpText: "Emit the TBD file to <path>")
   public static let emitTbd: Option = Option("-emit-tbd", .flag, attributes: [.frontend, .noInteractive, .supplementaryOutput], helpText: "Emit a TBD file")
+  public static let emitVariantAbiDescriptorPath: Option = Option("-emit-variant-abi-descriptor-path", .separate, attributes: [.frontend, .noDriver, .cacheInvariant], metaVar: "<path>", helpText: "Output the ABI descriptor of current target variant module to <path>")
   public static let emitVariantApiDescriptorPath: Option = Option("-emit-variant-api-descriptor-path", .separate, attributes: [.frontend, .noInteractive, .argumentIsPath, .supplementaryOutput, .cacheInvariant], metaVar: "<path>", helpText: "Output a JSON file describing the target variant module's API to <path>")
   public static let emitVariantModuleDocPath: Option = Option("-emit-variant-module-doc-path", .separate, attributes: [.frontend, .noDriver, .cacheInvariant], metaVar: "<path>", helpText: "Output module documentation file for the target variant to <path>")
   public static let emitVariantModuleInterfacePath: Option = Option("-emit-variant-module-interface-path", .separate, attributes: [.frontend, .noInteractive, .argumentIsPath, .supplementaryOutput, .cacheInvariant], metaVar: "<path>", helpText: "Output module interface file for the target variant to <path>")
@@ -1304,6 +1305,7 @@ extension Option {
       Option.emitTbdPathEQ,
       Option.emitTbdPath,
       Option.emitTbd,
+      Option.emitVariantAbiDescriptorPath,
       Option.emitVariantApiDescriptorPath,
       Option.emitVariantModuleDocPath,
       Option.emitVariantModuleInterfacePath,

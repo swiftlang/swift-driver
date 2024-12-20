@@ -4112,11 +4112,81 @@ final class SwiftDriverTests: XCTestCase {
 
       XCTAssert(targetModuleJob.commandLine.contains(.path(.relative(try .init(validating: "foo.swiftmodule/target.swiftdoc")))))
       XCTAssert(targetModuleJob.commandLine.contains(.path(.relative(try .init(validating: "foo.swiftmodule/target.swiftsourceinfo")))))
+      XCTAssert(targetModuleJob.commandLine.contains(.path(.relative(try .init(validating: "foo.swiftmodule/target.abi.json")))))
       XCTAssertTrue(targetModuleJob.commandLine.contains(subsequence: [.flag("-o"), .path(.relative(try .init(validating: "foo.swiftmodule/target.swiftmodule")))]))
 
       XCTAssert(variantModuleJob.commandLine.contains(.path(.relative(try .init(validating: "foo.swiftmodule/variant.swiftdoc")))))
       XCTAssert(variantModuleJob.commandLine.contains(.path(.relative(try .init(validating: "foo.swiftmodule/variant.swiftsourceinfo")))))
+      XCTAssert(variantModuleJob.commandLine.contains(.path(.relative(try .init(validating: "foo.swiftmodule/variant.abi.json")))))
       XCTAssertTrue(variantModuleJob.commandLine.contains(subsequence: [.flag("-o"), .path(.relative(try .init(validating: "foo.swiftmodule/variant.swiftmodule")))]))
+    }
+
+    do {
+      // explicitly emit variant supplemental outputs
+      var driver = try Driver(args: ["swiftc",
+        "-target", "x86_64-apple-macosx10.14",
+        "-target-variant", "x86_64-apple-ios13.1-macabi",
+        "-enable-library-evolution",
+        "-package-name", "Susan",
+        "-emit-module",
+        "-emit-module-path", "target.swiftmodule",
+        "-emit-variant-module-path", "variant.swiftmodule",
+        "-Xfrontend", "-emit-module-doc-path", "-Xfrontend", "target.swiftdoc",
+        "-Xfrontend", "-emit-variant-module-doc-path", "variant.swiftdoc",
+        "-emit-module-source-info-path", "target.sourceinfo",
+        "-emit-variant-module-source-info-path", "variant.sourceinfo",
+        "-emit-package-module-interface-path", "target.package.swiftinterface",
+        "-emit-variant-package-module-interface-path", "variant.package.swiftinterface",
+        "-emit-private-module-interface-path", "target.private.swiftinterface",
+        "-emit-variant-private-module-interface-path", "variant.private.swiftinterface",
+        "-emit-module-interface-path", "target.swiftinterface",
+        "-emit-variant-module-interface-path", "variant.swiftinterface",
+        "foo.swift"])
+
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      // emit module, emit module, compile foo.swift,
+      // verify target.swiftinterface,
+      // verify target.private.swiftinterface,
+      // verify target.package.swiftinterface,
+      XCTAssertEqual(plannedJobs.count, 6)
+
+      let targetModuleJob: Job = plannedJobs[0]
+      let variantModuleJob = plannedJobs[1]
+
+      XCTAssertEqual(targetModuleJob.outputs.filter { $0.type == .swiftModule }.last!.file,
+        try toPath("target.swiftmodule"))
+      XCTAssertEqual(variantModuleJob.outputs.filter { $0.type == .swiftModule }.last!.file,
+        try toPath("variant.swiftmodule"))
+
+      XCTAssertEqual(targetModuleJob.outputs.filter { $0.type == .swiftDocumentation }.last!.file,
+        try toPath("target.swiftdoc"))
+      XCTAssertEqual(variantModuleJob.outputs.filter { $0.type == .swiftDocumentation }.last!.file,
+        try toPath("variant.swiftdoc"))
+
+      XCTAssertEqual(targetModuleJob.outputs.filter { $0.type == .swiftSourceInfoFile }.last!.file,
+        try toPath("target.sourceinfo"))
+      XCTAssertEqual(variantModuleJob.outputs.filter { $0.type == .swiftSourceInfoFile }.last!.file,
+        try toPath("variant.sourceinfo"))
+
+      XCTAssertEqual(targetModuleJob.outputs.filter { $0.type == .swiftInterface}.last!.file,
+        try toPath("target.swiftinterface"))
+      XCTAssertEqual(variantModuleJob.outputs.filter { $0.type == .swiftInterface}.last!.file,
+        try toPath("variant.swiftinterface"))
+
+      XCTAssertEqual(targetModuleJob.outputs.filter { $0.type == .privateSwiftInterface}.last!.file,
+        try toPath("target.private.swiftinterface"))
+      XCTAssertEqual(variantModuleJob.outputs.filter { $0.type == .privateSwiftInterface}.last!.file,
+        try toPath("variant.private.swiftinterface"))
+
+      XCTAssertEqual(targetModuleJob.outputs.filter { $0.type == .packageSwiftInterface}.last!.file,
+        try toPath("target.package.swiftinterface"))
+      XCTAssertEqual(variantModuleJob.outputs.filter { $0.type == .packageSwiftInterface}.last!.file,
+        try toPath("variant.package.swiftinterface"))
+
+      XCTAssertEqual(targetModuleJob.outputs.filter { $0.type == .jsonABIBaseline }.last!.file,
+        try toPath("target.abi.json"))
+      XCTAssertEqual(variantModuleJob.outputs.filter { $0.type == .jsonABIBaseline}.last!.file,
+        try toPath("variant.abi.json"))
     }
 
 #if os(macOS)

@@ -398,6 +398,9 @@ public struct Driver {
 
     /// Path to the emitted API descriptor file.
     let apiDescriptorFilePath: VirtualPath.Handle?
+
+    /// Path to the emitted ABI descriptor file.
+    let abiDescriptorFilePath: TypedVirtualPath?
   }
 
   private static func computeModuleOutputPaths(
@@ -411,12 +414,14 @@ public struct Driver {
     outputFileMap: OutputFileMap?,
     projectDirectory: VirtualPath.Handle?,
     apiDescriptorDirectory: VirtualPath?,
+    supportedFrontendFeatures: Set<String>,
     target: FrontendTargetInfo.Target,
     isVariant: Bool) throws -> SupplementalModuleTargetOutputPaths {
       struct SupplementalPathOptions {
         let moduleDocPath: Option
         let sourceInfoPath: Option
         let apiDescriptorPath: Option
+        let abiDescriptorPath: Option
         let moduleInterfacePath: Option
         let privateInterfacePath: Option
         let packageInterfacePath: Option
@@ -425,6 +430,7 @@ public struct Driver {
           moduleDocPath: .emitModuleDocPath,
           sourceInfoPath: .emitModuleSourceInfoPath,
           apiDescriptorPath: .emitApiDescriptorPath,
+          abiDescriptorPath: .emitAbiDescriptorPath,
           moduleInterfacePath: .emitModuleInterfacePath,
           privateInterfacePath: .emitPrivateModuleInterfacePath,
           packageInterfacePath: .emitPackageModuleInterfacePath)
@@ -433,6 +439,7 @@ public struct Driver {
           moduleDocPath: .emitVariantModuleDocPath,
           sourceInfoPath: .emitVariantModuleSourceInfoPath,
           apiDescriptorPath: .emitVariantApiDescriptorPath,
+          abiDescriptorPath: .emitVariantAbiDescriptorPath,
           moduleInterfacePath: .emitVariantModuleInterfacePath,
           privateInterfacePath: .emitVariantPrivateModuleInterfacePath,
           packageInterfacePath: .emitVariantPackageModuleInterfacePath)
@@ -458,6 +465,31 @@ public struct Driver {
         outputFileMap: outputFileMap,
         moduleName: moduleOutputInfo.name,
         projectDirectory: projectDirectory)
+
+    // ---------------------
+    // ABI Descriptor Path
+    func computeABIDescriptorFilePath(target: FrontendTargetInfo.Target,
+      features: Set<String>) -> TypedVirtualPath? {
+      guard features.contains(KnownCompilerFeature.emit_abi_descriptor.rawValue) else {
+        return nil
+      }
+      // Emit the descriptor only on platforms where Library Evolution is
+      // supported
+      guard target.triple.isDarwin || parsedOptions.hasArgument(.enableLibraryEvolution) else {
+        return nil
+      }
+      guard let moduleOutput = moduleOutputInfo.output else {
+        return nil
+      }
+
+      guard let path = try? VirtualPath.lookup(moduleOutput.outputPath)
+        .replacingExtension(with: .jsonABIBaseline) else {
+          return nil
+      }
+      return TypedVirtualPath(file: path.intern(), type: .jsonABIBaseline)
+    }
+    let abiDescriptorFilePath = computeABIDescriptorFilePath(target: target,
+      features: supportedFrontendFeatures)
 
     // ---------------------
     // API Descriptor Path
@@ -545,7 +577,8 @@ public struct Driver {
       swiftPrivateInterfacePath: swiftPrivateInterfacePath,
       swiftPackageInterfacePath: swiftPackageInterfacePath,
       moduleSourceInfoPath: moduleSourceInfoPath,
-      apiDescriptorFilePath: apiDescriptorFilePath)
+      apiDescriptorFilePath: apiDescriptorFilePath,
+      abiDescriptorFilePath: abiDescriptorFilePath)
   }
 
   /// Structure storing paths to supplemental outputs for the target module
@@ -621,24 +654,6 @@ public struct Driver {
       .appending(component: "Library")
       .appending(component: "Frameworks")
   } ()
-
-  lazy var abiDescriptorPath: TypedVirtualPath? = {
-    guard isFeatureSupported(.emit_abi_descriptor) else {
-      return nil
-    }
-    // Emit the descriptor only on platforms where Library Evolution is supported,
-    // or opted-into explicitly.
-    guard targetTriple.isDarwin || parsedOptions.hasArgument(.enableLibraryEvolution) else {
-      return nil
-    }
-    guard let moduleOutput = moduleOutputInfo.output else {
-      return nil
-    }
-    guard let path = try? VirtualPath.lookup(moduleOutput.outputPath).replacingExtension(with: .jsonABIBaseline) else {
-      return nil
-    }
-    return TypedVirtualPath(file: path.intern(), type: .jsonABIBaseline)
-  }()
 
   public static func isOptionFound(_ opt: String, allOpts: Set<String>) -> Bool {
     var current = opt
@@ -1221,6 +1236,7 @@ public struct Driver {
       outputFileMap: self.outputFileMap,
       projectDirectory: projectDirectory,
       apiDescriptorDirectory: apiDescriptorDirectory,
+      supportedFrontendFeatures: self.supportedFrontendFeatures,
       target: frontendTargetInfo.target,
       isVariant: false)
 
@@ -1237,6 +1253,7 @@ public struct Driver {
         outputFileMap: self.outputFileMap,
         projectDirectory: projectDirectory,
         apiDescriptorDirectory: apiDescriptorDirectory,
+        supportedFrontendFeatures: self.supportedFrontendFeatures,
         target: targetVariant,
         isVariant: true)
     } else {

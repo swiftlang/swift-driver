@@ -65,7 +65,7 @@ extension Driver {
     commandLine.appendFlag(.o)
     commandLine.appendPath(outputPath)
 
-    if let abiPath = abiDescriptorPath {
+    if let abiPath = moduleOutputPaths.abiDescriptorFilePath {
       commandLine.appendFlag(.emitAbiDescriptorPath)
       commandLine.appendPath(abiPath.file)
       outputs.append(abiPath)
