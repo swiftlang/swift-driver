@@ -72,7 +72,7 @@ extension Driver {
       case .api:
         return nil
       case .abi:
-        return abiDescriptorPath
+        return moduleOutputPaths.abiDescriptorFilePath
       }
     }
     guard let currentABI = getDescriptorPath(for: mode) else {
