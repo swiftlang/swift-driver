@@ -141,7 +141,7 @@ final class IncrementalCompilationTests: XCTestCase {
       }
     }
 
-    let driver = try! Driver(args: ["swiftc", "-v"])
+    let driver = try! Driver(args: ["swiftc"])
     if driver.isFrontendArgSupported(.moduleLoadMode) {
       self.extraExplicitBuildArgs = ["-Xfrontend", "-module-load-mode", "-Xfrontend", "prefer-interface"]
     }
@@ -1665,7 +1665,7 @@ extension IncrementalCompilationTests {
     let diagnosticEngine = DiagnosticsEngine(handlers: [
       {print($0, to: &stderrStream); stderrStream.flush()}
     ])
-    var driver = try Driver(args: arguments, env: ProcessEnv.vars,
+    var driver = try Driver(args: arguments,
                             diagnosticsEngine: diagnosticEngine,
                             fileSystem: localFileSystem)
     doTheCompile(&driver)

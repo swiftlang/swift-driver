@@ -1705,11 +1705,12 @@ final class SwiftDriverTests: XCTestCase {
     do {
       var driver = try Driver(args: ["swift"] + manyArgs + ["/foo.swift"])
       let jobs = try driver.planBuild()
-      XCTAssertTrue(jobs.count == 1 && jobs[0].kind == .interpret)
+      XCTAssertEqual(jobs.count, 1)
+      XCTAssertEqual(jobs[0].kind, .interpret)
       let interpretJob = jobs[0]
       let resolver = try ArgsResolver(fileSystem: localFileSystem)
       let resolvedArgs: [String] = try resolver.resolveArgumentList(for: interpretJob)
-      XCTAssertTrue(resolvedArgs.count == 3)
+      XCTAssertEqual(resolvedArgs.count, 3)
       XCTAssertEqual(resolvedArgs[1], "-frontend")
       XCTAssertEqual(resolvedArgs[2].first, "@")
       let responseFilePath = try AbsolutePath(validating: String(resolvedArgs[2].dropFirst()))
@@ -1723,7 +1724,8 @@ final class SwiftDriverTests: XCTestCase {
     do {
       var driver = try Driver(args: ["swift"] + manyArgs + ["foo.swift"])
       let jobs = try driver.planBuild()
-      XCTAssertTrue(jobs.count == 1 && jobs[0].kind == .interpret)
+      XCTAssertEqual(jobs.count, 1)
+      XCTAssertEqual(jobs[0].kind, .interpret)
       let interpretJob = jobs[0]
       let resolver = try ArgsResolver(fileSystem: localFileSystem)
       let resolvedArgs: [String] = try resolver.resolveArgumentList(for: interpretJob, useResponseFiles: .disabled)
@@ -1734,11 +1736,12 @@ final class SwiftDriverTests: XCTestCase {
     do {
       var driver = try Driver(args: ["swift"] + ["/foo.swift"])
       let jobs = try driver.planBuild()
-      XCTAssertTrue(jobs.count == 1 && jobs[0].kind == .interpret)
+      XCTAssertEqual(jobs.count, 1)
+      XCTAssertEqual(jobs[0].kind, .interpret)
       let interpretJob = jobs[0]
       let resolver = try ArgsResolver(fileSystem: localFileSystem)
       let resolvedArgs: [String] = try resolver.resolveArgumentList(for: interpretJob, useResponseFiles: .forced)
-      XCTAssertTrue(resolvedArgs.count == 3)
+      XCTAssertEqual(resolvedArgs.count, 3)
       XCTAssertEqual(resolvedArgs[1], "-frontend")
       XCTAssertEqual(resolvedArgs[2].first, "@")
       let responseFilePath = try AbsolutePath(validating: String(resolvedArgs[2].dropFirst()))
@@ -1750,18 +1753,19 @@ final class SwiftDriverTests: XCTestCase {
     do {
       var driver = try Driver(args: ["swift"] + ["foo.swift"])
       let jobs = try driver.planBuild()
-      XCTAssertTrue(jobs.count == 1 && jobs[0].kind == .interpret)
+      XCTAssertEqual(jobs.count, 1)
+      XCTAssertEqual(jobs[0].kind, .interpret)
       let interpretJob = jobs[0]
       let resolver = try ArgsResolver(fileSystem: localFileSystem)
       let resolvedArgs: [String] = try resolver.resolveArgumentList(for: interpretJob)
       XCTAssertFalse(resolvedArgs.contains { $0.hasPrefix("@") })
     }
   }
-    
+
   func testResponseFileDeterministicNaming() throws {
-    #if !os(macOS)
-    throw XCTSkip("Test assumes macOS response file quoting behavior")
-    #endif
+#if !os(macOS)
+    try XCTSkipIf(true, "Test assumes macOS response file quoting behavior")
+#endif
     do {
       let testJob = Job(moduleName: "Foo",
                         kind: .compile,
@@ -3076,7 +3080,7 @@ final class SwiftDriverTests: XCTestCase {
     // Make sure the supplementary output map has an entry for the Swift file
     // under indexing and its indexData entry is the primary output file
     let entry = try XCTUnwrap(map.entries[VirtualPath.absolute(try AbsolutePath(validating: "/tmp/foo5.swift")).intern()])
-    XCTAssert(VirtualPath.lookup(entry[.indexData]!) == .absolute(try .init(validating: "/tmp/t.o")))
+    XCTAssertEqual(VirtualPath.lookup(entry[.indexData]!), .absolute(try .init(validating: "/tmp/t.o")))
   }
 
   func testMultiThreadedWholeModuleOptimizationCompiles() throws {
@@ -3113,7 +3117,7 @@ final class SwiftDriverTests: XCTestCase {
 
   func testEmitABIDescriptor() throws {
 #if !os(macOS)
-    throw XCTSkip("Skipping: ABI descriptor is only emitted on Darwin platforms.")
+    try XCTSkipIf(true, "Skipping: ABI descriptor is only emitted on Darwin platforms.")
 #endif
     do {
       var driver = try Driver(args: ["swiftc", "-module-name=ThisModule", "-wmo", "main.swift", "multi-threaded.swift", "-emit-module", "-o", "test.swiftmodule"])
@@ -3142,7 +3146,6 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[2].kind, .mergeModule)
       XCTAssertJobInvocationMatches(plannedJobs[2], .flag("-emit-abi-descriptor-path"))
     }
-
   }
 
   func testWMOWithNonSourceInput() throws {
@@ -5447,11 +5450,11 @@ final class SwiftDriverTests: XCTestCase {
       }
     }
     do {
-      var driver = try Driver(args: ["swiftc", "-v"])
+      var driver = try Driver(args: ["swiftc"])
       XCTAssertNoThrow(try driver.planBuild())
     }
     do {
-      var driver = try Driver(args: ["swiftc", "-v", "-whole-module-optimization"])
+      var driver = try Driver(args: ["swiftc", "-whole-module-optimization"])
       XCTAssertNoThrow(try driver.planBuild())
     }
     do {
@@ -5569,7 +5572,7 @@ final class SwiftDriverTests: XCTestCase {
     do {
       var driver = try Driver(args: ["swift", "-print-target-info", "-target", "x86_64-apple-ios13.1-macabi", "-target-variant", "x86_64-apple-macosx10.14", "-sdk", "bar", "-resource-dir", "baz"])
       let plannedJobs = try driver.planBuild()
-      XCTAssertTrue(plannedJobs.count == 1)
+      XCTAssertEqual(plannedJobs.count, 1)
       let job = plannedJobs[0]
       XCTAssertEqual(job.kind, .printTargetInfo)
       XCTAssertJobInvocationMatches(job, .flag("-print-target-info"))
@@ -5582,7 +5585,7 @@ final class SwiftDriverTests: XCTestCase {
     do {
       var driver = try Driver(args: ["swift", "-print-target-info", "-target", "x86_64-unknown-linux"])
       let plannedJobs = try driver.planBuild()
-      XCTAssertTrue(plannedJobs.count == 1)
+      XCTAssertEqual(plannedJobs.count, 1)
       let job = plannedJobs[0]
       XCTAssertEqual(job.kind, .printTargetInfo)
       XCTAssertJobInvocationMatches(job, .flag("-print-target-info"))
@@ -5593,7 +5596,7 @@ final class SwiftDriverTests: XCTestCase {
     do {
       var driver = try Driver(args: ["swift", "-print-target-info", "-target", "x86_64-unknown-linux", "-static-stdlib"])
       let plannedJobs = try driver.planBuild()
-      XCTAssertTrue(plannedJobs.count == 1)
+      XCTAssertEqual(plannedJobs.count, 1)
       let job = plannedJobs[0]
       XCTAssertEqual(job.kind, .printTargetInfo)
       XCTAssertJobInvocationMatches(job, .flag("-print-target-info"))
@@ -5604,7 +5607,7 @@ final class SwiftDriverTests: XCTestCase {
     do {
       var driver = try Driver(args: ["swift", "-print-target-info", "-target", "x86_64-unknown-linux", "-static-executable"])
       let plannedJobs = try driver.planBuild()
-      XCTAssertTrue(plannedJobs.count == 1)
+      XCTAssertEqual(plannedJobs.count, 1)
       let job = plannedJobs[0]
       XCTAssertEqual(job.kind, .printTargetInfo)
       XCTAssertJobInvocationMatches(job, .flag("-print-target-info"))
@@ -5702,7 +5705,7 @@ final class SwiftDriverTests: XCTestCase {
       try localFileSystem.writeFileContents(input, bytes: "print(\"Hello, World\")")
       let binDir = try bundleRoot()
       let driver = binDir.appending(component: "swift-driver")
-      let args = [driver.description, "--driver-mode=swift", "-v", input.description]
+      let args = [driver.description, "--driver-mode=swift", input.description]
       // Immediate mode takes over the process with `exec` so we need to create
       // a separate process to capture its output here
       let result = try TSCBasic.Process.checkNonZeroExit(
@@ -6238,7 +6241,7 @@ final class SwiftDriverTests: XCTestCase {
       try testInputsPath.appending(component: "testLoadPackageInterface")
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       var driver = try Driver(args: ["swiftc", main.nativePathString(escaped: true),
-                                     "-typecheck", "-v",
+                                     "-typecheck",
                                      "-package-name", "foopkg",
                                      "-experimental-package-interface-load",
                                      "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
@@ -6931,11 +6934,10 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertJobInvocationMatches(compileJob, .flag("-disable-objc-interop"))
       XCTAssertFalse(linkJob.commandLine.contains(.flag("-force_load")))
     }
-    
+
     do {
       var driver = try Driver(args: [
         "swiftc",
-        "-v",
         "-L",
         "/TestApp/.build/aarch64-none-none-elf/release",
         "-o",
@@ -6957,7 +6959,7 @@ final class SwiftDriverTests: XCTestCase {
         "-tools-directory",
         "/Tools/swift.xctoolchain/usr/bin",
       ], env: env)
-      
+
       let jobs = try driver.planBuild()
       let linkJob = try jobs.findJob(.link)
       let invalidPath = try VirtualPath(path: "/Tools/swift.xctoolchain/usr/lib/swift")
@@ -6965,7 +6967,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertFalse(invalid) // ensure the driver does not emit invalid responseFilePaths to the clang invocation
       XCTAssertFalse(linkJob.commandLine.joinedUnresolvedArguments.contains("swiftrt.o"))
     }
-    
+
     // Embedded Wasm compile job
     do {
       var driver = try Driver(args: ["swiftc", "-target", "wasm32-none-none-wasm", "test.swift", "-enable-experimental-feature", "Embedded", "-wmo", "-o", "a.wasm"], env: env)
@@ -6997,13 +6999,13 @@ final class SwiftDriverTests: XCTestCase {
       let diags = DiagnosticsEngine()
       var driver = try Driver(args: ["swiftc", "-target", "arm64-apple-macosx10.13",  "test.swift", "-enable-experimental-feature", "Embedded", "-parse-as-library", "-wmo", "-o", "a.out", "-module-name", "main", "-enable-library-evolution"], diagnosticsEngine: diags)
       _ = try driver.planBuild()
-      XCTAssertTrue(diags.diagnostics.first!.message.text == Diagnostic.Message.error_no_library_evolution_embedded.text)
+      XCTAssertEqual(diags.diagnostics.first!.message.text, Diagnostic.Message.error_no_library_evolution_embedded.text)
     } catch _ { }
     do {
       let diags = DiagnosticsEngine()
       var driver = try Driver(args: ["swiftc", "-target", "arm64-apple-macosx10.13",  "test.swift", "-enable-experimental-feature", "Embedded", "-parse-as-library", "-o", "a.out", "-module-name", "main"], diagnosticsEngine: diags)
       _ = try driver.planBuild()
-      XCTAssertTrue(diags.diagnostics.first!.message.text == Diagnostic.Message.error_need_wmo_embedded.text)
+      XCTAssertEqual(diags.diagnostics.first!.message.text, Diagnostic.Message.error_need_wmo_embedded.text)
     } catch _ { }
     do {
       // Indexing embedded Swift code should not require WMO
@@ -7016,7 +7018,7 @@ final class SwiftDriverTests: XCTestCase {
       let diags = DiagnosticsEngine()
       var driver = try Driver(args: ["swiftc", "-target", "arm64-apple-macosx10.13",  "test.swift", "-enable-experimental-feature", "Embedded", "-parse-as-library", "-wmo", "-o", "a.out", "-module-name", "main", "-enable-objc-interop"], diagnosticsEngine: diags)
       _ = try driver.planBuild()
-      XCTAssertTrue(diags.diagnostics.first!.message.text == Diagnostic.Message.error_no_objc_interop_embedded.text)
+      XCTAssertEqual(diags.diagnostics.first!.message.text, Diagnostic.Message.error_no_objc_interop_embedded.text)
     } catch _ { }
   }
 
@@ -7050,7 +7052,7 @@ final class SwiftDriverTests: XCTestCase {
       args: ["swiftc", "-help"],
       env: env)
     let jobs = try driver.planBuild()
-    XCTAssert(jobs.count == 1)
+    XCTAssertEqual(jobs.count, 1)
     XCTAssertEqual(jobs.first!.tool.name, swiftHelp.pathString)
   }
 
@@ -7257,7 +7259,7 @@ final class SwiftDriverTests: XCTestCase {
       })
     }
   }
-  
+
   func testRelativeInputs() throws {
     do {
       // Inputs with relative paths with no -working-directory flag should remain relative
@@ -7289,7 +7291,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(compileJob.commandLine.contains(subsequence: ["-resource-dir", try toPathOption("/foo/bar/relresourcepath", isRelative: false)]))
       XCTAssertTrue(compileJob.commandLine.contains(subsequence: ["-sdk", try toPathOption("/foo/bar/relsdkpath", isRelative: false)]))
     }
-    
+
     try withTemporaryFile { fileMapFile in
       let outputMapContents: ByteString = """
       {
@@ -7303,7 +7305,7 @@ final class SwiftDriverTests: XCTestCase {
       }
       """
       try localFileSystem.writeFileContents(fileMapFile.path, bytes: outputMapContents)
-      
+
       // Inputs with relative paths should be found in output file maps
       var driver = try Driver(args: ["swiftc",
                                      "-target", "arm64-apple-ios13.1",
@@ -7314,7 +7316,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(compileJob.kind, .compile)
       XCTAssertTrue(compileJob.commandLine.contains(subsequence: ["-o", try toPathOption("/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.o", isRelative: false)]))
     }
-    
+
     try withTemporaryFile { fileMapFile in
       let outputMapContents: ByteString = """
       {
@@ -7328,7 +7330,7 @@ final class SwiftDriverTests: XCTestCase {
       }
       """
       try localFileSystem.writeFileContents(fileMapFile.path, bytes: outputMapContents)
-      
+
       // Inputs with relative paths and working-dir should use absolute paths in output file maps
       var driver = try Driver(args: ["swiftc",
                                      "-target", "arm64-apple-ios13.1",
@@ -7523,24 +7525,20 @@ final class SwiftDriverTests: XCTestCase {
       let inputsFlag = job.commandLine.firstIndex(of: .flag("-filelist"))!
       let inputFileListArgument = job.commandLine[job.commandLine.index(after: inputsFlag)]
       guard case let .path(.fileList(_, inputFileList)) = inputFileListArgument else {
-        XCTFail("Argument wasn't a filelist")
-        return
+        return XCTFail("Argument wasn't a filelist")
       }
       guard case let .list(inputs) = inputFileList else {
-        XCTFail("FileList wasn't List")
-        return
+        return XCTFail("FileList wasn't List")
       }
       XCTAssertEqual(inputs, [try toPath("a.swift"), try toPath("b.swift"), try toPath("c.swift")])
 
       let outputsFlag = job.commandLine.firstIndex(of: .flag("-output-filelist"))!
       let outputFileListArgument = job.commandLine[job.commandLine.index(after: outputsFlag)]
       guard case let .path(.fileList(_, outputFileList)) = outputFileListArgument else {
-        XCTFail("Argument wasn't a filelist")
-        return
+        return XCTFail("Argument wasn't a filelist")
       }
       guard case let .list(outputs) = outputFileList else {
-        XCTFail("FileList wasn't List")
-        return
+        return XCTFail("FileList wasn't List")
       }
       XCTAssertEqual(outputs, [try toPath("main.o")])
     }
@@ -7553,12 +7551,10 @@ final class SwiftDriverTests: XCTestCase {
       let outputsFlag = job.commandLine.firstIndex(of: .flag("-output-filelist"))!
       let outputFileListArgument = job.commandLine[job.commandLine.index(after: outputsFlag)]
       guard case let .path(.fileList(_, outputFileList)) = outputFileListArgument else {
-        XCTFail("Argument wasn't a filelist")
-        return
+        return XCTFail("Argument wasn't a filelist")
       }
       guard case let .list(outputs) = outputFileList else {
-        XCTFail("FileList wasn't List")
-        return
+        return XCTFail("FileList wasn't List")
       }
       XCTAssertEqual(outputs, [try toPath("a.o"), try toPath("b.o"), try toPath("c.o")])
     }
@@ -7571,14 +7567,12 @@ final class SwiftDriverTests: XCTestCase {
       let outputsFlag = job.commandLine.firstIndex(of: .flag("-output-filelist"))!
       let outputFileListArgument = job.commandLine[job.commandLine.index(after: outputsFlag)]
       guard case let .path(.fileList(_, outputFileList)) = outputFileListArgument else {
-        XCTFail("Argument wasn't a filelist")
-        return
+        return XCTFail("Argument wasn't a filelist")
       }
       guard case let .list(outputs) = outputFileList else {
-        XCTFail("FileList wasn't List")
-        return
+        return XCTFail("FileList wasn't List")
       }
-      XCTAssertTrue(outputs.count == 3)
+      XCTAssertEqual(outputs.count, 3)
       XCTAssertTrue(matchTemporary(outputs[0], "a.bc"))
       XCTAssertTrue(matchTemporary(outputs[1], "b.bc"))
       XCTAssertTrue(matchTemporary(outputs[2], "c.bc"))
@@ -7592,14 +7586,12 @@ final class SwiftDriverTests: XCTestCase {
       let inputsFlag = job.commandLine.firstIndex(of: .flag("-filelist"))!
       let inputFileListArgument = job.commandLine[job.commandLine.index(after: inputsFlag)]
       guard case let .path(.fileList(_, inputFileList)) = inputFileListArgument else {
-        XCTFail("Argument wasn't a filelist")
-        return
+        return XCTFail("Argument wasn't a filelist")
       }
       guard case let .list(inputs) = inputFileList else {
-        XCTFail("FileList wasn't List")
-        return
+        return XCTFail("FileList wasn't List")
       }
-      XCTAssertTrue(inputs.count == 3)
+      XCTAssertEqual(inputs.count, 3)
       XCTAssertTrue(matchTemporary(inputs[0], "a.o"))
       XCTAssertTrue(matchTemporary(inputs[1], "b.o"))
       XCTAssertTrue(matchTemporary(inputs[2], "c.o"))
@@ -7613,14 +7605,12 @@ final class SwiftDriverTests: XCTestCase {
       let inputsFlag = job.commandLine.firstIndex(of: .flag("-filelist"))!
       let inputFileListArgument = job.commandLine[job.commandLine.index(after: inputsFlag)]
       guard case let .path(.fileList(_, inputFileList)) = inputFileListArgument else {
-        XCTFail("Argument wasn't a filelist")
-        return
+        return XCTFail("Argument wasn't a filelist")
       }
       guard case let .list(inputs) = inputFileList else {
-        XCTFail("FileList wasn't List")
-        return
+        return XCTFail("FileList wasn't List")
       }
-      XCTAssertTrue(inputs.count == 3)
+      XCTAssertEqual(inputs.count, 3)
       XCTAssertTrue(matchTemporary(inputs[0], "a.o"))
       XCTAssertTrue(matchTemporary(inputs[1], "b.o"))
       XCTAssertTrue(matchTemporary(inputs[2], "c.o"))
@@ -7685,8 +7675,7 @@ final class SwiftDriverTests: XCTestCase {
                                        "-c",
                                        "-incremental",
                                        "-output-file-map", ofm.nativePathString(escaped: true),
-                                       main.nativePathString(escaped: true)] + sdkArguments,
-                                env: ProcessEnv.vars)
+                                       main.nativePathString(escaped: true)] + sdkArguments)
         let jobs = try driver.planBuild()
         do {try driver.run(jobs: jobs)}
         catch {return false}
