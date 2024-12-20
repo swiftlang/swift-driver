@@ -49,7 +49,7 @@ extension Driver {
 /// Set to nil if cannot perform on this host
 private let cachedSDKPath: Result<String, Error>? = {
   #if os(Windows)
-  if let sdk = ProcessEnv.vars["SDKROOT"] {
+  if let sdk = ProcessEnv.block["SDKROOT"] {
     return Result{sdk}
   }
   // Assume that if neither of the environment variables are set, we are
