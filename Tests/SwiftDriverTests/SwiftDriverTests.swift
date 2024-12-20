@@ -1761,7 +1761,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertFalse(resolvedArgs.contains { $0.hasPrefix("@") })
     }
   }
-    
+
   func testResponseFileDeterministicNaming() throws {
 #if !os(macOS)
     try XCTSkipIf(true, "Test assumes macOS response file quoting behavior")
@@ -6934,7 +6934,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertJobInvocationMatches(compileJob, .flag("-disable-objc-interop"))
       XCTAssertFalse(linkJob.commandLine.contains(.flag("-force_load")))
     }
-    
+
     do {
       var driver = try Driver(args: [
         "swiftc",
@@ -6959,7 +6959,7 @@ final class SwiftDriverTests: XCTestCase {
         "-tools-directory",
         "/Tools/swift.xctoolchain/usr/bin",
       ], env: env)
-      
+
       let jobs = try driver.planBuild()
       let linkJob = try jobs.findJob(.link)
       let invalidPath = try VirtualPath(path: "/Tools/swift.xctoolchain/usr/lib/swift")
@@ -6967,7 +6967,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertFalse(invalid) // ensure the driver does not emit invalid responseFilePaths to the clang invocation
       XCTAssertFalse(linkJob.commandLine.joinedUnresolvedArguments.contains("swiftrt.o"))
     }
-    
+
     // Embedded Wasm compile job
     do {
       var driver = try Driver(args: ["swiftc", "-target", "wasm32-none-none-wasm", "test.swift", "-enable-experimental-feature", "Embedded", "-wmo", "-o", "a.wasm"], env: env)
@@ -7259,7 +7259,7 @@ final class SwiftDriverTests: XCTestCase {
       })
     }
   }
-  
+
   func testRelativeInputs() throws {
     do {
       // Inputs with relative paths with no -working-directory flag should remain relative
@@ -7291,7 +7291,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(compileJob.commandLine.contains(subsequence: ["-resource-dir", try toPathOption("/foo/bar/relresourcepath", isRelative: false)]))
       XCTAssertTrue(compileJob.commandLine.contains(subsequence: ["-sdk", try toPathOption("/foo/bar/relsdkpath", isRelative: false)]))
     }
-    
+
     try withTemporaryFile { fileMapFile in
       let outputMapContents: ByteString = """
       {
@@ -7305,7 +7305,7 @@ final class SwiftDriverTests: XCTestCase {
       }
       """
       try localFileSystem.writeFileContents(fileMapFile.path, bytes: outputMapContents)
-      
+
       // Inputs with relative paths should be found in output file maps
       var driver = try Driver(args: ["swiftc",
                                      "-target", "arm64-apple-ios13.1",
@@ -7316,7 +7316,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(compileJob.kind, .compile)
       XCTAssertTrue(compileJob.commandLine.contains(subsequence: ["-o", try toPathOption("/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.o", isRelative: false)]))
     }
-    
+
     try withTemporaryFile { fileMapFile in
       let outputMapContents: ByteString = """
       {
@@ -7330,7 +7330,7 @@ final class SwiftDriverTests: XCTestCase {
       }
       """
       try localFileSystem.writeFileContents(fileMapFile.path, bytes: outputMapContents)
-      
+
       // Inputs with relative paths and working-dir should use absolute paths in output file maps
       var driver = try Driver(args: ["swiftc",
                                      "-target", "arm64-apple-ios13.1",
