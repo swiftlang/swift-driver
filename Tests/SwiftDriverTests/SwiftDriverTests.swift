@@ -1705,11 +1705,12 @@ final class SwiftDriverTests: XCTestCase {
     do {
       var driver = try Driver(args: ["swift"] + manyArgs + ["/foo.swift"])
       let jobs = try driver.planBuild()
-      XCTAssertTrue(jobs.count == 1 && jobs[0].kind == .interpret)
+      XCTAssertEqual(jobs.count, 1)
+      XCTAssertEqual(jobs[0].kind, .interpret)
       let interpretJob = jobs[0]
       let resolver = try ArgsResolver(fileSystem: localFileSystem)
       let resolvedArgs: [String] = try resolver.resolveArgumentList(for: interpretJob)
-      XCTAssertTrue(resolvedArgs.count == 3)
+      XCTAssertEqual(resolvedArgs.count, 3)
       XCTAssertEqual(resolvedArgs[1], "-frontend")
       XCTAssertEqual(resolvedArgs[2].first, "@")
       let responseFilePath = try AbsolutePath(validating: String(resolvedArgs[2].dropFirst()))
@@ -1723,7 +1724,8 @@ final class SwiftDriverTests: XCTestCase {
     do {
       var driver = try Driver(args: ["swift"] + manyArgs + ["foo.swift"])
       let jobs = try driver.planBuild()
-      XCTAssertTrue(jobs.count == 1 && jobs[0].kind == .interpret)
+      XCTAssertEqual(jobs.count, 1)
+      XCTAssertEqual(jobs[0].kind, .interpret)
       let interpretJob = jobs[0]
       let resolver = try ArgsResolver(fileSystem: localFileSystem)
       let resolvedArgs: [String] = try resolver.resolveArgumentList(for: interpretJob, useResponseFiles: .disabled)
@@ -1734,11 +1736,12 @@ final class SwiftDriverTests: XCTestCase {
     do {
       var driver = try Driver(args: ["swift"] + ["/foo.swift"])
       let jobs = try driver.planBuild()
-      XCTAssertTrue(jobs.count == 1 && jobs[0].kind == .interpret)
+      XCTAssertEqual(jobs.count, 1)
+      XCTAssertEqual(jobs[0].kind, .interpret)
       let interpretJob = jobs[0]
       let resolver = try ArgsResolver(fileSystem: localFileSystem)
       let resolvedArgs: [String] = try resolver.resolveArgumentList(for: interpretJob, useResponseFiles: .forced)
-      XCTAssertTrue(resolvedArgs.count == 3)
+      XCTAssertEqual(resolvedArgs.count, 3)
       XCTAssertEqual(resolvedArgs[1], "-frontend")
       XCTAssertEqual(resolvedArgs[2].first, "@")
       let responseFilePath = try AbsolutePath(validating: String(resolvedArgs[2].dropFirst()))
@@ -1750,7 +1753,8 @@ final class SwiftDriverTests: XCTestCase {
     do {
       var driver = try Driver(args: ["swift"] + ["foo.swift"])
       let jobs = try driver.planBuild()
-      XCTAssertTrue(jobs.count == 1 && jobs[0].kind == .interpret)
+      XCTAssertEqual(jobs.count, 1)
+      XCTAssertEqual(jobs[0].kind, .interpret)
       let interpretJob = jobs[0]
       let resolver = try ArgsResolver(fileSystem: localFileSystem)
       let resolvedArgs: [String] = try resolver.resolveArgumentList(for: interpretJob)
@@ -3076,7 +3080,7 @@ final class SwiftDriverTests: XCTestCase {
     // Make sure the supplementary output map has an entry for the Swift file
     // under indexing and its indexData entry is the primary output file
     let entry = try XCTUnwrap(map.entries[VirtualPath.absolute(try AbsolutePath(validating: "/tmp/foo5.swift")).intern()])
-    XCTAssert(VirtualPath.lookup(entry[.indexData]!) == .absolute(try .init(validating: "/tmp/t.o")))
+    XCTAssertEqual(VirtualPath.lookup(entry[.indexData]!), .absolute(try .init(validating: "/tmp/t.o")))
   }
 
   func testMultiThreadedWholeModuleOptimizationCompiles() throws {
@@ -5560,7 +5564,7 @@ final class SwiftDriverTests: XCTestCase {
     do {
       var driver = try Driver(args: ["swift", "-print-target-info", "-target", "x86_64-apple-ios13.1-macabi", "-target-variant", "x86_64-apple-macosx10.14", "-sdk", "bar", "-resource-dir", "baz"])
       let plannedJobs = try driver.planBuild()
-      XCTAssertTrue(plannedJobs.count == 1)
+      XCTAssertEqual(plannedJobs.count, 1)
       let job = plannedJobs[0]
       XCTAssertEqual(job.kind, .printTargetInfo)
       XCTAssertJobInvocationMatches(job, .flag("-print-target-info"))
@@ -5573,7 +5577,7 @@ final class SwiftDriverTests: XCTestCase {
     do {
       var driver = try Driver(args: ["swift", "-print-target-info", "-target", "x86_64-unknown-linux"])
       let plannedJobs = try driver.planBuild()
-      XCTAssertTrue(plannedJobs.count == 1)
+      XCTAssertEqual(plannedJobs.count, 1)
       let job = plannedJobs[0]
       XCTAssertEqual(job.kind, .printTargetInfo)
       XCTAssertJobInvocationMatches(job, .flag("-print-target-info"))
@@ -5584,7 +5588,7 @@ final class SwiftDriverTests: XCTestCase {
     do {
       var driver = try Driver(args: ["swift", "-print-target-info", "-target", "x86_64-unknown-linux", "-static-stdlib"])
       let plannedJobs = try driver.planBuild()
-      XCTAssertTrue(plannedJobs.count == 1)
+      XCTAssertEqual(plannedJobs.count, 1)
       let job = plannedJobs[0]
       XCTAssertEqual(job.kind, .printTargetInfo)
       XCTAssertJobInvocationMatches(job, .flag("-print-target-info"))
@@ -5595,7 +5599,7 @@ final class SwiftDriverTests: XCTestCase {
     do {
       var driver = try Driver(args: ["swift", "-print-target-info", "-target", "x86_64-unknown-linux", "-static-executable"])
       let plannedJobs = try driver.planBuild()
-      XCTAssertTrue(plannedJobs.count == 1)
+      XCTAssertEqual(plannedJobs.count, 1)
       let job = plannedJobs[0]
       XCTAssertEqual(job.kind, .printTargetInfo)
       XCTAssertJobInvocationMatches(job, .flag("-print-target-info"))
@@ -6987,13 +6991,13 @@ final class SwiftDriverTests: XCTestCase {
       let diags = DiagnosticsEngine()
       var driver = try Driver(args: ["swiftc", "-target", "arm64-apple-macosx10.13",  "test.swift", "-enable-experimental-feature", "Embedded", "-parse-as-library", "-wmo", "-o", "a.out", "-module-name", "main", "-enable-library-evolution"], diagnosticsEngine: diags)
       _ = try driver.planBuild()
-      XCTAssertTrue(diags.diagnostics.first!.message.text == Diagnostic.Message.error_no_library_evolution_embedded.text)
+      XCTAssertEqual(diags.diagnostics.first!.message.text, Diagnostic.Message.error_no_library_evolution_embedded.text)
     } catch _ { }
     do {
       let diags = DiagnosticsEngine()
       var driver = try Driver(args: ["swiftc", "-target", "arm64-apple-macosx10.13",  "test.swift", "-enable-experimental-feature", "Embedded", "-parse-as-library", "-o", "a.out", "-module-name", "main"], diagnosticsEngine: diags)
       _ = try driver.planBuild()
-      XCTAssertTrue(diags.diagnostics.first!.message.text == Diagnostic.Message.error_need_wmo_embedded.text)
+      XCTAssertEqual(diags.diagnostics.first!.message.text, Diagnostic.Message.error_need_wmo_embedded.text)
     } catch _ { }
     do {
       // Indexing embedded Swift code should not require WMO
@@ -7006,7 +7010,7 @@ final class SwiftDriverTests: XCTestCase {
       let diags = DiagnosticsEngine()
       var driver = try Driver(args: ["swiftc", "-target", "arm64-apple-macosx10.13",  "test.swift", "-enable-experimental-feature", "Embedded", "-parse-as-library", "-wmo", "-o", "a.out", "-module-name", "main", "-enable-objc-interop"], diagnosticsEngine: diags)
       _ = try driver.planBuild()
-      XCTAssertTrue(diags.diagnostics.first!.message.text == Diagnostic.Message.error_no_objc_interop_embedded.text)
+      XCTAssertEqual(diags.diagnostics.first!.message.text, Diagnostic.Message.error_no_objc_interop_embedded.text)
     } catch _ { }
   }
 
@@ -7040,7 +7044,7 @@ final class SwiftDriverTests: XCTestCase {
       args: ["swiftc", "-help"],
       env: env)
     let jobs = try driver.planBuild()
-    XCTAssert(jobs.count == 1)
+    XCTAssertEqual(jobs.count, 1)
     XCTAssertEqual(jobs.first!.tool.name, swiftHelp.pathString)
   }
 
@@ -7568,7 +7572,7 @@ final class SwiftDriverTests: XCTestCase {
         XCTFail("FileList wasn't List")
         return
       }
-      XCTAssertTrue(outputs.count == 3)
+      XCTAssertEqual(outputs.count, 3)
       XCTAssertTrue(matchTemporary(outputs[0], "a.bc"))
       XCTAssertTrue(matchTemporary(outputs[1], "b.bc"))
       XCTAssertTrue(matchTemporary(outputs[2], "c.bc"))
@@ -7589,7 +7593,7 @@ final class SwiftDriverTests: XCTestCase {
         XCTFail("FileList wasn't List")
         return
       }
-      XCTAssertTrue(inputs.count == 3)
+      XCTAssertEqual(inputs.count, 3)
       XCTAssertTrue(matchTemporary(inputs[0], "a.o"))
       XCTAssertTrue(matchTemporary(inputs[1], "b.o"))
       XCTAssertTrue(matchTemporary(inputs[2], "c.o"))
@@ -7610,7 +7614,7 @@ final class SwiftDriverTests: XCTestCase {
         XCTFail("FileList wasn't List")
         return
       }
-      XCTAssertTrue(inputs.count == 3)
+      XCTAssertEqual(inputs.count, 3)
       XCTAssertTrue(matchTemporary(inputs[0], "a.o"))
       XCTAssertTrue(matchTemporary(inputs[1], "b.o"))
       XCTAssertTrue(matchTemporary(inputs[2], "c.o"))
