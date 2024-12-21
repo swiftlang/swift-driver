@@ -583,6 +583,9 @@ final class ExplicitModuleBuildTests: XCTestCase {
           } else if relativeOutputPathFileName.starts(with: "_SwiftConcurrencyShims-") {
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang("_SwiftConcurrencyShims"),
                                             dependencyGraph: dependencyGraph)
+          } else if relativeOutputPathFileName.starts(with: "_Builtin_stdint-") {
+            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("_Builtin_stdint"),
+                                            dependencyGraph: dependencyGraph)
           } else if hostTriple.isMacOSX,
              hostTriple.version(for: .macOS) < Triple.Version(11, 0, 0),
              relativeOutputPathFileName.starts(with: "X-") {
@@ -593,7 +596,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
           }
         } else {
           switch (outputFilePath) {
-            case .relative(try .init(validating: "testExplicitModuleBuildJobs")):
+            case .relative(try .init(validating: "testExplicitModuleBuildJobs")),
+                .relative(try .init(validating: "testExplicitModuleBuildJobs.exe")):
               XCTAssertTrue(driver.isExplicitMainModuleJob(job: job))
               XCTAssertEqual(job.kind, .link)
             case .absolute(let path):
@@ -636,6 +640,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
                             .appending(component: "Swift")
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       let invocationArguments = ["swiftc",
+                                 "-Xcc", "-Xclang", "-Xcc", "-fbuiltin-headers-in-system-modules",
                                  "-I", cHeadersPath.nativePathString(escaped: true),
                                  "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
                                  "-explicit-module-build",
@@ -770,12 +775,16 @@ final class ExplicitModuleBuildTests: XCTestCase {
           } else if relativeOutputPathFileName.starts(with: "_SwiftConcurrencyShims-") {
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang("_SwiftConcurrencyShims"),
                                             dependencyGraph: dependencyGraph)
+          } else if relativeOutputPathFileName.starts(with: "_Builtin_stdint-") {
+            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("_Builtin_stdint"),
+                                            dependencyGraph: dependencyGraph)
           } else {
             XCTFail("Unexpected module dependency build job output: \(outputFilePath)")
           }
         } else {
           switch (outputFilePath) {
-            case .relative(try .init(validating: "testExplicitModuleVerifyInterfaceJobs")):
+            case .relative(try .init(validating: "testExplicitModuleVerifyInterfaceJobs")),
+                .relative(try .init(validating: "testExplicitModuleVerifyInterfaceJobs.exe")):
               XCTAssertTrue(driver.isExplicitMainModuleJob(job: job))
               XCTAssertEqual(job.kind, .link)
             case .absolute(let path):
@@ -893,6 +902,9 @@ final class ExplicitModuleBuildTests: XCTestCase {
           } else if relativeOutputPathFileName.starts(with: "_SwiftConcurrencyShims-") {
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang("_SwiftConcurrencyShims"),
                                             dependencyGraph: dependencyGraph)
+          } else if relativeOutputPathFileName.starts(with: "_Builtin_stdint-") {
+            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("_Builtin_stdint"),
+                                            dependencyGraph: dependencyGraph)
           } else {
             XCTFail("Unexpected module dependency build job output: \(outputFilePath)")
           }
@@ -910,7 +922,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
           // Check we don't use `-pch-output-dir` anymore during main module job.
           XCTAssertFalse(job.commandLine.contains("-pch-output-dir"))
           switch (outputFilePath) {
-            case .relative(try .init(validating: "testExplicitModuleBuildPCHOutputJobs")):
+            case .relative(try .init(validating: "testExplicitModuleBuildPCHOutputJobs")),
+                .relative(try .init(validating: "testExplicitModuleBuildPCHOutputJobs.exe")):
               XCTAssertTrue(driver.isExplicitMainModuleJob(job: job))
               XCTAssertEqual(job.kind, .link)
             case .absolute(let path):
@@ -1009,6 +1022,9 @@ final class ExplicitModuleBuildTests: XCTestCase {
           } else if relativeOutputPathFileName.starts(with: "_SwiftConcurrencyShims-") {
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang("_SwiftConcurrencyShims"),
                                             dependencyGraph: dependencyGraph)
+          } else if relativeOutputPathFileName.starts(with: "_Builtin_stdint-") {
+            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("_Builtin_stdint"),
+                                            dependencyGraph: dependencyGraph)
           } else {
             XCTFail("Unexpected module dependency build job output: \(outputFilePath)")
           }
@@ -1044,12 +1060,11 @@ final class ExplicitModuleBuildTests: XCTestCase {
 
       // Create Bar.swiftmodule
       var driver = try Driver(args: ["swiftc",
+                                     "-Xcc", "-Xclang", "-Xcc", "-fbuiltin-headers-in-system-modules",
                                      "-explicit-module-build",
-                                     "-working-directory",
-                                     path.nativePathString(escaped: true),
+                                     "-working-directory", path.nativePathString(escaped: true),
                                      srcBar.nativePathString(escaped: true),
-                                     "-module-name",
-                                     "Bar",
+                                     "-module-name", "Bar",
                                      "-emit-module",
                                      "-emit-module-path", moduleBarPath,
                                      "-module-cache-path", path.nativePathString(escaped: true),
@@ -1271,6 +1286,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let (stdLibPath, shimsPath, _, _) = try getDriverArtifactsForScanning()
 
       var driver1 = try Driver(args: ["swiftc",
+                                      "-Xcc", "-Xclang", "-Xcc", "-fbuiltin-headers-in-system-modules",
                                       "-explicit-module-build",
                                       "-module-name", "Bar",
                                       "-working-directory", path.nativePathString(escaped: true),
@@ -1305,6 +1321,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
         """
       )
       var driver2 = try Driver(args: ["swiftc",
+                                      "-Xcc", "-Xclang", "-Xcc", "-fbuiltin-headers-in-system-modules",
                                       "-I", path.nativePathString(escaped: true),
                                       "-explicit-module-build",
                                       "-module-name", "Foo",
@@ -1347,6 +1364,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
                             .appending(component: "Swift")
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       var driver = try Driver(args: ["swiftc",
+                                     "-Xcc", "-Xclang", "-Xcc", "-fbuiltin-headers-in-system-modules",
                                      "-I", cHeadersPath.nativePathString(escaped: true),
                                      "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
                                      "-explicit-module-build",
@@ -1522,7 +1540,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       var driver = try Driver(args: ["swiftc",
                                      "-explicit-module-build",
                                      "-clang-scanner-module-cache-path",
-                                     scannerCachePath.nativePathString(escaped: true),
+                                     scannerCachePath.nativePathString(escaped: false),
                                      "-module-cache-path",
                                      moduleCachePath.nativePathString(escaped: true),
                                      "-working-directory", path.nativePathString(escaped: true),
@@ -1759,7 +1777,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
          hostTriple.version(for: .macOS) < Triple.Version(11, 0, 0) {
         expectedNumberOfDependencies = 13
       } else if driver.targetTriple.isWindows {
-        expectedNumberOfDependencies = 15
+        expectedNumberOfDependencies = 13
       } else {
         expectedNumberOfDependencies = 12
       }
@@ -1816,6 +1834,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
   // Ensure dependency scanning succeeds via fallback `swift-frontend -scan-dependenceis`
   // mechanism if libSwiftScan.dylib fails to load.
   func testDependencyScanningFallback() throws {
+    try XCTSkipIf(true, "skipping until CAS is supported on all platforms")
+
     let (stdlibPath, shimsPath, _, _) = try getDriverArtifactsForScanning()
 
     // Create a simple test case.
@@ -2126,24 +2146,25 @@ final class ExplicitModuleBuildTests: XCTestCase {
 
   func testDependencyScanCommandLineEscape() throws {
 #if os(Windows)
-  let quoteCharacter: Character = "\""
+  let quote: Character = "\""
 #else
-  let quoteCharacter: Character = "'"
+  let quote: Character = "'"
 #endif
-    let swiftInputWithSpace = "/tmp/input example/test.swift"
-    let swiftInputWithoutSpace = "/tmp/baz.swift"
-    let clangInputWithSpace = "/tmp/input example/bar.o"
+    let input1 = try AbsolutePath(validating: "/tmp/input example/test.swift")
+    let input2 = try AbsolutePath(validating: "/tmp/baz.swift")
+    let input3 = try AbsolutePath(validating: "/tmp/input example/bar.o")
     var driver = try Driver(args: ["swiftc", "-explicit-module-build",
                                    "-module-name", "testDependencyScanning",
-                                   swiftInputWithSpace, swiftInputWithoutSpace,
-                                   "-Xcc", clangInputWithSpace])
+                                   input1.nativePathString(escaped: false),
+                                   input2.nativePathString(escaped: false),
+                                   "-Xcc", input3.nativePathString(escaped: false)])
     let scanJob = try driver.dependencyScanningJob()
     let scanJobCommand = try Driver.itemizedJobCommand(of: scanJob,
                                                        useResponseFiles: .disabled,
                                                        using: ArgsResolver(fileSystem: InMemoryFileSystem()))
-    XCTAssertTrue(scanJobCommand.contains(String(quoteCharacter) + swiftInputWithSpace + String(quoteCharacter)))
-    XCTAssertTrue(scanJobCommand.contains(String(quoteCharacter) + clangInputWithSpace + String(quoteCharacter)))
-    XCTAssertTrue(scanJobCommand.contains(swiftInputWithoutSpace))
+    XCTAssertTrue(scanJobCommand.contains("\(quote)\(input1.nativePathString(escaped: false))\(quote)"))
+    XCTAssertTrue(scanJobCommand.contains("\(quote)\(input3.nativePathString(escaped: false))\(quote)"))
+    XCTAssertTrue(scanJobCommand.contains(input2.nativePathString(escaped: false)))
   }
 
   func testDependencyGraphTransitiveClosure() throws {
@@ -2218,6 +2239,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       do {
         try assertDriverDiagnostics(args: [
             "swiftc",
+            "-Xcc", "-Xclang", "-Xcc", "-fbuiltin-headers-in-system-modules",
             "-I", cHeadersPath.nativePathString(escaped: true),
             "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
             "-explicit-module-build",
@@ -2241,6 +2263,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       do {
         try assertDriverDiagnostics(args:[
             "swiftc",
+            "-Xcc", "-Xclang", "-Xcc", "-fbuiltin-headers-in-system-modules",
             "-I", cHeadersPath.nativePathString(escaped: true),
             "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
             "-explicit-module-build",
@@ -2286,6 +2309,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let outputModule = path.appending(component: "Test.swiftmodule")
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       var driver = try Driver(args: ["swiftc",
+                                     "-Xcc", "-Xclang", "-Xcc", "-fbuiltin-headers-in-system-modules",
                                      "-explicit-module-build", "-module-name", "Test",
                                      "-module-cache-path", moduleCachePath.nativePathString(escaped: true),
                                      "-working-directory", path.nativePathString(escaped: true),

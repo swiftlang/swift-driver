@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import TSCBasic
 
 enum ModuleDependenciesInputs {
   static var fastDependencyScannerOutput: String {
@@ -174,9 +175,9 @@ enum ModuleDependenciesInputs {
                 "-Xcc",
                 "-fno-implicit-module-maps",
                 "-candidate-module-file",
-                "/dummy/path2/SwiftOnoneSupport.swiftmodule",
+                "\(AbsolutePath("/dummy/path2/SwiftOnoneSupport.swiftmodule").nativePathString(escaped: true))",
                 "-candidate-module-file",
-                "/dummy/path1/SwiftOnoneSupport.swiftmodule",
+                "\(AbsolutePath("/dummy/path1/SwiftOnoneSupport.swiftmodule").nativePathString(escaped: true))",
                 "-target",
                 "x86_64-apple-macosx10.15",
                 "-sdk",
