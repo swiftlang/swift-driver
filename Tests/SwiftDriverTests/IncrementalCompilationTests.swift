@@ -61,9 +61,10 @@ final class IncrementalCompilationTests: XCTestCase {
   var commonArgs: [String] {
     [
       "swiftc",
+      "-Xcc", "-Xclang", "-Xcc", "-fbuiltin-headers-in-system-modules",
       "-module-name", module,
-      "-o", derivedDataPath.appending(component: module + ".o").nativePathString(escaped: true),
-      "-output-file-map", OFM.nativePathString(escaped: true),
+      "-o", derivedDataPath.appending(component: module + ".o").nativePathString(escaped: false),
+      "-output-file-map", OFM.nativePathString(escaped: false),
       "-driver-show-incremental",
       "-driver-show-job-lifecycle",
       "-enable-batch-mode",
@@ -72,7 +73,7 @@ final class IncrementalCompilationTests: XCTestCase {
       "-incremental",
       "-no-color-diagnostics",
     ]
-    + inputPathsAndContents.map {$0.0.nativePathString(escaped: true)} .sorted()
+    + inputPathsAndContents.map({ $0.0.nativePathString(escaped: false) }).sorted()
   }
 
   var explicitModuleCacheDir: AbsolutePath {
@@ -98,12 +99,12 @@ final class IncrementalCompilationTests: XCTestCase {
 
   var explicitBuildArgs: [String] {
     ["-explicit-module-build",
-     "-module-cache-path", explicitModuleCacheDir.nativePathString(escaped: true),
+     "-module-cache-path", explicitModuleCacheDir.nativePathString(escaped: false),
      // Disable implicit imports to keep tests simpler
      "-Xfrontend", "-disable-implicit-concurrency-module-import",
      "-Xfrontend", "-disable-implicit-string-processing-module-import",
-     "-I", explicitCDependenciesPath.nativePathString(escaped: true),
-     "-I", explicitSwiftDependenciesPath.nativePathString(escaped: true)] + extraExplicitBuildArgs
+     "-I", explicitCDependenciesPath.nativePathString(escaped: false),
+     "-I", explicitSwiftDependenciesPath.nativePathString(escaped: false)] + extraExplicitBuildArgs
   }
   var extraExplicitBuildArgs: [String] = []
 
@@ -193,23 +194,21 @@ extension IncrementalCompilationTests {
   func testAutolinkOutputPath() throws {
     var env = ProcessEnv.vars
     env["SWIFT_DRIVER_TESTS_ENABLE_EXEC_PATH_FALLBACK"] = "1"
-    env["SWIFT_DRIVER_SWIFT_AUTOLINK_EXTRACT_EXEC"] = "/garbage/swift-autolink-extract"
-    env["SWIFT_DRIVER_DSYMUTIL_EXEC"] = "/garbage/dsymutil"
+    env["SWIFT_DRIVER_SWIFT_AUTOLINK_EXTRACT_EXEC"] = "//usr/bin/swift-autolink-extract"
+    env["SWIFT_DRIVER_DSYMUTIL_EXEC"] = "//usr/bin/dsymutil"
 
-    var driver = try Driver(
-      args: commonArgs
-        + ["-emit-library", "-target", "x86_64-unknown-linux"],
-      env: env)
-    let plannedJobs = try driver.planBuild()
-    let autolinkExtractJob = try XCTUnwrap(
-      plannedJobs
-        .filter { $0.kind == .autolinkExtract }
-        .first)
-    let autoOuts = autolinkExtractJob.outputs.filter {$0.type == .autolink}
-    XCTAssertEqual(autoOuts.count, 1)
-    let autoOut = autoOuts[0]
+    var driver = try Driver(args: commonArgs + [
+        "-emit-library", "-target", "x86_64-unknown-linux"
+    ], env: env)
+
+    let jobs = try driver.planBuild()
+    let job = try XCTUnwrap(jobs.filter { $0.kind == .autolinkExtract }.first)
+
+    let outputs = job.outputs.filter { $0.type == .autolink }
+    XCTAssertEqual(outputs.count, 1)
+
     let expected = try AbsolutePath(validating: "\(module).autolink", relativeTo: derivedDataPath)
-    XCTAssertEqual(autoOut.file.absolutePath, expected)
+    XCTAssertEqual(outputs.first!.file.absolutePath, expected)
   }
 }
 
@@ -518,7 +517,7 @@ extension IncrementalCompilationTests {
     // and repeat the initial build to settle into the "initial" state for the test
     try buildInitialState(checkDiagnostics: false, explicitModuleBuild: true)
     let modCacheEntries = try localFileSystem.getDirectoryContents(explicitModuleCacheDir)
-    let nameOfGModule = try XCTUnwrap(modCacheEntries.first { $0.hasPrefix("G") && $0.hasSuffix(".swiftmodule")})
+    let nameOfGModule = try XCTUnwrap(modCacheEntries.first { $0.hasPrefix("G") && $0.hasSuffix(".swiftmodule") })
     let pathToGModule = explicitModuleCacheDir.appending(component: nameOfGModule)
     // Rename the binary module to G.swiftmodule so that the next build's scan finds it.
     let newPathToGModule = explicitSwiftDependenciesPath.appending(component: "G.swiftmodule")
@@ -568,8 +567,8 @@ extension IncrementalCompilationTests {
 extension IncrementalCompilationTests {
   // A dependency has changed one of its inputs
   func testIncrementalImplicitBuildChangedDependency() throws {
-    let extraAruments = ["-I", explicitCDependenciesPath.nativePathString(escaped: true),
-                         "-I", explicitSwiftDependenciesPath.nativePathString(escaped: true)]
+    let extraAruments = ["-I", explicitCDependenciesPath.nativePathString(escaped: false),
+                         "-I", explicitSwiftDependenciesPath.nativePathString(escaped: false)]
     replace(contentsOf: "other", with: "import E;let bar = foo")
     try buildInitialState(checkDiagnostics: false, extraArguments: extraAruments)
     touch(try AbsolutePath(validating: explicitSwiftDependenciesPath.appending(component: "E.swiftinterface").pathString))
