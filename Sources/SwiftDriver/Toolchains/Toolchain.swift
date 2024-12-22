@@ -224,12 +224,16 @@ extension Toolchain {
       return path
     } else if let path = lookupExecutablePath(filename: executableName(executable), currentWorkingDirectory: fileSystem.currentWorkingDirectory, searchPaths: [try executableDir]) {
       return path
-    } else if let path = try? xcrunFind(executable: executableName(executable)) {
+    }
+#if canImport(Darwin)
+    if let path = try? xcrunFind(executable: executableName(executable)) {
       return path
-    } else if !["swift-frontend", "swift"].contains(executable),
-              let parentDirectory = try? getToolPath(.swiftCompiler).parentDirectory,
-              try parentDirectory != executableDir,
-              let path = lookupExecutablePath(filename: executableName(executable), searchPaths: [parentDirectory]) {
+    }
+#endif
+    if !["swift-frontend", "swift"].contains(executable),
+        let parentDirectory = try? getToolPath(.swiftCompiler).parentDirectory,
+        try parentDirectory != executableDir,
+        let path = lookupExecutablePath(filename: executableName(executable), searchPaths: [parentDirectory]) {
       // If the driver library's client and the frontend are in different directories,
       // try looking for tools next to the frontend.
       return path
@@ -246,9 +250,9 @@ extension Toolchain {
       } else {
         return try AbsolutePath(validating: "/usr/bin/" + executable)
       }
-    } else {
-      throw ToolchainError.unableToFind(tool: executable)
     }
+
+    throw ToolchainError.unableToFind(tool: executable)
   }
 
   /// Looks for the executable in the `SWIFT_DRIVER_SWIFTSCAN_LIB` environment variable, if found nothing,
