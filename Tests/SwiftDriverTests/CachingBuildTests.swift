@@ -49,7 +49,7 @@ throws {
           XCTAssertTrue(job.inputs.contains(typedCandidatePath))
           XCTAssertTrue(job.commandLine.contains(.flag(VirtualPath.lookup(candidatePath).description)))
         }
-        XCTAssertTrue(job.commandLine.filter {$0 == .flag("-candidate-module-file")}.count == compiledCandidateList.count)
+        XCTAssertEqual(job.commandLine.filter { $0 == .flag("-candidate-module-file") }.count, compiledCandidateList.count)
       }
       // make sure command-line from dep-scanner are included.
       let extraCommandLine = try XCTUnwrap(swiftModuleDetails.commandLine)
@@ -512,7 +512,7 @@ final class CachingBuildTests: XCTestCase {
       for job in jobs {
         if (job.outputs.count == 0) {
           // This is the verify module job as it should be the only job scheduled to have no output.
-          XCTAssertTrue(job.kind == .verifyModuleInterface)
+          XCTAssertEqual(job.kind, .verifyModuleInterface)
           // Check the explicit module flags exists.
           XCTAssertTrue(job.commandLine.contains(.flag(String("-explicit-interface-module-build"))))
           XCTAssertTrue(job.commandLine.contains(.flag(String("-explicit-swift-module-map-file"))))

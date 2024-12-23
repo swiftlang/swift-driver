@@ -269,7 +269,7 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 1)
       let helpJob = plannedJobs.first!
-      XCTAssertTrue(helpJob.kind == .help)
+      XCTAssertEqual(helpJob.kind, .help)
       XCTAssertTrue(helpJob.requiresInPlaceExecution)
       XCTAssertTrue(helpJob.tool.name.hasSuffix("swift-help"))
       let expected: [Job.ArgTemplate] = [.flag("swift")]
@@ -281,7 +281,7 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       XCTAssertEqual(plannedJobs.count, 1)
       let helpJob = plannedJobs.first!
-      XCTAssertTrue(helpJob.kind == .help)
+      XCTAssertEqual(helpJob.kind, .help)
       XCTAssertTrue(helpJob.requiresInPlaceExecution)
       XCTAssertTrue(helpJob.tool.name.hasSuffix("swift-help"))
       let expected: [Job.ArgTemplate] = [.flag("swiftc"), .flag("-show-hidden")]
@@ -930,9 +930,9 @@ final class SwiftDriverTests: XCTestCase {
                                        "-emit-library", "-module-name", "Test", "-serialize-diagnostics"])
         let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
         XCTAssertEqual(plannedJobs.count, 3)
-        XCTAssertTrue(plannedJobs[0].kind == .emitModule)
-        XCTAssertTrue(plannedJobs[1].kind == .compile)
-        XCTAssertTrue(plannedJobs[2].kind == .link)
+        XCTAssertEqual(plannedJobs[0].kind, .emitModule)
+        XCTAssertEqual(plannedJobs[1].kind, .compile)
+        XCTAssertEqual(plannedJobs[2].kind, .link)
         try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-serialize-diagnostics-path"), .path(.absolute(.init(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.emit-module.dia"))))
         try XCTAssertJobInvocationMatches(plannedJobs[1], .flag("-serialize-diagnostics-path"), .path(.absolute(.init(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.dia"))))
       }
@@ -944,9 +944,9 @@ final class SwiftDriverTests: XCTestCase {
                                        "-emit-library", "-module-name", "Test", "-serialize-diagnostics"])
         let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
         XCTAssertEqual(plannedJobs.count, 3)
-        XCTAssertTrue(plannedJobs[0].kind == .compile)
-        XCTAssertTrue(plannedJobs[1].kind == .emitModule)
-        XCTAssertTrue(plannedJobs[2].kind == .link)
+        XCTAssertEqual(plannedJobs[0].kind, .compile)
+        XCTAssertEqual(plannedJobs[1].kind, .emitModule)
+        XCTAssertEqual(plannedJobs[2].kind, .link)
         try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-serialize-diagnostics-path"), .path(.absolute(.init(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.dia"))))
         try XCTAssertJobInvocationMatches(plannedJobs[1], .flag("-serialize-diagnostics-path"), .path(.absolute(.init(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.emit-module.dia"))))
       }
@@ -1776,7 +1776,7 @@ final class SwiftDriverTests: XCTestCase {
                         outputs: [])
       let resolver = try ArgsResolver(fileSystem: localFileSystem)
       let resolvedArgs: [String] = try resolver.resolveArgumentList(for: testJob)
-      XCTAssertTrue(resolvedArgs.count == 3)
+      XCTAssertEqual(resolvedArgs.count, 3)
       XCTAssertEqual(resolvedArgs[2].first, "@")
       let responseFilePath = try AbsolutePath(validating: String(resolvedArgs[2].dropFirst()))
       XCTAssertEqual(responseFilePath.basename, "arguments-847d15e70d97df7c18033735497ca8dcc4441f461d5a9c2b764b127004524e81.resp")
@@ -5428,7 +5428,7 @@ final class SwiftDriverTests: XCTestCase {
     for arg in ["-version", "--version"] {
       var driver = try Driver(args: ["swift"] + [arg])
       let plannedJobs = try driver.planBuild()
-      XCTAssertTrue(plannedJobs.count == 1)
+      XCTAssertEqual(plannedJobs.count, 1)
       let job = plannedJobs[0]
       XCTAssertEqual(job.kind, .versionRequest)
       XCTAssertEqual(job.commandLine, [.flag("--version")])
@@ -5461,7 +5461,7 @@ final class SwiftDriverTests: XCTestCase {
     do {
       var driver = try Driver(args: ["swift", "-print-target-info", "-target", "arm64-apple-ios12.0", "-sdk", "bar", "-resource-dir", "baz"])
       let plannedJobs = try driver.planBuild()
-      XCTAssertTrue(plannedJobs.count == 1)
+      XCTAssertEqual(plannedJobs.count, 1)
       let job = plannedJobs[0]
       XCTAssertEqual(job.kind, .printTargetInfo)
       XCTAssertJobInvocationMatches(job, .flag("-print-target-info"))
@@ -6175,12 +6175,12 @@ final class SwiftDriverTests: XCTestCase {
         let verifyJob = try plannedJobs.findJob(.verifyModuleInterface)
         let packageOutputs = emitJob.outputs.filter { $0.type == .packageSwiftInterface }
         let publicOutputs = emitJob.outputs.filter { $0.type == .swiftInterface }
-        XCTAssertTrue(packageOutputs.count == 1,
-                      "There should be one package swiftinterface output")
-        XCTAssertTrue(publicOutputs.count == 1,
-                      "There should be one public swiftinterface output")
-        XCTAssertTrue(verifyJob.inputs.count == 1)
-        XCTAssertTrue(verifyJob.inputs[0] == publicOutputs[0])
+        XCTAssertEqual(packageOutputs.count, 1,
+                       "There should be one package swiftinterface output")
+        XCTAssertEqual(publicOutputs.count, 1,
+                       "There should be one public swiftinterface output")
+        XCTAssertEqual(verifyJob.inputs.count, 1)
+        XCTAssertEqual(verifyJob.inputs[0], publicOutputs[0])
         XCTAssertTrue(verifyJob.outputs.isEmpty)
       }
 
@@ -6212,12 +6212,12 @@ final class SwiftDriverTests: XCTestCase {
         let verifyJob = try plannedJobs.findJob(.verifyModuleInterface)
         let packageOutputs = emitJob.outputs.filter { $0.type == .packageSwiftInterface }
         let publicOutputs = emitJob.outputs.filter { $0.type == .swiftInterface }
-        XCTAssertTrue(packageOutputs.count == 1,
-                      "There should be one package swiftinterface output")
-        XCTAssertTrue(publicOutputs.count == 1,
-                      "There should be one public swiftinterface output")
-        XCTAssertTrue(verifyJob.inputs.count == 1)
-        XCTAssertTrue(verifyJob.inputs[0] == publicOutputs[0])
+        XCTAssertEqual(packageOutputs.count, 1,
+                       "There should be one package swiftinterface output")
+        XCTAssertEqual(publicOutputs.count, 1,
+                       "There should be one public swiftinterface output")
+        XCTAssertEqual(verifyJob.inputs.count, 1)
+        XCTAssertEqual(verifyJob.inputs[0], publicOutputs[0])
         XCTAssertTrue(verifyJob.outputs.isEmpty)
       }
   }
@@ -6241,7 +6241,7 @@ final class SwiftDriverTests: XCTestCase {
                               env: envVars)
 
       let plannedJobs = try driver.planBuild()
-      XCTAssertTrue(plannedJobs.count == 1)
+      XCTAssertEqual(plannedJobs.count, 1)
       XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-experimental-package-interface-load"))
     }
   }

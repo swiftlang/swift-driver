@@ -2309,13 +2309,13 @@ final class ExplicitModuleBuildTests: XCTestCase {
     }
 
     func getOutputName(_ job: Job) -> String {
-      XCTAssertTrue(job.outputs.count == 1)
+      XCTAssertEqual(job.outputs.count, 1)
       return job.outputs[0].file.basename
     }
 
     func checkInputOutputIntegrity(_ job: Job) {
       let name = job.outputs[0].file.basenameWithoutExt
-      XCTAssertTrue(job.outputs[0].file.extension == "swiftmodule")
+      XCTAssertEqual(job.outputs[0].file.extension, "swiftmodule")
       job.inputs.forEach { input in
         // Inputs include all the dependencies and the interface from where
         // the current module can be built.
@@ -2326,7 +2326,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
         if inputName.starts(with: "arm64e-") && name.starts(with: "arm64-") {
           return
         }
-        XCTAssertTrue(inputName == name)
+        XCTAssertEqual(inputName, name)
       }
     }
 
@@ -2352,12 +2352,12 @@ final class ExplicitModuleBuildTests: XCTestCase {
     }()
 
     // Check interface map always contain everything
-    XCTAssertTrue(interfaceMap["Swift"]!.count == 3)
-    XCTAssertTrue(interfaceMap["A"]!.count == 3)
-    XCTAssertTrue(interfaceMap["E"]!.count == 3)
-    XCTAssertTrue(interfaceMap["F"]!.count == 3)
-    XCTAssertTrue(interfaceMap["G"]!.count == 3)
-    XCTAssertTrue(interfaceMap["H"]!.count == 3)
+    XCTAssertEqual(interfaceMap["Swift"]?.count, 3)
+    XCTAssertEqual(interfaceMap["A"]?.count, 3)
+    XCTAssertEqual(interfaceMap["E"]?.count, 3)
+    XCTAssertEqual(interfaceMap["F"]?.count, 3)
+    XCTAssertEqual(interfaceMap["G"]?.count, 3)
+    XCTAssertEqual(interfaceMap["H"]?.count, 3)
 
     try withTemporaryDirectory { path in
       let main = path.appending(component: "testPrebuiltModuleGenerationJobs.swift")
@@ -2381,11 +2381,11 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                                                                 into: path,
                                                                                 exhaustive: true)
 
-      XCTAssertTrue(danglingJobs.count == 2)
+      XCTAssertEqual(danglingJobs.count, 2)
       XCTAssertTrue(danglingJobs.allSatisfy { job in
         job.moduleName == "MissingKit"
       })
-      XCTAssertTrue(jobs.count == 18)
+      XCTAssertEqual(jobs.count, 18)
       XCTAssertTrue(jobs.allSatisfy {$0.outputs.count == 1})
       XCTAssertTrue(jobs.allSatisfy {$0.kind == .compile})
       XCTAssertTrue(jobs.allSatisfy {$0.commandLine.contains(.flag("-compile-module-from-interface"))})
@@ -2393,23 +2393,23 @@ final class ExplicitModuleBuildTests: XCTestCase {
       XCTAssertTrue(jobs.allSatisfy {$0.commandLine.contains(.flag("-bad-file-descriptor-retry-count"))})
       XCTAssertTrue(try jobs.allSatisfy {$0.commandLine.contains(.path(try VirtualPath(path: moduleCachePath)))})
       let HJobs = jobs.filter { $0.moduleName == "H"}
-      XCTAssertTrue(HJobs.count == 3)
+      XCTAssertEqual(HJobs.count, 3)
       // arm64
-      XCTAssertTrue(getInputModules(HJobs[0]) == ["A", "A", "E", "E", "F", "F", "G", "G", "Swift", "Swift"])
+      XCTAssertEqual(getInputModules(HJobs[0]), ["A", "A", "E", "E", "F", "F", "G", "G", "Swift", "Swift"])
       // arm64e
-      XCTAssertTrue(getInputModules(HJobs[1]) == ["A", "E", "F", "G", "Swift"])
+      XCTAssertEqual(getInputModules(HJobs[1]), ["A", "E", "F", "G", "Swift"])
       // x86_64
-      XCTAssertTrue(getInputModules(HJobs[2]) == ["A", "E", "F", "G", "Swift"])
+      XCTAssertEqual(getInputModules(HJobs[2]), ["A", "E", "F", "G", "Swift"])
       XCTAssertTrue(getOutputName(HJobs[0]) != getOutputName(HJobs[1]))
       XCTAssertTrue(getOutputName(HJobs[1]) != getOutputName(HJobs[2]))
       checkInputOutputIntegrity(HJobs[0])
       checkInputOutputIntegrity(HJobs[1])
       checkInputOutputIntegrity(HJobs[2])
       let GJobs = jobs.filter { $0.moduleName == "G"}
-      XCTAssertTrue(GJobs.count == 3)
-      XCTAssertTrue(getInputModules(GJobs[0]) == ["E", "E", "Swift", "Swift"])
-      XCTAssertTrue(getInputModules(GJobs[1]) == ["E", "Swift"])
-      XCTAssertTrue(getInputModules(GJobs[2]) == ["E", "Swift"])
+      XCTAssertEqual(GJobs.count, 3)
+      XCTAssertEqual(getInputModules(GJobs[0]), ["E", "E", "Swift", "Swift"])
+      XCTAssertEqual(getInputModules(GJobs[1]), ["E", "Swift"])
+      XCTAssertEqual(getInputModules(GJobs[2]), ["E", "Swift"])
       XCTAssertTrue(getOutputName(GJobs[0]) != getOutputName(GJobs[1]))
       XCTAssertTrue(getOutputName(GJobs[1]) != getOutputName(GJobs[2]))
       checkInputOutputIntegrity(GJobs[0])
@@ -2426,26 +2426,28 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                                                                 exhaustive: false)
 
       XCTAssertTrue(danglingJobs.isEmpty)
-      XCTAssertTrue(jobs.count == 18)
+      XCTAssertEqual(jobs.count, 18)
       XCTAssertTrue(jobs.allSatisfy {$0.outputs.count == 1})
       XCTAssertTrue(jobs.allSatisfy {$0.kind == .compile})
       XCTAssertTrue(jobs.allSatisfy {$0.commandLine.contains(.flag("-compile-module-from-interface"))})
+
       let HJobs = jobs.filter { $0.moduleName == "H"}
-      XCTAssertTrue(HJobs.count == 3)
+      XCTAssertEqual(HJobs.count, 3)
       // arm64
-      XCTAssertTrue(getInputModules(HJobs[0]) == ["A", "A", "E", "E", "F", "F", "G", "G", "Swift", "Swift"])
+      XCTAssertEqual(getInputModules(HJobs[0]), ["A", "A", "E", "E", "F", "F", "G", "G", "Swift", "Swift"])
       // arm64e
-      XCTAssertTrue(getInputModules(HJobs[1]) == ["A", "E", "F", "G", "Swift"])
+      XCTAssertEqual(getInputModules(HJobs[1]), ["A", "E", "F", "G", "Swift"])
       // x86_64
-      XCTAssertTrue(getInputModules(HJobs[2]) == ["A", "E", "F", "G", "Swift"])
+      XCTAssertEqual(getInputModules(HJobs[2]), ["A", "E", "F", "G", "Swift"])
       XCTAssertTrue(getOutputName(HJobs[0]) != getOutputName(HJobs[1]))
       checkInputOutputIntegrity(HJobs[0])
       checkInputOutputIntegrity(HJobs[1])
+
       let GJobs = jobs.filter { $0.moduleName == "G"}
-      XCTAssertTrue(GJobs.count == 3)
-      XCTAssertTrue(getInputModules(GJobs[0]) == ["E", "E", "Swift", "Swift"])
-      XCTAssertTrue(getInputModules(GJobs[1]) == ["E", "Swift"])
-      XCTAssertTrue(getInputModules(GJobs[2]) == ["E", "Swift"])
+      XCTAssertEqual(GJobs.count, 3)
+      XCTAssertEqual(getInputModules(GJobs[0]), ["E", "E", "Swift", "Swift"])
+      XCTAssertEqual(getInputModules(GJobs[1]), ["E", "Swift"])
+      XCTAssertEqual(getInputModules(GJobs[2]), ["E", "Swift"])
       XCTAssertTrue(getOutputName(GJobs[0]) != getOutputName(GJobs[1]))
       XCTAssertTrue(getOutputName(GJobs[1]) != getOutputName(GJobs[2]))
       checkInputOutputIntegrity(GJobs[0])
@@ -2476,7 +2478,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                                                                 exhaustive: false)
 
       XCTAssertTrue(danglingJobs.isEmpty)
-      XCTAssertTrue(jobs.count == 9)
+      XCTAssertEqual(jobs.count, 9)
       jobs.forEach({ job in
         // Check we don't pull in other modules than A, F and Swift
         XCTAssertTrue(["A", "F", "Swift"].contains(job.moduleName))
@@ -2507,13 +2509,13 @@ final class ExplicitModuleBuildTests: XCTestCase {
 
   func testABICheckWhileBuildingPrebuiltModule() throws {
     func checkABICheckingJob(_ job: Job) throws {
-      XCTAssertTrue(job.kind == .compareABIBaseline)
-      XCTAssertTrue(job.inputs.count == 2)
+      XCTAssertEqual(job.kind, .compareABIBaseline)
+      XCTAssertEqual(job.inputs.count, 2)
       let (baseline, current) = (job.inputs[0], job.inputs[1])
-      XCTAssertTrue(baseline.type == .jsonABIBaseline)
-      XCTAssertTrue(current.type == .jsonABIBaseline)
+      XCTAssertEqual(baseline.type, .jsonABIBaseline)
+      XCTAssertEqual(current.type, .jsonABIBaseline)
       XCTAssertTrue(current.file != baseline.file)
-      XCTAssertTrue(current.file.basename == baseline.file.basename)
+      XCTAssertEqual(current.file.basename, baseline.file.basename)
     }
     let mockSDKPath: String =
         try testInputsPath.appending(component: "mock-sdk.sdk").pathString
