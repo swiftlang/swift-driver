@@ -125,7 +125,7 @@ private func checkCASForResults(jobs: [Job], cas: SwiftScanCAS, fs: FileSystem) 
           try await compilation.makeGlobal()
           // Execise call back uploading method.
           compilation.makeGlobal { error in
-            XCTAssertTrue(error == nil, "Upload Error")
+            XCTAssertNil(error, "Upload Error")
           }
           compilations.append(compilation)
         } else {
