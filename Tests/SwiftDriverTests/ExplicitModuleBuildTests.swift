@@ -475,7 +475,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
         case .swift("testExplicitLinkLibraries"):
           let linkLibraries = try XCTUnwrap(depInfo.linkLibraries)
           if driver.targetTriple.isDarwin {
-            XCTAssertTrue(!linkLibraries.isEmpty)
+            XCTAssertFalse(linkLibraries.isEmpty)
             XCTAssertTrue(linkLibraries.contains { $0.linkName == "objc" })
           }
         default:
@@ -2400,8 +2400,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
       XCTAssertEqual(getInputModules(HJobs[1]), ["A", "E", "F", "G", "Swift"])
       // x86_64
       XCTAssertEqual(getInputModules(HJobs[2]), ["A", "E", "F", "G", "Swift"])
-      XCTAssertTrue(getOutputName(HJobs[0]) != getOutputName(HJobs[1]))
-      XCTAssertTrue(getOutputName(HJobs[1]) != getOutputName(HJobs[2]))
+      XCTAssertNotEqual(getOutputName(HJobs[0]), getOutputName(HJobs[1]))
+      XCTAssertNotEqual(getOutputName(HJobs[1]), getOutputName(HJobs[2]))
       checkInputOutputIntegrity(HJobs[0])
       checkInputOutputIntegrity(HJobs[1])
       checkInputOutputIntegrity(HJobs[2])
@@ -2410,8 +2410,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
       XCTAssertEqual(getInputModules(GJobs[0]), ["E", "E", "Swift", "Swift"])
       XCTAssertEqual(getInputModules(GJobs[1]), ["E", "Swift"])
       XCTAssertEqual(getInputModules(GJobs[2]), ["E", "Swift"])
-      XCTAssertTrue(getOutputName(GJobs[0]) != getOutputName(GJobs[1]))
-      XCTAssertTrue(getOutputName(GJobs[1]) != getOutputName(GJobs[2]))
+      XCTAssertNotEqual(getOutputName(GJobs[0]), getOutputName(GJobs[1]))
+      XCTAssertNotEqual(getOutputName(GJobs[1]), getOutputName(GJobs[2]))
       checkInputOutputIntegrity(GJobs[0])
       checkInputOutputIntegrity(GJobs[1])
     }
@@ -2439,7 +2439,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       XCTAssertEqual(getInputModules(HJobs[1]), ["A", "E", "F", "G", "Swift"])
       // x86_64
       XCTAssertEqual(getInputModules(HJobs[2]), ["A", "E", "F", "G", "Swift"])
-      XCTAssertTrue(getOutputName(HJobs[0]) != getOutputName(HJobs[1]))
+      XCTAssertNotEqual(getOutputName(HJobs[0]), getOutputName(HJobs[1]))
       checkInputOutputIntegrity(HJobs[0])
       checkInputOutputIntegrity(HJobs[1])
 
@@ -2448,8 +2448,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
       XCTAssertEqual(getInputModules(GJobs[0]), ["E", "E", "Swift", "Swift"])
       XCTAssertEqual(getInputModules(GJobs[1]), ["E", "Swift"])
       XCTAssertEqual(getInputModules(GJobs[2]), ["E", "Swift"])
-      XCTAssertTrue(getOutputName(GJobs[0]) != getOutputName(GJobs[1]))
-      XCTAssertTrue(getOutputName(GJobs[1]) != getOutputName(GJobs[2]))
+      XCTAssertNotEqual(getOutputName(GJobs[0]), getOutputName(GJobs[1]))
+      XCTAssertNotEqual(getOutputName(GJobs[1]), getOutputName(GJobs[2]))
       checkInputOutputIntegrity(GJobs[0])
       checkInputOutputIntegrity(GJobs[1])
     }
@@ -2514,7 +2514,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let (baseline, current) = (job.inputs[0], job.inputs[1])
       XCTAssertEqual(baseline.type, .jsonABIBaseline)
       XCTAssertEqual(current.type, .jsonABIBaseline)
-      XCTAssertTrue(current.file != baseline.file)
+      XCTAssertNotEqual(current.file, baseline.file)
       XCTAssertEqual(current.file.basename, baseline.file.basename)
     }
     let mockSDKPath: String =
