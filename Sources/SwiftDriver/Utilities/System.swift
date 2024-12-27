@@ -59,7 +59,7 @@ func quoteArgument(_ argument: String) -> String {
 #endif
 }
 
-#if canImport(Darwin) || os(Linux) || os(Android) || os(OpenBSD)
+#if canImport(Darwin) || os(Linux) || os(Android) || os(OpenBSD) || os(FreeBSD)
 // Adapted from llvm::sys::commandLineFitsWithinSystemLimits.
 func commandLineFitsWithinSystemLimits(path: String, args: [String]) -> Bool {
   let upperBound = sysconf(Int32(_SC_ARG_MAX))
