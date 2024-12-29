@@ -12,6 +12,10 @@
 
 @_implementationOnly import CSwiftScan
 
+#if os(Windows)
+import CRT
+#endif
+
 import func Foundation.strdup
 import func Foundation.free
 import class Foundation.JSONDecoder
@@ -680,7 +684,11 @@ private extension swiftscan_functions_t {
 @_spi(Testing) public func withArrayOfCStrings<T>(_ strings: [String],
                                                   _ action:  (UnsafeMutablePointer<UnsafePointer<Int8>?>?) -> T) -> T
 {
+#if os(Windows)
+  let cstrings = strings.map { _strdup($0) } + [nil]
+#else
   let cstrings = strings.map { strdup($0) } + [nil]
+#endif
   let unsafeCStrings = cstrings.map { UnsafePointer($0) }
   let result = unsafeCStrings.withUnsafeBufferPointer {
     action(UnsafeMutablePointer(mutating: $0.baseAddress))
