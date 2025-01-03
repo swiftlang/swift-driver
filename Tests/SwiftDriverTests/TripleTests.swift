@@ -48,6 +48,12 @@ final class TripleTests: XCTestCase {
     XCTAssertEqual(Triple("arm64-apple-none-macho").os, .noneOS)
     XCTAssertEqual(Triple("arm64-apple-none-macho").environment, nil)
     XCTAssertEqual(Triple("arm64-apple-none-macho").objectFormat, .macho)
+
+    XCTAssertEqual(Triple("x86_64-unknown-freebsd14.1").arch, .x86_64)
+    XCTAssertEqual(Triple("x86_64-unknown-freebsd14.1").vendor, nil)
+    XCTAssertEqual(Triple("x86_64-unknown-freebsd14.1").os, .freeBSD)
+    XCTAssertEqual(Triple("x86_64-unknown-freebsd14.1").osNameUnversioned, "freebsd")
+    XCTAssertEqual(Triple("x86_64-unknown-freebsd14.1").objectFormat, .elf)
   }
 
   func testBasicParsing() {
