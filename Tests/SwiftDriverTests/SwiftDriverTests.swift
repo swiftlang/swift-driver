@@ -6972,6 +6972,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertFalse(linkJob.commandLine.contains(.flag("-force_load")))
       XCTAssertFalse(linkJob.commandLine.contains(.flag("-rpath")))
       XCTAssertFalse(linkJob.commandLine.contains(.flag("-lswiftCore")))
+      XCTAssertTrue(linkJob.commandLine.contains(.flag("-nostdlib")))
     }
 
     // Embedded Wasm link job
@@ -6984,6 +6985,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertFalse(linkJob.commandLine.contains(.flag("-force_load")))
       XCTAssertFalse(linkJob.commandLine.contains(.flag("-rpath")))
       XCTAssertFalse(linkJob.commandLine.contains(.flag("-lswiftCore")))
+      XCTAssertTrue(linkJob.commandLine.contains(.flag("-nostdlib")))
       XCTAssertFalse(linkJob.commandLine.joinedUnresolvedArguments.contains("swiftrt.o"))
     }
 
