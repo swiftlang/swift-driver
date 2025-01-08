@@ -718,9 +718,9 @@ final class CachingBuildTests: XCTestCase {
                                      "-working-directory", path.nativePathString(escaped: true),
                                      main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
                               interModuleDependencyOracle: dependencyOracle)
-      // This is currently not supported.
-      XCTAssertThrowsError(try driver.planBuild()) {
-        XCTAssertEqual($0 as? DependencyScanningError, .unsupportedConfigurationForCaching("module Foo has bridging header dependency"))
+      let jobs = try driver.planBuild()
+      for job in jobs {
+          XCTAssertFalse(job.outputCacheKeys.isEmpty)
       }
     }
   }

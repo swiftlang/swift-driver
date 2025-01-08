@@ -39,7 +39,6 @@ public enum DependencyScanningError: LocalizedError, DiagnosticData, Equatable {
   case scanningLibraryInvocationMismatch(String, String)
   case scanningLibraryNotFound(AbsolutePath)
   case argumentQueryFailed
-  case unsupportedConfigurationForCaching(String)
 
   public var description: String {
     switch self {
@@ -65,8 +64,6 @@ public enum DependencyScanningError: LocalizedError, DiagnosticData, Equatable {
         return "Dependency Scanning library not found at path: \(path)"
       case .argumentQueryFailed:
         return "Supported compiler argument query failed"
-      case .unsupportedConfigurationForCaching(let reason):
-        return "Unsupported configuration for -cache-compile-job, consider turn off swift caching: \(reason)"
     }
   }
 

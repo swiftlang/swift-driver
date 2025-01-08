@@ -264,11 +264,6 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
     for dependencyModule in swiftDependencyArtifacts {
       inputs.append(TypedVirtualPath(file: dependencyModule.modulePath.path,
                                      type: .swiftModule))
-
-      let prebuiltHeaderDependencyPaths = dependencyModule.prebuiltHeaderDependencyPaths ?? []
-      if cas != nil && !prebuiltHeaderDependencyPaths.isEmpty {
-        throw DependencyScanningError.unsupportedConfigurationForCaching("module \(dependencyModule.moduleName) has bridging header dependency")
-      }
     }
     for moduleArtifactInfo in clangDependencyArtifacts {
       let clangModulePath =
