@@ -60,9 +60,6 @@ public final class IncrementalCompilationState {
                  outputFileMap: driver.outputFileMap)
       : nil
 
-    reporter?.reportOnIncrementalImports(
-      initialState.incrementalOptions.contains(.enableCrossModuleIncrementalBuild))
-
     let firstWave = try FirstWaveComputer(
       initialState: initialState,
       jobsInPhases: jobsInPhases,
@@ -102,12 +99,5 @@ public final class IncrementalCompilationState {
 extension IncrementalCompilationState: IncrementalCompilationSynchronizer {
   public var incrementalCompilationQueue: DispatchQueue {
     info.incrementalCompilationQueue
-  }
-}
-
-fileprivate extension IncrementalCompilationState.Reporter {
-  func reportOnIncrementalImports(_ enabled: Bool) {
-    report(
-      "\(enabled ? "Enabling" : "Disabling") incremental cross-module building")
   }
 }

@@ -163,8 +163,6 @@ extension IncrementalCompilationTests {
       (.driverShowIncremental, {$0.reporter != nil}),
       (.driverEmitFineGrainedDependencyDotFileAfterEveryImport, {$0.emitDependencyDotFileAfterEveryImport}),
       (.driverVerifyFineGrainedDependencyGraphAfterEveryImport, {$0.verifyDependencyGraphAfterEveryImport}),
-      (.enableIncrementalImports, {$0.isCrossModuleIncrementalBuildEnabled}),
-      (.disableIncrementalImports, {!$0.isCrossModuleIncrementalBuildEnabled}),
     ]
 
     for (driverOption, stateOptionFn) in optionPairs {
@@ -331,7 +329,6 @@ extension IncrementalCompilationTests {
       whenAutolinking: autolinkLifecycleExpectedDiags
     ) {
       readGraph
-      enablingCrossModule
       readInterModuleGraph
       // Ensure a re-scan was performed
       explicitMustReScanDueToChangedImports
@@ -372,7 +369,6 @@ extension IncrementalCompilationTests {
       whenAutolinking: autolinkLifecycleExpectedDiags
     ) {
       readGraph
-      enablingCrossModule
       readInterModuleGraph
       // Ensure the above 'touch' is detected and causes a re-scan
       explicitDependencyModuleOlderThanInput("E")
@@ -424,7 +420,6 @@ extension IncrementalCompilationTests {
       whenAutolinking: autolinkLifecycleExpectedDiags
     ) {
       readGraph
-      enablingCrossModule
       readInterModuleGraph
       // Ensure the above 'touch' is detected and causes a re-scan
       explicitDependencyModuleOlderThanInput("G")
@@ -497,7 +492,6 @@ extension IncrementalCompilationTests {
       whenAutolinking: autolinkLifecycleExpectedDiags
     ) {
       readGraph
-      enablingCrossModule
       readInterModuleGraph
       explicitDependencyModuleOlderThanInput("J")
       moduleInfoStaleOutOfDate("J")
@@ -549,7 +543,6 @@ extension IncrementalCompilationTests {
       whenAutolinking: autolinkLifecycleExpectedDiags
     ) {
       readGraph
-      enablingCrossModule
       noFingerprintInSwiftModule("G.swiftinterface")
       dependencyNewerThanNode("G.swiftinterface")
       dependencyNewerThanNode("G.swiftinterface") // FIXME: Why do we see this twice?
@@ -592,7 +585,6 @@ extension IncrementalCompilationTests {
       whenAutolinking: autolinkLifecycleExpectedDiags
     ) {
       readGraph
-      enablingCrossModule
       schedulingNoncascading("main", "other")
       missing("main")
       missing("other")
@@ -879,7 +871,6 @@ extension IncrementalCompilationTests {
       extraArguments: ["-user-module-version", "1.1"],
       whenAutolinking: autolinkLifecycleExpectedDiags
     ) {
-      enablingCrossModule
       readGraph
       differentArgsPassed
       disablingIncrementalDifferentArgsPassed
@@ -898,7 +889,6 @@ extension IncrementalCompilationTests {
       extraArguments: ["-no-warnings-as-errors", "-warnings-as-errors"],
       whenAutolinking: autolinkLifecycleExpectedDiags
     ) {
-      enablingCrossModule
       readGraph
       differentArgsPassed
       disablingIncrementalDifferentArgsPassed
@@ -917,7 +907,6 @@ extension IncrementalCompilationTests {
       extraArguments: ["-Ibar", "-Ifoo"],
       whenAutolinking: autolinkLifecycleExpectedDiags
     ) {
-      enablingCrossModule
       readGraph
       differentArgsPassed
       disablingIncrementalDifferentArgsPassed
@@ -946,7 +935,6 @@ extension IncrementalCompilationTests {
       // Leave off the part after the colon because it varies on Linux:
       // MacOS: The operation could not be completed. (TSCBasic.FileSystemError error 3.).
       // Linux: The operation couldn’t be completed. (TSCBasic.FileSystemError error 3.)
-      enablingCrossModule
       findingBatchingCompiling("main", "other")
       reading(deps: "main", "other")
       schedLinking
@@ -978,7 +966,6 @@ extension IncrementalCompilationTests {
     explicitModuleBuild: Bool = false
   ) throws -> Driver {
     @DiagsBuilder var implicitBuildNullRemarks: [Diagnostic.Message] {
-      enablingCrossModule
       readGraph
       maySkip("main", "other")
       skipping("main", "other")
@@ -1015,7 +1002,6 @@ extension IncrementalCompilationTests {
       extraArguments: extraArguments,
       whenAutolinking: autolinkLifecycleExpectedDiags
     ) {
-      enablingCrossModule
       maySkip("main")
       schedulingChangedInitialQueuing("other")
       skipping("main")
@@ -1041,7 +1027,6 @@ extension IncrementalCompilationTests {
   ) throws {
     @DiagsBuilder var implicitBuildRemarks: [Diagnostic.Message] {
       readGraph
-      enablingCrossModule
       schedulingChangedInitialQueuing("main", "other")
       findingBatchingCompiling("main", "other")
       reading(deps: "main", "other")
@@ -1083,7 +1068,6 @@ extension IncrementalCompilationTests {
       whenAutolinking: autolinkLifecycleExpectedDiags
     ) {
       readGraph
-      enablingCrossModule
       schedulingChanged("main")
       maySkip("other")
       queuingInitial("main")
@@ -1123,7 +1107,6 @@ extension IncrementalCompilationTests {
       extraArguments: [extraArgument],
       whenAutolinking: autolinkLifecycleExpectedDiags
     ) {
-      enablingCrossModule
       readGraph
       maySkip("other")
       queuingInitial("main")
@@ -1164,7 +1147,6 @@ extension IncrementalCompilationTests {
       whenAutolinking: autolinkLifecycleExpectedDiags
     ) {
       readGraph
-      enablingCrossModule
       maySkip("main", "other")
       schedulingNew(newInput)
       missing(newInput)
@@ -1204,7 +1186,6 @@ extension IncrementalCompilationTests {
       whenAutolinking: autolinkLifecycleExpectedDiags
     ) {
       readGraph
-      enablingCrossModule
       maySkip("main", "other", newInput)
       skipping("main", "other", newInput)
       skippingLinking
@@ -1250,7 +1231,6 @@ extension IncrementalCompilationTests {
         // Give up on incremental if an input is removed:
         readGraph
         disabledForRemoval(removedInput)
-        enablingCrossModule
         reading(deps: "main", "other")
         findingBatchingCompiling("main", "other")
         schedulingPostCompileJobs
@@ -1258,7 +1238,6 @@ extension IncrementalCompilationTests {
       case (false, true):
         // Missing swiftdeps; compile it, read swiftdeps, link
         readGraph
-        enablingCrossModule
         maySkip("main", "other", removedInput)
         missing(removedInput)
         queuingInitial(removedInput)
@@ -1315,7 +1294,6 @@ extension IncrementalCompilationTests {
       whenAutolinking: autolinkLifecycleExpectedDiags
     ) {
       readGraph
-      enablingCrossModule
 
       if changedInputs.isEmpty {
         skippingAll(inputs)
@@ -1414,7 +1392,6 @@ extension IncrementalCompilationTests {
       extraArguments: [],
       whenAutolinking: autolinkLifecycleExpectedDiags) {
         couldNotReadPriors
-        enablingCrossModule
         findingBatchingCompiling("main", "other")
         reading(deps: "main")
         reading(deps: "other")
@@ -1440,7 +1417,6 @@ extension IncrementalCompilationTests {
       extraArguments: extraArguments,
       whenAutolinking: autolinkLifecycleExpectedDiags
     ) {
-      enablingCrossModule
       readGraph
       maySkip("main", "other")
       skipping("main", "other")
@@ -1466,7 +1442,6 @@ extension IncrementalCompilationTests {
       extraArguments: extraArguments,
       whenAutolinking: autolinkLifecycleExpectedDiags
     ) {
-      enablingCrossModule
       readGraph
       schedulingChangedInitialQueuing("main", "other")
       findingBatchingCompiling("main", "other")
@@ -1792,9 +1767,6 @@ extension DiagVerifiable {
   }
 
   // MARK: - misc
-  @DiagsBuilder var enablingCrossModule: [Diagnostic.Message] {
-    "Incremental compilation: Enabling incremental cross-module building"
-  }
   @DiagsBuilder func disabledForRemoval(_ removedInput: String) -> [Diagnostic.Message] {
     "Incremental compilation: Incremental compilation has been disabled, because the following inputs were used in the previous compilation but not in this one: \(removedInput).swift"
   }
@@ -2036,7 +2008,6 @@ extension DiagVerifiable {
   }
   @DiagsBuilder func readGraphAndSkipAll(_ inputs: [String]) -> [Diagnostic.Message] {
     readGraph
-    enablingCrossModule
     skippingAll(inputs)
   }
   @DiagsBuilder func readGraphAndSkipAll(_ inputs: String...) -> [Diagnostic.Message] {

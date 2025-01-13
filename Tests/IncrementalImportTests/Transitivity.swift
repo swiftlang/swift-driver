@@ -34,18 +34,18 @@ class TransitivityTest: XCTestCase {
       // imports rebuilds it.
       Step(adding: "transitive-add-default",
            building: [.C, .B, .A],
-           .expecting(.init(always: [.C, .B], andWhenDisabled: [.A]))),
+           .expecting(.init(expected: [.C, .B]))),
       // Now change C back to the old baseline. We edit A in the process to
       // introduce a dependency on C, so it needs to rebuild.
       Step(adding: "transitive-baseline", "transitive-add-use-in-A",
            building: [.C, .B, .A],
-           .expecting(.init(always: [.C, .B, .A]))),
+           .expecting(.init(expected: [.C, .B, .A]))),
       // Same as before - the addition of a default argument requires B rebuild,
       // but A doesn't use anything from C, so it doesn't rebuild unless
       // incremental imports are disabled.
       Step(adding: "transitive-add-default", "transitive-add-use-in-A",
            building: [.C, .B, .A],
-           .expecting(.init(always: [.C, .B], andWhenDisabled: [.A]))),
+           .expecting(.init(expected: [.C, .B]))),
     ])
   }
 
@@ -54,26 +54,26 @@ class TransitivityTest: XCTestCase {
       // Establish the baseline build
       Step(adding: "transitive-baseline",
            building: [.C, .B, .A],
-           .expecting(.init(always: [ .A, .B, .C ]))),
+           .expecting(.init(expected: [ .A, .B, .C ]))),
       // Add the def of a struct to C, which B imports and has a use of so
       // B rebuilds but A does not unless incremental imports are disabled.
       Step(adding: "transitive-baseline", "transitive-struct-def-in-C",
            building: [.C, .B, .A],
-           .expecting(.init(always: [ .B, .C ], andWhenDisabled: [ .A ]))),
+           .expecting(.init(expected: [ .B, .C ]))),
       // Now add a use in B, make sure C doesn't rebuild.
       Step(adding: "transitive-baseline", "transitive-struct-def-in-C", "transitive-struct-def-in-B",
            building: [.C, .B, .A],
-           .expecting(.init(always: [ .B, ], andWhenDisabled: [ .A ]))),
+           .expecting(.init(expected: [ .B, ]))),
       // Now add a use in A and make sure only A rebuilds.
       Step(adding: "transitive-baseline", "transitive-struct-def-in-C", "transitive-struct-def-in-B", "transitive-struct-def-in-A",
            building: [.C, .B, .A],
-           .expecting(.init(always: [ .A ]))),
+           .expecting(.init(expected: [ .A ]))),
       // Finally, add a member to a struct in C, which influences the layout of
       // the struct in B, which influences the layout of the struct in A.
       // Everything rebuilds!
       Step(adding: "transitive-baseline", "transitive-struct-add-member-in-C", "transitive-struct-def-in-B", "transitive-struct-def-in-A",
            building: [.C, .B, .A],
-           .expecting(.init(always: [ .A, .B, .C ]))),
+           .expecting(.init(expected: [ .A, .B, .C ]))),
     ])
   }
 }

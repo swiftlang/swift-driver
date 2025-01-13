@@ -15,15 +15,9 @@ import XCTest
 /// Bundles up (incidental) values to be passed down to the various functions.
 ///
 /// - seealso: Test
-struct Context: CustomStringConvertible {
-  enum IncrementalImports: String, CustomStringConvertible {
-    case enabled, disabled
-    var description: String { rawValue }
-  }
+struct Context {
   /// The root directory for the whole test
   let rootDir: AbsolutePath
-
-  let incrementalImports: IncrementalImports
 
   /// Set to true for debugging by passing `verbose: true` to `IncrementalTest.perform`.
   let verbose: Bool
@@ -37,17 +31,13 @@ struct Context: CustomStringConvertible {
 
   /// Copy with the passed values
   func with(stepIndex: Int, file: StaticString, line: UInt) -> Self {
-    Self(rootDir: rootDir, incrementalImports: incrementalImports, verbose: verbose,
+    Self(rootDir: rootDir, verbose: verbose,
          stepIndex: stepIndex,
          file: file, line: line)
   }
 
-  var description: String {
-    "Incremental imports \(incrementalImports)"
-  }
-
   func failMessage(_ step: Step) -> String {
-    "\(description), in step \(stepIndex), \(step.whatIsBuilt)"
+    "in step \(stepIndex), \(step.whatIsBuilt)"
   }
 
   func fail(_ msg: String, _ step: Step) {

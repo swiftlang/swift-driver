@@ -58,8 +58,7 @@ class RenameMemberOfImportedStructTest: XCTestCase {
     let modules = [imported, mainModule]
 
     /// Incremental imports save a recompilation.
-    let whenRenaming = ExpectedCompilations(always: [memberDefiner, main],
-                                            andWhenDisabled: [other])
+    let whenRenaming = ExpectedCompilations(expected: [memberDefiner, main])
 
     let steps = [
       Step(adding: ["original"], building: modules, .expecting(modules.allSourcesToCompile)),

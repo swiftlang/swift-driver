@@ -48,8 +48,7 @@ class SpecificFuncAdditionInExtensionWithinModuleTest: XCTestCase {
                             producing: .executable)
 
 
-    let whenAddOrRmSpecificFunc = ExpectedCompilations(always: [main, sExtension],
-                                                       andWhenDisabled: [])
+    let whenAddOrRmSpecificFunc = ExpectedCompilations(expected: [main, sExtension])
 
     let steps = [
       Step(                                   building: [mainModule], .expecting([mainModule].allSourcesToCompile, "general")),

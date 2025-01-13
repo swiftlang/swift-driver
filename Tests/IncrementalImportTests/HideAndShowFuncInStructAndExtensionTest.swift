@@ -166,11 +166,7 @@ fileprivate extension Array where Element == Change {
       }
       .sorted()
 
-    let andWhenDisabled = deltas.isEmpty
-      ? []
-      : Set(modules.allSources).subtracting(expectedCompilationsWithIncrementalImports).sorted()
-
-    return ExpectedCompilations(always: expectedCompilationsWithIncrementalImports, andWhenDisabled: andWhenDisabled)
+    return ExpectedCompilations(expected: Set(expectedCompilationsWithIncrementalImports))
   }
 
   var expectedOutput: ExpectedProcessResult {

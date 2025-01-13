@@ -38,16 +38,12 @@ public struct IncrementalTest {
     file: StaticString = #file,
     line: UInt = #line
   ) throws {
-    try [.enabled, .disabled].forEach {
-      try perform(steps: steps,
-                  incrementalImports: $0,
-                  verbose: verbose,
-                  file: file,
-                  line: line)
-    }
+    try perform(steps: steps,
+                verbose: verbose,
+                file: file,
+                line: line)
   }
   private static func perform(steps: [Step],
-                              incrementalImports: Context.IncrementalImports,
                               verbose: Bool,
                               file: StaticString,
                               line: UInt
@@ -59,7 +55,6 @@ public struct IncrementalTest {
       }
       try Self(steps: steps,
                context: Context(rootDir: rootDir,
-                                incrementalImports: incrementalImports,
                                 verbose: verbose,
                                 stepIndex: 0,
                                 file: file,
