@@ -140,16 +140,15 @@ public struct OutputFileMap: Hashable, Codable {
   /// Store the output file map at the given path.
   public func store(
     fileSystem: FileSystem,
-    file: AbsolutePath,
-    diagnosticEngine: DiagnosticsEngine
+    file: AbsolutePath
   ) throws {
     let encoder = JSONEncoder()
 
   #if os(Linux) || os(Android)
-    encoder.outputFormatting = [.prettyPrinted]
+      encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
   #else
     if #available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *) {
-        encoder.outputFormatting = [.prettyPrinted, .withoutEscapingSlashes]
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
     }
   #endif
 

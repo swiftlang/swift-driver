@@ -1473,7 +1473,7 @@ final class SwiftDriverTests: XCTestCase {
     let sampleOutputFileMap = OutputFileMap(entries: pathyEntries)
 
     try withTemporaryFile { file in
-      try sampleOutputFileMap.store(fileSystem: localFileSystem, file: file.path, diagnosticEngine: DiagnosticsEngine())
+      try sampleOutputFileMap.store(fileSystem: localFileSystem, file: file.path)
       let contentsForDebugging = try localFileSystem.readFileContents(file.path).cString
       _ = contentsForDebugging
       let recoveredOutputFileMap = try OutputFileMap.load(fileSystem: localFileSystem, file: .absolute(file.path), diagnosticEngine: DiagnosticsEngine())
@@ -8289,6 +8289,55 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertTrue(plannedJobs[0].tool.name.hasSuffix("swift-frontend"))
     XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-load-pass-plugin=/path/to/plugin")))
 #endif
+  }
+    
+  func testSupplementaryOutputFileMapUsage() throws {
+    // Ensure filenames are escaped properly when using a supplementary output file map
+    try withTemporaryDirectory { path in
+      try localFileSystem.changeCurrentWorkingDirectory(to: path)
+      let moduleCachePath = path.appending(component: "ModuleCache")
+      try localFileSystem.createDirectory(moduleCachePath)
+      let one = path.appending(component: "one.swift")
+      let two = path.appending(component: "needs to escape spaces.swift")
+      let three = path.appending(component: #"another"one.swift"#)
+      let four = path.appending(component: "4.swift")
+      try localFileSystem.writeFileContents(one, bytes:
+        """
+        public struct A {}
+        """
+      )
+      try localFileSystem.writeFileContents(two, bytes:
+        """
+        struct B {}
+        """
+      )
+      try localFileSystem.writeFileContents(three, bytes:
+        """
+        struct C {}
+        """
+      )
+      try localFileSystem.writeFileContents(four, bytes:
+        """
+        struct D {}
+        """
+      )
+      
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+      let invocationArguments = ["swiftc",
+                                 "-parse-as-library",
+                                 "-emit-library",
+                                 "-driver-filelist-threshold", "0",
+                                 "-module-cache-path", moduleCachePath.nativePathString(escaped: true),
+                                 "-working-directory", path.nativePathString(escaped: true),
+                                 one.nativePathString(escaped: true),
+                                 two.nativePathString(escaped: true),
+                                 three.nativePathString(escaped: true),
+                                 four.nativePathString(escaped: true)] + sdkArgumentsForTesting
+      var driver = try Driver(args: invocationArguments)
+      let jobs = try driver.planBuild()
+      try driver.run(jobs: jobs)
+      XCTAssertFalse(driver.diagnosticEngine.hasErrors)
+    }
   }
 }
 

@@ -17,8 +17,6 @@ import protocol TSCBasic.FileSystem
 import struct TSCBasic.AbsolutePath
 import struct TSCBasic.SHA256
 
-@_implementationOnly import Yams
-
 /// How the resolver is to handle usage of response files
 public enum ResponseFileHandling {
   case forced
@@ -166,33 +164,8 @@ public final class ArgsResolver {
   throws {
     // FIXME: Need a way to support this for distributed build systems...
     if let absPath = path.absolutePath {
-      // This uses Yams to escape and quote strings, but not to output the whole yaml file because
-      // it sometimes outputs mappings in explicit block format (https://yaml.org/spec/1.2/spec.html#id2798057)
-      // and the frontend (llvm) only seems to support implicit block format.
-      try fileSystem.writeFileContents(absPath) { out in
-        for (input, map) in outputFileMap.entries {
-          out.send("\(quoteAndEscape(path: VirtualPath.lookup(input))):")
-          if map.isEmpty {
-            out.send(" {}\n")
-          } else {
-            out.send("\n")
-            for (type, output) in map {
-              out.send("  \(type.name): \(quoteAndEscape(path: VirtualPath.lookup(output)))\n")
-            }
-          }
-        }
-      }
+        try outputFileMap.store(fileSystem: fileSystem, file: absPath)
     }
-  }
-
-  private func quoteAndEscape(path: VirtualPath) -> String {
-    let inputNode = Node.scalar(Node.Scalar(try! unsafeResolve(path: path),
-                                            Tag(.str), .doubleQuoted))
-    // Width parameter of -1 sets preferred line-width to unlimited so that no extraneous
-    // line-breaks will be inserted during serialization.
-    let string = try! Yams.serialize(node: inputNode, width: -1)
-    // Remove the newline from the end
-    return string.trimmingCharacters(in: .whitespacesAndNewlines)
   }
 
   private func createResponseFileIfNeeded(for job: Job, resolvedArguments: inout [String], useResponseFiles: ResponseFileHandling) throws -> Bool {
