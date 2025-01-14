@@ -179,21 +179,11 @@ extension Module {
       } .flatMap { ["-Xlinker", $0] }
     }
 
-    var incrementalImportsArgs: [String] {
-      switch context.incrementalImports {
-      case .enabled:
-        return ["-enable-incremental-imports"]
-      case .disabled:
-        return ["-disable-incremental-imports"]
-      }
-    }
-
     let sdkArguments = try? Driver.sdkArgumentsForTesting()
 
     let interestingArgs = [
       ["-module-name", self.name],
       ["-output-file-map", context.outputFileMapPath(for: self).pathString],
-      incrementalImportsArgs,
       self.product == .library ? libraryArgs : searchPaths,
       sources.map { context.swiftFilePath(for: $0, in: self).pathString },
       importedObjs,

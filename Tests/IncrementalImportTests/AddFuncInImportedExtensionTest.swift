@@ -70,8 +70,7 @@ class AddFuncInImportedExtensionTest: XCTestCase {
 
     // Define what is expected
     let whenAddOrRmFunc = ExpectedCompilations(
-      always: [structExtension, classExtension, ],
-      andWhenDisabled: [mainFile, structConstructor, classConstructor])
+      expected: [structExtension, classExtension, ])
 
     let steps = [
       Step(                    building: modules, .expecting(modules.allSourcesToCompile)),

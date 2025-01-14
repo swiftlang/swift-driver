@@ -374,16 +374,6 @@ extension IncrementalCompilationState {
     /// integrity of the driver's dependency graph and aborts if any errors
     /// are detected.
     public static let verifyDependencyGraphAfterEveryImport  = Options(rawValue: 1 << 3)
-    /// Enables the cross-module incremental build infrastructure.
-    ///
-    /// FIXME: This option is transitory. We intend to make this the
-    /// default behavior. This option should flip to a "disable" bit after that.
-    public static let enableCrossModuleIncrementalBuild      = Options(rawValue: 1 << 4)
-    /// Enables an optimized form of start-up for the incremental build state
-    /// that reads the dependency graph from a serialized format on disk instead
-    /// of reading O(N) swiftdeps files.
-    public static let readPriorsFromModuleDependencyGraph    = Options(rawValue: 1 << 5)
-
     /// Enables additional handling of explicit module build artifacts:
     /// Additional reading and writing of the inter-module dependency graph.
     public static let explicitModuleBuild                    = Options(rawValue: 1 << 6)
@@ -410,7 +400,6 @@ extension IncrementalCompilationState {
     to path: VirtualPath,
     _ buildRecord: BuildRecord
   ) throws {
-    precondition(info.isCrossModuleIncrementalBuildEnabled)
     try blockingConcurrentAccessOrMutationToProtectedState {
       try $0.writeGraph(
         to: path,

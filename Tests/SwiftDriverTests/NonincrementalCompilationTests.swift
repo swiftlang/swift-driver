@@ -19,30 +19,6 @@ import TestUtilities
 
 /// Testing the machinery for incremental compilation with nonincremental test cases.
 final class NonincrementalCompilationTests: XCTestCase {
-  func testBuildRecordReading() throws {
-    let buildRecord = try BuildRecord(contents: Inputs.buildRecord)
-    XCTAssertEqual(buildRecord.swiftVersion,
-                   "Apple Swift version 5.1 (swiftlang-1100.0.270.13 clang-1100.0.33.7)")
-    XCTAssertEqual(buildRecord.argsHash, "abbbfbcaf36b93e58efaadd8271ff142")
-
-    XCTAssertEqual(buildRecord.buildStartTime,
-                   TimePoint(seconds: 1570318779, nanoseconds: 32358000))
-    XCTAssertEqual(buildRecord.buildEndTime,
-                   TimePoint(seconds: 1570318779, nanoseconds: 32358010))
-    try XCTAssertEqual(buildRecord.inputInfos,
-                       [
-                        VirtualPath(path: "/Volumes/AS/repos/swift-driver/sandbox/sandbox/sandbox/file2.swift"):
-                          InputInfo(status: .needsCascadingBuild,
-                                    previousModTime: TimePoint(seconds: 1570318778, nanoseconds: 0)),
-                        VirtualPath(path: "/Volumes/AS/repos/swift-driver/sandbox/sandbox/sandbox/main.swift"):
-                          InputInfo(status: .upToDate,
-                                    previousModTime: TimePoint(seconds: 1570083660, nanoseconds: 0)),
-                        VirtualPath(path: "/Volumes/gazorp.swift"):
-                          InputInfo(status: .needsNonCascadingBuild,
-                                    previousModTime: .zero),
-                       ])
-  }
-
   func testReadBinarySourceFileDependencyGraph() throws {
     let absolutePath = try XCTUnwrap(Fixture.fixturePath(at: try RelativePath(validating: "Incremental"),
                                                          for: "main.swiftdeps"))
@@ -214,55 +190,6 @@ final class NonincrementalCompilationTests: XCTestCase {
     XCTAssertEqual(TimePoint.nanoseconds(500_000_000) + TimePoint.nanoseconds(500_000_000), TimePoint.seconds(1))
     XCTAssertEqual(TimePoint.nanoseconds(1_500_000_000) + TimePoint.nanoseconds(500_000_000), TimePoint.seconds(2))
   }
-
-  func testReadAndWriteBuildRecord() throws {
-    let version = "Apple Swift version 5.1 (swiftlang-1100.0.270.13 clang-1100.0.33.7)"
-    let options = "abbbfbcaf36b93e58efaadd8271ff142"
-    let file2: AbsolutePath = try AbsolutePath(validating: "/Volumes/AS/repos/swift-driver/sandbox/sandbox/sandbox/file2.swift")
-    let main: AbsolutePath = try AbsolutePath(validating: "/Volumes/AS/repos/swift-driver/sandbox/sandbox/sandbox/main.swift")
-    let gazorp: AbsolutePath = try AbsolutePath(validating: "/Volumes/gazorp.swift")
-    let inputString =
-      """
-      version: "\(version)"
-      options: "\(options)"
-      build_start_time: [1570318779, 32357931]
-      build_end_time: [1580318779, 33357858]
-      inputs:
-        "\(file2.nativePathString(escaped: true))": !dirty [1570318778, 0]
-        "\(main.nativePathString(escaped: true))": [1570083660, 0]
-        "\(gazorp.nativePathString(escaped: true))": !private [0, 0]
-
-      """
-    let buildRecord = try BuildRecord(contents: inputString)
-    XCTAssertEqual(buildRecord.swiftVersion, version)
-    XCTAssertEqual(buildRecord.argsHash, options)
-    XCTAssertEqual(buildRecord.inputInfos.count, 3)
-    XCTAssertEqual(buildRecord.buildStartTime,
-                   TimePoint(seconds: 1570318779, nanoseconds: 32357931))
-    XCTAssertEqual(buildRecord.buildEndTime,
-                   TimePoint(seconds: 1580318779, nanoseconds: 33357858))
-
-    XCTAssertEqual(try buildRecord.inputInfos[VirtualPath(path: file2.pathString)]!.status,
-                   .needsCascadingBuild)
-    XCTAssertEqual(try XCTUnwrap(buildRecord.inputInfos[VirtualPath(path: file2.pathString)]).previousModTime,
-                   TimePoint(seconds: 1570318778, nanoseconds: 0))
-    XCTAssertEqual(try XCTUnwrap(buildRecord.inputInfos[VirtualPath(path: gazorp.pathString)]).status,
-                   .needsNonCascadingBuild)
-    XCTAssertEqual(try XCTUnwrap(buildRecord.inputInfos[VirtualPath(path: gazorp.pathString)]).previousModTime,
-                   .zero)
-    XCTAssertEqual(try XCTUnwrap(buildRecord.inputInfos[VirtualPath(path: main.pathString)]).status,
-                   .upToDate)
-    XCTAssertEqual(try XCTUnwrap(buildRecord.inputInfos[VirtualPath(path: main.pathString)]).previousModTime,
-                   TimePoint(seconds: 1570083660, nanoseconds: 0))
-
-    let outputString = try XCTUnwrap (buildRecord.encode(diagnosticEngine: DiagnosticsEngine()))
-    XCTAssertEqual(inputString, outputString)
-  }
-  /// The date conversions are not exact
-  func isCloseEnough(_ a: [Int], _ b: [Int]) -> Bool {
-    a[0] == b[0] && abs(a[1] - b[1]) <= 100
-  }
-
 
   /// Run a test with two files, main and other.swift, passing on the additional arguments
   /// expecting certain diagnostics.

@@ -41,13 +41,13 @@ class AntisymmetryTest: XCTestCase {
       // The baseline step is special, we want everything to get built first.
       Step(adding: defAdditions,
            building: [ .B, .A ],
-           .expecting(.init(always: [ .main, .B ])))
+           .expecting(.init(expected: [ .main, .B ])))
     ] + defAdditions.dropFirst().indices.map { idx in
       // Make sure the addition of defs without users only causes cascading
       // rebuilds when incremental imports are disabled.
       Step(adding: Array(defAdditions[0..<idx]),
            building: [ .B, .A ],
-           .expecting(.init(always: [ .B ], andWhenDisabled: [ .main ])))
+           .expecting(.init(expected: [ .B ])))
     })
   }
 
@@ -56,12 +56,12 @@ class AntisymmetryTest: XCTestCase {
       // The baseline step is special, we want everything to get built first.
       Step(adding: defAdditions,
            building: [ .B, .A ],
-           .expecting(.init(always: [ .main, .B ])))
+           .expecting(.init(expected: [ .main, .B ])))
     ] + useAdditions.indices.dropFirst().map { idx in
       // Make sure the addition of uses causes only users to recompile.
       Step(adding: defAdditions + Array(useAdditions[0..<idx]),
            building: [ .B, .A ],
-           .expecting(.init(always: [ .main ])))
+           .expecting(.init(expected: [ .main ])))
     })
   }
 }

@@ -414,10 +414,6 @@ extension ModuleDependencyGraph {
   func findNodesInvalidated(
     by integrand: ExternalIntegrand
   ) -> DirectlyInvalidatedNodeSet {
-    guard self.info.isCrossModuleIncrementalBuildEnabled else {
-      return indiscriminatelyFindNodesInvalidated(by: integrand,
-                                                  .incrementalImportsIsDisabled)
-    }
     // If the integrand has no fingerprint, it's academic, cannot integrate it incrementally.
     guard integrand.externalDependency.fingerprint != nil else {
        return indiscriminatelyFindNodesInvalidated(by: integrand,
@@ -438,7 +434,6 @@ extension ModuleDependencyGraph {
   func incrementallyFindNodesInvalidated(
     by integrand: ExternalIntegrand
   ) -> DirectlyInvalidatedNodeSet {
-    assert(self.info.isCrossModuleIncrementalBuildEnabled)
     accessSafetyPrecondition()
     // Better not be reading swiftdeps one-by-one for a selective compilation
     precondition(self.phase != .buildingFromSwiftDeps)

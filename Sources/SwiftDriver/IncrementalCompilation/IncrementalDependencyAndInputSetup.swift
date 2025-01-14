@@ -84,11 +84,10 @@ extension IncrementalCompilationState {
     if driver.parsedOptions.contains(veriOpt) {
       options.formUnion(.verifyDependencyGraphAfterEveryImport)
     }
-    if driver.parsedOptions.hasFlag(positive: .enableIncrementalImports,
-                                  negative: .disableIncrementalImports,
-                                  default: true) {
-      options.formUnion(.enableCrossModuleIncrementalBuild)
-      options.formUnion(.readPriorsFromModuleDependencyGraph)
+    if !driver.parsedOptions.hasFlag(positive: .enableIncrementalImports,
+                                     negative: .disableIncrementalImports,
+                                     default: true) {
+        driver.diagnosticEngine.emit(.warning("ignoring obseleted option -disable-incremental-imports"))
     }
     if driver.parsedOptions.contains(.driverExplicitModuleBuild) {
       options.formUnion(.explicitModuleBuild)
@@ -155,17 +154,11 @@ extension IncrementalCompilationState {
     @_spi(Testing) public let dependencyDotFilesIncludeExternals: Bool = true
     @_spi(Testing) public let dependencyDotFilesIncludeAPINotes: Bool = false
 
-    @_spi(Testing) public var readPriorsFromModuleDependencyGraph: Bool {
-      options.contains(.readPriorsFromModuleDependencyGraph)
-    }
     @_spi(Testing) public var explicitModuleBuild: Bool {
       options.contains(.explicitModuleBuild)
     }
     @_spi(Testing) public var alwaysRebuildDependents: Bool {
       options.contains(.alwaysRebuildDependents)
-    }
-    @_spi(Testing) public var isCrossModuleIncrementalBuildEnabled: Bool {
-      options.contains(.enableCrossModuleIncrementalBuild)
     }
     @_spi(Testing) public var verifyDependencyGraphAfterEveryImport: Bool {
       options.contains(.verifyDependencyGraphAfterEveryImport)
@@ -248,12 +241,7 @@ extension IncrementalCompilationState.IncrementalDependencyAndInputSetup {
   ///   caller must ensure scheduling of those
   private func computeGraphAndInputsInvalidatedByExternals() -> PriorState? {
     return blockingConcurrentAccessOrMutation {
-      if readPriorsFromModuleDependencyGraph {
-        return readPriorGraphAndCollectInputsInvalidatedByChangedOrAddedExternals()
-      }
-      // Every external is added, but don't want to compile an unchanged input that has an import
-      // so just changed, not changedOrAdded.
-      return buildInitialGraphFromSwiftDepsAndCollectInputsInvalidatedByChangedExternals()
+      return readPriorGraphAndCollectInputsInvalidatedByChangedOrAddedExternals()
     }
   }
 
@@ -311,54 +299,6 @@ extension IncrementalCompilationState.IncrementalDependencyAndInputSetup {
       return nil
     }
     return PriorState(graph: graph, fileSet: inputsInvalidatedByExternals)
-  }
-
-  /// Builds a graph
-  /// Returns nil if some input (i.e. .swift file) has no corresponding swiftdeps file.
-  /// Does not cope with disappeared inputs
-  /// For inputs with swiftDeps in OFM, but no readable file, puts input in graph map, but no nodes in graph:
-  ///   caller must ensure scheduling of those
-  /// For externalDependencies, puts then in graph.fingerprintedExternalDependencies, but otherwise
-  /// does nothing special.
-  private func buildInitialGraphFromSwiftDepsAndCollectInputsInvalidatedByChangedExternals() -> PriorState? {
-    guard
-      let contents = try? fileSystem.readFileContents(self.buildRecordInfo.buildRecordPath).cString
-    else {
-      reporter?.report("Incremental compilation could not read build record at ", self.buildRecordInfo.buildRecordPath)
-      reporter?.reportDisablingIncrementalBuild("could not read build record")
-      return nil
-    }
-
-    func failedToReadOutOfDateMap(_ reason: String) {
-      let why = "malformed build record file\(reason.isEmpty ? "" : (" " + reason))"
-      reporter?.report(
-        "Incremental compilation has been disabled due to \(why)", self.buildRecordInfo.buildRecordPath)
-      reporter?.reportDisablingIncrementalBuild(why)
-    }
-
-    do {
-      guard let buildRecord = try self.validateBuildRecord(BuildRecord(contents: contents)) else {
-        return nil
-      }
-
-      let graph = ModuleDependencyGraph.createForBuildingFromSwiftDeps(buildRecord, self)
-      var inputsInvalidatedByChangedExternals = TransitivelyInvalidatedSwiftSourceFileSet()
-      for input in self.inputFiles {
-        guard let invalidatedInputs =
-                graph.collectInputsRequiringCompilationFromExternalsFoundByCompiling(input: SwiftSourceFile(input.fileHandle))
-        else {
-          return nil
-        }
-        inputsInvalidatedByChangedExternals.formUnion(invalidatedInputs)
-      }
-      reporter?.report("Created dependency graph from swiftdeps files")
-      return PriorState(graph: graph, fileSet: inputsInvalidatedByChangedExternals)
-    } catch let error as BuildRecord.Error {
-      failedToReadOutOfDateMap(error.reason)
-      return nil
-    } catch {
-      return nil
-    }
   }
 
   private func buildEmptyGraphAndCompileEverything() -> PriorState {
