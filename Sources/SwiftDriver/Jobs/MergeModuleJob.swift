@@ -57,7 +57,7 @@ extension Driver {
     try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs, kind: .mergeModule, bridgingHeaderHandling: .parsed)
     // FIXME: Add MSVC runtime library flags
 
-    try addCommonModuleOptions(commandLine: &commandLine, outputs: &outputs, isMergeModule: true)
+    try addCommonModuleOptions(commandLine: &commandLine, outputs: &outputs, moduleOutputPaths: moduleOutputPaths, isMergeModule: true)
 
     try addCommonSymbolGraphOptions(commandLine: &commandLine)
 
@@ -65,7 +65,7 @@ extension Driver {
     commandLine.appendFlag(.o)
     commandLine.appendPath(outputPath)
 
-    if let abiPath = abiDescriptorPath {
+    if let abiPath = moduleOutputPaths.abiDescriptorFilePath {
       commandLine.appendFlag(.emitAbiDescriptorPath)
       commandLine.appendPath(abiPath.file)
       outputs.append(abiPath)

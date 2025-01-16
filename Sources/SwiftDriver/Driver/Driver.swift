@@ -259,6 +259,9 @@ public struct Driver {
   /// The information about the module to produce.
   @_spi(Testing) public let moduleOutputInfo: ModuleOutputInfo
 
+  /// Information about the target variant module to produce if applicable
+  @_spi(Testing) public let variantModuleOutputInfo: ModuleOutputInfo?
+
   /// Name of the package containing a target module or file.
   @_spi(Testing) public let packageName: String?
 
@@ -376,17 +379,213 @@ public struct Driver {
   /// Path to the TBD file (text-based dylib).
   let tbdPath: VirtualPath.Handle?
 
-  /// Path to the module documentation file.
-  let moduleDocOutputPath: VirtualPath.Handle?
+  /// Target-specific supplemental output file paths
+  struct SupplementalModuleTargetOutputPaths {
+    /// Path to the module documentation file.
+    let moduleDocOutputPath: VirtualPath.Handle?
 
-  /// Path to the Swift interface file.
-  let swiftInterfacePath: VirtualPath.Handle?
+    /// Path to the Swift interface file.
+    let swiftInterfacePath: VirtualPath.Handle?
 
-  /// Path to the Swift private interface file.
-  let swiftPrivateInterfacePath: VirtualPath.Handle?
+    /// Path to the Swift private interface file.
+    let swiftPrivateInterfacePath: VirtualPath.Handle?
 
-  /// Path to the Swift package interface file.
-  let swiftPackageInterfacePath: VirtualPath.Handle?
+    /// Path to the Swift package interface file.
+    let swiftPackageInterfacePath: VirtualPath.Handle?
+
+    /// Path to the Swift module source information file.
+    let moduleSourceInfoPath: VirtualPath.Handle?
+
+    /// Path to the emitted API descriptor file.
+    let apiDescriptorFilePath: VirtualPath.Handle?
+
+    /// Path to the emitted ABI descriptor file.
+    let abiDescriptorFilePath: TypedVirtualPath?
+  }
+
+  private static func computeModuleOutputPaths(
+    _ parsedOptions: inout ParsedOptions,
+    moduleName: String,
+    packageName: String?,
+    moduleOutputInfo: ModuleOutputInfo,
+    compilerOutputType: FileType?,
+    compilerMode: CompilerMode,
+    emitModuleSeparately: Bool,
+    outputFileMap: OutputFileMap?,
+    projectDirectory: VirtualPath.Handle?,
+    apiDescriptorDirectory: VirtualPath?,
+    supportedFrontendFeatures: Set<String>,
+    target: FrontendTargetInfo.Target,
+    isVariant: Bool) throws -> SupplementalModuleTargetOutputPaths {
+      struct SupplementalPathOptions {
+        let moduleDocPath: Option
+        let sourceInfoPath: Option
+        let apiDescriptorPath: Option
+        let abiDescriptorPath: Option
+        let moduleInterfacePath: Option
+        let privateInterfacePath: Option
+        let packageInterfacePath: Option
+
+        static let targetPathOptions = SupplementalPathOptions(
+          moduleDocPath: .emitModuleDocPath,
+          sourceInfoPath: .emitModuleSourceInfoPath,
+          apiDescriptorPath: .emitApiDescriptorPath,
+          abiDescriptorPath: .emitAbiDescriptorPath,
+          moduleInterfacePath: .emitModuleInterfacePath,
+          privateInterfacePath: .emitPrivateModuleInterfacePath,
+          packageInterfacePath: .emitPackageModuleInterfacePath)
+
+        static let variantTargetPathOptions = SupplementalPathOptions(
+          moduleDocPath: .emitVariantModuleDocPath,
+          sourceInfoPath: .emitVariantModuleSourceInfoPath,
+          apiDescriptorPath: .emitVariantApiDescriptorPath,
+          abiDescriptorPath: .emitVariantAbiDescriptorPath,
+          moduleInterfacePath: .emitVariantModuleInterfacePath,
+          privateInterfacePath: .emitVariantPrivateModuleInterfacePath,
+          packageInterfacePath: .emitVariantPackageModuleInterfacePath)
+      }
+
+    let pathOptions: SupplementalPathOptions = isVariant ? .variantTargetPathOptions : .targetPathOptions
+
+    let moduleDocOutputPath = try Self.computeModuleDocOutputPath(
+      &parsedOptions,
+      moduleOutputPath: moduleOutputInfo.output?.outputPath,
+      outputOption: pathOptions.moduleDocPath,
+      compilerOutputType: compilerOutputType,
+      compilerMode: compilerMode,
+      outputFileMap: outputFileMap,
+      moduleName: moduleOutputInfo.name)
+
+    let moduleSourceInfoPath = try Self.computeModuleSourceInfoOutputPath(
+        &parsedOptions,
+        moduleOutputPath: moduleOutputInfo.output?.outputPath,
+        outputOption: pathOptions.sourceInfoPath,
+        compilerOutputType: compilerOutputType,
+        compilerMode: compilerMode,
+        outputFileMap: outputFileMap,
+        moduleName: moduleOutputInfo.name,
+        projectDirectory: projectDirectory)
+
+    // ---------------------
+    // ABI Descriptor Path
+    func computeABIDescriptorFilePath(target: FrontendTargetInfo.Target,
+      features: Set<String>) -> TypedVirtualPath? {
+      guard features.contains(KnownCompilerFeature.emit_abi_descriptor.rawValue) else {
+        return nil
+      }
+      // Emit the descriptor only on platforms where Library Evolution is
+      // supported
+      guard target.triple.isDarwin || parsedOptions.hasArgument(.enableLibraryEvolution) else {
+        return nil
+      }
+      guard let moduleOutput = moduleOutputInfo.output else {
+        return nil
+      }
+
+      guard let path = try? VirtualPath.lookup(moduleOutput.outputPath)
+        .replacingExtension(with: .jsonABIBaseline) else {
+          return nil
+      }
+      return TypedVirtualPath(file: path.intern(), type: .jsonABIBaseline)
+    }
+    let abiDescriptorFilePath = computeABIDescriptorFilePath(target: target,
+      features: supportedFrontendFeatures)
+
+    // ---------------------
+    // API Descriptor Path
+    let apiDescriptorFilePath: VirtualPath.Handle?
+    if let apiDescriptorDirectory = apiDescriptorDirectory {
+      apiDescriptorFilePath = apiDescriptorDirectory
+        .appending(component: "\(moduleOutputInfo.name).\(target.moduleTriple.triple).swift.sdkdb")
+        .intern()
+    } else {
+      apiDescriptorFilePath = try Self.computeSupplementaryOutputPath(
+        &parsedOptions, type: .jsonAPIDescriptor, isOutputOptions: [],
+        outputPath: pathOptions.apiDescriptorPath,
+        compilerOutputType: compilerOutputType,
+        compilerMode: compilerMode,
+        emitModuleSeparately: emitModuleSeparately,
+        outputFileMap: outputFileMap,
+        moduleName: moduleOutputInfo.name)
+    }
+
+    // ---------------------
+    // Swift interface paths
+    let swiftInterfacePath = try Self.computeSupplementaryOutputPath(
+        &parsedOptions, type: .swiftInterface, isOutputOptions: [.emitModuleInterface],
+        outputPath: pathOptions.moduleInterfacePath,
+        compilerOutputType: compilerOutputType,
+        compilerMode: compilerMode,
+        emitModuleSeparately: emitModuleSeparately,
+        outputFileMap: outputFileMap,
+        moduleName: moduleOutputInfo.name)
+
+    let givenPrivateInterfacePath = try Self.computeSupplementaryOutputPath(
+        &parsedOptions, type: .privateSwiftInterface, isOutputOptions: [],
+        outputPath: pathOptions.privateInterfacePath,
+        compilerOutputType: compilerOutputType,
+        compilerMode: compilerMode,
+        emitModuleSeparately: emitModuleSeparately,
+        outputFileMap: outputFileMap,
+        moduleName: moduleOutputInfo.name)
+    let givenPackageInterfacePath = try Self.computeSupplementaryOutputPath(
+        &parsedOptions, type: .packageSwiftInterface, isOutputOptions: [],
+        outputPath: pathOptions.packageInterfacePath,
+        compilerOutputType: compilerOutputType,
+        compilerMode: compilerMode,
+        emitModuleSeparately: emitModuleSeparately,
+        outputFileMap: outputFileMap,
+        moduleName: moduleOutputInfo.name)
+
+    // Always emit the private swift interface if a public interface is emitted.
+    // With the introduction of features like @_spi_available, we may print
+    // public and private interfaces differently even from the same codebase.
+    // For this reason, we should always print private interfaces so that we
+    // don’t mix the public interfaces with private Clang modules.
+    let swiftPrivateInterfacePath: VirtualPath.Handle?
+    if let privateInterfacePath = givenPrivateInterfacePath {
+      swiftPrivateInterfacePath = privateInterfacePath
+    } else if let swiftInterfacePath = swiftInterfacePath {
+      swiftPrivateInterfacePath = try VirtualPath.lookup(swiftInterfacePath)
+        .replacingExtension(with: .privateSwiftInterface).intern()
+    } else {
+      swiftPrivateInterfacePath = nil
+    }
+
+    let swiftPackageInterfacePath: VirtualPath.Handle?
+    if let packageName = packageName,
+        !packageName.isEmpty {
+        // Generate a package interface if built with -package-name required for
+        // decls with the `package` access level. The `.package.swiftinterface`
+        // contains package decls as well as SPI and public decls (superset of a
+        // private interface).
+        if let givenPackageInterfacePath = givenPackageInterfacePath {
+          swiftPackageInterfacePath = givenPackageInterfacePath
+        } else if let swiftInterfacePath = swiftInterfacePath {
+          swiftPackageInterfacePath = try VirtualPath.lookup(swiftInterfacePath)
+              .replacingExtension(with: .packageSwiftInterface).intern()
+        } else {
+          swiftPackageInterfacePath = nil
+        }
+    } else {
+      swiftPackageInterfacePath = nil
+    }
+
+    return SupplementalModuleTargetOutputPaths(
+      moduleDocOutputPath: moduleDocOutputPath,
+      swiftInterfacePath: swiftInterfacePath,
+      swiftPrivateInterfacePath: swiftPrivateInterfacePath,
+      swiftPackageInterfacePath: swiftPackageInterfacePath,
+      moduleSourceInfoPath: moduleSourceInfoPath,
+      apiDescriptorFilePath: apiDescriptorFilePath,
+      abiDescriptorFilePath: abiDescriptorFilePath)
+  }
+
+  /// Structure storing paths to supplemental outputs for the target module
+  let moduleOutputPaths: SupplementalModuleTargetOutputPaths
+
+  /// Structure storing paths to supplemental outputs for the target variant
+  let variantModuleOutputPaths: SupplementalModuleTargetOutputPaths?
 
   /// File type for the optimization record.
   let optimizationRecordFileType: FileType?
@@ -394,14 +593,9 @@ public struct Driver {
   /// Path to the optimization record.
   let optimizationRecordPath: VirtualPath.Handle?
 
-  /// Path to the Swift module source information file.
-  let moduleSourceInfoPath: VirtualPath.Handle?
-
   /// Path to the module's digester baseline file.
   let digesterBaselinePath: VirtualPath.Handle?
 
-  /// Path to the emitted API descriptor file.
-  let apiDescriptorFilePath: VirtualPath.Handle?
 
   /// The mode the API digester should run in.
   let digesterMode: DigesterMode
@@ -460,24 +654,6 @@ public struct Driver {
       .appending(component: "Library")
       .appending(component: "Frameworks")
   } ()
-
-  lazy var abiDescriptorPath: TypedVirtualPath? = {
-    guard isFeatureSupported(.emit_abi_descriptor) else {
-      return nil
-    }
-    // Emit the descriptor only on platforms where Library Evolution is supported,
-    // or opted-into explicitly.
-    guard targetTriple.isDarwin || parsedOptions.hasArgument(.enableLibraryEvolution) else {
-      return nil
-    }
-    guard let moduleOutput = moduleOutputInfo.output else {
-      return nil
-    }
-    guard let path = try? VirtualPath.lookup(moduleOutput.outputPath).replacingExtension(with: .jsonABIBaseline) else {
-      return nil
-    }
-    return TypedVirtualPath(file: path.intern(), type: .jsonABIBaseline)
-  }()
 
   public static func isOptionFound(_ opt: String, allOpts: Set<String>) -> Bool {
     var current = opt
@@ -843,9 +1019,23 @@ public struct Driver {
 
     // Determine the module we're building and whether/how the module file itself will be emitted.
     self.moduleOutputInfo = try Self.computeModuleInfo(
-      &parsedOptions, compilerOutputType: compilerOutputType, compilerMode: compilerMode, linkerOutputType: linkerOutputType,
-      debugInfoLevel: debugInfo.level, diagnosticsEngine: diagnosticEngine,
+      &parsedOptions,
+      modulePath: parsedOptions.getLastArgument(.emitModulePath)?.asSingle,
+      compilerOutputType: compilerOutputType,
+      compilerMode: compilerMode,
+      linkerOutputType: linkerOutputType,
+      debugInfoLevel: debugInfo.level,
+      diagnosticsEngine: diagnosticEngine,
       workingDirectory: self.workingDirectory)
+
+    self.variantModuleOutputInfo = try Self.computeVariantModuleInfo(
+      &parsedOptions,
+      compilerOutputType: compilerOutputType,
+      compilerMode: compilerMode,
+      linkerOutputType: linkerOutputType,
+      debugInfoLevel: debugInfo.level,
+      diagnosticsEngine: diagnosticsEngine,
+      workingDirectory: workingDirectory)
 
     // Should we schedule a separate emit-module job?
     self.emitModuleSeparately = Self.computeEmitModuleSeparately(parsedOptions: &parsedOptions,
@@ -1023,24 +1213,53 @@ public struct Driver {
         emitModuleSeparately: emitModuleSeparately,
         outputFileMap: self.outputFileMap,
         moduleName: moduleOutputInfo.name)
-    self.moduleDocOutputPath = try Self.computeModuleDocOutputPath(
-        &parsedOptions, moduleOutputPath: self.moduleOutputInfo.output?.outputPath,
-        compilerOutputType: compilerOutputType,
-        compilerMode: compilerMode,
-        outputFileMap: self.outputFileMap,
-        moduleName: moduleOutputInfo.name)
 
     let projectDirectory = Self.computeProjectDirectoryPath(
-      moduleOutputPath: self.moduleOutputInfo.output?.outputPath,
+      moduleOutputPath: moduleOutputInfo.output?.outputPath,
       fileSystem: self.fileSystem)
-    self.moduleSourceInfoPath = try Self.computeModuleSourceInfoOutputPath(
+
+    var apiDescriptorDirectory: VirtualPath? = nil
+    if let apiDescriptorDirectoryEnvVar = env["TAPI_SDKDB_OUTPUT_PATH"] {
+        apiDescriptorDirectory = try VirtualPath(path: apiDescriptorDirectoryEnvVar)
+    } else if let ldTraceFileEnvVar = env["LD_TRACE_FILE"] {
+        apiDescriptorDirectory = try VirtualPath(path: ldTraceFileEnvVar).parentDirectory.appending(component: "SDKDB")
+    }
+
+    self.moduleOutputPaths = try Self.computeModuleOutputPaths(
+      &parsedOptions,
+      moduleName: moduleOutputInfo.name,
+      packageName: self.packageName,
+      moduleOutputInfo: self.moduleOutputInfo,
+      compilerOutputType: compilerOutputType,
+      compilerMode: compilerMode,
+      emitModuleSeparately: emitModuleSeparately,
+      outputFileMap: self.outputFileMap,
+      projectDirectory: projectDirectory,
+      apiDescriptorDirectory: apiDescriptorDirectory,
+      supportedFrontendFeatures: self.supportedFrontendFeatures,
+      target: frontendTargetInfo.target,
+      isVariant: false)
+
+    if let variantModuleOutputInfo = self.variantModuleOutputInfo,
+       let targetVariant = self.frontendTargetInfo.targetVariant {
+      self.variantModuleOutputPaths = try Self.computeModuleOutputPaths(
         &parsedOptions,
-        moduleOutputPath: self.moduleOutputInfo.output?.outputPath,
+        moduleName: variantModuleOutputInfo.name,
+        packageName: self.packageName,
+        moduleOutputInfo: variantModuleOutputInfo,
         compilerOutputType: compilerOutputType,
         compilerMode: compilerMode,
+        emitModuleSeparately: true, // variant module is always independent
         outputFileMap: self.outputFileMap,
-        moduleName: moduleOutputInfo.name,
-        projectDirectory: projectDirectory)
+        projectDirectory: projectDirectory,
+        apiDescriptorDirectory: apiDescriptorDirectory,
+        supportedFrontendFeatures: self.supportedFrontendFeatures,
+        target: targetVariant,
+        isVariant: true)
+    } else {
+      self.variantModuleOutputPaths = nil
+    }
+
     self.digesterBaselinePath = try Self.computeDigesterBaselineOutputPath(
       &parsedOptions,
       moduleOutputPath: self.moduleOutputInfo.output?.outputPath,
@@ -1050,59 +1269,6 @@ public struct Driver {
       outputFileMap: self.outputFileMap,
       moduleName: moduleOutputInfo.name,
       projectDirectory: projectDirectory)
-    self.swiftInterfacePath = try Self.computeSupplementaryOutputPath(
-        &parsedOptions, type: .swiftInterface, isOutputOptions: [.emitModuleInterface],
-        outputPath: .emitModuleInterfacePath,
-        compilerOutputType: compilerOutputType,
-        compilerMode: compilerMode,
-        emitModuleSeparately: emitModuleSeparately,
-        outputFileMap: self.outputFileMap,
-        moduleName: moduleOutputInfo.name)
-    let givenPrivateInterfacePath = try Self.computeSupplementaryOutputPath(
-        &parsedOptions, type: .privateSwiftInterface, isOutputOptions: [],
-        outputPath: .emitPrivateModuleInterfacePath,
-        compilerOutputType: compilerOutputType,
-        compilerMode: compilerMode,
-        emitModuleSeparately: emitModuleSeparately,
-        outputFileMap: self.outputFileMap,
-        moduleName: moduleOutputInfo.name)
-    let givenPackageInterfacePath = try Self.computeSupplementaryOutputPath(
-        &parsedOptions, type: .packageSwiftInterface, isOutputOptions: [],
-        outputPath: .emitPackageModuleInterfacePath,
-        compilerOutputType: compilerOutputType,
-        compilerMode: compilerMode,
-        emitModuleSeparately: emitModuleSeparately,
-        outputFileMap: self.outputFileMap,
-        moduleName: moduleOutputInfo.name)
-
-    // Always emitting private swift interfaces if public interfaces are emitted.'
-    // With the introduction of features like @_spi_available, we may print public
-    // and private interfaces differently even from the same codebase. For this reason,
-    // we should always print private interfaces so that we don’t mix the public interfaces
-    // with private Clang modules.
-    if let swiftInterfacePath = self.swiftInterfacePath,
-        givenPrivateInterfacePath == nil {
-      self.swiftPrivateInterfacePath = try VirtualPath.lookup(swiftInterfacePath)
-        .replacingExtension(with: .privateSwiftInterface).intern()
-    } else {
-      self.swiftPrivateInterfacePath = givenPrivateInterfacePath
-    }
-
-    if let packageNameInput = parsedOptions.getLastArgument(Option.packageName),
-        !packageNameInput.asSingle.isEmpty {
-      // Generate a package interface if built with `-package-name` required for decls
-      // with the `package` access level. The .package.swiftinterface contains package
-      // decls as well as SPI and public decls (superset of a private interface).
-      if let publicInterfacePath = self.swiftInterfacePath,
-         givenPackageInterfacePath == nil {
-        self.swiftPackageInterfacePath = try VirtualPath.lookup(publicInterfacePath)
-          .replacingExtension(with: .packageSwiftInterface).intern()
-      } else {
-        self.swiftPackageInterfacePath = givenPackageInterfacePath
-      }
-    } else {
-      self.swiftPackageInterfacePath = nil
-    }
 
     var optimizationRecordFileType = FileType.yamlOptimizationRecord
     if let argument = parsedOptions.getLastArgument(.saveOptimizationRecordEQ)?.asSingle {
@@ -1127,31 +1293,10 @@ public struct Driver {
         outputFileMap: self.outputFileMap,
         moduleName: moduleOutputInfo.name)
 
-    var apiDescriptorDirectory: VirtualPath? = nil
-    if let apiDescriptorDirectoryEnvVar = env["TAPI_SDKDB_OUTPUT_PATH"] {
-        apiDescriptorDirectory = try VirtualPath(path: apiDescriptorDirectoryEnvVar)
-    } else if let ldTraceFileEnvVar = env["LD_TRACE_FILE"] {
-        apiDescriptorDirectory = try VirtualPath(path: ldTraceFileEnvVar).parentDirectory.appending(component: "SDKDB")
-    }
-    if let apiDescriptorDirectory = apiDescriptorDirectory {
-        self.apiDescriptorFilePath = apiDescriptorDirectory
-          .appending(component: "\(moduleOutputInfo.name).\(frontendTargetInfo.target.moduleTriple.triple).swift.sdkdb")
-          .intern()
-    } else {
-        self.apiDescriptorFilePath = try Self.computeSupplementaryOutputPath(
-            &parsedOptions, type: .jsonAPIDescriptor, isOutputOptions: [],
-            outputPath: .emitApiDescriptorPath,
-            compilerOutputType: compilerOutputType,
-            compilerMode: compilerMode,
-            emitModuleSeparately: emitModuleSeparately,
-            outputFileMap: self.outputFileMap,
-            moduleName: moduleOutputInfo.name)
-    }
-
     Self.validateDigesterArgs(&parsedOptions,
                               moduleOutputInfo: moduleOutputInfo,
                               digesterMode: self.digesterMode,
-                              swiftInterfacePath: self.swiftInterfacePath,
+                              swiftInterfacePath: self.moduleOutputPaths.swiftInterfacePath,
                               diagnosticEngine: diagnosticsEngine)
 
     try verifyOutputOptions()
@@ -2625,9 +2770,37 @@ extension Driver {
     return ""
   }
 
+  private static func computeVariantModuleInfo(
+    _ parsedOptions: inout ParsedOptions,
+    compilerOutputType: FileType?,
+    compilerMode: CompilerMode,
+    linkerOutputType: LinkOutputType?,
+    debugInfoLevel: DebugInfo.Level?,
+    diagnosticsEngine: DiagnosticsEngine,
+    workingDirectory: AbsolutePath?
+  ) throws -> ModuleOutputInfo? {
+    // If there is no target variant, then there is no target variant module.
+    // If there is no emit-variant-module, then there is not target variant
+    // module.
+    guard let variantModulePath = parsedOptions.getLastArgument(.emitVariantModulePath),
+      parsedOptions.hasArgument(.targetVariant) else {
+        return nil
+    }
+    return try computeModuleInfo(&parsedOptions,
+        modulePath: variantModulePath.asSingle,
+        compilerOutputType: compilerOutputType,
+        compilerMode: compilerMode,
+        linkerOutputType: linkerOutputType,
+        debugInfoLevel: debugInfoLevel,
+        diagnosticsEngine: diagnosticsEngine,
+        workingDirectory: workingDirectory)
+    return nil
+  }
+
   /// Determine how the module will be emitted and the name of the module.
   private static func computeModuleInfo(
     _ parsedOptions: inout ParsedOptions,
+    modulePath: String?,
     compilerOutputType: FileType?,
     compilerMode: CompilerMode,
     linkerOutputType: LinkOutputType?,
@@ -2642,7 +2815,7 @@ extension Driver {
     }
 
     var moduleOutputKind: ModuleOutputKind?
-    if parsedOptions.hasArgument(.emitModule, .emitModulePath) {
+    if parsedOptions.hasArgument(.emitModule) || modulePath != nil {
       // The user has requested a module, so generate one and treat it as
       // top-level output.
       moduleOutputKind = .topLevel
@@ -2724,9 +2897,9 @@ extension Driver {
 
     // FIXME: Look in the output file map. It looks like it is weirdly
     // anchored to the first input?
-    if let modulePathArg = parsedOptions.getLastArgument(.emitModulePath) {
+    if let modulePathArg = modulePath {
       // The module path was specified.
-      moduleOutputPath = try VirtualPath(path: modulePathArg.asSingle)
+      moduleOutputPath = try VirtualPath(path: modulePathArg)
     } else if moduleOutputKind == .topLevel {
       // FIXME: Logic to infer from primary outputs, etc.
       let moduleFilename = moduleName.appendingFileTypeExtension(.swiftModule)
@@ -3622,6 +3795,7 @@ extension Driver {
   static func computeModuleDocOutputPath(
     _ parsedOptions: inout ParsedOptions,
     moduleOutputPath: VirtualPath.Handle?,
+    outputOption: Option,
     compilerOutputType: FileType?,
     compilerMode: CompilerMode,
     outputFileMap: OutputFileMap?,
@@ -3631,7 +3805,7 @@ extension Driver {
                                                 moduleOutputPath: moduleOutputPath,
                                                 type: .swiftDocumentation,
                                                 isOutput: .emitModuleDoc,
-                                                outputPath: .emitModuleDocPath,
+                                                outputPath: outputOption,
                                                 compilerOutputType: compilerOutputType,
                                                 compilerMode: compilerMode,
                                                 outputFileMap: outputFileMap,
@@ -3642,6 +3816,7 @@ extension Driver {
   static func computeModuleSourceInfoOutputPath(
     _ parsedOptions: inout ParsedOptions,
     moduleOutputPath: VirtualPath.Handle?,
+    outputOption: Option,
     compilerOutputType: FileType?,
     compilerMode: CompilerMode,
     outputFileMap: OutputFileMap?,
@@ -3653,7 +3828,7 @@ extension Driver {
                                                 moduleOutputPath: moduleOutputPath,
                                                 type: .swiftSourceInfoFile,
                                                 isOutput: .emitModuleSourceInfo,
-                                                outputPath: .emitModuleSourceInfoPath,
+                                                outputPath: outputOption,
                                                 compilerOutputType: compilerOutputType,
                                                 compilerMode: compilerMode,
                                                 outputFileMap: outputFileMap,

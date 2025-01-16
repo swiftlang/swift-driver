@@ -277,6 +277,8 @@ extension Driver {
       primaryInputs: primaryInputs,
       inputsGeneratingCodeCount: inputsGeneratingCodeCount,
       inputOutputMap: &inputOutputMap,
+      moduleOutputInfo: self.moduleOutputInfo,
+      moduleOutputPaths: self.moduleOutputPaths,
       includeModuleTracePath: emitModuleTrace,
       indexFilePath: indexFilePath)
 
