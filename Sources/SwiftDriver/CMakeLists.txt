@@ -131,8 +131,6 @@ target_link_libraries(SwiftDriver PUBLIC
   TSCUtility
   SwiftOptions)
 target_link_libraries(SwiftDriver PRIVATE
-  CYaml
-  Yams
   CSwiftScan)
 
 set_property(GLOBAL APPEND PROPERTY SWIFTDRIVER_EXPORTS SwiftDriver)

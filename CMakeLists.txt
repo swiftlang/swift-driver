@@ -87,15 +87,6 @@ if(NOT TSC_FOUND)
   FetchContent_MakeAvailable(ToolsSupportCore)
 endif()
 
-find_package(Yams CONFIG)
-if(NOT Yams_FOUND)
-  message("-- Vending yams")
-  FetchContent_Declare(Yams
-    GIT_REPOSITORY https://github.com/jpsim/yams
-    GIT_TAG 5.0.6)
-  FetchContent_MakeAvailable(Yams)
-endif()
-
 set(BUILD_TESTING ${_SD_SAVED_BUILD_TESTING})
 set(BUILD_EXAMPLES ${_SD_SAVED_BUILD_EXAMPLES})
 
