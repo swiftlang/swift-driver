@@ -8,3 +8,4 @@
 
 add_library(CSwiftScan STATIC
   CSwiftScanImpl.c)
+set_property(GLOBAL APPEND PROPERTY SWIFTDRIVER_EXPORTS CSwiftScan)
