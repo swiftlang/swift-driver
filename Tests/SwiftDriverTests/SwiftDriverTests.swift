@@ -8495,7 +8495,7 @@ final class SwiftDriverTests: XCTestCase {
       try localFileSystem.createDirectory(moduleCachePath)
       let one = path.appending(component: "one.swift")
       let two = path.appending(component: "needs to escape spaces.swift")
-      let three = path.appending(component: #"another"one.swift"#)
+      let three = path.appending(component: "another'one.swift")
       let four = path.appending(component: "4.swift")
       try localFileSystem.writeFileContents(one, bytes:
         """
