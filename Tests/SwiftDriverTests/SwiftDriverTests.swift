@@ -4090,6 +4090,162 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testTargetVariantEmitModule() throws {
+    do {
+      var driver = try Driver(args: ["swiftc",
+        "-target", "x86_64-apple-macosx10.14",
+        "-target-variant", "x86_64-apple-ios13.1-macabi",
+        "-enable-library-evolution",
+        "-emit-module",
+        "-emit-module-path", "foo.swiftmodule/target.swiftmodule",
+        "-emit-variant-module-path", "foo.swiftmodule/variant.swiftmodule",
+        "foo.swift"])
+
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(plannedJobs.count, 3)
+
+      let targetModuleJob = plannedJobs[0]
+      let variantModuleJob = plannedJobs[1]
+
+      XCTAssert(targetModuleJob.commandLine.contains(.flag("-emit-module")))
+      XCTAssert(variantModuleJob.commandLine.contains(.flag("-emit-module")))
+
+      XCTAssert(targetModuleJob.commandLine.contains(.path(.relative(try .init(validating: "foo.swiftmodule/target.swiftdoc")))))
+      XCTAssert(targetModuleJob.commandLine.contains(.path(.relative(try .init(validating: "foo.swiftmodule/target.swiftsourceinfo")))))
+      XCTAssert(targetModuleJob.commandLine.contains(.path(.relative(try .init(validating: "foo.swiftmodule/target.abi.json")))))
+      XCTAssertTrue(targetModuleJob.commandLine.contains(subsequence: [.flag("-o"), .path(.relative(try .init(validating: "foo.swiftmodule/target.swiftmodule")))]))
+
+      XCTAssert(variantModuleJob.commandLine.contains(.path(.relative(try .init(validating: "foo.swiftmodule/variant.swiftdoc")))))
+      XCTAssert(variantModuleJob.commandLine.contains(.path(.relative(try .init(validating: "foo.swiftmodule/variant.swiftsourceinfo")))))
+      XCTAssert(variantModuleJob.commandLine.contains(.path(.relative(try .init(validating: "foo.swiftmodule/variant.abi.json")))))
+      XCTAssertTrue(variantModuleJob.commandLine.contains(subsequence: [.flag("-o"), .path(.relative(try .init(validating: "foo.swiftmodule/variant.swiftmodule")))]))
+    }
+
+    do {
+      // explicitly emit variant supplemental outputs
+      var driver = try Driver(args: ["swiftc",
+        "-target", "x86_64-apple-macosx10.14",
+        "-target-variant", "x86_64-apple-ios13.1-macabi",
+        "-enable-library-evolution",
+        "-package-name", "Susan",
+        "-emit-module",
+        "-emit-module-path", "target.swiftmodule",
+        "-emit-variant-module-path", "variant.swiftmodule",
+        "-Xfrontend", "-emit-module-doc-path", "-Xfrontend", "target.swiftdoc",
+        "-Xfrontend", "-emit-variant-module-doc-path", "variant.swiftdoc",
+        "-emit-module-source-info-path", "target.sourceinfo",
+        "-emit-variant-module-source-info-path", "variant.sourceinfo",
+        "-emit-package-module-interface-path", "target.package.swiftinterface",
+        "-emit-variant-package-module-interface-path", "variant.package.swiftinterface",
+        "-emit-private-module-interface-path", "target.private.swiftinterface",
+        "-emit-variant-private-module-interface-path", "variant.private.swiftinterface",
+        "-emit-module-interface-path", "target.swiftinterface",
+        "-emit-variant-module-interface-path", "variant.swiftinterface",
+        "foo.swift"])
+
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      // emit module, emit module, compile foo.swift,
+      // verify target.swiftinterface,
+      // verify target.private.swiftinterface,
+      // verify target.package.swiftinterface,
+      XCTAssertEqual(plannedJobs.count, 6)
+
+      let targetModuleJob: Job = plannedJobs[0]
+      let variantModuleJob = plannedJobs[1]
+
+      XCTAssertEqual(targetModuleJob.outputs.filter { $0.type == .swiftModule }.last!.file,
+        try toPath("target.swiftmodule"))
+      XCTAssertEqual(variantModuleJob.outputs.filter { $0.type == .swiftModule }.last!.file,
+        try toPath("variant.swiftmodule"))
+
+      XCTAssertEqual(targetModuleJob.outputs.filter { $0.type == .swiftDocumentation }.last!.file,
+        try toPath("target.swiftdoc"))
+      XCTAssertEqual(variantModuleJob.outputs.filter { $0.type == .swiftDocumentation }.last!.file,
+        try toPath("variant.swiftdoc"))
+
+      XCTAssertEqual(targetModuleJob.outputs.filter { $0.type == .swiftSourceInfoFile }.last!.file,
+        try toPath("target.sourceinfo"))
+      XCTAssertEqual(variantModuleJob.outputs.filter { $0.type == .swiftSourceInfoFile }.last!.file,
+        try toPath("variant.sourceinfo"))
+
+      XCTAssertEqual(targetModuleJob.outputs.filter { $0.type == .swiftInterface}.last!.file,
+        try toPath("target.swiftinterface"))
+      XCTAssertEqual(variantModuleJob.outputs.filter { $0.type == .swiftInterface}.last!.file,
+        try toPath("variant.swiftinterface"))
+
+      XCTAssertEqual(targetModuleJob.outputs.filter { $0.type == .privateSwiftInterface}.last!.file,
+        try toPath("target.private.swiftinterface"))
+      XCTAssertEqual(variantModuleJob.outputs.filter { $0.type == .privateSwiftInterface}.last!.file,
+        try toPath("variant.private.swiftinterface"))
+
+      XCTAssertEqual(targetModuleJob.outputs.filter { $0.type == .packageSwiftInterface}.last!.file,
+        try toPath("target.package.swiftinterface"))
+      XCTAssertEqual(variantModuleJob.outputs.filter { $0.type == .packageSwiftInterface}.last!.file,
+        try toPath("variant.package.swiftinterface"))
+
+      XCTAssertEqual(targetModuleJob.outputs.filter { $0.type == .jsonABIBaseline }.last!.file,
+        try toPath("target.abi.json"))
+      XCTAssertEqual(variantModuleJob.outputs.filter { $0.type == .jsonABIBaseline}.last!.file,
+        try toPath("variant.abi.json"))
+    }
+
+#if os(macOS)
+    do {
+      try withTemporaryDirectory { path in
+        var env = ProcessEnv.vars
+        env["LD_TRACE_FILE"] = path.appending(component: ".LD_TRACE").nativePathString(escaped: false)
+        var driver = try Driver(args: ["swiftc",
+          "-target", "x86_64-apple-macosx10.14",
+          "-target-variant", "x86_64-apple-ios13.1-macabi",
+          "-emit-variant-module-path", "foo.swiftmodule/x86_64-apple-ios13.1-macabi.swiftmodule",
+          "-enable-library-evolution",
+          "-emit-module",
+          "foo.swift"], env: env)
+
+        let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+        let targetModuleJob = plannedJobs[0]
+        let variantModuleJob = plannedJobs[1]
+
+        XCTAssert(targetModuleJob.commandLine.contains(subsequence: [
+          .flag("-emit-api-descriptor-path"),
+          .path(.absolute(path.appending(components: "SDKDB", "foo.\(driver.frontendTargetInfo.target.moduleTriple.triple).swift.sdkdb"))),
+        ]))
+
+        XCTAssert(variantModuleJob.commandLine.contains(subsequence: [
+          .flag("-emit-api-descriptor-path"),
+          .path(.absolute(path.appending(components: "SDKDB", "foo.\(driver.frontendTargetInfo.targetVariant!.moduleTriple.triple).swift.sdkdb"))),
+        ]))
+      }
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc",
+        "-target", "x86_64-apple-macosx10.14",
+        "-target-variant", "x86_64-apple-ios13.1-macabi",
+        "-emit-variant-module-path", "foo.swiftmodule/x86_64-apple-ios13.1-macabi.swiftmodule",
+        "-enable-library-evolution",
+        "-emit-module",
+        "-emit-api-descriptor-path", "foo.swiftmodule/target.api.json",
+        "-emit-variant-api-descriptor-path", "foo.swiftmodule/variant.api.json",
+        "foo.swift"])
+
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      let targetModuleJob = plannedJobs[0]
+      let variantModuleJob = plannedJobs[1]
+
+      XCTAssert(targetModuleJob.commandLine.contains(subsequence: [
+        .flag("-emit-api-descriptor-path"),
+        .path(.relative(try .init(validating: "foo.swiftmodule/target.api.json")))
+      ]))
+
+      XCTAssert(variantModuleJob.commandLine.contains(subsequence: [
+        .flag("-emit-api-descriptor-path"),
+        .path(.relative(try .init(validating: "foo.swiftmodule/variant.api.json")))
+      ]))
+    }
+#endif
+  }
+
   func testValidDeprecatedTargetiOS() throws {
     var driver = try Driver(args: ["swiftc", "-emit-module", "-target", "armv7-apple-ios13.0", "foo.swift"])
     let plannedJobs = try driver.planBuild()

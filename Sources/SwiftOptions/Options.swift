@@ -384,6 +384,14 @@ extension Option {
   public static let emitTbdPathEQ: Option = Option("-emit-tbd-path=", .joined, alias: Option.emitTbdPath, attributes: [.frontend, .noInteractive, .argumentIsPath, .supplementaryOutput, .cacheInvariant])
   public static let emitTbdPath: Option = Option("-emit-tbd-path", .separate, attributes: [.frontend, .noInteractive, .argumentIsPath, .supplementaryOutput, .cacheInvariant], metaVar: "<path>", helpText: "Emit the TBD file to <path>")
   public static let emitTbd: Option = Option("-emit-tbd", .flag, attributes: [.frontend, .noInteractive, .supplementaryOutput], helpText: "Emit a TBD file")
+  public static let emitVariantAbiDescriptorPath: Option = Option("-emit-variant-abi-descriptor-path", .separate, attributes: [.frontend, .noDriver, .cacheInvariant], metaVar: "<path>", helpText: "Output the ABI descriptor of current target variant module to <path>")
+  public static let emitVariantApiDescriptorPath: Option = Option("-emit-variant-api-descriptor-path", .separate, attributes: [.frontend, .noInteractive, .argumentIsPath, .supplementaryOutput, .cacheInvariant], metaVar: "<path>", helpText: "Output a JSON file describing the target variant module's API to <path>")
+  public static let emitVariantModuleDocPath: Option = Option("-emit-variant-module-doc-path", .separate, attributes: [.frontend, .noDriver, .cacheInvariant], metaVar: "<path>", helpText: "Output module documentation file for the target variant to <path>")
+  public static let emitVariantModuleInterfacePath: Option = Option("-emit-variant-module-interface-path", .separate, attributes: [.frontend, .noInteractive, .argumentIsPath, .supplementaryOutput, .cacheInvariant], metaVar: "<path>", helpText: "Output module interface file for the target variant to <path>")
+  public static let emitVariantModulePath: Option = Option("-emit-variant-module-path", .separate, attributes: [.noInteractive, .argumentIsPath, .supplementaryOutput, .cacheInvariant], metaVar: "<path>", helpText: "Emit an importable module for the target variant at the specified path")
+  public static let emitVariantModuleSourceInfoPath: Option = Option("-emit-variant-module-source-info-path", .separate, attributes: [.frontend, .noInteractive, .argumentIsPath, .supplementaryOutput], metaVar: "<path>", helpText: "Output module source info file for the target variant to <path>")
+  public static let emitVariantPackageModuleInterfacePath: Option = Option("-emit-variant-package-module-interface-path", .separate, attributes: [.frontend, .noInteractive, .argumentIsPath, .supplementaryOutput, .cacheInvariant], metaVar: "<path>", helpText: "Output package module interface file for the target variant to <path>")
+  public static let emitVariantPrivateModuleInterfacePath: Option = Option("-emit-variant-private-module-interface-path", .separate, attributes: [.frontend, .noInteractive, .argumentIsPath, .supplementaryOutput, .cacheInvariant], metaVar: "<path>", helpText: "Output private module interface file for the target variant to <path>")
   public static let emitVerboseSil: Option = Option("-emit-verbose-sil", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Emit locations during SIL emission")
   public static let emptyAbiDescriptor: Option = Option("-empty-abi-descriptor", .flag, attributes: [.frontend, .noDriver], helpText: "Avoid printing actual module content into ABI descriptor file")
   public static let emptyBaseline: Option = Option("-empty-baseline", .flag, attributes: [.noDriver], helpText: "Use empty baseline for diagnostics")
@@ -1297,6 +1305,14 @@ extension Option {
       Option.emitTbdPathEQ,
       Option.emitTbdPath,
       Option.emitTbd,
+      Option.emitVariantAbiDescriptorPath,
+      Option.emitVariantApiDescriptorPath,
+      Option.emitVariantModuleDocPath,
+      Option.emitVariantModuleInterfacePath,
+      Option.emitVariantModulePath,
+      Option.emitVariantModuleSourceInfoPath,
+      Option.emitVariantPackageModuleInterfacePath,
+      Option.emitVariantPrivateModuleInterfacePath,
       Option.emitVerboseSil,
       Option.emptyAbiDescriptor,
       Option.emptyBaseline,

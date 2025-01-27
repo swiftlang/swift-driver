@@ -17,6 +17,7 @@ extension Driver {
   mutating func addCommonModuleOptions(
       commandLine: inout [Job.ArgTemplate],
       outputs: inout [TypedVirtualPath],
+      moduleOutputPaths: SupplementalModuleTargetOutputPaths,
       isMergeModule: Bool
   ) throws {
     // Add supplemental outputs.
@@ -28,16 +29,16 @@ extension Driver {
       outputs.append(.init(file: path, type: type))
     }
 
-    addSupplementalOutput(path: moduleDocOutputPath, flag: "-emit-module-doc-path", type: .swiftDocumentation)
-    addSupplementalOutput(path: moduleSourceInfoPath, flag: "-emit-module-source-info-path", type: .swiftSourceInfoFile)
-    addSupplementalOutput(path: swiftInterfacePath, flag: "-emit-module-interface-path", type: .swiftInterface)
-    addSupplementalOutput(path: swiftPrivateInterfacePath, flag: "-emit-private-module-interface-path", type: .privateSwiftInterface)
+    addSupplementalOutput(path: moduleOutputPaths.moduleDocOutputPath, flag: "-emit-module-doc-path", type: .swiftDocumentation)
+    addSupplementalOutput(path: moduleOutputPaths.moduleSourceInfoPath, flag: "-emit-module-source-info-path", type: .swiftSourceInfoFile)
+    addSupplementalOutput(path: moduleOutputPaths.swiftInterfacePath, flag: "-emit-module-interface-path", type: .swiftInterface)
+    addSupplementalOutput(path: moduleOutputPaths.swiftPrivateInterfacePath, flag: "-emit-private-module-interface-path", type: .privateSwiftInterface)
     if let pkgName = packageName, !pkgName.isEmpty {
-      addSupplementalOutput(path: swiftPackageInterfacePath, flag: "-emit-package-module-interface-path", type: .packageSwiftInterface)
+      addSupplementalOutput(path: moduleOutputPaths.swiftPackageInterfacePath, flag: "-emit-package-module-interface-path", type: .packageSwiftInterface)
     }
     addSupplementalOutput(path: objcGeneratedHeaderPath, flag: "-emit-objc-header-path", type: .objcHeader)
     addSupplementalOutput(path: tbdPath, flag: "-emit-tbd-path", type: .tbd)
-    addSupplementalOutput(path: apiDescriptorFilePath, flag: "-emit-api-descriptor-path", type: .jsonAPIDescriptor)
+    addSupplementalOutput(path: moduleOutputPaths.apiDescriptorFilePath, flag: "-emit-api-descriptor-path", type: .jsonAPIDescriptor)
 
     if isMergeModule {
       return
@@ -78,8 +79,13 @@ extension Driver {
   }
 
   /// Form a job that emits a single module
-  @_spi(Testing) public mutating func emitModuleJob(pchCompileJob: Job?) throws -> Job {
-    let moduleOutputPath = moduleOutputInfo.output!.outputPath
+  @_spi(Testing) public mutating func emitModuleJob(pchCompileJob: Job?, isVariantJob: Bool = false) throws -> Job {
+    precondition(!isVariantJob || (isVariantJob &&
+      variantModuleOutputInfo != nil && variantModuleOutputPaths != nil),
+      "target variant module requested without a target variant")
+
+    let moduleOutputPath = isVariantJob ? variantModuleOutputInfo!.output!.outputPath : moduleOutputInfo.output!.outputPath
+    let moduleOutputPaths = isVariantJob ? variantModuleOutputPaths! : moduleOutputPaths
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
     var inputs: [TypedVirtualPath] = []
     var outputs: [TypedVirtualPath] = [
@@ -102,7 +108,12 @@ extension Driver {
     try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs, kind: .emitModule)
     // FIXME: Add MSVC runtime library flags
 
-    try addCommonModuleOptions(commandLine: &commandLine, outputs: &outputs, isMergeModule: false)
+    try addCommonModuleOptions(
+      commandLine: &commandLine,
+      outputs: &outputs,
+      moduleOutputPaths: moduleOutputPaths,
+      isMergeModule: false)
+
     try addCommonSymbolGraphOptions(commandLine: &commandLine)
 
     try commandLine.appendLast(.checkApiAvailabilityOnly, from: &parsedOptions)
@@ -114,7 +125,7 @@ extension Driver {
     let outputPath = VirtualPath.lookup(moduleOutputPath)
     commandLine.appendFlag(.o)
     commandLine.appendPath(outputPath)
-    if let abiPath = abiDescriptorPath {
+    if let abiPath = moduleOutputPaths.abiDescriptorFilePath {
       commandLine.appendFlag(.emitAbiDescriptorPath)
       commandLine.appendPath(abiPath.file)
       outputs.append(abiPath)
