@@ -332,17 +332,38 @@ public struct Driver {
     }
   }
 
+  /// If PCH job is needed.
+  let producePCHJob: Bool
+
+  /// Original ObjC Header passed from command-line
+  let originalObjCHeaderFile: VirtualPath.Handle?
+
   /// The path to the imported Objective-C header.
-  let importedObjCHeader: VirtualPath.Handle?
+  lazy var importedObjCHeader: VirtualPath.Handle? = {
+    assert(explicitDependencyBuildPlanner != nil ||
+           !parsedOptions.hasArgument(.driverExplicitModuleBuild) ||
+           !inputFiles.contains { $0.type == .swift },
+           "should not be queried before scanning")
+    let chainedBridgingHeader = try? explicitDependencyBuildPlanner?.getChainedBridgingHeaderFile()
+    return try? computeImportedObjCHeader(&parsedOptions, compilerMode: compilerMode,
+                                          chainedBridgingHeader: chainedBridgingHeader) ?? originalObjCHeaderFile
+  }()
+
+  /// The directory to emit PCH file.
+  lazy var bridgingPrecompiledHeaderOutputDir: VirtualPath? = {
+    return try? computePrecompiledBridgingHeaderDir(&parsedOptions,
+                                                    compilerMode: compilerMode)
+  }()
 
   /// The path to the pch for the imported Objective-C header.
   lazy var bridgingPrecompiledHeader: VirtualPath.Handle? = {
     let contextHash = try? explicitDependencyBuildPlanner?.getMainModuleContextHash()
-    return Self.computeBridgingPrecompiledHeader(&parsedOptions,
-                                                 compilerMode: compilerMode,
-                                                 importedObjCHeader: importedObjCHeader,
-                                                 outputFileMap: outputFileMap,
-                                                 contextHash: contextHash)
+    return computeBridgingPrecompiledHeader(&parsedOptions,
+                                            compilerMode: compilerMode,
+                                            importedObjCHeader: importedObjCHeader,
+                                            outputFileMap: outputFileMap,
+                                            outputDirectory: bridgingPrecompiledHeaderOutputDir,
+                                            contextHash: contextHash)
   }()
 
   /// Path to the dependencies file.
@@ -1049,8 +1070,6 @@ public struct Driver {
       parsedOptions: parsedOptions,
       recordedInputModificationDates: recordedInputModificationDates)
 
-    self.importedObjCHeader = try Self.computeImportedObjCHeader(&parsedOptions, compilerMode: compilerMode, diagnosticEngine: diagnosticEngine)
-
     self.supportedFrontendFlags =
       try Self.computeSupportedCompilerArgs(of: self.toolchain,
                                             libSwiftScan: self.swiftScanLibInstance,
@@ -1075,16 +1094,38 @@ public struct Driver {
         diagnosticsEngine.emit(.warning("-cache-compile-job cannot be used without explicit module build, turn off caching"),
                                location: nil)
         self.enableCaching = false
-      } else if importedObjCHeader != nil, !parsedOptions.hasFlag(positive: .enableBridgingPch, negative: .disableBridgingPch, default: true) {
-        diagnosticsEngine.emit(.warning("-cache-compile-job cannot be used with -disable-bridging-pch, turn off caching"),
-                               location: nil)
-        self.enableCaching = false
       } else {
         self.enableCaching = true
       }
     } else {
       self.enableCaching = false
     }
+
+    // PCH related options.
+    if parsedOptions.hasArgument(.importObjcHeader) {
+      // Check for conflicting options.
+      if parsedOptions.hasArgument(.importUnderlyingModule) {
+        diagnosticEngine.emit(.error_framework_bridging_header)
+      }
+
+      if parsedOptions.hasArgument(.emitModuleInterface, .emitModuleInterfacePath) {
+        diagnosticEngine.emit(.error_bridging_header_module_interface)
+      }
+    }
+    var maybeNeedPCH = parsedOptions.hasFlag(positive: .enableBridgingPch, negative: .disableBridgingPch, default: true)
+    if enableCaching && !maybeNeedPCH {
+      diagnosticsEngine.emit(.warning("-cache-compile-job cannot be used with -disable-bridging-pch, turn on PCH generation"),
+                             location: nil)
+      maybeNeedPCH = true
+    }
+    self.producePCHJob = maybeNeedPCH
+
+    if let objcHeaderPathArg = parsedOptions.getLastArgument(.importObjcHeader) {
+      self.originalObjCHeaderFile = try? VirtualPath.intern(path: objcHeaderPathArg.asSingle)
+    } else {
+      self.originalObjCHeaderFile = nil
+    }
+
     self.useClangIncludeTree = !parsedOptions.hasArgument(.noClangIncludeTree) && !env.keys.contains("SWIFT_CACHING_USE_CLANG_CAS_FS")
     self.scannerPrefixMap = try Self.computeScanningPrefixMapper(&parsedOptions)
     if let sdkMapping =  parsedOptions.getLastArgument(.scannerPrefixMapSdk)?.asSingle {
@@ -3052,36 +3093,47 @@ extension Driver {
 // Imported Objective-C header.
 extension Driver {
   /// Compute the path of the imported Objective-C header.
-  static func computeImportedObjCHeader(
+  func computeImportedObjCHeader(
     _ parsedOptions: inout ParsedOptions,
     compilerMode: CompilerMode,
-    diagnosticEngine: DiagnosticsEngine
-  ) throws -> VirtualPath.Handle? {
-    guard let objcHeaderPathArg = parsedOptions.getLastArgument(.importObjcHeader) else {
-      return nil
+    chainedBridgingHeader: ChainedBridgingHeaderFile?) throws -> VirtualPath.Handle? {
+    // handle chained bridging header.
+    if let chainedHeader = chainedBridgingHeader, !chainedHeader.path.isEmpty {
+      let path = try VirtualPath(path: chainedHeader.path)
+      let dirExists = try fileSystem.exists(path.parentDirectory)
+      if !dirExists, let dirToCreate = path.parentDirectory.absolutePath {
+        try fileSystem.createDirectory(dirToCreate, recursive: true)
+      }
+      try fileSystem.writeFileContents(path,
+                                       bytes: ByteString(encodingAsUTF8: chainedHeader.content),
+                                       atomically: true)
+      return path.intern()
     }
+    return originalObjCHeaderFile
+  }
 
-    // Check for conflicting options.
-    if parsedOptions.hasArgument(.importUnderlyingModule) {
-      diagnosticEngine.emit(.error_framework_bridging_header)
+  /// Compute the path to the bridging precompiled header directory path.
+  func computePrecompiledBridgingHeaderDir(
+    _ parsedOptions: inout ParsedOptions,
+    compilerMode: CompilerMode) throws -> VirtualPath? {
+    if let input = originalObjCHeaderFile,
+       let outputPath = try? outputFileMap?.existingOutput(inputFile: input, outputType: .pch) {
+      return VirtualPath.lookup(outputPath).parentDirectory
     }
-
-    if parsedOptions.hasArgument(.emitModuleInterface, .emitModuleInterfacePath) {
-      diagnosticEngine.emit(.error_bridging_header_module_interface)
+    if let outputDir = parsedOptions.getLastArgument(.pchOutputDir)?.asSingle {
+      return try VirtualPath(path: outputDir)
     }
-
-    return try VirtualPath.intern(path: objcHeaderPathArg.asSingle)
+    return nil
   }
 
   /// Compute the path of the generated bridging PCH for the Objective-C header.
-  static func computeBridgingPrecompiledHeader(_ parsedOptions: inout ParsedOptions,
-                                               compilerMode: CompilerMode,
-                                               importedObjCHeader: VirtualPath.Handle?,
-                                               outputFileMap: OutputFileMap?,
-                                               contextHash: String?) -> VirtualPath.Handle? {
-    guard compilerMode.supportsBridgingPCH,
-      let input = importedObjCHeader,
-      parsedOptions.hasFlag(positive: .enableBridgingPch, negative: .disableBridgingPch, default: true) else {
+  func computeBridgingPrecompiledHeader(_ parsedOptions: inout ParsedOptions,
+                                        compilerMode: CompilerMode,
+                                        importedObjCHeader: VirtualPath.Handle?,
+                                        outputFileMap: OutputFileMap?,
+                                        outputDirectory: VirtualPath?,
+                                        contextHash: String?) -> VirtualPath.Handle? {
+    guard compilerMode.supportsBridgingPCH, producePCHJob, let input = importedObjCHeader else {
         return nil
     }
 
@@ -3096,8 +3148,8 @@ extension Driver {
     } else {
       pchFile = baseName.appendingFileTypeExtension(.pch)
     }
-    if let outputDirectory = parsedOptions.getLastArgument(.pchOutputDir)?.asSingle {
-      return try? VirtualPath(path: outputDirectory).appending(component: pchFile).intern()
+    if let outputDirectory = outputDirectory {
+      return outputDirectory.appending(component: pchFile).intern()
     } else {
       return try? VirtualPath.temporary(RelativePath(validating: pchFile)).intern()
     }

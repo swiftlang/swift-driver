@@ -455,26 +455,39 @@ extension Driver {
       try commandLine.appendAll(.Xcc, from: &parsedOptions)
     }
 
-    if let importedObjCHeader = importedObjCHeader,
-        bridgingHeaderHandling != .ignored {
-      commandLine.appendFlag(.importObjcHeader)
-      if bridgingHeaderHandling == .precompiled,
-          let pch = bridgingPrecompiledHeader {
-        // For explicit module build, we directly pass the compiled pch as
-        // `-import-objc-header`, rather than rely on swift-frontend to locate
+    let objcHeaderFile = (kind == .scanDependencies) ? originalObjCHeaderFile : importedObjCHeader
+    if let importedObjCHeader = objcHeaderFile, bridgingHeaderHandling != .ignored {
+      if bridgingHeaderHandling == .precompiled, let pch = bridgingPrecompiledHeader {
+        // For explicit module build, we directly pass the compiled pch to
+        // swift-frontend, rather than rely on swift-frontend to locate
         // the pch in the pchOutputDir and can start an implicit build in case
         // of a lookup failure.
         if parsedOptions.contains(.pchOutputDir) &&
            !parsedOptions.contains(.driverExplicitModuleBuild) {
+          commandLine.appendFlag(.importObjcHeader)
           try addPathArgument(VirtualPath.lookup(importedObjCHeader), to:&commandLine, remap: jobNeedPathRemap)
           try commandLine.appendLast(.pchOutputDir, from: &parsedOptions)
           if !compilerMode.isSingleCompilation {
             commandLine.appendFlag(.pchDisableValidation)
           }
         } else {
-          try addPathArgument(VirtualPath.lookup(pch), to:&commandLine, remap: jobNeedPathRemap)
+          // If header chaining is enabled, pass objc header through `-import-objc-header` and
+          // PCH file through `-import-pch`. Otherwise, pass either the PCH or header through
+          // `-import-objc-header` option.
+          if isFrontendArgSupported(.importPch), importedObjCHeader != originalObjCHeaderFile {
+            commandLine.appendFlag(.importPch)
+            try addPathArgument(VirtualPath.lookup(pch), to:&commandLine, remap: jobNeedPathRemap)
+            if let originalHeader = originalObjCHeaderFile {
+              commandLine.appendFlag(.importObjcHeader)
+              try addPathArgument(VirtualPath.lookup(originalHeader), to:&commandLine, remap: jobNeedPathRemap)
+            }
+          } else {
+            commandLine.appendFlag(.importObjcHeader)
+            try addPathArgument(VirtualPath.lookup(pch), to:&commandLine, remap: jobNeedPathRemap)
+          }
         }
       } else {
+        commandLine.appendFlag(.importObjcHeader)
         try addPathArgument(VirtualPath.lookup(importedObjCHeader), to:&commandLine, remap: jobNeedPathRemap)
       }
     }
@@ -957,8 +970,7 @@ extension Driver {
       return [:]
     }
     // Resolve command-line first.
-    let resolver = try ArgsResolver(fileSystem: fileSystem)
-    let arguments: [String] = try resolver.resolveArgumentList(for: commandLine)
+    let arguments: [String] = try executor.resolver.resolveArgumentList(for: commandLine)
 
     return try inputs.reduce(into: [:]) { keys, input in
       keys[input.0] = try cas.computeCacheKey(commandLine: arguments, index: input.1)
@@ -972,8 +984,7 @@ extension Driver {
       return nil
     }
     // Resolve command-line first.
-    let resolver = try ArgsResolver(fileSystem: fileSystem)
-    let arguments: [String] = try resolver.resolveArgumentList(for: commandLine)
+    let arguments: [String] = try executor.resolver.resolveArgumentList(for: commandLine)
     return try cas.computeCacheKey(commandLine: arguments, index: index)
   }
 }

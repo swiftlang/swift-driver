@@ -395,6 +395,111 @@ final class ExplicitModuleBuildTests: XCTestCase {
     }
   }
 
+  func testExplicitBuildEndToEndWithBinaryHeaderDeps() throws {
+    try withTemporaryDirectory { path in
+      try localFileSystem.changeCurrentWorkingDirectory(to: path)
+      let moduleCachePath = path.appending(component: "ModuleCache")
+      try localFileSystem.createDirectory(moduleCachePath)
+      let PCHPath = path.appending(component: "PCH")
+      try localFileSystem.createDirectory(PCHPath)
+      let FooInstallPath = path.appending(component: "Foo")
+      try localFileSystem.createDirectory(FooInstallPath)
+      let foo = path.appending(component: "foo.swift")
+      try localFileSystem.writeFileContents(foo) {
+        $0.send("extension Profiler {")
+        $0.send("    public static let count: Int = 42")
+        $0.send("}")
+      }
+      let fooHeader = path.appending(component: "foo.h")
+      try localFileSystem.writeFileContents(fooHeader) {
+        $0.send("struct Profiler { void* ptr; };")
+      }
+      let main = path.appending(component: "main.swift")
+      try localFileSystem.writeFileContents(main) {
+        $0.send("import Foo")
+      }
+      let userHeader = path.appending(component: "user.h")
+      try localFileSystem.writeFileContents(userHeader) {
+        $0.send("struct User { void* ptr; };")
+      }
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+
+      var fooBuildDriver = try Driver(args: ["swiftc",
+                                             "-explicit-module-build", "-auto-bridging-header-chaining",
+                                             "-module-cache-path", moduleCachePath.nativePathString(escaped: true),
+                                             "-working-directory", path.nativePathString(escaped: true),
+                                             foo.nativePathString(escaped: true),
+                                             "-emit-module", "-wmo", "-module-name", "Foo",
+                                             "-emit-module-path", FooInstallPath.nativePathString(escaped: true),
+                                             "-import-objc-header", fooHeader.nativePathString(escaped: true),
+                                             "-pch-output-dir", PCHPath.nativePathString(escaped: true),
+                                             FooInstallPath.appending(component: "Foo.swiftmodule").nativePathString(escaped: true)]
+                                      + sdkArgumentsForTesting)
+
+      let fooJobs = try fooBuildDriver.planBuild()
+      try fooBuildDriver.run(jobs: fooJobs)
+      XCTAssertFalse(fooBuildDriver.diagnosticEngine.hasErrors)
+
+      // If no chained bridging header is used, always pass pch through -import-objc-header
+      var driver = try Driver(args: ["swiftc",
+                                     "-I", FooInstallPath.nativePathString(escaped: true),
+                                     "-explicit-module-build", "-no-auto-bridging-header-chaining",
+                                     "-pch-output-dir", FooInstallPath.nativePathString(escaped: true),
+                                     "-import-objc-header", userHeader.nativePathString(escaped: true),
+                                     "-emit-module", "-emit-module-path",
+                                     path.appending(component: "testEMBETEWBHD.swiftmodule").nativePathString(escaped: true),
+                                     "-module-cache-path", moduleCachePath.nativePathString(escaped: true),
+                                     "-working-directory", path.nativePathString(escaped: true),
+                                     main.nativePathString(escaped: true)] + sdkArgumentsForTesting)
+      var jobs = try driver.planBuild()
+      XCTAssertTrue(jobs.contains { $0.kind == .generatePCH })
+      XCTAssertTrue(jobs.allSatisfy {
+        !$0.kind.isCompile || $0.commandLine.contains(.flag("-import-objc-header"))
+      })
+      XCTAssertTrue(jobs.allSatisfy {
+        !$0.kind.isCompile || !$0.commandLine.contains(.flag("-import-pch"))
+      })
+
+      // Remaining tests require a compiler supporting auto chaining.
+      guard driver.isFrontendArgSupported(.autoBridgingHeaderChaining) else { return }
+
+      // Warn if -disable-bridging-pch is used with auto bridging header chaining.
+      driver = try Driver(args: ["swiftc", "-v",
+                                 "-I", FooInstallPath.nativePathString(escaped: true),
+                                 "-explicit-module-build", "-auto-bridging-header-chaining", "-disable-bridging-pch",
+                                 "-pch-output-dir", FooInstallPath.nativePathString(escaped: true),
+                                 "-emit-module", "-emit-module-path",
+                                 path.appending(component: "testEMBETEWBHD.swiftmodule").nativePathString(escaped: true),
+                                 "-module-cache-path", moduleCachePath.nativePathString(escaped: true),
+                                 "-working-directory", path.nativePathString(escaped: true),
+                                 main.nativePathString(escaped: true)] + sdkArgumentsForTesting)
+      jobs = try driver.planBuild()
+      XCTAssertTrue(driver.diagnosticEngine.diagnostics.contains {
+        $0.behavior == .warning && $0.message.text == "-auto-bridging-header-chaining requires generatePCH job, no chaining will be performed"
+      })
+      XCTAssertFalse(jobs.contains { $0.kind == .generatePCH })
+
+      driver = try Driver(args: ["swiftc",
+                                 "-I", FooInstallPath.nativePathString(escaped: true),
+                                 "-explicit-module-build", "-auto-bridging-header-chaining",
+                                 "-pch-output-dir", FooInstallPath.nativePathString(escaped: true),
+                                 "-emit-module", "-emit-module-path",
+                                 path.appending(component: "testEMBETEWBHD.swiftmodule").nativePathString(escaped: true),
+                                 "-module-cache-path", moduleCachePath.nativePathString(escaped: true),
+                                 "-working-directory", path.nativePathString(escaped: true),
+                                 main.nativePathString(escaped: true)] + sdkArgumentsForTesting)
+      jobs = try driver.planBuild()
+      XCTAssertTrue(jobs.contains { $0.kind == .generatePCH })
+      XCTAssertTrue(jobs.allSatisfy {
+        !$0.kind.isCompile || $0.commandLine.contains(.flag("-import-pch"))
+      })
+      XCTAssertTrue(jobs.allSatisfy {
+        !$0.kind.isCompile || !$0.commandLine.contains(.flag("-import-objc-header"))
+      })
+      XCTAssertFalse(driver.diagnosticEngine.hasErrors)
+    }
+  }
+
   func testExplicitLinkLibraries() throws {
     try withTemporaryDirectory { path in
       let (_, _, toolchain, _) = try getDriverArtifactsForScanning()

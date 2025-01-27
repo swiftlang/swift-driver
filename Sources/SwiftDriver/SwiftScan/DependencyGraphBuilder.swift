@@ -184,6 +184,10 @@ private extension SwiftScan {
     let isFramework = api.swiftscan_swift_textual_detail_get_is_framework(moduleDetailsRef)
     let moduleCacheKey = supportsCaching ?  try getOptionalStringDetail(from: moduleDetailsRef,
                                                      using: api.swiftscan_swift_textual_detail_get_module_cache_key) : nil
+    let chainedBridgingHeaderPath = supportsChainedBridgingHeader ?
+      try getOptionalStringDetail(from: moduleDetailsRef, using: api.swiftscan_swift_textual_detail_get_chained_bridging_header_path) : nil
+    let chainedBridgingHeaderContent = supportsChainedBridgingHeader ?
+      try getOptionalStringDetail(from: moduleDetailsRef, using: api.swiftscan_swift_textual_detail_get_chained_bridging_header_content) : nil
 
     // Decode all dependencies of this module
     let swiftOverlayDependencies: [ModuleDependencyId]?
@@ -204,7 +208,9 @@ private extension SwiftScan {
                               contextHash: contextHash,
                               isFramework: isFramework,
                               swiftOverlayDependencies: swiftOverlayDependencies,
-                              moduleCacheKey: moduleCacheKey)
+                              moduleCacheKey: moduleCacheKey,
+                              chainedBridgingHeaderPath: chainedBridgingHeaderPath,
+                              chainedBridgingHeaderContent: chainedBridgingHeaderContent)
   }
 
   /// Construct a `SwiftPrebuiltExternalModuleDetails` from a `swiftscan_module_details_t` reference

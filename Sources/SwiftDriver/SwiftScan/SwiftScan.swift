@@ -290,6 +290,10 @@ private extension String {
     return api.swiftscan_swift_textual_detail_get_bridging_pch_command_line != nil
   }
 
+  @_spi(Testing) public var supportsChainedBridgingHeader : Bool {
+    return api.swiftscan_swift_textual_detail_get_chained_bridging_header_path != nil &&
+           api.swiftscan_swift_textual_detail_get_chained_bridging_header_content != nil
+  }
 
   @_spi(Testing) public var canQueryPerScanDiagnostics : Bool {
     return api.swiftscan_dependency_graph_get_diagnostics != nil &&
@@ -499,6 +503,10 @@ private extension swiftscan_functions_t {
     // Bridging PCH build command-line
     self.swiftscan_swift_textual_detail_get_bridging_pch_command_line =
       loadOptional("swiftscan_swift_textual_detail_get_bridging_pch_command_line")
+    self.swiftscan_swift_textual_detail_get_chained_bridging_header_path =
+      loadOptional("swiftscan_swift_textual_detail_get_chained_bridging_header_path")
+    self.swiftscan_swift_textual_detail_get_chained_bridging_header_content =
+      loadOptional("swiftscan_swift_textual_detail_get_chained_bridging_header_content")
 
     // Caching related APIs.
     self.swiftscan_swift_textual_detail_get_module_cache_key =

@@ -17,8 +17,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define SWIFTSCAN_VERSION_MAJOR 1
-#define SWIFTSCAN_VERSION_MINOR 0
+#define SWIFTSCAN_VERSION_MAJOR 2
+#define SWIFTSCAN_VERSION_MINOR 1
 
 //=== Public Scanner Data Types -------------------------------------------===//
 
@@ -143,6 +143,12 @@ typedef struct {
   (*swiftscan_swift_textual_detail_get_swift_overlay_dependencies)(swiftscan_module_details_t);
   swiftscan_string_ref_t
   (*swiftscan_swift_textual_detail_get_module_cache_key)(swiftscan_module_details_t);
+  swiftscan_string_ref_t
+  (*swiftscan_swift_textual_detail_get_user_module_version)(swiftscan_module_details_t);
+  swiftscan_string_ref_t
+  (*swiftscan_swift_textual_detail_get_chained_bridging_header_path)(swiftscan_module_details_t);
+  swiftscan_string_ref_t
+  (*swiftscan_swift_textual_detail_get_chained_bridging_header_content)(swiftscan_module_details_t);
 
   //=== Swift Binary Module Details query APIs ------------------------------===//
   swiftscan_string_ref_t
