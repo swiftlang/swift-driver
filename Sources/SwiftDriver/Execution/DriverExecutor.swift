@@ -61,22 +61,27 @@ public struct DriverExecutorWorkload {
   }
 
   public let kind: Kind
-  public let interModuleDependencyGraph: InterModuleDependencyGraph?
+
+  @available(*, deprecated, message: "use of 'interModuleDependencyGraph' on 'DriverExecutorWorkload' is deprecated")
+  public let interModuleDependencyGraph: InterModuleDependencyGraph? = nil
 
   public init(_ allJobs: [Job],
               _ incrementalCompilationState: IncrementalCompilationState?,
-              _ interModuleDependencyGraph: InterModuleDependencyGraph?,
               continueBuildingAfterErrors: Bool) {
     self.continueBuildingAfterErrors = continueBuildingAfterErrors
     self.kind = incrementalCompilationState
       .map {.incremental($0)}
       ?? .all(allJobs)
-    self.interModuleDependencyGraph = interModuleDependencyGraph
   }
 
+  static public func all(_ jobs: [Job]) -> Self {
+    .init(jobs, nil, continueBuildingAfterErrors: false)
+  }
+
+  @available(*, deprecated, message: "use all(_ jobs: [Job]) instead")
   static public func all(_ jobs: [Job],
-                         _ interModuleDependencyGraph: InterModuleDependencyGraph? = nil) -> Self {
-    .init(jobs, nil, interModuleDependencyGraph, continueBuildingAfterErrors: false)
+                         _ interModuleDependencyGraph: InterModuleDependencyGraph?) -> Self {
+    .init(jobs, nil, continueBuildingAfterErrors: false)
   }
 }
 
@@ -119,7 +124,7 @@ extension DriverExecutor {
     recordedInputModificationDates: [TypedVirtualPath: TimePoint]
   ) throws {
     try execute(
-      workload: .all(jobs, nil),
+      workload: .all(jobs),
       delegate: delegate,
       numParallelJobs: numParallelJobs,
       forceResponseFiles: forceResponseFiles,

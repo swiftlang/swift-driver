@@ -210,7 +210,7 @@ do {
       }
     }
     do {
-      try executor.execute(workload: DriverExecutorWorkload.init(jobs, nil, nil, continueBuildingAfterErrors: true),
+      try executor.execute(workload: DriverExecutorWorkload.init(jobs, nil, continueBuildingAfterErrors: true),
                            delegate: delegate, numParallelJobs: 128)
     } catch {
       // Only fail when critical failures happened.
@@ -220,7 +220,7 @@ do {
     }
     do {
       if !danglingJobs.isEmpty && delegate.shouldRunDanglingJobs {
-        try executor.execute(workload: DriverExecutorWorkload.init(danglingJobs, nil, nil, continueBuildingAfterErrors: true), delegate: delegate, numParallelJobs: 128)
+        try executor.execute(workload: DriverExecutorWorkload.init(danglingJobs, nil, continueBuildingAfterErrors: true), delegate: delegate, numParallelJobs: 128)
       }
     } catch {
       // Failing of dangling jobs don't fail the process.

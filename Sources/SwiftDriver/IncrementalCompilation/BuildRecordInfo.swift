@@ -177,29 +177,6 @@ import class Dispatch.DispatchQueue
     try? fileSystem.removeFileTree(absPath)
   }
 
-  func removeInterModuleDependencyGraph() {
-    guard let absPath = interModuleDependencyGraphPath.absolutePath else {
-      return
-    }
-    try? fileSystem.removeFileTree(absPath)
-  }
-
-  func readPriorInterModuleDependencyGraph(
-    reporter: IncrementalCompilationState.Reporter?
-  ) -> InterModuleDependencyGraph? {
-    let decodedGraph: InterModuleDependencyGraph
-    do {
-      let contents = try fileSystem.readFileContents(interModuleDependencyGraphPath).cString
-      decodedGraph = try JSONDecoder().decode(InterModuleDependencyGraph.self,
-                                              from: Data(contents.utf8))
-    } catch {
-      return nil
-    }
-    reporter?.report("Read inter-module dependency graph", interModuleDependencyGraphPath)
-
-    return decodedGraph
-  }
-
   func jobFinished(job: Job, result: ProcessResult) {
     self.confinementQueue.sync {
       finishedJobResults.append(JobResult(job, result))
@@ -220,11 +197,11 @@ import class Dispatch.DispatchQueue
 
   /// A build-record-relative path to the location of a serialized copy of the
   /// driver's inter-module dependency graph.
-  var interModuleDependencyGraphPath: VirtualPath {
+  var dependencyScanSerializedResultPath: VirtualPath {
     let filename = buildRecordPath.basenameWithoutExt
     return buildRecordPath
       .parentDirectory
-      .appending(component: filename + ".moduledeps")
+      .appending(component: filename + ".swiftmoduledeps")
   }
 
   /// Directory to emit dot files into

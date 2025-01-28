@@ -293,6 +293,7 @@ extension Option {
   public static let driverVerifyFineGrainedDependencyGraphAfterEveryImport: Option = Option("-driver-verify-fine-grained-dependency-graph-after-every-import", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Debug DriverGraph by verifying it after every import", group: .internalDebug)
   public static let driverWarnUnusedOptions: Option = Option("-driver-warn-unused-options", .flag, attributes: [.helpHidden], helpText: "Emit warnings for any provided options which are unused by the driver")
   public static let dumpApiPath: Option = Option("-dump-api-path", .separate, attributes: [.frontend, .noDriver, .cacheInvariant], helpText: "The path to output swift interface files for the compiled source files")
+  public static let dumpAstFormat: Option = Option("-dump-ast-format", .separate, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], metaVar: "<format>", helpText: "Desired format for -dump-ast output ('default', 'json', or 'json-zlib'); no format is guaranteed stable across different compiler versions")
   public static let dumpAst: Option = Option("-dump-ast", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Parse and type-check input file(s) and dump AST(s)", group: .modes)
   public static let dumpAvailabilityScopes: Option = Option("-dump-availability-scopes", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Type-check input file(s) and dump availability scopes", group: .modes)
   public static let dumpClangDiagnostics: Option = Option("-dump-clang-diagnostics", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Dump Clang diagnostics to stderr")
@@ -591,6 +592,7 @@ extension Option {
   public static let inProcessPluginServerPath: Option = Option("-in-process-plugin-server-path", .separate, attributes: [.frontend, .argumentIsPath], helpText: "Path to dynamic library plugin server")
   public static let includeSpiSymbols: Option = Option("-include-spi-symbols", .flag, attributes: [.helpHidden, .frontend, .noInteractive, .supplementaryOutput], helpText: "Add symbols with SPI information to the symbol graph")
   public static let includeSubmodules: Option = Option("-include-submodules", .flag, attributes: [.noDriver, .synthesizeInterface], helpText: "Also print the declarations synthesized for any Clang submodules")
+  public static let incrementalDependencyScan: Option = Option("-incremental-dependency-scan", .flag, attributes: [.helpHidden], helpText: "Re-use/validate prior build dependency scan artifacts")
   public static let incremental: Option = Option("-incremental", .flag, attributes: [.helpHidden, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Perform an incremental build if possible")
   public static let indentSwitchCase: Option = Option("-indent-switch-case", .flag, attributes: [.noInteractive, .noBatch], helpText: "Indent cases in switch statements.", group: .codeFormatting)
   public static let indentWidth: Option = Option("-indent-width", .separate, attributes: [.noInteractive, .noBatch], metaVar: "<n>", helpText: "Number of characters to indent.", group: .codeFormatting)
@@ -625,7 +627,7 @@ extension Option {
   public static let lineRange: Option = Option("-line-range", .separate, attributes: [.noInteractive, .noBatch], metaVar: "<n:n>", helpText: "<start line>:<end line>. Formats a range of lines (1-based). Can only be used with one input file.", group: .codeFormatting)
   public static let linkObjcRuntime: Option = Option("-link-objc-runtime", .flag, attributes: [.doesNotAffectIncrementalBuild], helpText: "Deprecated")
   public static let lldbRepl: Option = Option("-lldb-repl", .flag, attributes: [.helpHidden, .noBatch], helpText: "LLDB-enhanced REPL mode", group: .modes)
-  public static let reuseDependencyScanCache: Option = Option("-load-dependency-scan-cache", .flag, attributes: [.frontend, .noDriver], helpText: "After performing a dependency scan, serialize the scanner's internal state.")
+  public static let reuseDependencyScanCache: Option = Option("-load-dependency-scan-cache", .flag, attributes: [.frontend, .noDriver], helpText: "For performing a dependency scan, deserialize the scanner's internal state from a prior scan.")
   public static let loadPassPluginEQ: Option = Option("-load-pass-plugin=", .joined, attributes: [.frontend, .argumentIsPath], metaVar: "<path>", helpText: "Load LLVM pass plugin from a dynamic shared object file.")
   public static let loadPluginExecutable: Option = Option("-load-plugin-executable", .separate, attributes: [.frontend, .doesNotAffectIncrementalBuild, .argumentIsPath], metaVar: "<path>#<module-names>", helpText: "Path to a compiler plugin executable and a comma-separated list of module names where the macro types are declared", group: .pluginSearch)
   public static let loadPluginLibrary: Option = Option("-load-plugin-library", .separate, attributes: [.frontend, .doesNotAffectIncrementalBuild, .argumentIsPath], metaVar: "<path>", helpText: "Path to a dynamic library containing compiler plugins such as macros", group: .pluginSearch)
@@ -817,12 +819,12 @@ extension Option {
   public static let skipInheritedDocs: Option = Option("-skip-inherited-docs", .flag, attributes: [.helpHidden, .frontend, .noInteractive, .supplementaryOutput], helpText: "Skip emitting doc comments for members inherited through classes or default implementations")
   public static let skipProtocolImplementations: Option = Option("-skip-protocol-implementations", .flag, attributes: [.helpHidden, .frontend, .noInteractive, .supplementaryOutput], helpText: "Skip emitting symbols that are implementations of protocol requirements or inherited from protocol extensions")
   public static let skipSynthesizedMembers: Option = Option("-skip-synthesized-members", .flag, attributes: [.noDriver], helpText: "Skip members inherited through classes or default implementations")
-  public static let solverDisableShrink: Option = Option("-solver-disable-shrink", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable the shrink phase of expression type checking")
-  public static let solverExpressionTimeThresholdEQ: Option = Option("-solver-expression-time-threshold=", .joined, attributes: [.helpHidden, .frontend, .noDriver])
+  public static let solverDisableSplitter: Option = Option("-solver-disable-splitter", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable the component splitter phase of expression type checking")
+  public static let solverExpressionTimeThresholdEQ: Option = Option("-solver-expression-time-threshold=", .joined, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Expression type checking timeout, in seconds")
   public static let solverMemoryThreshold: Option = Option("-solver-memory-threshold", .separate, attributes: [.helpHidden, .frontend, .doesNotAffectIncrementalBuild], helpText: "Set the upper bound for memory consumption, in bytes, by the constraint solver")
-  public static let solverScopeThresholdEQ: Option = Option("-solver-scope-threshold=", .joined, attributes: [.helpHidden, .frontend, .noDriver])
+  public static let solverScopeThresholdEQ: Option = Option("-solver-scope-threshold=", .joined, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Expression type checking scope limit")
   public static let solverShrinkUnsolvedThreshold: Option = Option("-solver-shrink-unsolved-threshold", .separate, attributes: [.helpHidden, .frontend, .doesNotAffectIncrementalBuild], helpText: "Set The upper bound to number of sub-expressions unsolved before termination of the shrink phrase")
-  public static let solverTrailThresholdEQ: Option = Option("-solver-trail-threshold=", .joined, attributes: [.helpHidden, .frontend, .noDriver])
+  public static let solverTrailThresholdEQ: Option = Option("-solver-trail-threshold=", .joined, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Expression type checking trail change limit")
   public static let stackPromotionLimit: Option = Option("-stack-promotion-limit", .separate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Limit the size of stack promoted objects to the provided number of bytes.")
   public static let staticExecutable: Option = Option("-static-executable", .flag, helpText: "Statically link the executable")
   public static let staticStdlib: Option = Option("-static-stdlib", .flag, attributes: [.doesNotAffectIncrementalBuild], helpText: "Statically link the Swift standard library")
@@ -886,6 +888,7 @@ extension Option {
   public static let useTabs: Option = Option("-use-tabs", .flag, attributes: [.noInteractive, .noBatch], helpText: "Use tabs for indentation.", group: .codeFormatting)
   public static let userModuleVersion: Option = Option("-user-module-version", .separate, attributes: [.frontend, .moduleInterface], metaVar: "<vers>", helpText: "Module version specified from Swift module authors")
   public static let validateClangModulesOnce: Option = Option("-validate-clang-modules-once", .flag, attributes: [.frontend], helpText: "Don't verify input files for Clang modules if the module has been successfully validated or loaded during this build session")
+  public static let validatePriorDependencyScanCache: Option = Option("-validate-prior-dependency-scan-cache", .flag, attributes: [.frontend, .noDriver], helpText: "For performing a dependency scan with a prior scanner state, validate module dependencies.")
   public static let validateTbdAgainstIrEQ: Option = Option("-validate-tbd-against-ir=", .joined, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<level>", helpText: "Compare the symbols in the IR against the TBD file that would be generated.")
   public static let valueRecursionThreshold: Option = Option("-value-recursion-threshold", .separate, attributes: [.helpHidden, .frontend, .doesNotAffectIncrementalBuild], helpText: "Set the maximum depth for direct recursion in value types")
   public static let verifyAdditionalFile: Option = Option("-verify-additional-file", .separate, attributes: [.frontend, .noDriver], helpText: "Verify diagnostics in this file in addition to source files")
@@ -1214,6 +1217,7 @@ extension Option {
       Option.driverVerifyFineGrainedDependencyGraphAfterEveryImport,
       Option.driverWarnUnusedOptions,
       Option.dumpApiPath,
+      Option.dumpAstFormat,
       Option.dumpAst,
       Option.dumpAvailabilityScopes,
       Option.dumpClangDiagnostics,
@@ -1512,6 +1516,7 @@ extension Option {
       Option.inProcessPluginServerPath,
       Option.includeSpiSymbols,
       Option.includeSubmodules,
+      Option.incrementalDependencyScan,
       Option.incremental,
       Option.indentSwitchCase,
       Option.indentWidth,
@@ -1738,7 +1743,7 @@ extension Option {
       Option.skipInheritedDocs,
       Option.skipProtocolImplementations,
       Option.skipSynthesizedMembers,
-      Option.solverDisableShrink,
+      Option.solverDisableSplitter,
       Option.solverExpressionTimeThresholdEQ,
       Option.solverMemoryThreshold,
       Option.solverScopeThresholdEQ,
@@ -1807,6 +1812,7 @@ extension Option {
       Option.useTabs,
       Option.userModuleVersion,
       Option.validateClangModulesOnce,
+      Option.validatePriorDependencyScanCache,
       Option.validateTbdAgainstIrEQ,
       Option.valueRecursionThreshold,
       Option.verifyAdditionalFile,

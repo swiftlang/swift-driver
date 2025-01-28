@@ -58,9 +58,6 @@ extension IncrementalCompilationState {
         ).computeInitialStateForPlanning(driver: &driver)
     else {
       Self.removeDependencyGraphFile(driver)
-      if options.contains(.explicitModuleBuild) {
-        Self.removeInterModuleDependencyGraphFile(driver)
-      }
       return nil
     }
 
@@ -93,42 +90,6 @@ extension IncrementalCompilationState {
       options.formUnion(.explicitModuleBuild)
     }
     return options
-  }
-}
-
-/// Validate if a prior inter-module dependency graph is still valid
-extension IncrementalCompilationState.IncrementalDependencyAndInputSetup {
-  static func readAndValidatePriorInterModuleDependencyGraph(
-    driver: inout Driver,
-    buildRecordInfo: BuildRecordInfo,
-    reporter: IncrementalCompilationState.Reporter?
-  ) throws -> InterModuleDependencyGraph? {
-    // Attempt to read a serialized inter-module dependency graph from a prior build
-    guard let priorInterModuleDependencyGraph =
-        buildRecordInfo.readPriorInterModuleDependencyGraph(reporter: reporter),
-          let priorImports = priorInterModuleDependencyGraph.mainModule.directDependencies?.map({ $0.moduleName }) else {
-      reporter?.reportExplicitBuildMustReScan("Could not read inter-module dependency graph at \(buildRecordInfo.interModuleDependencyGraphPath)")
-      return nil
-    }
-
-    // Verify that import sets match
-    let currentImports = try driver.performImportPrescan().imports
-    guard Set(priorImports) == Set(currentImports) else {
-      reporter?.reportExplicitBuildMustReScan("Target import set has changed.")
-      return nil
-    }
-
-    // Verify that each dependnecy is up-to-date with respect to its inputs
-    guard try priorInterModuleDependencyGraph.computeInvalidatedModuleDependencies(fileSystem: buildRecordInfo.fileSystem,
-                                                                                   cas: driver.cas,
-                                                                                   forRebuild: false,
-                                                                                   reporter: reporter).isEmpty else {
-      reporter?.reportExplicitBuildMustReScan("Not all dependencies are up-to-date.")
-      return nil
-    }
-
-    reporter?.report("Confirmed prior inter-module dependency graph is up-to-date at: \(buildRecordInfo.interModuleDependencyGraphPath)")
-    return priorInterModuleDependencyGraph
   }
 }
 
@@ -196,23 +157,8 @@ extension IncrementalCompilationState {
         return nil
       }
 
-      // If a valid build record could not be produced, do not bother here
-      let priorInterModuleDependencyGraph: InterModuleDependencyGraph?
-      if options.contains(.explicitModuleBuild) {
-        if priors.graph.buildRecord.inputInfos.isEmpty {
-          reporter?.report("Incremental compilation did not attempt to read inter-module dependency graph.")
-          priorInterModuleDependencyGraph = nil
-        } else {
-          priorInterModuleDependencyGraph = try Self.readAndValidatePriorInterModuleDependencyGraph(
-            driver: &driver, buildRecordInfo: buildRecordInfo, reporter: reporter)
-        }
-      } else {
-        priorInterModuleDependencyGraph = nil
-      }
-
       return InitialStateForPlanning(
         graph: priors.graph, buildRecordInfo: buildRecordInfo,
-        upToDatePriorInterModuleDependencyGraph: priorInterModuleDependencyGraph,
         inputsInvalidatedByExternals: priors.fileSet,
         incrementalOptions: options)
     }

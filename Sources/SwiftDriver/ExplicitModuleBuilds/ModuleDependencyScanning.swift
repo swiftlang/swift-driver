@@ -141,6 +141,28 @@ public extension Driver {
       }
     }
 
+    if (parsedOptions.contains(.driverShowIncremental) ||
+        parsedOptions.contains(.dependencyScanCacheRemarks)) &&
+       isFrontendArgSupported(.dependencyScanCacheRemarks) {
+      commandLine.appendFlag(.dependencyScanCacheRemarks)
+    }
+
+    if shouldAttemptIncrementalCompilation &&
+       parsedOptions.contains(.incrementalDependencyScan) {
+      if let serializationPath = buildRecordInfo?.dependencyScanSerializedResultPath {
+        if isFrontendArgSupported(.validatePriorDependencyScanCache) {
+          // Any compiler which supports "-validate-prior-dependency-scan-cache"
+          // also supports "-load-dependency-scan-cache"
+          // and "-serialize-dependency-scan-cache" and "-dependency-scan-cache-path"
+          commandLine.appendFlag(.dependencyScanCachePath)
+          commandLine.appendPath(serializationPath)
+          commandLine.appendFlag(.reuseDependencyScanCache)
+          commandLine.appendFlag(.validatePriorDependencyScanCache)
+          commandLine.appendFlag(.serializeDependencyScanCache)
+        }
+      }
+    }
+
     // Pass on the input files
     commandLine.append(contentsOf: inputFiles.filter { $0.type == .swift }.map { .path($0.file) })
     return (inputs, commandLine)
