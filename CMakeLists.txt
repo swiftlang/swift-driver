@@ -49,11 +49,7 @@ find_package(Foundation QUIET)
 
 include(FetchContent)
 
-set(_SD_SAVED_BUILD_TESTING ${BUILD_TESTING})
-set(_SD_SAVED_BUILD_EXAMPLES ${BUILD_EXAMPLES})
-
-set(BUILD_TESTING NO)
-set(BUILD_EXAMPLES NO)
+set(VendoredDependencies)
 
 find_package(ArgumentParser CONFIG)
 if(NOT ArgumentParser_FOUND)
@@ -61,7 +57,7 @@ if(NOT ArgumentParser_FOUND)
   FetchContent_Declare(ArgumentParser
     GIT_REPOSITORY https://github.com/apple/swift-argument-parser
     GIT_TAG 1.2.3)
-  FetchContent_MakeAvailable(ArgumentParser)
+  list(APPEND VendoredDependencies ArgumentParser)
 endif()
 
 find_package(LLBuild CONFIG)
@@ -74,7 +70,7 @@ if(NOT LLBuild_FOUND)
     FetchContent_Declare(LLBuild
       GIT_REPOSITORY https://github.com/apple/swift-llbuild
       GIT_TAG main)
-    FetchContent_MakeAvailable(LLBuild)
+    list(APPEND VendoredDependencies LLBuild)
   endif()
 endif()
 
@@ -84,8 +80,16 @@ if(NOT TSC_FOUND)
   FetchContent_Declare(ToolsSupportCore
     GIT_REPOSITORY https://github.com/apple/swift-tools-support-core
     GIT_TAG main)
-  FetchContent_MakeAvailable(ToolsSupportCore)
+  list(APPEND VendoredDependencies ToolsSupportCore)
 endif()
+
+set(_SD_SAVED_BUILD_TESTING ${BUILD_TESTING})
+set(_SD_SAVED_BUILD_EXAMPLES ${BUILD_EXAMPLES})
+
+set(BUILD_TESTING NO)
+set(BUILD_EXAMPLES NO)
+
+FetchContent_MakeAvailable(${VendoredDependencies})
 
 set(BUILD_TESTING ${_SD_SAVED_BUILD_TESTING})
 set(BUILD_EXAMPLES ${_SD_SAVED_BUILD_EXAMPLES})
