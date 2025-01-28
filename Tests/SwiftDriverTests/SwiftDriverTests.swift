@@ -7184,12 +7184,7 @@ final class SwiftDriverTests: XCTestCase {
       let diags = DiagnosticsEngine()
       var driver = try Driver(args: ["swiftc", "-target", "arm64-apple-macosx10.13",  "test.swift", "-index-file", "-index-file-path", "test.swift", "-enable-experimental-feature", "Embedded", "-parse-as-library", "-o", "a.out", "-module-name", "main"], env: env, diagnosticsEngine: diags)
       _ = try driver.planBuild()
-#if os(Windows)
-      // warning: Could not read SDKSettings.json for SDK at: ${SDKROOT}
-      XCTAssertEqual(diags.diagnostics.count, 1)
-#else
       XCTAssertEqual(diags.diagnostics.count, 0)
-#endif
     }
     do {
       let diags = DiagnosticsEngine()
