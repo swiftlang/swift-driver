@@ -71,7 +71,7 @@ extension Driver {
       try IncrementalCompilationState.computeIncrementalStateForPlanning(driver: &self)
 
     // For an explicit build, compute the inter-module dependency graph
-    interModuleDependencyGraph = try computeInterModuleDependencyGraph(with: initialIncrementalState)
+    let interModuleDependencyGraph = try computeInterModuleDependencyGraph()
 
     // Compute the set of all jobs required to build this module
     let jobsInPhases = try computeJobsForPhasedStandardBuild(moduleDependencyGraph: interModuleDependencyGraph,
@@ -84,7 +84,8 @@ extension Driver {
       incrementalCompilationState =
         try IncrementalCompilationState(driver: &self,
                                         jobsInPhases: jobsInPhases,
-                                        initialState: initialState)
+                                        initialState: initialState,
+                                        interModuleDepGraph: interModuleDependencyGraph)
     } else {
       incrementalCompilationState = nil
     }
@@ -104,17 +105,12 @@ extension Driver {
   /// If performing an explicit module build, compute an inter-module dependency graph.
   /// If performing an incremental build, and the initial incremental state contains a valid
   /// graph already, it is safe to re-use without repeating the scan.
-  private mutating func computeInterModuleDependencyGraph(with initialIncrementalState:
-                                                          IncrementalCompilationState.InitialStateForPlanning?)
+  private mutating func computeInterModuleDependencyGraph()
   throws -> InterModuleDependencyGraph? {
     if (parsedOptions.contains(.driverExplicitModuleBuild) ||
         parsedOptions.contains(.explainModuleDependency)) &&
        inputFiles.contains(where: { $0.type.isPartOfSwiftCompilation }) {
-      // If the incremental build record's module dependency graph is up-to-date, we
-      // can skip dependency scanning entirely.
-      return
-        try initialIncrementalState?.upToDatePriorInterModuleDependencyGraph ??
-            gatherModuleDependencies()
+      return try gatherModuleDependencies()
     } else {
       return nil
     }
@@ -181,12 +177,6 @@ extension Driver {
     // We may have a dependency graph but not be required to add pre-compile jobs to the build plan,
     // for example when `-explain-dependency` is being used.
     guard parsedOptions.contains(.driverExplicitModuleBuild) else { return }
-
-    // If the initial incremental state deemed the entire dependency graph up-to-date,
-    // then no modules need compilation.
-    guard initialIncrementalState?.upToDatePriorInterModuleDependencyGraph == nil else {
-      return
-    }
 
     // Filter out the tasks for building module dependencies which are already up-to-date
     let mandatoryModuleCompileJobs: [Job]

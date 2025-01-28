@@ -55,6 +55,9 @@ final class IncrementalCompilationTests: XCTestCase {
   func swiftDepsPath(basename: String) -> AbsolutePath {
     derivedDataPath.appending(component: "\(basename).swiftdeps")
   }
+  var serializedDepScanCachePath: AbsolutePath {
+    derivedDataPath.appending(component: "\(module)-master.swiftmoduledeps")
+  }
   fileprivate var autolinkIncrementalExpectedDiags: [Diagnostic.Message] {
     queuingExtractingAutolink(module)
   }
@@ -102,6 +105,7 @@ final class IncrementalCompilationTests: XCTestCase {
 
   var explicitBuildArgs: [String] {
     ["-explicit-module-build",
+     "-incremental-dependency-scan",
      "-module-cache-path", explicitModuleCacheDir.nativePathString(escaped: false),
      // Disable implicit imports to keep tests simpler
      "-Xfrontend", "-disable-implicit-concurrency-module-import",
@@ -331,9 +335,8 @@ extension IncrementalCompilationTests {
       whenAutolinking: autolinkLifecycleExpectedDiags
     ) {
       readGraph
-      readInterModuleGraph
-      // Ensure a re-scan was performed
-      explicitMustReScanDueToChangedImports
+      explicitIncrementalScanReuseCache(serializedDepScanCachePath.pathString)
+      explicitIncrementalScanCacheSerialized(serializedDepScanCachePath.pathString)
       maySkip("main")
       schedulingChangedInitialQueuing("other")
       skipping("main")
@@ -356,9 +359,10 @@ extension IncrementalCompilationTests {
     replace(contentsOf: "other", with: "import E;let bar = foo")
     try buildInitialState(checkDiagnostics: false, explicitModuleBuild: true)
 
+    let EInterfacePath = explicitSwiftDependenciesPath.appending(component: "E.swiftinterface")
     // Just update the time-stamp of one of the module dependencies and use a value
     // it is defined in.
-    touch(try AbsolutePath(validating: explicitSwiftDependenciesPath.appending(component: "E.swiftinterface").pathString))
+    touch(EInterfacePath)
     replace(contentsOf: "other", with: "import E;let bar = foo + moduleEValue")
 
     // Changing a dependency will mean that we both re-run the dependency scan,
@@ -371,11 +375,10 @@ extension IncrementalCompilationTests {
       whenAutolinking: autolinkLifecycleExpectedDiags
     ) {
       readGraph
-      readInterModuleGraph
-      // Ensure the above 'touch' is detected and causes a re-scan
-      explicitDependencyModuleOlderThanInput("E")
-      moduleInfoStaleOutOfDate("E")
-      explicitMustReScanDueToChangedDependencyInput
+      explicitIncrementalScanReuseCache(serializedDepScanCachePath.pathString)
+      explicitIncrementalScanCacheSerialized(serializedDepScanCachePath.pathString)
+      explicitIncrementalScanDependencyNewInput("E", EInterfacePath.pathString)
+      explicitIncrementalScanDependencyInvalidated("theModule")
       noFingerprintInSwiftModule("E.swiftinterface")
       dependencyNewerThanNode("E.swiftinterface")
       dependencyNewerThanNode("E.swiftinterface") // FIXME: Why do we see this twice?
@@ -409,8 +412,9 @@ extension IncrementalCompilationTests {
     replace(contentsOf: "other", with: "import Y;import T")
     try buildInitialState(checkDiagnostics: false, explicitModuleBuild: true)
 
+    let GInterfacePath = explicitSwiftDependenciesPath.appending(component: "G.swiftinterface")
     // Just update the time-stamp of one of the module dependencies
-    touch(try AbsolutePath(validating: explicitSwiftDependenciesPath.appending(component: "G.swiftinterface").pathString))
+    touch(GInterfacePath)
 
     // Changing a dependency will mean that we both re-run the dependency scan,
     // and also ensure that all source-files are re-built with a non-cascading build
@@ -422,15 +426,14 @@ extension IncrementalCompilationTests {
       whenAutolinking: autolinkLifecycleExpectedDiags
     ) {
       readGraph
-      readInterModuleGraph
-      // Ensure the above 'touch' is detected and causes a re-scan
-      explicitDependencyModuleOlderThanInput("G")
-      moduleInfoStaleOutOfDate("G")
-      moduleInfoStaleInvalidatedDownstream("J")
-      moduleInfoStaleInvalidatedDownstream("T")
-      moduleInfoStaleInvalidatedDownstream("Y")
-      moduleInfoStaleInvalidatedDownstream("H")
-      explicitMustReScanDueToChangedDependencyInput
+      explicitIncrementalScanReuseCache(serializedDepScanCachePath.pathString)
+      explicitIncrementalScanCacheSerialized(serializedDepScanCachePath.pathString)
+      explicitIncrementalScanDependencyNewInput("G", GInterfacePath.pathString)
+      explicitIncrementalScanDependencyInvalidated("J")
+      explicitIncrementalScanDependencyInvalidated("T")
+      explicitIncrementalScanDependencyInvalidated("H")
+      explicitIncrementalScanDependencyInvalidated("Y")
+      explicitIncrementalScanDependencyInvalidated("theModule")
       noFingerprintInSwiftModule("G.swiftinterface")
       dependencyNewerThanNode("G.swiftinterface")
       dependencyNewerThanNode("G.swiftinterface") // FIXME: Why do we see this twice?
@@ -494,10 +497,8 @@ extension IncrementalCompilationTests {
       whenAutolinking: autolinkLifecycleExpectedDiags
     ) {
       readGraph
-      readInterModuleGraph
-      explicitDependencyModuleOlderThanInput("J")
-      moduleInfoStaleOutOfDate("J")
-      explicitMustReScanDueToChangedDependencyInput
+      explicitIncrementalScanReuseCache(serializedDepScanCachePath.pathString)
+      explicitIncrementalScanCacheSerialized(serializedDepScanCachePath.pathString)
       maySkip("main")
       schedulingChangedInitialQueuing("other")
       skipping("main")
@@ -545,12 +546,69 @@ extension IncrementalCompilationTests {
       whenAutolinking: autolinkLifecycleExpectedDiags
     ) {
       readGraph
+      explicitIncrementalScanReuseCache(serializedDepScanCachePath.pathString)
+      explicitIncrementalScanCacheSerialized(serializedDepScanCachePath.pathString)
       noFingerprintInSwiftModule("G.swiftinterface")
       dependencyNewerThanNode("G.swiftinterface")
       dependencyNewerThanNode("G.swiftinterface") // FIXME: Why do we see this twice?
-      readInterModuleGraph
-      interModuleDependencyGraphUpToDate // Graph declared up-to-date despite a downstream dependency on a binary Swift module dependency
       maySkip("main")
+      schedulingChangedInitialQueuing("other")
+      fingerprintsMissingOfTopLevelName(name: "foo", "main")
+      invalidatedExternally("main", "other")
+      queuingInitial("main")
+      foundBatchableJobs(2)
+      formingOneBatch
+      addingToBatchThenForming("main", "other")
+      compiling("main", "other")
+      reading(deps: "main")
+      reading(deps: "other")
+      schedulingPostCompileJobs
+      linking
+    }
+  }
+
+  func testExplicitIncrementalBuildChangedBinaryDependencyCausesRescan() throws {
+    replace(contentsOf: "other", with: "import J;")
+
+    // After an initial build, replace the G.swiftinterface with G.swiftmodule
+    // and repeat the initial build to settle into the "initial" state for the test
+    try buildInitialState(checkDiagnostics: false, explicitModuleBuild: true)
+    let modCacheEntries = try localFileSystem.getDirectoryContents(explicitModuleCacheDir)
+    let nameOfGModule = try XCTUnwrap(modCacheEntries.first { $0.hasPrefix("G") && $0.hasSuffix(".swiftmodule") })
+    let pathToGModule = explicitModuleCacheDir.appending(component: nameOfGModule)
+    // Rename the binary module to G.swiftmodule so that the next build's scan finds it.
+    let newPathToGModule = explicitSwiftDependenciesPath.appending(component: "G.swiftmodule")
+    try! localFileSystem.move(from: pathToGModule, to: newPathToGModule)
+    // Delete the textual interface it was built from so that it is treated as a binary-only dependency now.
+    try! localFileSystem.removeFileTree(try AbsolutePath(validating: explicitSwiftDependenciesPath.appending(component: "G.swiftinterface").pathString))
+    try buildInitialState(checkDiagnostics: false, explicitModuleBuild: true)
+
+    // Touch one of the inputs to actually trigger the incremental build
+    touch(inputPath(basename: "other"))
+
+    // Touch 'G.swiftmodule' to trigger the dependency scanner to re-scan it
+    touch(newPathToGModule)
+
+    try doABuild(
+      "Unchanged binary dependency (G)",
+      checkDiagnostics: true,
+      extraArguments: explicitBuildArgs,
+      whenAutolinking: autolinkLifecycleExpectedDiags
+    ) {
+      readGraph
+      explicitIncrementalScanReuseCache(serializedDepScanCachePath.pathString)
+      explicitIncrementalScanCacheSerialized(serializedDepScanCachePath.pathString)
+      explicitIncrementalScanDependencyNewInput("G", newPathToGModule.pathString)
+      explicitIncrementalScanDependencyInvalidated("J")
+      explicitIncrementalScanDependencyInvalidated("theModule")
+      noFingerprintInSwiftModule("G.swiftinterface")
+      dependencyNewerThanNode("G.swiftinterface")
+      dependencyNewerThanNode("G.swiftinterface") // FIXME: Why do we see this twice?
+      maySkip("main")
+      explicitDependencyModuleOlderThanInput("J")
+      moduleWillBeRebuiltOutOfDate("J")
+      explicitModulesWillBeRebuilt(["J"])
+      compilingExplicitSwiftDependency("J")
       schedulingChangedInitialQueuing("other")
       fingerprintsMissingOfTopLevelName(name: "foo", "main")
       invalidatedExternally("main", "other")
@@ -632,10 +690,8 @@ extension IncrementalCompilationTests {
       whenAutolinking: autolinkLifecycleExpectedDiags
     ) {
       readGraph
-      readInterModuleGraph
       explicitDependencyModuleMissingFromCAS("O")
       moduleInfoStaleOutOfDate("O")
-      explicitMustReScanDueToChangedDependencyInput
       moduleWillBeRebuiltOutOfDate("O")
       explicitModulesWillBeRebuilt(["O"])
       compilingExplicitSwiftDependency("O")
@@ -996,7 +1052,9 @@ extension IncrementalCompilationTests {
     }
     @DiagsBuilder var explicitBuildInitialRemarks: [Diagnostic.Message] {
       implicitBuildInitialRemarks
-      explicitDidNotReadInterModuleGraph
+      explicitIncrementalScanReuseCache(serializedDepScanCachePath.pathString)
+      explicitIncrementalScanCacheLoadFailure(serializedDepScanCachePath.pathString)
+      explicitIncrementalScanCacheSerialized(serializedDepScanCachePath.pathString)
       compilingExplicitClangDependency("SwiftShims")
       compilingExplicitSwiftDependency("Swift")
       compilingExplicitSwiftDependency("SwiftOnoneSupport")
@@ -1029,8 +1087,8 @@ extension IncrementalCompilationTests {
     }
     @DiagsBuilder var explicitBuildNullRemarks: [Diagnostic.Message] {
       implicitBuildNullRemarks
-      readInterModuleGraph
-      interModuleDependencyGraphUpToDate
+      explicitIncrementalScanReuseCache(serializedDepScanCachePath.pathString)
+      explicitIncrementalScanCacheSerialized(serializedDepScanCachePath.pathString)
     }
 
     return try doABuild(
@@ -1092,8 +1150,8 @@ extension IncrementalCompilationTests {
     }
     @DiagsBuilder var explicitBuildRemarks: [Diagnostic.Message] {
       implicitBuildRemarks
-      readInterModuleGraph
-      interModuleDependencyGraphUpToDate
+      explicitIncrementalScanReuseCache(serializedDepScanCachePath.pathString)
+      explicitIncrementalScanCacheSerialized(serializedDepScanCachePath.pathString)
     }
 
     touch("main")
@@ -1761,23 +1819,20 @@ extension IncrementalCompilationTests: DiagVerifiable {}
 extension DiagVerifiable {
 
   // MARK: - explicit builds
-  @DiagsBuilder var explicitDidNotReadInterModuleGraph: [Diagnostic.Message] {
-    "Incremental compilation: Incremental compilation did not attempt to read inter-module dependency graph."
+  @DiagsBuilder func explicitIncrementalScanReuseCache(_ cachePath: String) -> [Diagnostic.Message] {
+    "Incremental module scan: Re-using serialized module scanning dependency cache from: '\(cachePath)'"
   }
-  @DiagsBuilder var explicitMustReScanCouldNotReadGraph: [Diagnostic.Message] {
-    "Incremental compilation: Incremental build must re-run dependency scan: Could not read inter-module dependency graph at"
+  @DiagsBuilder func explicitIncrementalScanCacheLoadFailure(_ cachePath: String) -> [Diagnostic.Message] {
+    "Incremental module scan: Failed to load module scanning dependency cache from: '\(cachePath)', re-building scanner cache from scratch."
   }
-  @DiagsBuilder var readInterModuleGraph: [Diagnostic.Message] {
-    "Incremental compilation: Read inter-module dependency graph"
+  @DiagsBuilder func explicitIncrementalScanCacheSerialized(_ cachePath: String) -> [Diagnostic.Message] {
+    "Incremental module scan: Serializing module scanning dependency cache to: '\(cachePath)'."
   }
-  @DiagsBuilder var interModuleDependencyGraphUpToDate: [Diagnostic.Message] {
-    "Incremental compilation: Confirmed prior inter-module dependency graph is up-to-date at"
+  @DiagsBuilder func explicitIncrementalScanDependencyNewInput(_ moduleName: String, _ changedInput: String) -> [Diagnostic.Message] {
+    "Incremental module scan: Dependency info for module '\(moduleName)' invalidated due to a modified input since last scan: '\(changedInput)'."
   }
-  @DiagsBuilder var explicitMustReScanDueToChangedImports: [Diagnostic.Message] {
-    "Incremental compilation: Incremental build must re-run dependency scan: Target import set has changed."
-  }
-  @DiagsBuilder var explicitMustReScanDueToChangedDependencyInput: [Diagnostic.Message] {
-    "Incremental compilation: Incremental build must re-run dependency scan: Not all dependencies are up-to-date."
+  @DiagsBuilder func explicitIncrementalScanDependencyInvalidated(_ moduleName: String) -> [Diagnostic.Message] {
+    "Incremental module scan: Dependency info for module '\(moduleName)' invalidated due to an out-of-date dependency."
   }
   @DiagsBuilder func explicitDependencyModuleOlderThanInput(_ dependencyModuleName: String) -> [Diagnostic.Message] {
     "Dependency module \(dependencyModuleName) is older than input file"

@@ -174,7 +174,7 @@ internal extension InterModuleDependencyGraph {
                               reporter: reporter)
     }
 
-    if forRebuild {
+    if forRebuild && !modulesRequiringRebuild.isEmpty {
       reporter?.reportExplicitDependencyReBuildSet(Array(modulesRequiringRebuild))
     }
     return modulesRequiringRebuild

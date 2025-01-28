@@ -50,8 +50,6 @@ extension IncrementalCompilationState {
     let graph: ModuleDependencyGraph
     /// Information about the last known compilation, incl. the location of build artifacts such as the dependency graph.
     let buildRecordInfo: BuildRecordInfo
-    /// Record about the compiled module's explicit module dependencies from a prior compile.
-    let upToDatePriorInterModuleDependencyGraph: InterModuleDependencyGraph?
     /// A set of inputs invalidated by external changes.
     let inputsInvalidatedByExternals: TransitivelyInvalidatedSwiftSourceFileSet
     /// Compiler options related to incremental builds.
@@ -287,11 +285,6 @@ extension IncrementalCompilationState {
       report("\(message): \(externalDependency.shortDescription)")
     }
 
-    // Emits a remark indicating a need for a dependency scanning invocation
-    func reportExplicitBuildMustReScan(_ why: String) {
-      report("Incremental build must re-run dependency scan: \(why)")
-    }
-
     func reportExplicitDependencyOutOfDate(_ moduleName: String,
                                            inputPath: String) {
       report("Dependency module \(moduleName) is older than input file \(inputPath)")
@@ -408,55 +401,6 @@ extension IncrementalCompilationState {
 
   @_spi(Testing) public static func removeDependencyGraphFile(_ driver: Driver) {
     if let path = driver.buildRecordInfo?.dependencyGraphPath {
-      try? driver.fileSystem.removeFileTree(path)
-    }
-  }
-}
-
-extension IncrementalCompilationState {
-  enum WriteInterModuleDependencyGraphError: LocalizedError {
-    case noDependencyGraph
-    var errorDescription: String? {
-      switch self {
-      case .noDependencyGraph:
-        return "No inter-module dependency graph present"
-      }
-    }
-  }
-
-  func writeInterModuleDependencyGraph(_ buildRecordInfo: BuildRecordInfo?) throws {
-    // If the explicit module build is not happening, there will not be a graph to write
-    guard info.explicitModuleBuild else {
-      return
-    }
-    guard let recordInfo = buildRecordInfo else {
-      throw WriteDependencyGraphError.noBuildRecordInfo
-    }
-    guard let interModuleDependencyGraph = self.upToDateInterModuleDependencyGraph else {
-      throw WriteInterModuleDependencyGraphError.noDependencyGraph
-    }
-    do {
-      let encoder = JSONEncoder()
-#if os(Linux) || os(Android)
-      encoder.outputFormatting = [.prettyPrinted]
-#else
-      if #available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *) {
-        encoder.outputFormatting = [.prettyPrinted, .withoutEscapingSlashes]
-      }
-#endif
-      let data = try encoder.encode(interModuleDependencyGraph)
-      try fileSystem.writeFileContents(recordInfo.interModuleDependencyGraphPath,
-                                       bytes: ByteString(data),
-                                       atomically: true)
-    } catch {
-      throw IncrementalCompilationState.WriteDependencyGraphError.couldNotWrite(
-        path: recordInfo.interModuleDependencyGraphPath, error: error)
-    }
-
-  }
-
-  @_spi(Testing) public static func removeInterModuleDependencyGraphFile(_ driver: Driver) {
-    if let path = driver.buildRecordInfo?.interModuleDependencyGraphPath {
       try? driver.fileSystem.removeFileTree(path)
     }
   }

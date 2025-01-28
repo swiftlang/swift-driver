@@ -26,7 +26,6 @@ extension IncrementalCompilationState {
     let showJobLifecycle: Bool
     let alwaysRebuildDependents: Bool
     let interModuleDependencyGraph: InterModuleDependencyGraph?
-    let explicitModuleDependenciesGuaranteedUpToDate: Bool
     /// If non-null outputs information for `-driver-show-incremental` for input path
     private let reporter: Reporter?
 
@@ -47,8 +46,6 @@ extension IncrementalCompilationState {
       self.alwaysRebuildDependents = initialState.incrementalOptions.contains(
         .alwaysRebuildDependents)
       self.interModuleDependencyGraph = interModuleDependencyGraph
-      self.explicitModuleDependenciesGuaranteedUpToDate =
-        initialState.upToDatePriorInterModuleDependencyGraph != nil ? true : false
       self.reporter = reporter
     }
 
