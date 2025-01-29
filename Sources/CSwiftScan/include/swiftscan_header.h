@@ -135,8 +135,6 @@ typedef struct {
   (*swiftscan_swift_textual_detail_get_command_line)(swiftscan_module_details_t);
   swiftscan_string_set_t *
   (*swiftscan_swift_textual_detail_get_bridging_pch_command_line)(swiftscan_module_details_t);
-  swiftscan_string_set_t *
-  (*swiftscan_swift_textual_detail_get_extra_pcm_args)(swiftscan_module_details_t);
   swiftscan_string_ref_t
   (*swiftscan_swift_textual_detail_get_context_hash)(swiftscan_module_details_t);
   bool
@@ -181,8 +179,6 @@ typedef struct {
   (*swiftscan_clang_detail_get_context_hash)(swiftscan_module_details_t);
   swiftscan_string_set_t *
   (*swiftscan_clang_detail_get_command_line)(swiftscan_module_details_t);
-  swiftscan_string_set_t *
-  (*swiftscan_clang_detail_get_captured_pcm_args)(swiftscan_module_details_t);
   swiftscan_string_ref_t
   (*swiftscan_clang_detail_get_module_cache_key)(swiftscan_module_details_t);
 

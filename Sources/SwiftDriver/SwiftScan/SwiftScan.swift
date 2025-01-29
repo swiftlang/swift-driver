@@ -229,10 +229,6 @@ private extension String {
     api.swiftscan_swift_binary_detail_get_header_dependency_module_dependencies != nil
   }
 
-  @_spi(Testing) public var clangDetailsHaveCapturedPCMArgs : Bool {
-    api.swiftscan_clang_detail_get_captured_pcm_args != nil
-  }
-
   @_spi(Testing) public var supportsBinaryModuleHeaderDependencies : Bool {
     return api.swiftscan_swift_binary_detail_get_header_dependencies != nil
   }
@@ -478,10 +474,6 @@ private extension swiftscan_functions_t {
     self.swiftscan_compiler_target_info_query_v2 =
       loadOptional("swiftscan_compiler_target_info_query_v2")
 
-    // Clang dependency captured PCM args
-    self.swiftscan_clang_detail_get_captured_pcm_args =
-      loadOptional("swiftscan_clang_detail_get_captured_pcm_args")
-
     // Scanner diagnostic emission query
     self.swiftscan_scanner_diagnostics_query =
       loadOptional("swiftscan_scanner_diagnostics_query")
@@ -657,8 +649,6 @@ private extension swiftscan_functions_t {
       try loadRequired("swiftscan_swift_textual_detail_get_bridging_module_dependencies")
     self.swiftscan_swift_textual_detail_get_command_line =
       try loadRequired("swiftscan_swift_textual_detail_get_command_line")
-    self.swiftscan_swift_textual_detail_get_extra_pcm_args =
-      try loadRequired("swiftscan_swift_textual_detail_get_extra_pcm_args")
     self.swiftscan_scan_invocation_get_argc =
       try loadRequired("swiftscan_scan_invocation_get_argc")
     self.swiftscan_scan_invocation_get_argv =

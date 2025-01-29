@@ -70,7 +70,6 @@ public struct Driver {
     case optionRequiresAnother(String, String)
     // Explicit Module Build Failures
     case malformedModuleDependency(String, String)
-    case missingPCMArguments(String)
     case missingModuleDependency(String)
     case missingContextHashOnSwiftDependency(String)
     case dependencyScanningFailure(Int, String)
@@ -124,8 +123,6 @@ public struct Driver {
       // Explicit Module Build Failures
       case .malformedModuleDependency(let moduleName, let errorDescription):
         return "Malformed Module Dependency: \(moduleName), \(errorDescription)"
-      case .missingPCMArguments(let moduleName):
-        return "Missing extraPcmArgs to build Clang module: \(moduleName)"
       case .missingModuleDependency(let moduleName):
         return "Missing Module Dependency Info: \(moduleName)"
       case .missingContextHashOnSwiftDependency(let moduleName):
