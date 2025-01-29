@@ -193,8 +193,7 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
     return jobs
   }
 
-  /// Generate a build job for each Clang module in the set of supplied `dependencies`. Once per each required
-  /// PCMArgSet as queried from the supplied `clangPCMSetMap`
+  /// Generate a build job for each Clang module in the set of supplied `dependencies`.
   private mutating func generateClangDependenciesBuildJobs(for dependencies: Set<ModuleDependencyId>)
   throws -> [Job] {
     var jobs: [Job] = []
@@ -391,25 +390,6 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
     }
   }
 
-  private func updateClangPCMArgSetMap(for moduleId: ModuleDependencyId,
-                                       clangPCMSetMap: inout [ModuleDependencyId : Set<[String]>])
-  throws {
-    guard let moduleDependencies = reachabilityMap[moduleId] else {
-      fatalError("Expected reachability information for the module: \(moduleId.moduleName).")
-    }
-    let pcmArgs = try dependencyGraph.swiftModulePCMArgs(of: moduleId)
-    for dependencyId in moduleDependencies {
-      guard case .clang(_) = dependencyId else {
-        continue
-      }
-      if clangPCMSetMap[dependencyId] != nil {
-        clangPCMSetMap[dependencyId]!.insert(pcmArgs)
-      } else {
-        clangPCMSetMap[dependencyId] = [pcmArgs]
-      }
-    }
-  }
-
   public func getLinkLibraryLoadCommandFlags(_ commandLine: inout [Job.ArgTemplate]) throws {
     var allLinkLibraries: [LinkLibraryInfo] = []
     for (_, moduleInfo) in dependencyGraph.modules {
@@ -550,26 +530,6 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
     encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
     return try encoder.encode(allDependencyArtifacts)
   }
-
-  private func getPCMHashParts(pcmArgs: [String], contextHash: String) -> [String] {
-    var results: [String] = []
-    results.append(contextHash)
-    results.append(contentsOf: pcmArgs)
-    if integratedDriver {
-      return results
-    }
-
-    // We need this to enable explicit modules in the driver-as-executable mode. For instance,
-    // we have two Swift targets A and B, where A depends on X.pcm which in turn depends on Y.pcm,
-    // and B only depends on Y.pcm. In the driver-as-executable mode, the build system isn't aware
-    // of the shared dependency of Y.pcm so it will be generated multiple times. If all these Y.pcm
-    // share the same name, X.pcm may fail to be loaded because its dependency Y.pcm may have a
-    // changed mod time.
-    // We only differentiate these PCM names in the non-integrated mode due to the lacking of
-    // inter-module planning.
-    results.append(mainModuleName!)
-    return results
-  }
 }
 
 /// Encapsulates some of the common queries of the ExplicitDependencyBuildPlanner with error-checking
@@ -604,11 +564,6 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
       throw Driver.Error.malformedModuleDependency(moduleId.moduleName, "no Clang `details` object")
     }
     return clangModuleDetails
-  }
-
-  func swiftModulePCMArgs(of moduleId: ModuleDependencyId) throws -> [String] {
-    let moduleDetails = try swiftModuleDetails(of: moduleId)
-    return moduleDetails.extraPcmArgs
   }
 }
 

@@ -178,10 +178,6 @@ private extension SwiftScan {
     let bridgingPchCommandLine = supportsBridgingHeaderPCHCommand ?
       try getOptionalStringArrayDetail(from: moduleDetailsRef,
                                        using: api.swiftscan_swift_textual_detail_get_bridging_pch_command_line) : nil
-    let extraPcmArgs =
-      try getStringArrayDetail(from: moduleDetailsRef,
-                               using: api.swiftscan_swift_textual_detail_get_extra_pcm_args,
-                               fieldName: "extraPCMArgs")
     let contextHash =
       try getOptionalStringDetail(from: moduleDetailsRef,
                           using: api.swiftscan_swift_textual_detail_get_context_hash)
@@ -206,7 +202,6 @@ private extension SwiftScan {
                               commandLine: commandLine,
                               bridgingPchCommandLine : bridgingPchCommandLine,
                               contextHash: contextHash,
-                              extraPcmArgs: extraPcmArgs,
                               isFramework: isFramework,
                               swiftOverlayDependencies: swiftOverlayDependencies,
                               moduleCacheKey: moduleCacheKey)
@@ -291,22 +286,12 @@ private extension SwiftScan {
                                using: api.swiftscan_clang_detail_get_command_line,
                                fieldName: "clang_detail.commandLine")
 
-    let capturedPCMArgs : Set<[String]>?
-    if clangDetailsHaveCapturedPCMArgs {
-      let capturedArgs = try getStringArrayDetail(from: moduleDetailsRef,
-                                                  using: api.swiftscan_clang_detail_get_captured_pcm_args,
-                                                  fieldName: "clang_detail.capturedPCMArgs")
-      capturedPCMArgs = [capturedArgs]
-    } else {
-      capturedPCMArgs = nil
-    }
     let moduleCacheKey = supportsCaching ? try getOptionalStringDetail(from: moduleDetailsRef,
                                                      using: api.swiftscan_clang_detail_get_module_cache_key) : nil
 
     return ClangModuleDetails(moduleMapPath: moduleMapPath,
                               contextHash: contextHash,
                               commandLine: commandLine,
-                              capturedPCMArgs: capturedPCMArgs,
                               moduleCacheKey: moduleCacheKey)
   }
 }

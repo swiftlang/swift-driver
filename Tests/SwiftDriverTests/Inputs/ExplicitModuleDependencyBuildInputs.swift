@@ -39,13 +39,7 @@ enum ModuleDependenciesInputs {
           ],
           "details": {
             "swift": {
-              "isFramework": false,
-              "extraPcmArgs": [
-                "-Xcc",
-                "-target",
-                "-Xcc",
-                "x86_64-apple-macosx10.15"
-              ]
+              "isFramework": false
             }
           }
         },
@@ -136,13 +130,7 @@ enum ModuleDependenciesInputs {
                 "-module-name",
                 "Swift"
               ],
-              "isFramework": false,
-              "extraPcmArgs": [
-                "-Xcc",
-                "-target",
-                "-Xcc",
-                "x86_64-apple-macosx10.15"
-              ]
+              "isFramework": false
             }
           }
         },
@@ -216,13 +204,7 @@ enum ModuleDependenciesInputs {
                 "-module-name",
                 "SwiftOnoneSupport"
               ],
-              "isFramework": true,
-              "extraPcmArgs": [
-                "-Xcc",
-                "-target",
-                "-Xcc",
-                "x86_64-apple-macosx10.15"
-              ]
+              "isFramework": true
             }
           }
         },
@@ -300,15 +282,7 @@ enum ModuleDependenciesInputs {
           ],
           "details": {
             "swift": {
-              "isFramework": false,
-              "extraPcmArgs": [
-                "-Xcc",
-                "-target",
-                "-Xcc",
-                "x86_64-apple-macosx10.10",
-                "-Xcc",
-                "-fapinotes-swift-version=5"
-              ]
+              "isFramework": false
             }
           }
         },
@@ -379,15 +353,7 @@ enum ModuleDependenciesInputs {
           ],
           "details": {
             "swift": {
-              "isFramework": false,
-              "extraPcmArgs": [
-                "-Xcc",
-                "-target",
-                "-Xcc",
-                "x86_64-apple-macosx10.10",
-                "-Xcc",
-                "-fapinotes-swift-version=5"
-              ]
+              "isFramework": false
             }
           }
         },
@@ -443,11 +409,7 @@ enum ModuleDependenciesInputs {
           ],
           "details": {
             "swift": {
-              "isFramework": false,
-              "extraPcmArgs": [
-                "-Xcc",
-                "-fapinotes-swift-version=5"
-              ]
+              "isFramework": false
             }
           }
         },
@@ -466,11 +428,7 @@ enum ModuleDependenciesInputs {
           "details" : {
             "swift" : {
               "moduleInterfacePath": "B.swiftmodule/B.swiftinterface",
-              "isFramework": false,
-              "extraPcmArgs": [
-                "-Xcc",
-                "-fapinotes-swift-version=5"
-              ],
+              "isFramework": false
             }
           }
         },
@@ -503,11 +461,7 @@ enum ModuleDependenciesInputs {
           ],
           "details": {
             "swift": {
-              "isFramework": false,
-              "extraPcmArgs": [
-                "-Xcc",
-                "-fapinotes-swift-version=5"
-              ]
+              "isFramework": false
             }
           }
         }
@@ -537,10 +491,6 @@ enum ModuleDependenciesInputs {
             "swift": {
               "moduleInterfacePath": "A.swiftmodule/A.swiftinterface",
               "isFramework": false,
-              "extraPcmArgs": [
-                "-Xcc",
-                "-fapinotes-swift-version=5"
-              ],
               "swiftOverlayDependencies": [
                 {
                   "swift": "B"
@@ -564,11 +514,7 @@ enum ModuleDependenciesInputs {
           ],
           "details": {
             "swift": {
-              "isFramework": false,
-              "extraPcmArgs": [
-                "-Xcc",
-                "-fapinotes-swift-version=5"
-              ]
+              "isFramework": false
             }
           }
         },
@@ -585,11 +531,7 @@ enum ModuleDependenciesInputs {
           "details" : {
             "swift" : {
               "moduleInterfacePath": "B.swiftmodule/B.swiftinterface",
-              "isFramework": false,
-              "extraPcmArgs": [
-                "-Xcc",
-                "-fapinotes-swift-version=5"
-              ],
+              "isFramework": false
             }
           }
         },
@@ -642,15 +584,7 @@ enum ModuleDependenciesInputs {
           ],
           "details": {
             "swift": {
-              "isFramework": false,
-              "extraPcmArgs": [
-                "-Xcc",
-                "-target",
-                "-Xcc",
-                "x86_64-apple-macosx10.10",
-                "-Xcc",
-                "-fapinotes-swift-version=5"
-              ]
+              "isFramework": false
             }
           }
         },
@@ -709,15 +643,7 @@ enum ModuleDependenciesInputs {
           ],
           "details": {
             "swift": {
-              "isFramework": false,
-              "extraPcmArgs": [
-                "-Xcc",
-                "-target",
-                "-Xcc",
-                "x86_64-apple-macosx10.10",
-                "-Xcc",
-                "-fapinotes-swift-version=5"
-              ]
+              "isFramework": false
             }
           }
         },
@@ -734,14 +660,6 @@ enum ModuleDependenciesInputs {
             "swift" : {
               "moduleInterfacePath": "Swift.swiftmodule/x86_64-apple-macos.swiftinterface",
               "isFramework": false,
-              "extraPcmArgs": [
-                "-Xcc",
-                "-target",
-                "-Xcc",
-                "x86_64-apple-macosx10.9",
-                "-Xcc",
-                "-fapinotes-swift-version=5"
-              ],
               "explicitCompiledModulePath" : "M/Swift.swiftmodule"
             }
           }
@@ -762,14 +680,6 @@ enum ModuleDependenciesInputs {
             "swift" : {
               "moduleInterfacePath": "SwiftOnoneSupport.swiftmodule/x86_64-apple-macos.swiftinterface",
               "isFramework": false,
-              "extraPcmArgs": [
-                "-Xcc",
-                "-target",
-                "-Xcc",
-                "x86_64-apple-macosx10.9",
-                "-Xcc",
-                "-fapinotes-swift-version=5"
-              ],
               "explicitCompiledModulePath" : "S/SwiftOnoneSupport.swiftmodule"
             }
           }
