@@ -49,6 +49,9 @@ final class IncrementalCompilationTests: XCTestCase {
   var priorsPath: AbsolutePath {
     derivedDataPath.appending(component: "\(module)-master.priors")
   }
+  var casPath: AbsolutePath {
+    derivedDataPath.appending(component: "cas")
+  }
   func swiftDepsPath(basename: String) -> AbsolutePath {
     derivedDataPath.appending(component: "\(basename).swiftdeps")
   }
@@ -593,6 +596,59 @@ extension IncrementalCompilationTests {
     }
   }
 }
+
+// MARK: - Explicit compilation caching incremental tests
+extension IncrementalCompilationTests {
+  func testIncrementalCompilationCaching() throws {
+#if os(Windows)
+    throw XCTSkip("caching not supported on windows")
+#else
+    let driver = try Driver(args: ["swiftc"])
+    guard driver.isFeatureSupported(.compilation_caching) else {
+      throw XCTSkip("caching not supported")
+    }
+#endif
+    let extraArguments = ["-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: true), "-O", "-parse-stdlib"]
+    replace(contentsOf: "other", with: "import O;")
+    // Simplified initial build.
+    try doABuild(
+      "Initial Simplified Build with Caching",
+      checkDiagnostics: false,
+      extraArguments: explicitBuildArgs + extraArguments,
+      whenAutolinking: autolinkLifecycleExpectedDiags) {
+      startCompilingExplicitSwiftDependency("O")
+      finishCompilingExplicitSwiftDependency("O")
+      compiling("main", "other")
+    }
+
+    // Delete the CAS, touch a file then rebuild.
+    try localFileSystem.removeFileTree(casPath)
+
+    // Deleting the CAS should cause a full rebuild since all modules are missing from CAS.
+    try doABuild(
+      "Deleting CAS and rebuild",
+      checkDiagnostics: false,
+      extraArguments: explicitBuildArgs + extraArguments,
+      whenAutolinking: autolinkLifecycleExpectedDiags
+    ) {
+      readGraph
+      readInterModuleGraph
+      explicitDependencyModuleMissingFromCAS("O")
+      moduleInfoStaleOutOfDate("O")
+      explicitMustReScanDueToChangedDependencyInput
+      moduleWillBeRebuiltOutOfDate("O")
+      explicitModulesWillBeRebuilt(["O"])
+      compilingExplicitSwiftDependency("O")
+      foundBatchableJobs(2)
+      formingOneBatch
+      addingToBatchThenForming("main", "other")
+      startCompilingExplicitSwiftDependency("O")
+      finishCompilingExplicitSwiftDependency("O")
+      compiling("main", "other")
+    }
+  }
+}
+
 
 // MARK: - Simpler incremental tests
 extension IncrementalCompilationTests {
@@ -1763,6 +1819,9 @@ extension DiagVerifiable {
   }
   @DiagsBuilder func explicitModulesWillBeRebuilt(_ moduleNames: [String]) -> [Diagnostic.Message] {
     "Incremental compilation: Following explicit module dependencies will be re-built: [\(moduleNames.joined(separator: ", "))]"
+  }
+  @DiagsBuilder func explicitDependencyModuleMissingFromCAS(_ dependencyModuleName: String) -> [Diagnostic.Message] {
+    "Dependency module \(dependencyModuleName) is missing from CAS"
   }
 
   // MARK: - misc

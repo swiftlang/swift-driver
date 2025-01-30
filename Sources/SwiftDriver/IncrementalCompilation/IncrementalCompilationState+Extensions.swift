@@ -317,6 +317,10 @@ extension IncrementalCompilationState {
       report("Following explicit module dependencies will be re-built: [\(modules.map { $0.moduleNameForDiagnostic }.sorted().joined(separator: ", "))]")
     }
 
+    func reportExplicitDependencyMissingFromCAS(_ moduleName: String) {
+      report("Dependency module \(moduleName) is missing from CAS")
+    }
+
     // Emits a remark indicating incremental compilation has been disabled.
     func reportDisablingIncrementalBuild(_ why: String) {
       report("Disabling incremental build: \(why)")

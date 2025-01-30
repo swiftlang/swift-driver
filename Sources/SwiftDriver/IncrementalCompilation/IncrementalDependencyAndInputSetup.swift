@@ -120,6 +120,7 @@ extension IncrementalCompilationState.IncrementalDependencyAndInputSetup {
 
     // Verify that each dependnecy is up-to-date with respect to its inputs
     guard try priorInterModuleDependencyGraph.computeInvalidatedModuleDependencies(fileSystem: buildRecordInfo.fileSystem,
+                                                                                   cas: driver.cas,
                                                                                    forRebuild: false,
                                                                                    reporter: reporter).isEmpty else {
       reporter?.reportExplicitBuildMustReScan("Not all dependencies are up-to-date.")

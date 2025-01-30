@@ -236,6 +236,7 @@ extension Driver {
       mandatoryModuleCompileJobs =
         try resolvedDependencyGraph.filterMandatoryModuleDependencyCompileJobs(modulePrebuildJobs,
                                                                                fileSystem: fileSystem,
+                                                                               cas: cas,
                                                                                reporter: reporter)
     }
     mandatoryModuleCompileJobs.forEach(addJob)
