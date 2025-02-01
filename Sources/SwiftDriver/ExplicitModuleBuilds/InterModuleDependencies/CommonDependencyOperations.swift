@@ -158,6 +158,7 @@ internal extension InterModuleDependencyGraph {
   /// between it and the root (source module being built by this driver
   /// instance) must also be re-built.
   func computeInvalidatedModuleDependencies(fileSystem: FileSystem,
+                                            cas: SwiftScanCAS?,
                                             forRebuild: Bool,
                                             reporter: IncrementalCompilationState.Reporter? = nil)
   throws -> Set<ModuleDependencyId> {
@@ -169,7 +170,7 @@ internal extension InterModuleDependencyGraph {
     for dependencyId in mainModuleInfo.directDependencies ?? [] {
       try outOfDateModuleScan(from: dependencyId, visited: &visited,
                               modulesRequiringRebuild: &modulesRequiringRebuild,
-                              fileSystem: fileSystem, forRebuild: forRebuild,
+                              fileSystem: fileSystem, cas: cas, forRebuild: forRebuild,
                               reporter: reporter)
     }
 
@@ -183,10 +184,11 @@ internal extension InterModuleDependencyGraph {
   /// filter out those with a fully up-to-date output
   func filterMandatoryModuleDependencyCompileJobs(_ allJobs: [Job],
                                                   fileSystem: FileSystem,
+                                                  cas: SwiftScanCAS?,
                                                   reporter: IncrementalCompilationState.Reporter? = nil) throws -> [Job] {
     // Determine which module pre-build jobs must be re-run
     let modulesRequiringReBuild =
-      try computeInvalidatedModuleDependencies(fileSystem: fileSystem, forRebuild: true, reporter: reporter)
+      try computeInvalidatedModuleDependencies(fileSystem: fileSystem, cas: cas, forRebuild: true, reporter: reporter)
 
     // Filter the `.generatePCM` and `.compileModuleFromInterface` jobs for
     // modules which do *not* need re-building.
@@ -209,6 +211,7 @@ internal extension InterModuleDependencyGraph {
                            visited: inout Set<ModuleDependencyId>,
                            modulesRequiringRebuild: inout Set<ModuleDependencyId>,
                            fileSystem: FileSystem,
+                           cas: SwiftScanCAS?,
                            forRebuild: Bool,
                            reporter: IncrementalCompilationState.Reporter? = nil) throws {
     let reportOutOfDate = { (name: String, reason: String)  in
@@ -227,7 +230,7 @@ internal extension InterModuleDependencyGraph {
       if !visited.contains(dependencyId) {
         try outOfDateModuleScan(from: dependencyId, visited: &visited,
                                 modulesRequiringRebuild: &modulesRequiringRebuild,
-                                fileSystem: fileSystem, forRebuild: forRebuild,
+                                fileSystem: fileSystem, cas: cas, forRebuild: forRebuild,
                                 reporter: reporter)
       }
       // Even if we're not revisiting a dependency, we must check if it's already known to be out of date.
@@ -237,7 +240,7 @@ internal extension InterModuleDependencyGraph {
     if hasOutOfDateModuleDependency {
       reportOutOfDate(sourceModuleId.moduleNameForDiagnostic, "Invalidated by downstream dependency")
       modulesRequiringRebuild.insert(sourceModuleId)
-    } else if try !verifyModuleDependencyUpToDate(moduleID: sourceModuleId, fileSystem: fileSystem, reporter: reporter) {
+    } else if try !verifyModuleDependencyUpToDate(moduleID: sourceModuleId, fileSystem: fileSystem, cas:cas, reporter: reporter) {
       reportOutOfDate(sourceModuleId.moduleNameForDiagnostic, "Out-of-date")
       modulesRequiringRebuild.insert(sourceModuleId)
     }
@@ -246,10 +249,44 @@ internal extension InterModuleDependencyGraph {
     visited.insert(sourceModuleId)
   }
 
+  func outputMissingFromCAS(moduleInfo: ModuleInfo,
+                            cas: SwiftScanCAS?) throws -> Bool {
+    func casOutputMissing(_ key: String?) throws -> Bool {
+      // Caching not enabled.
+      guard let id = key, let cas = cas else { return false }
+      // Do a local query to see if the output exists.
+      let result = try cas.queryCacheKey(id, globally: false)
+      // Make sure all outputs are available in local CAS.
+      guard let outputs = result else { return true }
+      return !outputs.allSatisfy { $0.isMaterialized }
+    }
+
+    switch moduleInfo.details {
+    case .swift(let swiftDetails):
+      return try casOutputMissing(swiftDetails.moduleCacheKey)
+    case .clang(let clangDetails):
+      return try casOutputMissing(clangDetails.moduleCacheKey)
+    case .swiftPrebuiltExternal(_):
+      return false;
+    case .swiftPlaceholder(_):
+      // TODO: This should never ever happen. Hard error?
+      return true;
+    }
+  }
+
   func verifyModuleDependencyUpToDate(moduleID: ModuleDependencyId,
                                       fileSystem: FileSystem,
+                                      cas: SwiftScanCAS?,
                                       reporter: IncrementalCompilationState.Reporter?) throws -> Bool {
     let checkedModuleInfo = try moduleInfo(of: moduleID)
+    // Check if there is a module cache key available, then the content that pointed by the cache key must
+    // exist for module to be up-to-date. Treat any CAS error as missing.
+    let missingFromCAS = (try? outputMissingFromCAS(moduleInfo: checkedModuleInfo, cas: cas)) ?? true
+    if missingFromCAS {
+      reporter?.reportExplicitDependencyMissingFromCAS(moduleID.moduleName)
+      return false
+    }
+
     // Verify that the specified input exists and is older than the specified output
     let verifyInputOlderThanOutputModTime: (String, VirtualPath, TimePoint) -> Bool =
     { moduleName, inputPath, outputModTime in
