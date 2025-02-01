@@ -12,7 +12,7 @@
 
 #if os(Windows)
 import WinSDK
-#elseif os(iOS) || os(macOS) || os(tvOS) || os(watchOS)
+#elseif canImport(Darwin)
 import Darwin
 #elseif canImport(Glibc)
 import Glibc
