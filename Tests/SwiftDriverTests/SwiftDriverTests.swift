@@ -2915,7 +2915,7 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testSanitizeStableAbi() throws {
-#if !(os(macOS) || os(iOS) || os(tvOS) || os(watchOS))
+#if !canImport(Darwin)
       throw XCTSkip("-sanitize-stable-abi is only implemented on Darwin")
 #else
     var driver = try Driver(args: ["swiftc", "-sanitize=address", "-sanitize-stable-abi", "Test.swift"])
@@ -7243,7 +7243,7 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testSwiftClangxxOverride() throws {
-#if os(iOS) || os(macOS) || os(tvOS) || os(watchOS)
+#if canImport(Darwin)
       throw XCTSkip("Darwin always uses `clang` to link")
 #else
     var env = ProcessEnv.vars
@@ -7876,7 +7876,7 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testCxxLinking() throws {
-#if os(iOS) || os(macOS) || os(tvOS) || os(watchOS)
+#if canImport(Darwin)
       throw XCTSkip("Darwin does not use clang as the linker driver")
 #else
       VirtualPath.resetTemporaryFileStore()

@@ -15,7 +15,7 @@ import var Foundation.NSLocalizedDescriptionKey
 
 #if os(Windows)
 import WinSDK
-#elseif os(iOS) || os(macOS) || os(tvOS) || os(watchOS)
+#elseif canImport(Darwin)
 import Darwin
 #elseif canImport(Glibc)
 import Glibc
@@ -121,7 +121,7 @@ extension Loader.Flags {
     }
 
     // Platform-specific flags
-#if os(iOS) || os(macOS) || os(tvOS) || os(watchOS)
+#if canImport(Darwin)
     public static var first: Loader.Flags {
       Loader.Flags(rawValue: RTLD_FIRST)
     }

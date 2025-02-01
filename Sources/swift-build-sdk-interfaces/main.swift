@@ -13,7 +13,7 @@ import SwiftDriverExecution
 import SwiftDriver
 #if os(Windows)
 import CRT
-#elseif os(iOS) || os(macOS) || os(tvOS) || os(watchOS)
+#elseif canImport(Darwin)
 import Darwin
 #elseif canImport(Glibc)
 import Glibc
