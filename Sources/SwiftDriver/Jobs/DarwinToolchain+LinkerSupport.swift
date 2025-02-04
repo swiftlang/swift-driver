@@ -214,9 +214,7 @@ extension DarwinToolchain {
       }
     }
 
-    if parsedOptions.contains(.embedBitcode) {
-      commandLine.appendFlag("-fembed-bitcode")
-    } else if parsedOptions.contains(.embedBitcodeMarker) {
+    if parsedOptions.contains(.embedBitcodeMarker) {
       commandLine.appendFlag("-fembed-bitcode=marker")
     }
 

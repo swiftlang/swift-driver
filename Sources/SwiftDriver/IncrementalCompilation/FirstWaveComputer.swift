@@ -54,10 +54,10 @@ extension IncrementalCompilationState {
 
     public func compute(batchJobFormer: inout Driver) throws -> FirstWave {
       return try blockingConcurrentAccessOrMutation {
-        let (initiallySkippedCompileGroups, mandatoryJobsInOrder) =
+        let (initiallySkippedCompileJobs, mandatoryJobsInOrder) =
         try computeInputsAndGroups(batchJobFormer: &batchJobFormer)
         return FirstWave(
-          initiallySkippedCompileGroups: initiallySkippedCompileGroups,
+          initiallySkippedCompileJobs: initiallySkippedCompileJobs,
           mandatoryJobsInOrder: mandatoryJobsInOrder)
       }
     }
@@ -76,33 +76,33 @@ extension IncrementalCompilationState.FirstWaveComputer {
   /// At this stage the graph will have all external dependencies found in the swiftDeps or in the priors
   /// listed in fingerprintExternalDependencies.
   private func computeInputsAndGroups(batchJobFormer: inout Driver)
-  throws -> (initiallySkippedCompileGroups: [TypedVirtualPath: CompileJobGroup],
+  throws -> (initiallySkippedCompileJobs: [TypedVirtualPath: Job],
              mandatoryJobsInOrder: [Job])
   {
-    let compileGroups =
+    let compileJobs =
       Dictionary(uniqueKeysWithValues:
-                  jobsInPhases.compileGroups.map { ($0.primaryInput, $0) })
+                  jobsInPhases.compileJobs.map { ($0.primaryInputs[0], $0) })
     let buildRecord = self.moduleDependencyGraph.buildRecord
     let jobCreatingPch = jobsInPhases.beforeCompiles.first(where: {$0.kind == .generatePCH})
     guard !buildRecord.inputInfos.isEmpty else {
       func everythingIsMandatory()
-        throws -> (initiallySkippedCompileGroups: [TypedVirtualPath: CompileJobGroup],
+        throws -> (initiallySkippedCompileJobs: [TypedVirtualPath: Job],
                    mandatoryJobsInOrder: [Job])
       {
-        let mandatoryCompileGroupsInOrder = self.inputFiles.swiftSourceFiles.compactMap {
-          input -> CompileJobGroup? in
-          compileGroups[input.typedFile]
+        let mandatoryCompileJobsInOrder = self.inputFiles.swiftSourceFiles.compactMap {
+          input -> Job? in
+          compileJobs[input.typedFile]
         }
 
         let mandatoryJobsInOrder = try
         jobsInPhases.beforeCompiles +
         batchJobFormer.formBatchedJobs(
-          mandatoryCompileGroupsInOrder.flatMap {$0.allJobs()},
+          mandatoryCompileJobsInOrder,
           showJobLifecycle: showJobLifecycle,
           jobCreatingPch: jobCreatingPch)
 
         moduleDependencyGraph.setPhase(to: .buildingAfterEachCompilation)
-        return (initiallySkippedCompileGroups: [:],
+        return (initiallySkippedCompileJobs: [:],
                 mandatoryJobsInOrder: mandatoryJobsInOrder)
       }
       return try everythingIsMandatory()
@@ -114,17 +114,17 @@ extension IncrementalCompilationState.FirstWaveComputer {
       moduleDependencyGraph,
       buildRecord)
 
-    let initiallySkippedCompileGroups = compileGroups.filter { initiallySkippedInputs.contains($0.key) }
+    let initiallySkippedCompileJobs = compileJobs.filter { initiallySkippedInputs.contains($0.key) }
 
-    let mandatoryCompileGroupsInOrder = inputFiles.compactMap {
-      input -> CompileJobGroup? in
+    let mandatoryCompileJobsInOrder = inputFiles.compactMap {
+      input -> Job? in
       initiallySkippedInputs.contains(input)
         ? nil
-        : compileGroups[input]
+        : compileJobs[input]
     }
 
     let batchedCompilationJobs = try batchJobFormer.formBatchedJobs(
-      mandatoryCompileGroupsInOrder.flatMap {$0.allJobs()},
+      mandatoryCompileJobsInOrder,
       showJobLifecycle: showJobLifecycle,
       jobCreatingPch: jobCreatingPch)
 
@@ -133,7 +133,7 @@ extension IncrementalCompilationState.FirstWaveComputer {
     // have any dependencies on them.
     let skipAllJobs = batchedCompilationJobs.isEmpty ? !nonVerifyAfterCompileJobsDependOnBeforeCompileJobs() : false
     let mandatoryJobsInOrder = skipAllJobs ? [] : jobsInPhases.beforeCompiles + batchedCompilationJobs
-    return (initiallySkippedCompileGroups: initiallySkippedCompileGroups,
+    return (initiallySkippedCompileJobs: initiallySkippedCompileJobs,
             mandatoryJobsInOrder: mandatoryJobsInOrder)
   }
 
@@ -156,7 +156,7 @@ extension IncrementalCompilationState.FirstWaveComputer {
     _ moduleDependencyGraph: ModuleDependencyGraph,
     _ buildRecord: BuildRecord
   ) -> Set<TypedVirtualPath> {
-    let allGroups = jobsInPhases.compileGroups
+    let allCompileJobs = jobsInPhases.compileJobs
     // Input == source file
     let changedInputs = computeChangedInputs(moduleDependencyGraph, buildRecord)
 
@@ -176,9 +176,9 @@ extension IncrementalCompilationState.FirstWaveComputer {
         reporter.report("Has malformed dependency source; will queue", input)
       }
     }
-    let inputsMissingOutputs = allGroups.compactMap {
+    let inputsMissingOutputs = allCompileJobs.compactMap {
       $0.outputs.contains { (try? !fileSystem.exists($0.file)) ?? true }
-        ? $0.primaryInput
+        ? $0.primaryInputs[0]
         : nil
     }
     if let reporter = reporter {
@@ -257,8 +257,8 @@ extension IncrementalCompilationState.FirstWaveComputer {
     _ moduleDependencyGraph: ModuleDependencyGraph,
     _ outOfDateBuildRecord: BuildRecord
   ) -> [ChangedInput] {
-    jobsInPhases.compileGroups.compactMap { group in
-      let input = group.primaryInput
+    jobsInPhases.compileJobs.compactMap { job in
+      let input = job.primaryInputs[0]
       let modDate = buildRecordInfo.compilationInputModificationDates[input] ?? .distantFuture
       let inputInfo = outOfDateBuildRecord.inputInfos[input.file]
       let previousCompilationStatus = inputInfo?.status ?? .newlyAdded
