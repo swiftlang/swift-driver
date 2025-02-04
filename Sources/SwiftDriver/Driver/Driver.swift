@@ -2424,8 +2424,8 @@ extension Driver {
       linkerOutputType = .executable
     }
 
-    // warn if -embed-bitcode is set and the output type is not an object
-    if parsedOptions.hasArgument(.embedBitcode) && compilerOutputType != .object {
+    // warn if -embed-bitcode is set
+    if parsedOptions.hasArgument(.embedBitcode) {
       diagnosticsEngine.emit(.warn_ignore_embed_bitcode)
       parsedOptions.eraseArgument(.embedBitcode)
     }
@@ -2449,7 +2449,7 @@ extension Diagnostic.Message {
   }
 
   static var warn_ignore_embed_bitcode: Diagnostic.Message {
-    .warning("ignoring -embed-bitcode since no object file is being generated")
+    .warning("'-embed-bitcode' has been deprecated")
   }
 
   static var warn_ignore_embed_bitcode_marker: Diagnostic.Message {

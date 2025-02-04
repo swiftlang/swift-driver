@@ -22,7 +22,7 @@ extension IncrementalCompilationState {
     ///
     /// This state is modified during the incremental build. All accesses must
     /// be protected by the confinement queue.
-    fileprivate var skippedCompileGroups: [TypedVirtualPath: CompileJobGroup]
+    fileprivate var skippedCompileJobs: [TypedVirtualPath: Job]
 
     /// Sadly, has to be `var` for formBatchedJobs
     ///
@@ -37,11 +37,11 @@ extension IncrementalCompilationState {
     fileprivate let jobCreatingPch: Job?
     fileprivate let reporter: Reporter?
 
-    init(skippedCompileGroups: [TypedVirtualPath: CompileJobGroup],
+    init(skippedCompileJobs: [TypedVirtualPath: Job],
          _ moduleDependencyGraph: ModuleDependencyGraph,
          _ jobCreatingPch: Job?,
          _ driver: inout Driver) {
-      self.skippedCompileGroups = skippedCompileGroups
+      self.skippedCompileJobs = skippedCompileJobs
       self.moduleDependencyGraph = moduleDependencyGraph
       self.reporter = moduleDependencyGraph.info.reporter
       self.jobCreatingPch = jobCreatingPch
@@ -112,7 +112,7 @@ extension IncrementalCompilationState.ProtectedState {
     }
     self.reporter?.report(
       "Failed to read some dependencies source; compiling everything", input)
-    return TransitivelyInvalidatedSwiftSourceFileSet(skippedCompileGroups.keys.swiftSourceFiles)
+    return TransitivelyInvalidatedSwiftSourceFileSet(skippedCompileJobs.keys.swiftSourceFiles)
   }
 
   /// Find the jobs that now must be run that were not originally known to be needed.
@@ -120,17 +120,17 @@ extension IncrementalCompilationState.ProtectedState {
     for invalidatedInputs: Set<SwiftSourceFile>
   ) throws -> [Job] {
     mutationSafetyPrecondition()
-    return invalidatedInputs.flatMap { input -> [Job] in
-      if let group = skippedCompileGroups.removeValue(forKey: input.typedFile) {
-        let primaryInputs = group.compileJob.primarySwiftSourceFiles
+    return invalidatedInputs.compactMap { input -> Job? in
+      if let job = skippedCompileJobs.removeValue(forKey: input.typedFile) {
+        let primaryInputs = job.primarySwiftSourceFiles
         assert(primaryInputs.count == 1)
         assert(primaryInputs[0] == input)
         self.reporter?.report("Scheduling invalidated", input)
-        return group.allJobs()
+        return job
       }
       else {
         self.reporter?.report("Tried to schedule invalidated input again", input)
-        return []
+        return nil
       }
     }
   }
@@ -141,13 +141,12 @@ extension IncrementalCompilationState.ProtectedState {
 extension IncrementalCompilationState.ProtectedState {
   var skippedCompilationInputs: Set<TypedVirtualPath> {
     accessSafetyPrecondition()
-    return Set(skippedCompileGroups.keys)
+    return Set(skippedCompileJobs.keys)
   }
   public var skippedJobs: [Job] {
     accessSafetyPrecondition()
-    return skippedCompileGroups.values
-      .sorted {$0.primaryInput.file.name < $1.primaryInput.file.name}
-      .flatMap {$0.allJobs()}
+    return skippedCompileJobs.values
+      .sorted {$0.primaryInputs[0].file.name < $1.primaryInputs[0].file.name}
   }
 
   func writeGraph(to path: VirtualPath,

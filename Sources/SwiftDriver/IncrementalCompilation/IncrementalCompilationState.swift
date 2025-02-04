@@ -71,7 +71,7 @@ public final class IncrementalCompilationState {
     self.info = initialState.graph.info
     self.upToDateInterModuleDependencyGraph = driver.interModuleDependencyGraph
     self.protectedState = ProtectedState(
-      skippedCompileGroups: firstWave.initiallySkippedCompileGroups,
+      skippedCompileJobs: firstWave.initiallySkippedCompileJobs,
       initialState.graph,
       jobsInPhases.allJobs.first(where: {$0.kind == .generatePCH}),
       &driver)

@@ -38,53 +38,21 @@ public enum PlanningError: Error, DiagnosticData {
   }
 }
 
-/// When emitting bitcode, if the first compile job is scheduled, the second must be.
-/// So, group them together for incremental build purposes.
-struct CompileJobGroup {
-  let compileJob: Job
-  let backendJob: Job?
-
-  init(compileJob: Job, backendJob: Job?) {
-    assert(compileJob.kind == .compile)
-    assert(compileJob.primaryInputs.count == 1, "must be unbatched")
-    assert(backendJob?.kind ?? .backend == .backend)
-    self.compileJob = compileJob
-    self.backendJob = backendJob
-  }
-
-  func allJobs() -> [Job] {
-    backendJob.map {[compileJob, $0]} ?? [compileJob]
-  }
-
-  /// Any type of file that is `partOfSwiftCompilation`
-  var primaryInput: TypedVirtualPath {
-    compileJob.primaryInputs[0]
-  }
-
-  var primarySwiftSourceInput: SwiftSourceFile? {
-    SwiftSourceFile(ifSource: primaryInput)
-  }
-
-  var outputs: [TypedVirtualPath] {
-    allJobs().flatMap {$0.outputs}
-  }
-}
-
 @_spi(Testing) public struct JobsInPhases {
   /// In WMO mode, also includes the multi-compile & its backends, since there are >1 backend jobs
   let beforeCompiles: [Job]
-  let compileGroups: [CompileJobGroup]
+  let compileJobs: [Job]
   let afterCompiles: [Job]
 
   @_spi(Testing) public var allJobs: [Job] {
     var r = beforeCompiles
-    compileGroups.forEach { r.append(contentsOf: $0.allJobs()) }
+    r.append(contentsOf: compileJobs)
     r.append(contentsOf: afterCompiles)
     return r
   }
 
   @_spi(Testing) public static var none = JobsInPhases(beforeCompiles: [],
-                                                       compileGroups: [],
+                                                       compileJobs: [],
                                                        afterCompiles: [])
 }
 
@@ -169,15 +137,15 @@ extension Driver {
       jobsBeforeCompiles.append(job)
     }
 
-    var  compileJobGroups = [CompileJobGroup]()
-    func addCompileJobGroup(_ group: CompileJobGroup) {
-      compileJobGroups.append(group)
+    var compileJobs = [Job]()
+    func addCompileJob(_ job: Job) {
+      compileJobs.append(job)
     }
 
     // need to buffer these to dodge shared ownership
     var jobsAfterCompiles = [Job]()
-    func addJobAfterCompiles(_ j: Job) {
-      jobsAfterCompiles.append(j)
+    func addJobAfterCompiles(_ job: Job) {
+      jobsAfterCompiles.append(job)
     }
 
     try addPrecompileModuleDependenciesJobs(dependencyGraph: moduleDependencyGraph,
@@ -187,7 +155,7 @@ extension Driver {
     let linkerInputs = try addJobsFeedingLinker(
       addJobBeforeCompiles: addJobBeforeCompiles,
       jobsBeforeCompiles: jobsBeforeCompiles,
-      addCompileJobGroup: addCompileJobGroup,
+      addCompileJob: addCompileJob,
       addJobAfterCompiles: addJobAfterCompiles)
     try addAPIDigesterJobs(addJob: addJobAfterCompiles)
     try addLinkAndPostLinkJobs(linkerInputs: linkerInputs,
@@ -195,7 +163,7 @@ extension Driver {
                                addJob: addJobAfterCompiles)
 
     return JobsInPhases(beforeCompiles: jobsBeforeCompiles,
-                        compileGroups: compileJobGroups,
+                        compileJobs: compileJobs,
                         afterCompiles: jobsAfterCompiles)
   }
 
@@ -277,7 +245,7 @@ extension Driver {
   private mutating func addJobsFeedingLinker(
     addJobBeforeCompiles: (Job) -> Void,
     jobsBeforeCompiles: [Job],
-    addCompileJobGroup: (CompileJobGroup) -> Void,
+    addCompileJob: (Job) -> Void,
     addJobAfterCompiles: (Job) -> Void
   ) throws -> [TypedVirtualPath] {
 
@@ -354,7 +322,7 @@ extension Driver {
     }
 
     try addJobsForPrimaryInputs(
-      addCompileJobGroup: addCompileJobGroup,
+      addCompileJob: addCompileJob,
       addModuleInput: addModuleInput,
       addLinkerInput: addLinkerInput,
       addJobOutputs: addJobOutputs,
@@ -391,37 +359,19 @@ extension Driver {
     guard case .singleCompile = compilerMode,
           inputFiles.contains(where: { $0.type.isPartOfSwiftCompilation })
     else { return nil }
-
-    if parsedOptions.hasArgument(.embedBitcode),
-       inputFiles.allSatisfy({ $0.type.isPartOfSwiftCompilation }) {
-      let compile = try compileJob(primaryInputs: [],
-                                   outputType: .llvmBitcode,
-                                   addJobOutputs: addJobOutputs,
-                                   pchCompileJob: pchCompileJob,
-                                   emitModuleTrace: emitModuleTrace)
-      addJob(compile)
-      let backendJobs = try compile.outputs.compactMap { output in
-        output.type == .llvmBitcode
-          ? try backendJob(input: output, baseInput: nil, addJobOutputs: addJobOutputs)
-          : nil
-      }
-      backendJobs.forEach(addJob)
-      return compile
-    } else {
-      // We can skip the compile jobs if all we want is a module when it's
-      // built separately.
-      let compile = try compileJob(primaryInputs: [],
-                                   outputType: compilerOutputType,
-                                   addJobOutputs: addJobOutputs,
-                                   pchCompileJob: pchCompileJob,
-                                   emitModuleTrace: emitModuleTrace)
-      addJob(compile)
-      return compile
-    }
+    // We can skip the compile jobs if all we want is a module when it's
+    // built separately.
+    let compile = try compileJob(primaryInputs: [],
+                                 outputType: compilerOutputType,
+                                 addJobOutputs: addJobOutputs,
+                                 pchCompileJob: pchCompileJob,
+                                 emitModuleTrace: emitModuleTrace)
+    addJob(compile)
+    return compile
   }
 
   private mutating func addJobsForPrimaryInputs(
-    addCompileJobGroup: (CompileJobGroup) -> Void,
+    addCompileJob: (Job) -> Void,
     addModuleInput: (TypedVirtualPath) -> Void,
     addLinkerInput: (TypedVirtualPath) -> Void,
     addJobOutputs: ([TypedVirtualPath]) -> Void,
@@ -434,7 +384,7 @@ extension Driver {
       // Only emit a loaded module trace from the first frontend job.
       try addJobForPrimaryInput(
         input: input,
-        addCompileJobGroup: addCompileJobGroup,
+        addCompileJob: addCompileJob,
         addModuleInput: addModuleInput,
         addLinkerInput: addLinkerInput,
         addJobOutputs: addJobOutputs,
@@ -445,7 +395,7 @@ extension Driver {
 
   private mutating func addJobForPrimaryInput(
     input: TypedVirtualPath,
-    addCompileJobGroup: (CompileJobGroup) -> Void,
+    addCompileJob: (Job) -> Void,
     addModuleInput: (TypedVirtualPath) -> Void,
     addLinkerInput: (TypedVirtualPath) -> Void,
     addJobOutputs: ([TypedVirtualPath]) -> Void,
@@ -462,11 +412,11 @@ extension Driver {
       // We can skip the compile jobs if all we want is a module when it's
       // built separately.
       let canSkipIfOnlyModule = compilerOutputType == .swiftModule && emitModuleSeparately
-      try createAndAddCompileJobGroup(primaryInput: input,
+      try createAndAddCompileJob(primaryInput: input,
                                       emitModuleTrace: emitModuleTrace,
                                       canSkipIfOnlyModule: canSkipIfOnlyModule,
                                       pchCompileJob: pchCompileJob,
-                                      addCompileJobGroup: addCompileJobGroup,
+                                      addCompileJob: addCompileJob,
                                       addJobOutputs: addJobOutputs)
 
     case .object, .autolink, .llvmBitcode, .tbd:
@@ -495,39 +445,23 @@ extension Driver {
     }
   }
 
-  private mutating func createAndAddCompileJobGroup(
+  private mutating func createAndAddCompileJob(
     primaryInput: TypedVirtualPath,
     emitModuleTrace: Bool,
     canSkipIfOnlyModule: Bool,
     pchCompileJob: Job?,
-    addCompileJobGroup: (CompileJobGroup) -> Void,
+    addCompileJob: (Job) -> Void,
     addJobOutputs: ([TypedVirtualPath]) -> Void
   )  throws {
-    if parsedOptions.hasArgument(.embedBitcode),
-       inputFiles.allSatisfy({ $0.type.isPartOfSwiftCompilation }) {
-      let compile = try compileJob(primaryInputs: [primaryInput],
-                                   outputType: .llvmBitcode,
-                                   addJobOutputs: addJobOutputs,
-                                   pchCompileJob: pchCompileJob,
-                                   emitModuleTrace: emitModuleTrace)
-      let backendJobs = try compile.outputs.compactMap { output in
-        output.type == .llvmBitcode
-          ? try backendJob(input: output, baseInput: primaryInput, addJobOutputs: addJobOutputs)
-          : nil
-      }
-      assert(backendJobs.count <= 1)
-      addCompileJobGroup(CompileJobGroup(compileJob: compile, backendJob: backendJobs.first))
-    } else {
-      // We can skip the compile jobs if all we want is a module when it's
-      // built separately.
-      if parsedOptions.hasArgument(.driverExplicitModuleBuild), canSkipIfOnlyModule { return }
-      let compile = try compileJob(primaryInputs: [primaryInput],
-                                   outputType: compilerOutputType,
-                                   addJobOutputs: addJobOutputs,
-                                   pchCompileJob: pchCompileJob,
-                                   emitModuleTrace: emitModuleTrace)
-      addCompileJobGroup(CompileJobGroup(compileJob: compile, backendJob: nil))
-    }
+    // We can skip the compile jobs if all we want is a module when it's
+    // built separately.
+    if parsedOptions.hasArgument(.driverExplicitModuleBuild), canSkipIfOnlyModule { return }
+    let compile = try compileJob(primaryInputs: [primaryInput],
+                                 outputType: compilerOutputType,
+                                 addJobOutputs: addJobOutputs,
+                                 pchCompileJob: pchCompileJob,
+                                 emitModuleTrace: emitModuleTrace)
+    addCompileJob(compile)
   }
 
   /// Need a merge module job if there are module inputs
@@ -912,9 +846,6 @@ extension Driver {
     let partitions = batchPartitions(
       inputs: inputsInOrder,
       showJobLifecycle: showJobLifecycle)
-    let outputType = parsedOptions.hasArgument(.embedBitcode)
-      ? .llvmBitcode
-      : compilerOutputType
 
     let inputsRequiringModuleTrace = Set(
       compileJobs.filter { $0.outputs.contains {$0.type == .moduleTrace} }
@@ -948,7 +879,7 @@ extension Driver {
       let constituentsEmittedModuleTrace = !inputsRequiringModuleTrace.intersection(primaryInputs).isEmpty
       // no need to add job outputs again
       return try compileJob(primaryInputs: primaryInputs,
-                            outputType: outputType,
+                            outputType: compilerOutputType,
                             addJobOutputs: {_ in },
                             pchCompileJob: jobCreatingPch,
                             emitModuleTrace: constituentsEmittedModuleTrace)

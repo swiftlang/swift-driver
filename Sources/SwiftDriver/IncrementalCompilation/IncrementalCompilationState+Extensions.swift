@@ -66,7 +66,7 @@ extension IncrementalCompilationState {
     /// The set of compile jobs we can definitely skip given the state of the
     /// incremental dependency graph and the status of the input files for this
     /// incremental build.
-    let initiallySkippedCompileGroups: [TypedVirtualPath: CompileJobGroup]
+    let initiallySkippedCompileJobs: [TypedVirtualPath: Job]
     /// All of the pre-compile or compilation job (groups) known to be required
     /// for the first wave to execute.
     /// The primaries could be other than .swift files, i.e. .sib
@@ -88,12 +88,6 @@ extension Driver {
       diagnosticEngine.emit(
         .remark_incremental_compilation_has_been_disabled(
           because: "it is not compatible with \(compilerMode)"))
-      return false
-    }
-    guard !parsedOptions.hasArgument(.embedBitcode) else {
-      diagnosticEngine.emit(
-        .remark_incremental_compilation_has_been_disabled(
-          because: "is not currently compatible with embedding LLVM IR bitcode"))
       return false
     }
     return true
