@@ -2791,7 +2791,6 @@ extension Driver {
         debugInfoLevel: debugInfoLevel,
         diagnosticsEngine: diagnosticsEngine,
         workingDirectory: workingDirectory)
-    return nil
   }
 
   /// Determine how the module will be emitted and the name of the module.
