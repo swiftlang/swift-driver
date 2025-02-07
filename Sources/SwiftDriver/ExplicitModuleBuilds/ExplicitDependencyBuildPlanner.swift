@@ -79,8 +79,8 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
   }
 
   /// Supports resolving bridging header pch command from swiftScan.
-  public func supportsBridgingHeaderPCHCommand() throws -> Bool {
-    return try swiftScanOracle.supportsBridgingHeaderPCHCommand()
+  public var supportsBridgingHeaderPCHCommand: Bool {
+    return swiftScanOracle.supportsBridgingHeaderPCHCommand
   }
 
   /// Generate build jobs for all dependencies of the main module.

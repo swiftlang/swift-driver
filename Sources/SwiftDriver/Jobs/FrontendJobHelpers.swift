@@ -852,8 +852,8 @@ extension Driver {
 
 
   /// If explicit dependency planner supports creating bridging header pch command.
-  public func supportsBridgingHeaderPCHCommand() throws -> Bool {
-    return try explicitDependencyBuildPlanner?.supportsBridgingHeaderPCHCommand() ?? false
+  public var supportsBridgingHeaderPCHCommand: Bool {
+    return explicitDependencyBuildPlanner?.supportsBridgingHeaderPCHCommand ?? false
   }
 
   /// In Explicit Module Build mode, distinguish between main module jobs and intermediate dependency build jobs,

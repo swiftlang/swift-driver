@@ -30,7 +30,7 @@ extension Driver {
 
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
 
-    if try supportsBridgingHeaderPCHCommand() {
+    if supportsBridgingHeaderPCHCommand {
       try addExplicitPCHBuildArguments(inputs: &inputs, commandLine: &commandLine)
       addCacheReplayMapping(to: &commandLine)
     } else {
