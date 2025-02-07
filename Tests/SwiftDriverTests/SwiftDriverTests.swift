@@ -3908,6 +3908,19 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-enable-bare-slash-regex"))
   }
 
+  func testDisableDynamicActorIsolation() throws {
+    var driver = try Driver(args: ["swiftc", "test.swift", "-disable-dynamic-actor-isolation"])
+    guard driver.isFrontendArgSupported(.disableDynamicActorIsolation) else {
+      throw XCTSkip("Skipping: compiler does not support '-disable-dynamic-actor-isolation'")
+    }
+    let plannedJobs = try driver.planBuild()
+    XCTAssertEqual(plannedJobs.count, 2)
+    XCTAssertEqual(plannedJobs[0].kind, .compile)
+    XCTAssertEqual(plannedJobs[1].kind, .link)
+    XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-frontend")))
+    XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-disable-dynamic-actor-isolation")))
+  }
+
   func testImmediateMode() throws {
     do {
       var driver = try Driver(args: ["swift", "foo.swift"])
