@@ -367,6 +367,10 @@ extension Driver {
       try commandLine.appendLast(.disableSandbox, from: &parsedOptions)
     }
 
+    if isFrontendArgSupported(.disableDynamicActorIsolation) {
+      try commandLine.appendLast(.disableDynamicActorIsolation, from: &parsedOptions)
+    }
+
     if !directModuleCC1Mode, let workingDirectory = workingDirectory {
       // Add -Xcc -working-directory before any other -Xcc options to ensure it is
       // overridden by an explicit -Xcc -working-directory, although having a
