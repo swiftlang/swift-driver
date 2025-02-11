@@ -5338,6 +5338,17 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testDumpASTFormat() throws {
+    var driver = try Driver(args: [
+      "swiftc", "-dump-ast", "-dump-ast-format", "json", "foo.swift"
+    ])
+    let plannedJobs = try driver.planBuild()
+    XCTAssertEqual(plannedJobs[0].kind, .compile)
+    XCTAssertTrue(plannedJobs[0].commandLine.contains("-dump-ast"))
+    XCTAssertTrue(plannedJobs[0].commandLine.contains("-dump-ast-format"))
+    XCTAssertTrue(plannedJobs[0].commandLine.contains("json"))
+  }
+
   func testDeriveSwiftDocPath() throws {
     var driver = try Driver(args: [
       "swiftc", "-emit-module", "/tmp/main.swift", "-emit-module-path", "test-ios-macabi.swiftmodule"

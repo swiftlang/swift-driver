@@ -292,6 +292,7 @@ extension Option {
   public static let driverVerifyFineGrainedDependencyGraphAfterEveryImport: Option = Option("-driver-verify-fine-grained-dependency-graph-after-every-import", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Debug DriverGraph by verifying it after every import", group: .internalDebug)
   public static let driverWarnUnusedOptions: Option = Option("-driver-warn-unused-options", .flag, attributes: [.helpHidden], helpText: "Emit warnings for any provided options which are unused by the driver")
   public static let dumpApiPath: Option = Option("-dump-api-path", .separate, attributes: [.frontend, .noDriver, .cacheInvariant], helpText: "The path to output swift interface files for the compiled source files")
+  public static let dumpAstFormat: Option = Option("-dump-ast-format", .separate, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], metaVar: "<format>", helpText: "Desired format for -dump-ast output ('default', 'json', or 'json-zlib'); no format is guaranteed stable across different compiler versions")
   public static let dumpAst: Option = Option("-dump-ast", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Parse and type-check input file(s) and dump AST(s)", group: .modes)
   public static let dumpAvailabilityScopes: Option = Option("-dump-availability-scopes", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Type-check input file(s) and dump availability scopes", group: .modes)
   public static let dumpClangDiagnostics: Option = Option("-dump-clang-diagnostics", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Dump Clang diagnostics to stderr")
@@ -1197,6 +1198,7 @@ extension Option {
       Option.driverVerifyFineGrainedDependencyGraphAfterEveryImport,
       Option.driverWarnUnusedOptions,
       Option.dumpApiPath,
+      Option.dumpAstFormat,
       Option.dumpAst,
       Option.dumpAvailabilityScopes,
       Option.dumpClangDiagnostics,
