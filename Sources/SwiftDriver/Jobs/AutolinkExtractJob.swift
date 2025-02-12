@@ -19,7 +19,7 @@ import struct TSCBasic.RelativePath
 extension Driver {
   /*@_spi(Testing)*/ public var isAutolinkExtractJobNeeded: Bool {
       switch targetTriple.objectFormat {
-      case .wasm where targetTriple.os == .wasi:
+      case .wasm where targetTriple.os != .noneOS:
           fallthrough
 
       case .elf:
