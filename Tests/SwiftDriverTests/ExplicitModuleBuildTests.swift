@@ -2383,11 +2383,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
           try driver.run(jobs: jobs)
 
           diagnostics.expect(.remark("Module 'testTraceDependency' depends on 'A'"))
-#if os(macOS)
-          diagnostics.expect(.note("[testTraceDependency] -> [A] -> [A](ObjC)"))
-#else
-          diagnostics.expect(.note("[testTraceDependency] -> [C](ObjC) -> [B](ObjC) -> [A](ObjC)"))
-#endif
+          diagnostics.expect(.note("[testTraceDependency] -> [A] -> [A](ObjC)"),
+                             alternativeMessage: .note("[testTraceDependency] -> [C](ObjC) -> [B](ObjC) -> [A](ObjC)"))
         }
       }
     }
