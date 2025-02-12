@@ -103,6 +103,7 @@ func assertNoDiagnostics(
 final class DiagnosticVerifier {
   fileprivate struct Expectation {
     let message: Diagnostic.Message
+    let alternativeMessage: Diagnostic.Message?
     let file: StaticString
     let line: UInt
   }
@@ -143,6 +144,10 @@ final class DiagnosticVerifier {
         if diag.matches(expectation.message) {
           self.expected.remove(at: i)
           return
+        } else if let alternativeExpectedMessage = expectation.alternativeMessage,
+                  diag.matches(alternativeExpectedMessage) {
+          self.expected.remove(at: i)
+          return
         }
       }
 
@@ -156,6 +161,7 @@ final class DiagnosticVerifier {
   /// is emitted by then, a test assertion will fail.
   func expect(
     _ message: Diagnostic.Message,
+    alternativeMessage: Diagnostic.Message? = nil,
     repetitions: Int = 1,
     file: StaticString = #file, line: UInt = #line
   ) {
@@ -168,7 +174,9 @@ final class DiagnosticVerifier {
         if remaining < 1 { return }
       }
 
-      let expectation = Expectation(message: message, file: file, line: line)
+      let expectation = Expectation(message: message,
+                                    alternativeMessage: alternativeMessage,
+                                    file: file, line: line)
       self.expected.append(contentsOf: repeatElement(expectation, count: remaining))
     }
   }
