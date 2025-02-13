@@ -6680,6 +6680,9 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[1].kind, .compile)
       XCTAssertTrue(commandContainsFlagTemporaryPathSequence(plannedJobs[1].commandLine,
                                                              flag: "-import-objc-header",
+                                                             filename: "header.pch") ||
+                    commandContainsFlagTemporaryPathSequence(plannedJobs[1].commandLine,
+                                                             flag: "-import-pch",
                                                              filename: "header.pch"))
       XCTAssertEqual(plannedJobs[2].kind, .mergeModule)
       try XCTAssertJobInvocationMatches(plannedJobs[2], .flag("-import-objc-header"), toPathOption("header.h"))

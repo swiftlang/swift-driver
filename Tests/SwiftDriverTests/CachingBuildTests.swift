@@ -339,7 +339,7 @@ final class CachingBuildTests: XCTestCase {
               let baseName = "testCachingBuildJobs"
               XCTAssertTrue(matchTemporary(outputFilePath, basename: baseName, fileExtension: "o") ||
                             matchTemporary(outputFilePath, basename: baseName, fileExtension: "autolink") ||
-                            matchTemporary(outputFilePath, basename: "Bridging", fileExtension: "pch"))
+                            matchTemporary(outputFilePath, basename: "", fileExtension: "pch"))
             default:
               XCTFail("Unexpected module dependency build job output: \(outputFilePath)")
           }
@@ -722,6 +722,11 @@ final class CachingBuildTests: XCTestCase {
       for job in jobs {
           XCTAssertFalse(job.outputCacheKeys.isEmpty)
       }
+      if driver.isFrontendArgSupported(.importPch) {
+          XCTAssertTrue(jobs.contains { $0.kind == .generatePCH })
+      }
+      try driver.run(jobs: jobs)
+      XCTAssertFalse(driver.diagnosticEngine.hasErrors)
     }
   }
 

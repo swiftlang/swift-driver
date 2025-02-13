@@ -27,6 +27,12 @@ public struct ExternalTargetModuleDetails {
   let isFramework: Bool
 }
 
+/// A chained bridging header file.
+public struct ChainedBridgingHeaderFile {
+  let path: String
+  let content: String
+}
+
 public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalTargetModuleDetails]
 
 /// In Explicit Module Build mode, this planner is responsible for generating and providing
@@ -449,6 +455,17 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
     let mainModuleId: ModuleDependencyId = .swift(dependencyGraph.mainModuleName)
     let mainModuleDetails = try dependencyGraph.swiftModuleDetails(of: mainModuleId)
     return mainModuleDetails.contextHash
+  }
+
+  /// Get the chained bridging header info
+  public func getChainedBridgingHeaderFile() throws -> ChainedBridgingHeaderFile? {
+    let mainModuleId: ModuleDependencyId = .swift(dependencyGraph.mainModuleName)
+    let mainModuleDetails = try dependencyGraph.swiftModuleDetails(of: mainModuleId)
+    guard let path = mainModuleDetails.chainedBridgingHeaderPath,
+          let content = mainModuleDetails.chainedBridgingHeaderContent else{
+      return nil
+    }
+    return ChainedBridgingHeaderFile(path: path, content: content)
   }
 
   /// Resolve all module dependencies of the main module and add them to the lists of

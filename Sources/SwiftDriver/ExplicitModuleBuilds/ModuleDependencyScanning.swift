@@ -12,6 +12,7 @@
 
 import protocol TSCBasic.FileSystem
 import struct TSCBasic.AbsolutePath
+import struct TSCBasic.RelativePath
 import struct TSCBasic.Diagnostic
 import var TSCBasic.localFileSystem
 import var TSCBasic.stdoutStream
@@ -160,6 +161,34 @@ public extension Driver {
           commandLine.appendFlag(.validatePriorDependencyScanCache)
           commandLine.appendFlag(.serializeDependencyScanCache)
         }
+      }
+    }
+
+    if isFrontendArgSupported(.autoBridgingHeaderChaining) {
+      if parsedOptions.hasFlag(positive: .autoBridgingHeaderChaining,
+                               negative: .noAutoBridgingHeaderChaining,
+                               default: false) || isCachingEnabled {
+        if producePCHJob {
+          commandLine.appendFlag(.autoBridgingHeaderChaining)
+        } else {
+          diagnosticEngine.emit(.warning("-auto-bridging-header-chaining requires generatePCH job, no chaining will be performed"))
+          commandLine.appendFlag(.noAutoBridgingHeaderChaining)
+        }
+      } else {
+        commandLine.appendFlag(.noAutoBridgingHeaderChaining)
+      }
+    }
+
+    // Provide a directory to path to scanner for where the chained bridging header will be.
+    // Prefer writing next to pch output, otherwise next to module output path before fallback to temp directory for non-caching build.
+    if isFrontendArgSupported(.scannerOutputDir) {
+      if let outputDir = try? computePrecompiledBridgingHeaderDir(&parsedOptions,
+                                                                  compilerMode: compilerMode) {
+        commandLine.appendFlag(.scannerOutputDir)
+        commandLine.appendPath(outputDir)
+      } else {
+        commandLine.appendFlag(.scannerOutputDir)
+        commandLine.appendPath(VirtualPath.temporary(try RelativePath(validating: "scanner")))
       }
     }
 

@@ -35,7 +35,7 @@ extension Driver {
     var inputs: [TypedVirtualPath] = [interfaceInput]
     commandLine.appendFlags("-frontend", "-typecheck-module-from-interface")
     try addPathArgument(interfaceInput.file, to: &commandLine)
-    try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs, kind: .verifyModuleInterface)
+    try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs, kind: .verifyModuleInterface, bridgingHeaderHandling: .ignored)
     // FIXME: MSVC runtime flags
 
     // Output serialized diagnostics for this job, if specifically requested

@@ -124,7 +124,7 @@ public struct SwiftModuleDetails: Codable, Hashable {
   /// Options to the compile command
   public var commandLine: [String]? = []
 
-  /// Options to the compile command
+  /// Options to the compile bridging header command
   public var bridgingPchCommandLine: [String]? = []
 
   /// The context hash for this module that encodes the producing interface's path,
@@ -140,6 +140,11 @@ public struct SwiftModuleDetails: Codable, Hashable {
 
   /// The module cache key of the output module.
   public var moduleCacheKey: String?
+
+  /// Chained bridging header path
+  public var chainedBridgingHeaderPath: String?
+  /// Chained bridging header content
+  public var chainedBridgingHeaderContent: String?
 }
 
 /// Details specific to Swift placeholder dependencies.
