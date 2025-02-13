@@ -3212,8 +3212,8 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testLinkFilelistWithDebugInfo() throws {
-#if os(Windows)
-    try XCTSkipIf(true, "platform linker does not support filelists")
+#if !os(macOS)
+    try XCTSkipIf(true, "platform does not support dsymutil")
 #endif
     func getFileListElements(for filelistOpt: String, job: Job) -> [VirtualPath] {
         guard let optIdx = job.commandLine.firstIndex(of: .flag(filelistOpt)) else {
@@ -3233,13 +3233,14 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     var driver = try Driver(args: [
-        "swiftc", "-g", "/tmp/hello.swift", "-module-name", "Hello",
+        "swiftc", "-target", "arm64-apple-macosx15",
+        "-g", "/tmp/hello.swift", "-module-name", "Hello",
         "-emit-library", "-driver-filelist-threshold=0"
     ])
 
     let jobs = try driver.planBuild().removingAutolinkExtractJobs()
-    XCTAssertEqual(jobs.count, 4)
-    XCTAssertEqual(getFileListElements(for: "-filelist", job: jobs[2]),
+    let linkJob = try jobs.findJob(.link)
+    XCTAssertEqual(getFileListElements(for: "-filelist", job: linkJob),
         [.temporary(try .init(validating: "hello-1.o"))])
   }
 
