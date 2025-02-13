@@ -4075,7 +4075,8 @@ final class SwiftDriverTests: XCTestCase {
 
       XCTAssertEqual(plannedJobs[1].kind, .link)
       XCTAssert(plannedJobs[1].commandLine.contains(.flag("--target=x86_64-apple-ios13.1-macabi")))
-      XCTAssert(plannedJobs[1].commandLine.contains(.flag("-darwin-target-variant=x86_64-apple-macosx10.14")))
+      XCTAssert(plannedJobs[1].commandLine.contains(.flag("-darwin-target-variant")))
+      XCTAssert(plannedJobs[1].commandLine.contains(.flag("x86_64-apple-macosx10.14")))
     }
 
     // Test -target-variant is passed to generate pch job
@@ -4100,7 +4101,8 @@ final class SwiftDriverTests: XCTestCase {
 
       XCTAssertEqual(plannedJobs[2].kind, .link)
       XCTAssert(plannedJobs[2].commandLine.contains(.flag("--target=x86_64-apple-ios13.1-macabi")))
-      XCTAssert(plannedJobs[2].commandLine.contains(.flag("-darwin-target-variant=x86_64-apple-macosx10.14")))
+      XCTAssert(plannedJobs[2].commandLine.contains(.flag("-darwin-target-variant")))
+      XCTAssert(plannedJobs[2].commandLine.contains(.flag("x86_64-apple-macosx10.14")))
     }
   }
 
@@ -5006,7 +5008,7 @@ final class SwiftDriverTests: XCTestCase {
         XCTAssertJobInvocationMatches(frontendJobs[0], .flag("-target-sdk-version"), .flag("10.15"), .flag("-target-variant-sdk-version"), .flag("13.1"))
         XCTAssertEqual(frontendJobs[1].kind, .link)
         XCTAssertJobInvocationMatches(frontendJobs[1], .flag("--target=x86_64-apple-macosx10.14"))
-        XCTAssertJobInvocationMatches(frontendJobs[1], .flag("-darwin-target-variant=x86_64-apple-ios13.1-macabi"))
+        XCTAssertJobInvocationMatches(frontendJobs[1], .flag("-darwin-target-variant"), .flag("x86_64-apple-ios13.1-macabi"))
       }
 
       do {
@@ -5023,7 +5025,7 @@ final class SwiftDriverTests: XCTestCase {
         }
         XCTAssertEqual(frontendJobs[1].kind, .link)
         XCTAssertJobInvocationMatches(frontendJobs[1], .flag("--target=x86_64-apple-macosx10.14"))
-        XCTAssertJobInvocationMatches(frontendJobs[1], .flag("-darwin-target-variant=x86_64-apple-ios13.1-macabi"))
+        XCTAssertJobInvocationMatches(frontendJobs[1], .flag("-darwin-target-variant"), .flag("x86_64-apple-ios13.1-macabi"))
       }
 
       do {
@@ -5043,7 +5045,7 @@ final class SwiftDriverTests: XCTestCase {
         }
         XCTAssertEqual(frontendJobs[1].kind, .link)
         XCTAssertJobInvocationMatches(frontendJobs[1], .flag("--target=x86_64-apple-ios13.1-macabi"))
-        XCTAssertJobInvocationMatches(frontendJobs[1], .flag("-darwin-target-variant=x86_64-apple-macosx10.14"))
+        XCTAssertJobInvocationMatches(frontendJobs[1], .flag("-darwin-target-variant"), .flag("x86_64-apple-macosx10.14"))
       }
     }
   }
