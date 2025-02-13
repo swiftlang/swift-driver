@@ -4075,8 +4075,7 @@ final class SwiftDriverTests: XCTestCase {
 
       XCTAssertEqual(plannedJobs[1].kind, .link)
       XCTAssert(plannedJobs[1].commandLine.contains(.flag("--target=x86_64-apple-ios13.1-macabi")))
-      XCTAssert(plannedJobs[1].commandLine.contains(.flag("-darwin-target-variant")))
-      XCTAssert(plannedJobs[1].commandLine.contains(.flag("x86_64-apple-macosx10.14")))
+     XCTAssertJobInvocationMatches(plannedJobs[1], .flag("-darwin-target-variant"), .flag("x86_64-apple-macosx10.14"))
     }
 
     // Test -target-variant is passed to generate pch job
@@ -4101,8 +4100,7 @@ final class SwiftDriverTests: XCTestCase {
 
       XCTAssertEqual(plannedJobs[2].kind, .link)
       XCTAssert(plannedJobs[2].commandLine.contains(.flag("--target=x86_64-apple-ios13.1-macabi")))
-      XCTAssert(plannedJobs[2].commandLine.contains(.flag("-darwin-target-variant")))
-      XCTAssert(plannedJobs[2].commandLine.contains(.flag("x86_64-apple-macosx10.14")))
+      XCTAssertJobInvocationMatches(plannedJobs[2], .flag("-darwin-target-variant"), .flag("x86_64-apple-macosx10.14"))
     }
   }
 
