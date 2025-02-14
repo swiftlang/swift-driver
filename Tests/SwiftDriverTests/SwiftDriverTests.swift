@@ -3864,7 +3864,7 @@ final class SwiftDriverTests: XCTestCase {
     guard driver.isFrontendArgSupported(.disableDynamicActorIsolation) else {
       throw XCTSkip("Skipping: compiler does not support '-disable-dynamic-actor-isolation'")
     }
-    let plannedJobs = try driver.planBuild()
+    let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
     XCTAssertEqual(plannedJobs.count, 2)
     XCTAssertEqual(plannedJobs[0].kind, .compile)
     XCTAssertEqual(plannedJobs[1].kind, .link)
