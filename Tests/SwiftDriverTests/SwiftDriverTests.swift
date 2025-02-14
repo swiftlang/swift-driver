@@ -4552,6 +4552,7 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testProfileSampleUseFrontendFlags() throws {
+    XCTFail("This is just broken")
     // Check that the LLVM option for 'profi' is inferred and passed to frontend
     // in addition to the usual flag.
     try withTemporaryDirectory { path in
