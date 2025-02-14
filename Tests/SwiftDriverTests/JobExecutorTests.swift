@@ -351,7 +351,7 @@ final class JobExecutorTests: XCTestCase {
       let main = path.appending(component: "main.swift")
       try localFileSystem.writeFileContents(main, bytes: "let foo = 1")
 
-      var driver = try Driver(args: ["swift", main.pathString])
+      var driver = try Driver(args: ["swiftc", main.pathString])
       let jobs = try driver.planBuild()
       XCTAssertEqual(jobs.count, 1)
       XCTAssertTrue(jobs[0].requiresInPlaceExecution)
