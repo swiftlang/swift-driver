@@ -18,8 +18,18 @@ import struct TSCBasic.RelativePath
 // FIXME: Also handle Cygwin and MinGW
 extension Driver {
   /*@_spi(Testing)*/ public var isAutolinkExtractJobNeeded: Bool {
-    [.elf, .wasm].contains(targetTriple.objectFormat) && lto == nil &&
-    linkerOutputType != nil
+    mutating get {
+      switch targetTriple.objectFormat {
+      case .wasm where !parsedOptions.isEmbeddedEnabled:
+        fallthrough
+
+      case .elf:
+        return lto == nil && linkerOutputType != nil
+
+      default:
+        return false
+      }
+    }
   }
 
   mutating func autolinkExtractJob(inputs: [TypedVirtualPath]) throws -> Job? {

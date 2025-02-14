@@ -6803,10 +6803,9 @@ final class SwiftDriverTests: XCTestCase {
     do {
       var driver = try Driver(args: ["swiftc", "-target", "wasm32-none-none-wasm", "test.swift", "-enable-experimental-feature", "Embedded", "-wmo", "-o", "a.wasm"], env: env)
       let plannedJobs = try driver.planBuild()
-      XCTAssertEqual(plannedJobs.count, 3)
+      XCTAssertEqual(plannedJobs.count, 2)
       let compileJob = plannedJobs[0]
-      let _ /*autolinkJob*/ = plannedJobs[1]
-      let linkJob = plannedJobs[2]
+      let linkJob = plannedJobs[1]
       XCTAssertJobInvocationMatches(compileJob, .flag("-disable-objc-interop"))
       XCTAssertFalse(linkJob.commandLine.contains(.flag("-force_load")))
       XCTAssertFalse(linkJob.commandLine.contains(.flag("-rpath")))
@@ -6817,9 +6816,8 @@ final class SwiftDriverTests: XCTestCase {
     do {
       var driver = try Driver(args: ["swiftc", "-target", "wasm32-none-none-wasm", "test.o", "-enable-experimental-feature", "Embedded", "-wmo", "-o", "a.wasm"], env: env)
       let plannedJobs = try driver.planBuild()
-      XCTAssertEqual(plannedJobs.count, 2)
-      let _ /*autolinkJob*/ = plannedJobs[0]
-      let linkJob = plannedJobs[1]
+      XCTAssertEqual(plannedJobs.count, 1)
+      let linkJob = plannedJobs[0]
       XCTAssertFalse(linkJob.commandLine.contains(.flag("-force_load")))
       XCTAssertFalse(linkJob.commandLine.contains(.flag("-rpath")))
       XCTAssertFalse(linkJob.commandLine.contains(.flag("-lswiftCore")))
