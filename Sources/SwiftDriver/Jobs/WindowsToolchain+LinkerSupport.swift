@@ -223,7 +223,10 @@ extension WindowsToolchain {
       commandLine.appendFlag(optArg)
     }
 
-    // FIXME(compnerd) render asan/ubsan runtime link for executables
+    if !sanitizers.isEmpty {
+      let sanitize = sanitizers.map(\.rawValue).sorted().joined(separator: ",")
+      commandLine.appendFlag("-fsanitize=\(sanitize)")
+    }
 
     if parsedOptions.contains(.profileGenerate) {
       assert(bForceLLD,

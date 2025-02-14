@@ -130,6 +130,11 @@ extension WindowsToolchain.ToolchainValidationError {
   public func runtimeLibraryName(for sanitizer: Sanitizer, targetTriple: Triple,
                                  isShared: Bool) throws -> String {
     // TODO(compnerd) handle shared linking
+
+    // FIXME(compnerd) when should `clang_rt.ubsan_standalone_cxx` be used?
+    if sanitizer == .undefinedBehavior {
+      return "clang_rt.ubsan_standalone.lib"
+    }
     return "clang_rt.\(sanitizer.libraryName).lib"
   }
 
