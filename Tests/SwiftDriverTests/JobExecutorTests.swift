@@ -355,11 +355,17 @@ final class JobExecutorTests: XCTestCase {
       let jobs = try driver.planBuild()
       XCTAssertEqual(jobs.count, 1)
       XCTAssertTrue(jobs[0].requiresInPlaceExecution)
+      let soleJob = try XCTUnwrap(jobs.first)
+
+      // Sleep for 1s to allow for quiescing mtimes on filesystems with
+      // insufficient timestamp precision.
+      Thread.sleep(forTimeInterval: 1)
 
       // Change the file
       try localFileSystem.writeFileContents(main, bytes: "let foo = 1")
-
-      XCTAssertThrowsError(try driver.run(jobs: jobs)) {
+      // Ensure that the file modification since the start of the build planning process
+      // results in a corresponding error.
+      XCTAssertThrowsError(try soleJob.verifyInputsNotModified(since: driver.recordedInputModificationDates, fileSystem: localFileSystem)) {
         XCTAssertEqual($0 as? Job.InputError,
                        .inputUnexpectedlyModified(TypedVirtualPath(file: VirtualPath.absolute(main).intern(), type: .swift)))
       }
