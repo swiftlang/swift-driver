@@ -3914,7 +3914,7 @@ final class SwiftDriverTests: XCTestCase {
     guard driver.isFrontendArgSupported(.disableDynamicActorIsolation) else {
       throw XCTSkip("Skipping: compiler does not support '-disable-dynamic-actor-isolation'")
     }
-    let plannedJobs = try driver.planBuild()
+    let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
     XCTAssertEqual(plannedJobs.count, 2)
     XCTAssertEqual(plannedJobs[0].kind, .compile)
     XCTAssertEqual(plannedJobs[1].kind, .link)
@@ -4561,7 +4561,7 @@ final class SwiftDriverTests: XCTestCase {
       var driver = try Driver(args: ["swiftc", "foo.swift",
         "-working-directory", path.pathString,
         "-profile-sample-use=profile.profdata"])
-      let plannedJobs = try driver.planBuild()
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
       XCTAssertEqual(plannedJobs.count, 2)
       XCTAssertEqual(plannedJobs[0].kind, .compile)
 
@@ -4579,7 +4579,7 @@ final class SwiftDriverTests: XCTestCase {
   func testDebugInfoForProfilingFlag() throws {
     // Check that the '-debug-info-for-profiling' flag is passed to frontend.
     var driver = try Driver(args: ["swiftc", "-g", "-debug-info-for-profiling", "foo.swift"])
-    let plannedJobs = try driver.planBuild()
+    let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
     XCTAssertEqual(plannedJobs.count, 4)
     XCTAssertEqual(plannedJobs[0].kind, .emitModule)
     let job = plannedJobs[0]
