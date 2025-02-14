@@ -235,7 +235,8 @@ extension DarwinToolchain {
     commandLine.appendFlag("--target=\(targetTriple.triple)")
     if let variantTriple = targetInfo.targetVariant?.triple {
       assert(targetTriple.isValidForZipperingWithTriple(variantTriple))
-      commandLine.appendFlag("-darwin-target-variant=\(variantTriple.triple)")
+      commandLine.appendFlag("-darwin-target-variant")
+      commandLine.appendFlag(variantTriple.triple)
     }
 
     // On Darwin, we only support libc++.
