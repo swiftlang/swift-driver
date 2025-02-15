@@ -495,6 +495,15 @@ extension Driver {
       }
     }
 
+    // Pass bridging header chaining options.
+    if isFrontendArgSupported(.autoBridgingHeaderChaining) {
+      if bridgingHeaderChaining {
+        commandLine.appendFlag(.autoBridgingHeaderChaining)
+      } else {
+        commandLine.appendFlag(.noAutoBridgingHeaderChaining)
+      }
+    }
+
     // Pass along -no-verify-emitted-module-interface only if it's effective.
     // Assume verification by default as we want to know only when the user skips
     // the verification.

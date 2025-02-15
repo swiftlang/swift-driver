@@ -338,6 +338,10 @@ public struct Driver {
   /// Original ObjC Header passed from command-line
   let originalObjCHeaderFile: VirtualPath.Handle?
 
+
+  /// Enable bridging header chaining.
+  let bridgingHeaderChaining: Bool
+
   /// The path to the imported Objective-C header.
   lazy var importedObjCHeader: VirtualPath.Handle? = {
     assert(explicitDependencyBuildPlanner != nil ||
@@ -1124,6 +1128,19 @@ public struct Driver {
       self.originalObjCHeaderFile = try? VirtualPath.intern(path: objcHeaderPathArg.asSingle)
     } else {
       self.originalObjCHeaderFile = nil
+    }
+
+    if parsedOptions.hasFlag(positive: .autoBridgingHeaderChaining,
+                             negative: .noAutoBridgingHeaderChaining,
+                             default: false) || cachingEnabled {
+      if producePCHJob {
+        self.bridgingHeaderChaining = true
+      } else {
+        diagnosticEngine.emit(.warning("-auto-bridging-header-chaining requires generatePCH job, no chaining will be performed"))
+        self.bridgingHeaderChaining = false
+      }
+    } else {
+      self.bridgingHeaderChaining = false
     }
 
     self.useClangIncludeTree = !parsedOptions.hasArgument(.noClangIncludeTree) && !env.keys.contains("SWIFT_CACHING_USE_CLANG_CAS_FS")

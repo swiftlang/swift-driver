@@ -464,7 +464,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       guard driver.isFrontendArgSupported(.autoBridgingHeaderChaining) else { return }
 
       // Warn if -disable-bridging-pch is used with auto bridging header chaining.
-      driver = try Driver(args: ["swiftc", "-v",
+      driver = try Driver(args: ["swiftc",
                                  "-I", FooInstallPath.nativePathString(escaped: true),
                                  "-explicit-module-build", "-auto-bridging-header-chaining", "-disable-bridging-pch",
                                  "-pch-output-dir", FooInstallPath.nativePathString(escaped: true),
