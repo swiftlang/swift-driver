@@ -152,16 +152,15 @@ public final class GenericUnixToolchain: Toolchain {
     frontendTargetInfo: FrontendTargetInfo,
     driver: inout Driver
   ) throws {
-    if driver.targetTriple.environment == .android {
-      if let sysroot = driver.parsedOptions.getLastArgument(.sysroot)?.asSingle {
-        commandLine.appendFlag("-sysroot")
-        try commandLine.appendPath(VirtualPath(path: sysroot))
-      } else if let sysroot = AndroidNDK.getDefaultSysrootPath(in: self.env) {
-        commandLine.appendFlag("-sysroot")
-        try commandLine.appendPath(VirtualPath(path: sysroot.pathString))
-      }
+    if let sysroot = driver.parsedOptions.getLastArgument(.sysroot)?.asSingle {
+      commandLine.appendFlag("-sysroot")
+      try commandLine.appendPath(VirtualPath(path: sysroot))
+    } else if driver.targetTriple.environment == .android,
+      let sysroot = AndroidNDK.getDefaultSysrootPath(in: self.env)
+    {
+      commandLine.appendFlag("-sysroot")
+      try commandLine.appendPath(VirtualPath(path: sysroot.pathString))
     }
-
 
     if driver.targetTriple.os == .openbsd && driver.targetTriple.arch == .aarch64 {
       commandLine.appendFlag(.Xcc)
