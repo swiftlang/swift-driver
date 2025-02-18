@@ -296,7 +296,9 @@ public struct Driver {
       }
       if let sdkMapping = scannerPrefixMapSDK,
          let sdkPath = absoluteSDKPath {
-        mapping.append((sdkPath, sdkMapping))
+        // Remap the parent directory of the SDK path because some compiler
+        // relies on the name of the SDK to make decisions.
+        mapping.append((sdkPath.parentDirectory, sdkMapping))
       }
       if let toolchainMapping = scannerPrefixMapToolchain {
         let toolchainPath = try toolchain.executableDir.parentDirectory // usr
