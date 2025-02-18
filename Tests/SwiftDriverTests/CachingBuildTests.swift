@@ -720,13 +720,13 @@ final class CachingBuildTests: XCTestCase {
                               interModuleDependencyOracle: dependencyOracle)
       let jobs = try driver.planBuild()
       for job in jobs {
-          XCTAssertFalse(job.outputCacheKeys.isEmpty)
+        XCTAssertFalse(job.outputCacheKeys.isEmpty)
       }
-      if driver.isFrontendArgSupported(.importPch) {
-          XCTAssertTrue(jobs.contains { $0.kind == .generatePCH })
+      if driver.isFrontendArgSupported(.autoBridgingHeaderChaining) {
+        XCTAssertTrue(jobs.contains { $0.kind == .generatePCH })
+        try driver.run(jobs: jobs)
+        XCTAssertFalse(driver.diagnosticEngine.hasErrors)
       }
-      try driver.run(jobs: jobs)
-      XCTAssertFalse(driver.diagnosticEngine.hasErrors)
     }
   }
 
