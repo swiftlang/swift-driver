@@ -32,14 +32,8 @@ extension Toolchain {
     if platform == "android" {
       platform = "linux"
     }
-
-    // NOTE(compnerd) Windows uses the per-target runtime directory for the
-    // Windows runtimes. This should also be done for the other platforms, but
-    // is not critical. This is done to allow for the Windows runtimes to be
-    // co-located for all the currently supported architectures: x86, x64, arm64.
-    let bIsWindows = targetInfo.target.triple.isWindows
     return VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
-      .appending(components: "clang", "lib", bIsWindows ? targetInfo.target.triple.triple : platform)
+      .appending(components: "clang", "lib", platform)
   }
 
   func runtimeLibraryPaths(
