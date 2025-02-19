@@ -2721,6 +2721,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertJobInvocationMatches(jobs[2], .flag("-fsanitize=address"))
     }
 
+  #if os(macOS) || os(Windows)
     do {
       // address sanitizer on a dylib
       var driver = try Driver(args: commonArgs + ["-sanitize=address", "-emit-library"])
@@ -2730,6 +2731,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertJobInvocationMatches(jobs[0], .flag("-sanitize=address"))
       XCTAssertJobInvocationMatches(jobs[2], .flag("-fsanitize=address"))
     }
+  #endif
 
     do {
       // *no* address sanitizer on a static lib
@@ -2744,17 +2746,12 @@ final class SwiftDriverTests: XCTestCase {
     do {
       // thread sanitizer
       var driver = try Driver(args: commonArgs + ["-sanitize=thread"])
-      let plannedJobs = try driver.planBuild()
+      let jobs = try driver.planBuild().removingAutolinkExtractJobs()
 
-      XCTAssertEqual(plannedJobs.count, 3)
+      XCTAssertEqual(jobs.count, 3)
 
-      let compileJob = plannedJobs[0]
-      let compileCmd = compileJob.commandLine
-      XCTAssertTrue(compileCmd.contains(.flag("-sanitize=thread")))
-
-      let linkJob = plannedJobs[2]
-      let linkCmd = linkJob.commandLine
-      XCTAssertTrue(linkCmd.contains(.flag("-fsanitize=thread")))
+      XCTAssertJobInvocationMatches(jobs[0], .flag("-sanitize=thread"))
+      XCTAssertJobInvocationMatches(jobs[2], .flag("-fsanitize=thread"))
     }
 #endif
 
