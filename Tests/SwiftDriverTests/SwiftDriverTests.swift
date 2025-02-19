@@ -2708,39 +2708,56 @@ final class SwiftDriverTests: XCTestCase {
 
   func testSanitizerArgs() throws {
     let commonArgs = [
-      "swiftc", "foo.swift", "bar.swift", "-emit-executable", "-module-name", "Test", "-use-ld=lld"
+      "swiftc", "foo.swift", "bar.swift",
+      "-emit-executable", "-target", "x86_64-apple-macosx10.9",
+      "-module-name", "Test"
     ]
-
+  // FIXME: This doesn't work on Linux.
+  #if os(macOS)
     do {
       // address sanitizer
       var driver = try Driver(args: commonArgs + ["-sanitize=address"])
-      let jobs = try driver.planBuild().removingAutolinkExtractJobs()
+      let plannedJobs = try driver.planBuild()
 
-      XCTAssertEqual(jobs.count, 3)
-      XCTAssertJobInvocationMatches(jobs[0], .flag("-sanitize=address"))
-      XCTAssertJobInvocationMatches(jobs[2], .flag("-fsanitize=address"))
+      XCTAssertEqual(plannedJobs.count, 3)
+
+      let compileJob = plannedJobs[0]
+      let compileCmd = compileJob.commandLine
+      XCTAssertTrue(compileCmd.contains(.flag("-sanitize=address")))
+
+      let linkJob = plannedJobs[2]
+      let linkCmd = linkJob.commandLine
+      XCTAssertTrue(linkCmd.contains(.flag("-fsanitize=address")))
     }
 
     do {
       // address sanitizer on a dylib
       var driver = try Driver(args: commonArgs + ["-sanitize=address", "-emit-library"])
-      let jobs = try driver.planBuild().removingAutolinkExtractJobs()
+      let plannedJobs = try driver.planBuild()
 
-      XCTAssertEqual(jobs.count, 3)
-      XCTAssertJobInvocationMatches(jobs[0], .flag("-sanitize=address"))
-      XCTAssertJobInvocationMatches(jobs[2], .flag("-fsanitize=address"))
+      XCTAssertEqual(plannedJobs.count, 3)
+
+      let compileJob = plannedJobs[0]
+      let compileCmd = compileJob.commandLine
+      XCTAssertTrue(compileCmd.contains(.flag("-sanitize=address")))
+
+      let linkJob = plannedJobs[2]
+      let linkCmd = linkJob.commandLine
+      XCTAssertTrue(linkCmd.contains(.flag("-fsanitize=address")))
     }
 
     do {
       // *no* address sanitizer on a static lib
       var driver = try Driver(args: commonArgs + ["-sanitize=address", "-emit-library", "-static"])
-      let jobs = try driver.planBuild().removingAutolinkExtractJobs()
+      let plannedJobs = try driver.planBuild()
 
-      XCTAssertEqual(jobs.count, 3)
-      XCTAssertFalse(jobs[2].commandLine.contains(.flag("-fsanitize=address")))
+      XCTAssertEqual(plannedJobs.count, 3)
+
+      let linkJob = plannedJobs[2]
+      let linkCmd = linkJob.commandLine
+      XCTAssertFalse(linkCmd.contains(.flag("-fsanitize=address")))
     }
 
-#if !os(Windows)
     do {
       // thread sanitizer
       var driver = try Driver(args: commonArgs + ["-sanitize=thread"])
@@ -2756,16 +2773,21 @@ final class SwiftDriverTests: XCTestCase {
       let linkCmd = linkJob.commandLine
       XCTAssertTrue(linkCmd.contains(.flag("-fsanitize=thread")))
     }
-#endif
 
     do {
       // undefined behavior sanitizer
       var driver = try Driver(args: commonArgs + ["-sanitize=undefined"])
-      let jobs = try driver.planBuild().removingAutolinkExtractJobs()
+      let plannedJobs = try driver.planBuild()
 
-      XCTAssertEqual(jobs.count, 3)
-      XCTAssertJobInvocationMatches(jobs[0], .flag("-sanitize=undefined"))
-      XCTAssertJobInvocationMatches(jobs[2], .flag("-fsanitize=undefined"))
+      XCTAssertEqual(plannedJobs.count, 3)
+
+      let compileJob = plannedJobs[0]
+      let compileCmd = compileJob.commandLine
+      XCTAssertTrue(compileCmd.contains(.flag("-sanitize=undefined")))
+
+      let linkJob = plannedJobs[2]
+      let linkCmd = linkJob.commandLine
+      XCTAssertTrue(linkCmd.contains(.flag("-fsanitize=undefined")))
     }
 
     // FIXME: This test will fail when run on macOS, because the driver uses
@@ -2816,6 +2838,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(linkCmd.contains(.flag("-fsanitize=scudo")))
     }
     #endif
+  #endif
 
   // FIXME: This test will fail when not run on Android, because the driver uses
   //        the existence of the runtime support libraries to determine if
@@ -7198,7 +7221,7 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testSanitizerArgsForTargets() throws {
-    let targets = ["x86_64-unknown-freebsd",  "x86_64-unknown-linux", "x86_64-apple-macosx10.9", "x86_64-unknown-windows-msvc"]
+    let targets = ["x86_64-unknown-freebsd",  "x86_64-unknown-linux", "x86_64-apple-macosx10.9"]
     try targets.forEach {
       var driver = try Driver(args: ["swiftc", "-emit-module", "-target", $0, "foo.swift"])
       _ = try driver.planBuild()
