@@ -2758,6 +2758,7 @@ final class SwiftDriverTests: XCTestCase {
     }
 #endif
 
+  #if os(macOS) || os(Windows)
     do {
       // undefined behavior sanitizer
       var driver = try Driver(args: commonArgs + ["-sanitize=undefined"])
@@ -2816,6 +2817,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(linkCmd.contains(.flag("-fsanitize=scudo")))
     }
     #endif
+  #endif
 
   // FIXME: This test will fail when not run on Android, because the driver uses
   //        the existence of the runtime support libraries to determine if
