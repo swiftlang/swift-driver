@@ -8149,7 +8149,7 @@ final class SwiftDriverTests: XCTestCase {
       do {
         let sysroot = path.appending(component: "sysroot")
         var driver = try Driver(args: [
-          "swiftc", "-target", "aarch64-unknown-linux-android", "-sysroot", sysroot.pathString, #file
+          "swiftc", "-target", "aarch64-unknown-linux-gnu", "-sysroot", sysroot.pathString, #file
         ], env: env)
         let jobs = try driver.planBuild().removingAutolinkExtractJobs()
         let frontend = try XCTUnwrap(jobs.first)
