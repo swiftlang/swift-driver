@@ -10,6 +10,8 @@ if let deploymentTarget = ProcessInfo.processInfo.environment["SWIFTPM_MACOS_DEP
     macOSPlatform = .macOS(.v12)
 }
 
+let swiftToolsSupportCoreLibName = (ProcessInfo.processInfo.environment["SWIFTPM_SWBUILD_FRAMEWORK"] == nil) ? "SwiftToolsSupport-auto": "SwiftToolsSupport"
+
 let package = Package(
   name: "swift-driver",
   platforms: [
@@ -51,7 +53,7 @@ let package = Package(
       name: "SwiftDriver",
       dependencies: [
         "SwiftOptions",
-        .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
+        .product(name: swiftToolsSupportCoreLibName, package: "swift-tools-support-core"),
         "CSwiftScan",
       ],
       exclude: ["CMakeLists.txt"]),
@@ -61,7 +63,7 @@ let package = Package(
       name: "SwiftDriverExecution",
       dependencies: [
         "SwiftDriver",
-        .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core")
+        .product(name: swiftToolsSupportCoreLibName, package: "swift-tools-support-core")
       ],
       exclude: ["CMakeLists.txt"]),
 
@@ -76,7 +78,7 @@ let package = Package(
       dependencies: [
         "IncrementalTestFramework",
         "TestUtilities",
-        .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
+        .product(name: swiftToolsSupportCoreLibName, package: "swift-tools-support-core"),
       ]),
 
     .target(
@@ -101,7 +103,7 @@ let package = Package(
     .target(
       name: "SwiftOptions",
       dependencies: [
-        .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
+        .product(name: swiftToolsSupportCoreLibName, package: "swift-tools-support-core"),
       ],
       exclude: ["CMakeLists.txt"]),
     .testTarget(
@@ -120,7 +122,7 @@ let package = Package(
       dependencies: [
         "SwiftOptions",
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
-        .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
+        .product(name: swiftToolsSupportCoreLibName, package: "swift-tools-support-core"),
       ],
       exclude: ["CMakeLists.txt"]),
 
