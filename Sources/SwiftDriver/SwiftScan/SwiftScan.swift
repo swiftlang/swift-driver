@@ -674,20 +674,45 @@ private extension swiftscan_functions_t {
   }
 }
 
-// TODO: Move to TSC?
-/// Perform an  `action` passing it a `const char **` constructed out of `[String]`
-@_spi(Testing) public func withArrayOfCStrings<T>(_ strings: [String],
-                                                  _ action:  (UnsafeMutablePointer<UnsafePointer<Int8>?>?) -> T) -> T
-{
-#if os(Windows)
-  let cstrings = strings.map { _strdup($0) } + [nil]
-#else
-  let cstrings = strings.map { strdup($0) } + [nil]
-#endif
-  let unsafeCStrings = cstrings.map { UnsafePointer($0) }
-  let result = unsafeCStrings.withUnsafeBufferPointer {
-    action(UnsafeMutablePointer(mutating: $0.baseAddress))
+// TODO: Move the following functions to TSC?
+/// Helper function to scan a sequence type to help generate pointers for C String Arrays.
+func scan<
+  S: Sequence, U
+>(_ seq: S, _ initial: U, _ combine: (U, S.Element) -> U) -> [U] {
+  var result: [U] = []
+  result.reserveCapacity(seq.underestimatedCount)
+  var runningResult = initial
+  for element in seq {
+    runningResult = combine(runningResult, element)
+    result.append(runningResult)
   }
-  for ptr in cstrings { if let ptr = ptr { free(ptr) } }
   return result
+}
+
+/// Perform an  `action` passing it a `const char **` constructed out of `[String]`
+@_spi(Testing) public func withArrayOfCStrings<T>(
+  _ args: [String],
+  _ body: (UnsafeMutablePointer<UnsafePointer<Int8>?>?) -> T
+) -> T {
+  let argsCounts = Array(args.map { $0.utf8.count + 1 })
+  let argsOffsets = [0] + scan(argsCounts, 0, +)
+  let argsBufferSize = argsOffsets.last!
+  var argsBuffer: [UInt8] = []
+  argsBuffer.reserveCapacity(argsBufferSize)
+  for arg in args {
+    argsBuffer.append(contentsOf: arg.utf8)
+    argsBuffer.append(0)
+  }
+  return argsBuffer.withUnsafeMutableBufferPointer {
+    (argsBuffer) in
+    let ptr = UnsafeRawPointer(argsBuffer.baseAddress!).bindMemory(
+      to: Int8.self, capacity: argsBuffer.count)
+    var cStrings: [UnsafePointer<Int8>?] = argsOffsets.map { ptr + $0 }
+    cStrings[cStrings.count - 1] = nil
+    return cStrings.withUnsafeMutableBufferPointer {
+      let unsafeString = UnsafeMutableRawPointer($0.baseAddress!).bindMemory(
+        to: UnsafePointer<Int8>?.self, capacity: $0.count)
+      return body(unsafeString)
+    }
+  }
 }
