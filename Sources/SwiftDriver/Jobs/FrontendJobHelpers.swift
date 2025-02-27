@@ -301,6 +301,7 @@ extension Driver {
                               .enableUpcomingFeature,
                               .disableUpcomingFeature,
                               from: &parsedOptions)
+    try commandLine.appendLast(.strictMemorySafety, from: &parsedOptions)
     try commandLine.appendAll(.moduleAlias, from: &parsedOptions)
     if isFrontendArgSupported(.enableBareSlashRegex) {
       try commandLine.appendLast(.enableBareSlashRegex, from: &parsedOptions)
