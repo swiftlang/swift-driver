@@ -223,14 +223,14 @@ extension GenericUnixToolchain {
         commandLine.appendPath(try VirtualPath(path: opt.argument.asSingle))
       }
 
-      if targetTriple.environment == .android {
-        if let sysroot = parsedOptions.getLastArgument(.sysroot)?.asSingle {
-          commandLine.appendFlag("--sysroot")
-          try commandLine.appendPath(VirtualPath(path: sysroot))
-        } else if let sysroot = AndroidNDK.getDefaultSysrootPath(in: self.env) {
-          commandLine.appendFlag("--sysroot")
-          try commandLine.appendPath(VirtualPath(path: sysroot.pathString))
-        }
+      if let sysroot = parsedOptions.getLastArgument(.sysroot)?.asSingle {
+        commandLine.appendFlag("--sysroot")
+        try commandLine.appendPath(VirtualPath(path: sysroot))
+      } else if targetTriple.environment == .android,
+        let sysroot = AndroidNDK.getDefaultSysrootPath(in: self.env)
+      {
+        commandLine.appendFlag("--sysroot")
+        try commandLine.appendPath(VirtualPath(path: sysroot.pathString))
       } else if let path = targetInfo.sdkPath?.path {
         commandLine.appendFlag("--sysroot")
         commandLine.appendPath(VirtualPath.lookup(path))
