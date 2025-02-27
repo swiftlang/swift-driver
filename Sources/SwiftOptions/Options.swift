@@ -187,6 +187,7 @@ extension Option {
   public static let disableDiagnosticPasses: Option = Option("-disable-diagnostic-passes", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't run diagnostic passes")
   public static let disableDynamicActorIsolation: Option = Option("-disable-dynamic-actor-isolation", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Disable dynamic actor isolation checks")
   public static let disableEmitGenericClassRoTList: Option = Option("-disable-emit-generic-class-ro_t-list", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable emission of a section with references to class_ro_t of generic class patterns")
+  public static let disableEmitTypeMallocForCoroFrame: Option = Option("-disable-emit-type-malloc-for-coro-frame", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable emitting typed malloc for coroutine frame allocation")
   public static let disableExperimentalClangImporterDiagnostics: Option = Option("-disable-experimental-clang-importer-diagnostics", .flag, attributes: [.helpHidden, .frontend, .noDriver, .moduleInterface], helpText: "Disable experimental diagnostics when importing C, C++, and Objective-C libraries")
   public static let disableExperimentalFeature: Option = Option("-disable-experimental-feature", .separate, attributes: [.frontend, .moduleInterface], helpText: "Disable an experimental feature")
   public static let disableExperimentalLifetimeDependenceInference: Option = Option("-disable-experimental-lifetime-dependence-inference", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable experimental lifetime dependence inference")
@@ -214,6 +215,7 @@ extension Option {
   public static let disableLayoutStringValueWitnesses: Option = Option("-disable-layout-string-value-witnesses", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable layout string based value witnesses")
   public static let disableLegacyTypeInfo: Option = Option("-disable-legacy-type-info", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Completely disable legacy type layout")
   public static let disableLifetimeDependenceDiagnostics: Option = Option("-disable-lifetime-dependence-diagnostics", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable lifetime dependence diagnostics for Nonescapable types.")
+  public static let disableLlvmMergeFunctionsPass: Option = Option("-disable-llvm-merge-functions-pass", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable the MergeFunctionPass LLVM IR pass")
   public static let disableLlvmOptzns: Option = Option("-disable-llvm-optzns", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't run LLVM optimization passes")
   public static let disableLlvmValueNames: Option = Option("-disable-llvm-value-names", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't add names to local values in LLVM IR")
   public static let disableLlvmVerify: Option = Option("-disable-llvm-verify", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't run the LLVM IR verifier.")
@@ -425,6 +427,7 @@ extension Option {
   public static let enableDeterministicCheck: Option = Option("-enable-deterministic-check", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Check compiler output determinism by running it twice")
   public static let enableDynamicReplacementChaining: Option = Option("-enable-dynamic-replacement-chaining", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable chaining of dynamic replacements")
   public static let enableEmitGenericClassRoTList: Option = Option("-enable-emit-generic-class-ro_t-list", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable emission of a section with references to class_ro_t of generic class patterns")
+  public static let enableEmitTypeMallocForCoroFrame: Option = Option("-enable-emit-type-malloc-for-coro-frame", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable emitting typed malloc for coroutine frame allocation")
   public static let enableExperimentalAdditiveArithmeticDerivation: Option = Option("-enable-experimental-additive-arithmetic-derivation", .flag, attributes: [.frontend], helpText: "Enable experimental 'AdditiveArithmetic' derived conformances")
   public static let enableAsyncDemotion: Option = Option("-enable-experimental-async-demotion", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enables an optimization pass to demote async functions.")
   public static let enableExperimentalAsyncTopLevel: Option = Option("-enable-experimental-async-top-level", .flag, attributes: [.helpHidden, .frontend, .noDriver, .moduleInterface], helpText: "Enable experimental concurrency in top-level code")
@@ -516,6 +519,7 @@ extension Option {
   public static let experimentalHermeticSealAtLink: Option = Option("-experimental-hermetic-seal-at-link", .flag, attributes: [.helpHidden, .frontend], helpText: "Library code can assume that all clients are visible at linktime, and aggressively strip unused code")
   public static let experimentalLazyTypecheck: Option = Option("-experimental-lazy-typecheck", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Type-check lazily as needed to produce requested outputs")
   public static let experimentalPackageBypassResilience: Option = Option("-experimental-package-bypass-resilience", .flag, attributes: [.frontend], helpText: "Deprecated; has no effect")
+  public static let ExperimentalPackageCMOAbortOnDeserializationFail: Option = Option("-experimental-package-cmo-abort-on-deserialization-fail", .flag, attributes: [.frontend], helpText: "Abort if a deserialization error is found while package optimization is enabled")
   public static let ExperimentalPackageCMO: Option = Option("-experimental-package-cmo", .flag, attributes: [.frontend], helpText: "Deprecated; use -package-cmo instead")
   public static let experimentalPackageInterfaceLoad: Option = Option("-experimental-package-interface-load", .flag, attributes: [.helpHidden, .frontend], helpText: "Enables loading a package interface if in the same package specified with package-name")
   public static let ExperimentalPerformanceAnnotations: Option = Option("-experimental-performance-annotations", .flag, attributes: [.helpHidden, .frontend], helpText: "Deprecated, has no effect")
@@ -524,7 +528,6 @@ extension Option {
   public static let experimentalPrintFullConvention: Option = Option("-experimental-print-full-convention", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "When emitting a module interface or SIL, emit additional @convention arguments, regardless of whether they were written in the source. Also requires -use-clang-function-types to be enabled.")
   public static let experimentalSerializeDebugInfo: Option = Option("-experimental-serialize-debug-info", .flag, attributes: [.helpHidden, .frontend], helpText: "Enables seriailzation/deserialization of debug scopes")
   public static let experimentalSkipAllFunctionBodies: Option = Option("-experimental-skip-all-function-bodies", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Skip type-checking function bodies and all SIL generation")
-  public static let ExperimentalSkipDeserializationChecksForPackageCMO: Option = Option("-experimental-skip-deserialization-checks-for-package-cmo", .flag, attributes: [.frontend], helpText: "Skip deserialization checks for package-cmo; use only for experimental purposes")
   public static let experimentalSkipNonExportableDecls: Option = Option("-experimental-skip-non-exportable-decls", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Skip decls that are not exported to clients")
   public static let experimentalSkipNonInlinableFunctionBodiesWithoutTypes: Option = Option("-experimental-skip-non-inlinable-function-bodies-without-types", .flag, attributes: [.helpHidden, .frontend], helpText: "Skip work on non-inlinable function bodies that do not declare nested types")
   public static let experimentalSkipNonInlinableFunctionBodies: Option = Option("-experimental-skip-non-inlinable-function-bodies", .flag, attributes: [.helpHidden, .frontend], helpText: "Skip type-checking and SIL generation for non-inlinable function bodies")
@@ -644,6 +647,7 @@ extension Option {
   public static let L: Option = Option("-L", .joinedOrSeparate, attributes: [.frontend, .doesNotAffectIncrementalBuild, .argumentIsPath], helpText: "Add directory to library link search path", group: .linkerOption)
   public static let l: Option = Option("-l", .joinedOrSeparate, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Specifies a library which should be linked against", group: .linkerOption)
   public static let mergeModules: Option = Option("-merge-modules", .flag, attributes: [.frontend, .noDriver], helpText: "Merge the input modules without otherwise processing them", group: .modes)
+  public static let mergeableSymbols: Option = Option("-mergeable-symbols", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Emit symbol definitions as mergeable (linkonce_odr)")
   public static let migrateKeepObjcVisibility: Option = Option("-migrate-keep-objc-visibility", .flag, attributes: [.frontend, .noInteractive], helpText: "When migrating, add '@objc' to declarations that would've been implicitly visible in Swift 3")
   public static let migratorUpdateSdk: Option = Option("-migrator-update-sdk", .flag, attributes: [.frontend, .noInteractive], helpText: "Does nothing. Temporary compatibility flag for Xcode.")
   public static let migratorUpdateSwift: Option = Option("-migrator-update-swift", .flag, attributes: [.frontend, .noInteractive], helpText: "Does nothing. Temporary compatibility flag for Xcode.")
@@ -821,10 +825,10 @@ extension Option {
   public static let silUnrollThreshold: Option = Option("-sil-unroll-threshold", .separate, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<250>", helpText: "Controls the aggressiveness of loop unrolling")
   public static let silVerifyAll: Option = Option("-sil-verify-all", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Verify SIL after each transform")
   public static let silVerifyNone: Option = Option("-sil-verify-none", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Completely disable SIL verification")
-  public static let skipImportInPublicInterface: Option = Option("-skip-import-in-public-interface", .separate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Skip the import statement corresponding to a module name when printing the public interface.")
   public static let skipInheritedDocs: Option = Option("-skip-inherited-docs", .flag, attributes: [.helpHidden, .frontend, .noInteractive, .supplementaryOutput], helpText: "Skip emitting doc comments for members inherited through classes or default implementations")
   public static let skipProtocolImplementations: Option = Option("-skip-protocol-implementations", .flag, attributes: [.helpHidden, .frontend, .noInteractive, .supplementaryOutput], helpText: "Skip emitting symbols that are implementations of protocol requirements or inherited from protocol extensions")
   public static let skipSynthesizedMembers: Option = Option("-skip-synthesized-members", .flag, attributes: [.noDriver], helpText: "Skip members inherited through classes or default implementations")
+  public static let solverDisableShrink: Option = Option("-solver-disable-shrink", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable the shrink phase of expression type checking")
   public static let solverDisableSplitter: Option = Option("-solver-disable-splitter", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable the component splitter phase of expression type checking")
   public static let solverExpressionTimeThresholdEQ: Option = Option("-solver-expression-time-threshold=", .joined, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Expression type checking timeout, in seconds")
   public static let solverMemoryThreshold: Option = Option("-solver-memory-threshold", .separate, attributes: [.helpHidden, .frontend, .doesNotAffectIncrementalBuild], helpText: "Set the upper bound for memory consumption, in bytes, by the constraint solver")
@@ -835,9 +839,10 @@ extension Option {
   public static let staticExecutable: Option = Option("-static-executable", .flag, helpText: "Statically link the executable")
   public static let staticStdlib: Option = Option("-static-stdlib", .flag, attributes: [.doesNotAffectIncrementalBuild], helpText: "Statically link the Swift standard library")
   public static let `static`: Option = Option("-static", .flag, attributes: [.frontend, .noInteractive, .moduleInterface], helpText: "Make this module statically linkable and make the output of -emit-library a static library.")
-  public static let statsOutputDir: Option = Option("-stats-output-dir", .separate, attributes: [.helpHidden, .frontend, .argumentIsPath, .cacheInvariant], helpText: "Directory to write unified compilation-statistics files to")
+  public static let statsOutputDir: Option = Option("-stats-output-dir", .separate, attributes: [.helpHidden, .frontend, .argumentIsPath], helpText: "Directory to write unified compilation-statistics files to")
   public static let strictConcurrency: Option = Option("-strict-concurrency=", .joined, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Specify the how strict concurrency checking will be. The value may be 'minimal' (most 'Sendable' checking is disabled), 'targeted' ('Sendable' checking is enabled in code that uses the concurrency model, or 'complete' ('Sendable' and other checking is enabled for all code in the module)")
   public static let strictImplicitModuleContext: Option = Option("-strict-implicit-module-context", .flag, attributes: [.helpHidden, .frontend], helpText: "Enable the strict forwarding of compilation context to downstream implicit module dependencies")
+  public static let strictMemorySafety: Option = Option("-strict-memory-safety", .flag, attributes: [.frontend, .synthesizeInterface], helpText: "Enable strict memory safety checking")
   public static let supplementaryOutputFileMap: Option = Option("-supplementary-output-file-map", .separate, attributes: [.frontend, .noDriver, .cacheInvariant], helpText: "Specify supplementary outputs in a file rather than on the command line")
   public static let suppressRemarks: Option = Option("-suppress-remarks", .flag, attributes: [.frontend], helpText: "Suppress all remarks")
   public static let suppressStaticExclusivitySwap: Option = Option("-suppress-static-exclusivity-swap", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Suppress static violations of exclusive access with swap()")
@@ -1117,6 +1122,7 @@ extension Option {
       Option.disableDiagnosticPasses,
       Option.disableDynamicActorIsolation,
       Option.disableEmitGenericClassRoTList,
+      Option.disableEmitTypeMallocForCoroFrame,
       Option.disableExperimentalClangImporterDiagnostics,
       Option.disableExperimentalFeature,
       Option.disableExperimentalLifetimeDependenceInference,
@@ -1144,6 +1150,7 @@ extension Option {
       Option.disableLayoutStringValueWitnesses,
       Option.disableLegacyTypeInfo,
       Option.disableLifetimeDependenceDiagnostics,
+      Option.disableLlvmMergeFunctionsPass,
       Option.disableLlvmOptzns,
       Option.disableLlvmValueNames,
       Option.disableLlvmVerify,
@@ -1355,6 +1362,7 @@ extension Option {
       Option.enableDeterministicCheck,
       Option.enableDynamicReplacementChaining,
       Option.enableEmitGenericClassRoTList,
+      Option.enableEmitTypeMallocForCoroFrame,
       Option.enableExperimentalAdditiveArithmeticDerivation,
       Option.enableAsyncDemotion,
       Option.enableExperimentalAsyncTopLevel,
@@ -1446,6 +1454,7 @@ extension Option {
       Option.experimentalHermeticSealAtLink,
       Option.experimentalLazyTypecheck,
       Option.experimentalPackageBypassResilience,
+      Option.ExperimentalPackageCMOAbortOnDeserializationFail,
       Option.ExperimentalPackageCMO,
       Option.experimentalPackageInterfaceLoad,
       Option.ExperimentalPerformanceAnnotations,
@@ -1454,7 +1463,6 @@ extension Option {
       Option.experimentalPrintFullConvention,
       Option.experimentalSerializeDebugInfo,
       Option.experimentalSkipAllFunctionBodies,
-      Option.ExperimentalSkipDeserializationChecksForPackageCMO,
       Option.experimentalSkipNonExportableDecls,
       Option.experimentalSkipNonInlinableFunctionBodiesWithoutTypes,
       Option.experimentalSkipNonInlinableFunctionBodies,
@@ -1574,6 +1582,7 @@ extension Option {
       Option.L,
       Option.l,
       Option.mergeModules,
+      Option.mergeableSymbols,
       Option.migrateKeepObjcVisibility,
       Option.migratorUpdateSdk,
       Option.migratorUpdateSwift,
@@ -1751,10 +1760,10 @@ extension Option {
       Option.silUnrollThreshold,
       Option.silVerifyAll,
       Option.silVerifyNone,
-      Option.skipImportInPublicInterface,
       Option.skipInheritedDocs,
       Option.skipProtocolImplementations,
       Option.skipSynthesizedMembers,
+      Option.solverDisableShrink,
       Option.solverDisableSplitter,
       Option.solverExpressionTimeThresholdEQ,
       Option.solverMemoryThreshold,
@@ -1768,6 +1777,7 @@ extension Option {
       Option.statsOutputDir,
       Option.strictConcurrency,
       Option.strictImplicitModuleContext,
+      Option.strictMemorySafety,
       Option.supplementaryOutputFileMap,
       Option.suppressRemarks,
       Option.suppressStaticExclusivitySwap,
