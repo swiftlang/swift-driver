@@ -90,16 +90,17 @@ extension Driver {
       incrementalCompilationState = nil
     }
 
-    return try (
-      // For compatibility with swiftpm, the driver produces batched jobs
-      // for every job, even when run in incremental mode, so that all jobs
-      // can be returned from `planBuild`.
-      // But in that case, don't emit lifecycle messages.
-      formBatchedJobs(jobsInPhases.allJobs,
-                      showJobLifecycle: showJobLifecycle && incrementalCompilationState == nil,
-                      jobCreatingPch: jobsInPhases.allJobs.first(where: {$0.kind == .generatePCH})),
-      incrementalCompilationState
-    )
+    let batchedJobs: [Job]
+    // If the jobs are batched during the incremental build, reuse the computation rather than computing the batches again.
+    if let incrementalState = incrementalCompilationState {
+      batchedJobs = incrementalState.mandatoryJobsInOrder + incrementalState.jobsAfterCompiles
+    } else {
+      batchedJobs = try formBatchedJobs(jobsInPhases.allJobs,
+                                        showJobLifecycle: showJobLifecycle,
+                                        jobCreatingPch: jobsInPhases.allJobs.first(where: {$0.kind == .generatePCH}))
+    }
+
+    return (batchedJobs, incrementalCompilationState)
   }
 
   /// If performing an explicit module build, compute an inter-module dependency graph.
@@ -355,7 +356,8 @@ extension Driver {
                                  outputType: compilerOutputType,
                                  addJobOutputs: addJobOutputs,
                                  pchCompileJob: pchCompileJob,
-                                 emitModuleTrace: emitModuleTrace)
+                                 emitModuleTrace: emitModuleTrace,
+                                 produceCacheKey: true)
     addJob(compile)
     return compile
   }
@@ -446,11 +448,14 @@ extension Driver {
     // We can skip the compile jobs if all we want is a module when it's
     // built separately.
     if parsedOptions.hasArgument(.driverExplicitModuleBuild), canSkipIfOnlyModule { return }
+    // If we are in the batch mode, the constructed jobs here will be batched
+    // later. There is no need to produce cache key for the job.
     let compile = try compileJob(primaryInputs: [primaryInput],
                                  outputType: compilerOutputType,
                                  addJobOutputs: addJobOutputs,
                                  pchCompileJob: pchCompileJob,
-                                 emitModuleTrace: emitModuleTrace)
+                                 emitModuleTrace: emitModuleTrace,
+                                 produceCacheKey: !compilerMode.isBatchCompile)
     addCompileJob(compile)
   }
 
@@ -872,7 +877,8 @@ extension Driver {
                             outputType: compilerOutputType,
                             addJobOutputs: {_ in },
                             pchCompileJob: jobCreatingPch,
-                            emitModuleTrace: constituentsEmittedModuleTrace)
+                            emitModuleTrace: constituentsEmittedModuleTrace,
+                            produceCacheKey: true)
     }
     return batchedCompileJobs + noncompileJobs
   }

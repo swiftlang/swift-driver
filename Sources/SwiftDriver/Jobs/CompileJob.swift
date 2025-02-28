@@ -231,7 +231,8 @@ extension Driver {
                            outputType: FileType?,
                            addJobOutputs: ([TypedVirtualPath]) -> Void,
                            pchCompileJob: Job?,
-                           emitModuleTrace: Bool)
+                           emitModuleTrace: Bool,
+                           produceCacheKey: Bool)
   throws -> Job {
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
     var inputs: [TypedVirtualPath] = []
