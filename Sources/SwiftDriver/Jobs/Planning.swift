@@ -90,17 +90,16 @@ extension Driver {
       incrementalCompilationState = nil
     }
 
-    let batchedJobs: [Job]
-    // If the jobs are batched during the incremental build, reuse the computation rather than computing the batches again.
-    if let incrementalState = incrementalCompilationState {
-      batchedJobs = incrementalState.mandatoryJobsInOrder + incrementalState.jobsAfterCompiles
-    } else {
-      batchedJobs = try formBatchedJobs(jobsInPhases.allJobs,
-                                        showJobLifecycle: showJobLifecycle,
-                                        jobCreatingPch: jobsInPhases.allJobs.first(where: {$0.kind == .generatePCH}))
-    }
-
-    return (batchedJobs, incrementalCompilationState)
+    return try (
+      // For compatibility with swiftpm, the driver produces batched jobs
+      // for every job, even when run in incremental mode, so that all jobs
+      // can be returned from `planBuild`.
+      // But in that case, don't emit lifecycle messages.
+      formBatchedJobs(jobsInPhases.allJobs,
+                      showJobLifecycle: showJobLifecycle && incrementalCompilationState == nil,
+                      jobCreatingPch: jobsInPhases.allJobs.first(where: {$0.kind == .generatePCH})),
+      incrementalCompilationState
+    )
   }
 
   /// If performing an explicit module build, compute an inter-module dependency graph.
