@@ -3187,7 +3187,7 @@ final class SwiftDriverTests: XCTestCase {
         "-emit-library", "-driver-filelist-threshold=0"
     ])
 
-    var jobs = try driver.planBuild().removingAutolinkExtractJobs()
+    let jobs = try driver.planBuild().removingAutolinkExtractJobs()
     XCTAssertEqual(jobs.count, 4)
     XCTAssertEqual(getFileListElements(for: "-filelist", job: jobs[2]),
         [.temporary(try .init(validating: "hello-1.o"))])
@@ -3864,7 +3864,7 @@ final class SwiftDriverTests: XCTestCase {
     guard driver.isFrontendArgSupported(.disableDynamicActorIsolation) else {
       throw XCTSkip("Skipping: compiler does not support '-disable-dynamic-actor-isolation'")
     }
-    let plannedJobs = try driver.planBuild()
+    let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
     XCTAssertEqual(plannedJobs.count, 2)
     XCTAssertEqual(plannedJobs[0].kind, .compile)
     XCTAssertEqual(plannedJobs[1].kind, .link)
