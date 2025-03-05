@@ -3187,7 +3187,7 @@ final class SwiftDriverTests: XCTestCase {
         "-emit-library", "-driver-filelist-threshold=0"
     ])
 
-    var jobs = try driver.planBuild().removingAutolinkExtractJobs()
+    let jobs = try driver.planBuild().removingAutolinkExtractJobs()
     XCTAssertEqual(jobs.count, 4)
     XCTAssertEqual(getFileListElements(for: "-filelist", job: jobs[2]),
         [.temporary(try .init(validating: "hello-1.o"))])
