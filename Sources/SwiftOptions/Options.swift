@@ -109,6 +109,7 @@ extension Option {
   public static let c: Option = Option("-c", .flag, alias: Option.emitObject, attributes: [.frontend, .noInteractive], group: .modes)
   public static let debugAssertAfterParse: Option = Option("-debug-assert-after-parse", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Force an assertion failure after parsing", group: .debugCrash)
   public static let debugAssertImmediately: Option = Option("-debug-assert-immediately", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Force an assertion failure immediately", group: .debugCrash)
+  public static let debugCallsiteInfo: Option = Option("-debug-callsite-info", .flag, attributes: [.frontend, .noDriver], helpText: "Generate callsite information in debug info")
   public static let debugConstraintsAttempt: Option = Option("-debug-constraints-attempt", .separate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Debug the constraint solver at a given attempt")
   public static let debugConstraintsOnLineEQ: Option = Option("-debug-constraints-on-line=", .joined, alias: Option.debugConstraintsOnLine, attributes: [.helpHidden, .frontend, .noDriver])
   public static let debugConstraintsOnLine: Option = Option("-debug-constraints-on-line", .separate, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<line>", helpText: "Debug the constraint solver for expressions on <line>")
@@ -157,6 +158,7 @@ extension Option {
   public static let disableAliasModuleNamesInModuleInterface: Option = Option("-disable-alias-module-names-in-module-interface", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "When emitting a module interface, disable disambiguating modules using distinct alias names")
   public static let disableAllAutolinking: Option = Option("-disable-all-autolinking", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable all Swift autolink directives")
   public static let disableArcOpts: Option = Option("-disable-arc-opts", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't run SIL ARC optimization passes.")
+  public static let disableArm64Corocc: Option = Option("-disable-arm64-corocc", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't use swiftcorocc for yield_once_2 routines on arm64 variants.")
   public static let disableAstVerifier: Option = Option("-disable-ast-verifier", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Do not run the AST verifier during compilation. NOTE: This lets the user override the default behavior on whether or not the ASTVerifier is run. The default behavior is to run the verifier when asserts are enabled and not run it when asserts are disabled. NOTE: Can not be used if enable-ast-verifier is used as well")
   public static let disableAsyncFramePointerAll: Option = Option("-disable-async-frame-pointer-all", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable always emit async frame stack frames")
   public static let disableAsyncFramePushPopMetadata: Option = Option("-disable-async-frame-push-pop-metadata", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable async frame push pop metadata")
@@ -272,6 +274,7 @@ extension Option {
   public static let disableTypoCorrection: Option = Option("-disable-typo-correction", .flag, attributes: [.frontend, .noDriver], helpText: "Disable typo correction")
   public static let disableUpcomingFeature: Option = Option("-disable-upcoming-feature", .separate, attributes: [.frontend, .moduleInterface], helpText: "Disable a feature that will be introduced in an upcoming language version")
   public static let disableVerifyExclusivity: Option = Option("-disable-verify-exclusivity", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable verification of access markers used to enforce exclusivity.")
+  public static let disableX8664Corocc: Option = Option("-disable-x86_64-corocc", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't use swiftcorocc for yield_once_2 routines on x86_64.")
   public static let disallowForwardingDriver: Option = Option("-disallow-use-new-driver", .flag, helpText: "Disable using new swift-driver")
   public static let downgradeTypecheckInterfaceError: Option = Option("-downgrade-typecheck-interface-error", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Downgrade error to warning when typechecking emitted module interfaces")
   public static let driverAlwaysRebuildDependents: Option = Option("-driver-always-rebuild-dependents", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Always rebuild dependents of files that have been modified", group: .internalDebug)
@@ -360,7 +363,7 @@ extension Option {
   public static let emitModuleSemanticInfoPath: Option = Option("-emit-module-semantic-info-path", .separate, attributes: [.frontend, .noDriver, .cacheInvariant], metaVar: "<path>", helpText: "Output semantic info of current module to <path>")
   public static let emitModuleSeparatelyWMO: Option = Option("-emit-module-separately-wmo", .flag, attributes: [.helpHidden], helpText: "Emit module files as a distinct job in wmo builds")
   public static let emitModuleSerializeDiagnosticsPath: Option = Option("-emit-module-serialize-diagnostics-path", .separate, attributes: [.argumentIsPath, .supplementaryOutput], metaVar: "<path>", helpText: "Emit a serialized diagnostics file for the emit-module task to <path>")
-  public static let emitModuleSourceInfoPath: Option = Option("-emit-module-source-info-path", .separate, attributes: [.frontend, .noInteractive, .argumentIsPath, .supplementaryOutput], metaVar: "<path>", helpText: "Output module source info file to <path>")
+  public static let emitModuleSourceInfoPath: Option = Option("-emit-module-source-info-path", .separate, attributes: [.frontend, .noInteractive, .argumentIsPath, .supplementaryOutput, .cacheInvariant], metaVar: "<path>", helpText: "Output module source info file to <path>")
   public static let emitModuleSourceInfo: Option = Option("-emit-module-source-info", .flag, attributes: [.frontend, .noDriver], helpText: "Output module source info file")
   public static let emitModuleSummaryPath: Option = Option("-emit-module-summary-path", .separate, attributes: [.frontend, .noInteractive, .argumentIsPath, .supplementaryOutput, .cacheInvariant], metaVar: "<path>", helpText: "Output module summary file to <path>")
   public static let emitModuleSummary: Option = Option("-emit-module-summary", .flag, attributes: [.noInteractive, .supplementaryOutput], helpText: "Output module summary file")
@@ -382,6 +385,7 @@ extension Option {
   public static let emitSib: Option = Option("-emit-sib", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Emit serialized AST + canonical SIL file(s)", group: .modes)
   public static let emitSilgen: Option = Option("-emit-silgen", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Emit raw SIL file(s)", group: .modes)
   public static let emitSil: Option = Option("-emit-sil", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Emit canonical SIL file(s)", group: .modes)
+  public static let emitSingletonMetadataPointer: Option = Option("-emit-singleton-metadata-pointer", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Emit a pointer to the corresponding type metadata into non-public non-generic type descriptors.")
   public static let emitSortedSil: Option = Option("-emit-sorted-sil", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "When printing SIL, print out all sil entities sorted by name to ease diffing")
   public static let stackPromotionChecks: Option = Option("-emit-stack-promotion-checks", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Emit runtime checks for correct stack promotion of objects.")
   public static let emitSupportedFeatures: Option = Option("-emit-supported-features", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Emit a JSON file including all supported compiler features", group: .modes)
@@ -395,7 +399,7 @@ extension Option {
   public static let emitVariantModuleDocPath: Option = Option("-emit-variant-module-doc-path", .separate, attributes: [.frontend, .noDriver, .cacheInvariant], metaVar: "<path>", helpText: "Output module documentation file for the target variant to <path>")
   public static let emitVariantModuleInterfacePath: Option = Option("-emit-variant-module-interface-path", .separate, attributes: [.frontend, .noInteractive, .argumentIsPath, .supplementaryOutput, .cacheInvariant], metaVar: "<path>", helpText: "Output module interface file for the target variant to <path>")
   public static let emitVariantModulePath: Option = Option("-emit-variant-module-path", .separate, attributes: [.noInteractive, .argumentIsPath, .supplementaryOutput, .cacheInvariant], metaVar: "<path>", helpText: "Emit an importable module for the target variant at the specified path")
-  public static let emitVariantModuleSourceInfoPath: Option = Option("-emit-variant-module-source-info-path", .separate, attributes: [.frontend, .noInteractive, .argumentIsPath, .supplementaryOutput], metaVar: "<path>", helpText: "Output module source info file for the target variant to <path>")
+  public static let emitVariantModuleSourceInfoPath: Option = Option("-emit-variant-module-source-info-path", .separate, attributes: [.frontend, .noInteractive, .argumentIsPath, .supplementaryOutput, .cacheInvariant], metaVar: "<path>", helpText: "Output module source info file for the target variant to <path>")
   public static let emitVariantPackageModuleInterfacePath: Option = Option("-emit-variant-package-module-interface-path", .separate, attributes: [.frontend, .noInteractive, .argumentIsPath, .supplementaryOutput, .cacheInvariant], metaVar: "<path>", helpText: "Output package module interface file for the target variant to <path>")
   public static let emitVariantPrivateModuleInterfacePath: Option = Option("-emit-variant-private-module-interface-path", .separate, attributes: [.frontend, .noInteractive, .argumentIsPath, .supplementaryOutput, .cacheInvariant], metaVar: "<path>", helpText: "Output private module interface file for the target variant to <path>")
   public static let emitVerboseSil: Option = Option("-emit-verbose-sil", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Emit locations during SIL emission")
@@ -404,8 +408,10 @@ extension Option {
   public static let emptyBaseline_: Option = Option("--empty-baseline", .flag, alias: Option.emptyBaseline, attributes: [.noDriver], helpText: "Use empty baseline for diagnostics")
   public static let enableAccessControl: Option = Option("-enable-access-control", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Respect access control restrictions")
   public static let enableActorDataRaceChecks: Option = Option("-enable-actor-data-race-checks", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Emit runtime checks for actor data races")
+  public static let enableAddressDependencies: Option = Option("-enable-address-dependencies", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable enforcement of lifetime dependencies on addressable values.")
   public static let enableAggressiveReg2mem: Option = Option("-enable-aggressive-reg2mem", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable a more aggressive reg2mem heuristic")
   public static let enableAnonymousContextMangledNames: Option = Option("-enable-anonymous-context-mangled-names", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable emission of mangled names in anonymous context descriptors")
+  public static let enableArm64Corocc: Option = Option("-enable-arm64-corocc", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Use swiftcorocc for yield_once_2 routines on arm64 variants.")
   public static let enableAstVerifier: Option = Option("-enable-ast-verifier", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Run the AST verifier during compilation. NOTE: This lets the user override the default behavior on whether or not the ASTVerifier is run. The default behavior is to run the verifier when asserts are enabled and not run it when asserts are disabled. NOTE: Can not be used if disable-ast-verifier is used as well")
   public static let enableAsyncFramePointerAll: Option = Option("-enable-async-frame-pointer-all", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Always emit async frame stack frames (frame-pointer=all)")
   public static let enableAsyncFramePushPopMetadata: Option = Option("-enable-async-frame-push-pop-metadata", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable async frame push pop metadata")
@@ -504,6 +510,7 @@ extension Option {
   public static let enableUpcomingFeature: Option = Option("-enable-upcoming-feature", .separate, attributes: [.frontend, .moduleInterface], helpText: "Enable a feature that will be introduced in an upcoming language version")
   public static let enableVerifyExclusivity: Option = Option("-enable-verify-exclusivity", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable verification of access markers used to enforce exclusivity.")
   public static let enableVolatileModules: Option = Option("-enable-volatile-modules", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Load Swift modules in memory")
+  public static let enableX8664Corocc: Option = Option("-enable-x86_64-corocc", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Use swiftcorocc for yield_once_2 routines on x86_64.")
   public static let enforceExclusivityEQ: Option = Option("-enforce-exclusivity=", .joined, attributes: [.frontend, .moduleInterface], metaVar: "<enforcement>", helpText: "Enforce law of exclusivity")
   public static let entryPointFunctionName: Option = Option("-entry-point-function-name", .separate, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<string>", helpText: "Name of the entry point function")
   public static let errorOnAbiBreakage: Option = Option("-error-on-abi-breakage", .flag, attributes: [.noDriver], helpText: "Always treat ABI checker issues as errors")
@@ -805,6 +812,7 @@ extension Option {
   public static let scannerPrefixMapSdk: Option = Option("-scanner-prefix-map-sdk", .separate, attributes: [], metaVar: "<path>", helpText: "Remap paths within SDK reported by dependency scanner")
   public static let scannerPrefixMapToolchain: Option = Option("-scanner-prefix-map-toolchain", .separate, attributes: [], metaVar: "<path>", helpText: "Remap paths within toolchain directory reported by dependency scanner")
   public static let scannerPrefixMap: Option = Option("-scanner-prefix-map", .separate, attributes: [.frontend], metaVar: "<prefix=replacement>", helpText: "Remap paths reported by dependency scanner")
+  public static let sdkModuleCachePath: Option = Option("-sdk-module-cache-path", .separate, attributes: [.frontend, .doesNotAffectIncrementalBuild, .argumentIsPath], helpText: "Specifies the module cache path for explicitly-built SDK modules")
   public static let sdk: Option = Option("-sdk", .separate, attributes: [.frontend, .synthesizeInterface, .argumentIsPath], metaVar: "<sdk>", helpText: "Compile against <sdk>")
   public static let serializeBreakingChangesPath: Option = Option("-serialize-breaking-changes-path", .separate, attributes: [.noInteractive, .argumentIsPath], metaVar: "<path>", helpText: "Serialize breaking changes found by the API digester to <path>")
   public static let serializeDebuggingOptions: Option = Option("-serialize-debugging-options", .flag, attributes: [.frontend, .noDriver], helpText: "Always serialize options for debugging (default: only for apps)")
@@ -1044,6 +1052,7 @@ extension Option {
       Option.c,
       Option.debugAssertAfterParse,
       Option.debugAssertImmediately,
+      Option.debugCallsiteInfo,
       Option.debugConstraintsAttempt,
       Option.debugConstraintsOnLineEQ,
       Option.debugConstraintsOnLine,
@@ -1092,6 +1101,7 @@ extension Option {
       Option.disableAliasModuleNamesInModuleInterface,
       Option.disableAllAutolinking,
       Option.disableArcOpts,
+      Option.disableArm64Corocc,
       Option.disableAstVerifier,
       Option.disableAsyncFramePointerAll,
       Option.disableAsyncFramePushPopMetadata,
@@ -1207,6 +1217,7 @@ extension Option {
       Option.disableTypoCorrection,
       Option.disableUpcomingFeature,
       Option.disableVerifyExclusivity,
+      Option.disableX8664Corocc,
       Option.disallowForwardingDriver,
       Option.downgradeTypecheckInterfaceError,
       Option.driverAlwaysRebuildDependents,
@@ -1317,6 +1328,7 @@ extension Option {
       Option.emitSib,
       Option.emitSilgen,
       Option.emitSil,
+      Option.emitSingletonMetadataPointer,
       Option.emitSortedSil,
       Option.stackPromotionChecks,
       Option.emitSupportedFeatures,
@@ -1339,8 +1351,10 @@ extension Option {
       Option.emptyBaseline_,
       Option.enableAccessControl,
       Option.enableActorDataRaceChecks,
+      Option.enableAddressDependencies,
       Option.enableAggressiveReg2mem,
       Option.enableAnonymousContextMangledNames,
+      Option.enableArm64Corocc,
       Option.enableAstVerifier,
       Option.enableAsyncFramePointerAll,
       Option.enableAsyncFramePushPopMetadata,
@@ -1439,6 +1453,7 @@ extension Option {
       Option.enableUpcomingFeature,
       Option.enableVerifyExclusivity,
       Option.enableVolatileModules,
+      Option.enableX8664Corocc,
       Option.enforceExclusivityEQ,
       Option.entryPointFunctionName,
       Option.errorOnAbiBreakage,
@@ -1740,6 +1755,7 @@ extension Option {
       Option.scannerPrefixMapSdk,
       Option.scannerPrefixMapToolchain,
       Option.scannerPrefixMap,
+      Option.sdkModuleCachePath,
       Option.sdk,
       Option.serializeBreakingChangesPath,
       Option.serializeDebuggingOptions,
