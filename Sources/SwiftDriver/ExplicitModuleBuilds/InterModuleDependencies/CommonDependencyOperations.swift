@@ -424,7 +424,8 @@ internal extension InterModuleDependencyGraph {
     }
 
     for dependency in allDependencies {
-      if try findAPath(source: dependency,
+      if !visited.contains(dependency),
+         try findAPath(source: dependency,
                        pathSoFar: pathSoFar + [dependency],
                        visited: &visited,
                        result: &result,
