@@ -129,6 +129,9 @@ public extension Driver {
     if isFrontendArgSupported(.clangScannerModuleCachePath) {
       try commandLine.appendLast(.clangScannerModuleCachePath, from: &parsedOptions)
     }
+    if isFrontendArgSupported(.sdkModuleCachePath) {
+      try commandLine.appendLast(.sdkModuleCachePath, from: &parsedOptions)
+    }
 
     if isFrontendArgSupported(.scannerModuleValidation) {
       commandLine.appendFlag(.scannerModuleValidation)
