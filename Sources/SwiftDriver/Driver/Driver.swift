@@ -3133,8 +3133,7 @@ extension Driver {
   func computePrecompiledBridgingHeaderDir(
     _ parsedOptions: inout ParsedOptions,
     compilerMode: CompilerMode) throws -> VirtualPath? {
-    if let input = originalObjCHeaderFile,
-       let outputPath = try? outputFileMap?.existingOutput(inputFile: input, outputType: .pch) {
+    if let outputPath = try? outputFileMap?.existingOutputForSingleInput(outputType: .pch) {
       return VirtualPath.lookup(outputPath).parentDirectory
     }
     if let outputDir = parsedOptions.getLastArgument(.pchOutputDir)?.asSingle {
@@ -3154,7 +3153,7 @@ extension Driver {
         return nil
     }
 
-    if let outputPath = try? outputFileMap?.existingOutput(inputFile: input, outputType: .pch) {
+    if let outputPath = try? outputFileMap?.existingOutputForSingleInput(outputType: .pch) {
       return outputPath
     }
 

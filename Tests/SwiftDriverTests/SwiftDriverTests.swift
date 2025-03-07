@@ -1433,6 +1433,38 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testEmitPCHWithOutputFileMap() throws {
+    try withTemporaryDirectory { path in
+      let outputFileMap = path.appending(component: "outputFileMap.json")
+      try localFileSystem.writeFileContents(outputFileMap, bytes: """
+        {
+          "": {
+            "pch": "/build/Foo-bridging-header.pch"
+          }
+        }
+        """
+      )
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Foo", "-emit-module",
+                                      "-serialize-diagnostics", "-experimental-emit-module-separately",
+                                      "-import-objc-header", "bridging.h", "-enable-bridging-pch",
+                                      "-output-file-map", outputFileMap.description])
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertTrue(driver.diagnosticEngine.diagnostics.isEmpty)
+
+      // Test the output path is correct for GeneratePCH job.
+      XCTAssertEqual(plannedJobs.count, 4)
+      XCTAssertEqual(plannedJobs[0].kind, .generatePCH)
+      try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-o"), .path(.absolute(.init(validating: "/build/Foo-bridging-header.pch"))))
+
+      // Plan a build with no bridging header and make sure no diagnostics is emitted (pch in output file map is still accepted)
+      driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Foo", "-emit-module",
+                                  "-serialize-diagnostics", "-experimental-emit-module-separately",
+                                  "-output-file-map", outputFileMap.description])
+      let _ = try driver.planBuild()
+      XCTAssertTrue(driver.diagnosticEngine.diagnostics.isEmpty)
+    }
+  }
+
   func testReferenceDependencies() throws {
     var driver = try Driver(args: ["swiftc", "foo.swift", "-incremental"])
     let plannedJobs = try driver.planBuild()
