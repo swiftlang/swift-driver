@@ -392,11 +392,15 @@ extension Driver {
       try addPathArgument(.absolute(workingDirectory), to: &commandLine, remap: jobNeedPathRemap)
     }
 
-    // Resource directory.
-    try addPathOption(option: .resourceDir,
-                      path: VirtualPath.lookup(frontendTargetInfo.runtimeResourcePath.path),
-                      to: &commandLine,
-                      remap: jobNeedPathRemap)
+    // Only pass in a resource directory to the frontend if one was passed to
+    // swift-driver. Make an exception for scan-dependencies jobs for now till
+    // we figure out a remaining problem with in-process scanning.
+    if parsedOptions.hasArgument(.resourceDir) || kind == .scanDependencies {
+      try addPathOption(option: .resourceDir,
+                        path: VirtualPath.lookup(frontendTargetInfo.runtimeResourcePath.path),
+                        to: &commandLine,
+                        remap: jobNeedPathRemap)
+    }
 
     if self.useStaticResourceDir {
       commandLine.appendFlag("-use-static-resource-dir")
