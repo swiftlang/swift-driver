@@ -4346,6 +4346,32 @@ final class SwiftDriverTests: XCTestCase {
         job.commandLine.contains(.flag("-clang-target"))
       })
     }
+
+    // Check -clang-target-variant is handled correctly with the MacCatalyst remap.
+    try withTemporaryDirectory { path in
+      let main = path.appending(component: "Foo.swift")
+      try localFileSystem.writeFileContents(main, bytes:
+        """
+        import Swift
+        """
+      )
+      var driver = try Driver(args: ["swiftc", "-explicit-module-build",
+                                     "-target", "arm64e-apple-ios13.0-macabi",
+                                     "-target-variant", "arm64e-apple-macos10.0",
+                                     "-sdk", sdkRoot.pathString,
+                                     main.pathString])
+      guard driver.isFrontendArgSupported(.clangTarget) else {
+        throw XCTSkip("Skipping: compiler does not support '-clang-target'")
+      }
+      guard driver.isFrontendArgSupported(.clangTargetVariant) else {
+        throw XCTSkip("Skipping: compiler does not support '-clang-target-variant'")
+      }
+      let plannedJobs = try driver.planBuild()
+      XCTAssertTrue(plannedJobs.contains { job in
+        job.commandLine.contains(subsequence: [.flag("-clang-target"), .flag("arm64e-apple-ios13.3-macabi")]) &&
+        job.commandLine.contains(subsequence: [.flag("-clang-target-variant"), .flag("arm64e-apple-macos10.15")])
+      })
+    }
     #endif
   }
 

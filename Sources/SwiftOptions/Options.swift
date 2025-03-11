@@ -86,6 +86,7 @@ extension Option {
   public static let clangIncludeTreeFilelist: Option = Option("-clang-include-tree-filelist", .separate, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<cas-id>", helpText: "Clang Include Tree FileList CASID")
   public static let clangIncludeTreeRoot: Option = Option("-clang-include-tree-root", .separate, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<cas-id>", helpText: "Clang Include Tree CASID")
   public static let clangScannerModuleCachePath: Option = Option("-clang-scanner-module-cache-path", .separate, attributes: [.frontend, .doesNotAffectIncrementalBuild, .argumentIsPath], helpText: "Specifies the Clang dependency scanner module cache path")
+  public static let clangTargetVariant: Option = Option("-clang-target-variant", .separate, attributes: [.frontend, .synthesizeInterface], helpText: "Separately set the target we should use for internal Clang instance for the 'zippered' code for macCatalyst")
   public static let clangTarget: Option = Option("-clang-target", .separate, attributes: [.frontend, .synthesizeInterface], helpText: "Separately set the target we should use for internal Clang instance")
   public static let codeCompleteCallPatternHeuristics: Option = Option("-code-complete-call-pattern-heuristics", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Use heuristics to guess whether we want call pattern completions")
   public static let codeCompleteInitsInPostfixExpr: Option = Option("-code-complete-inits-in-postfix-expr", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Include initializers when completing a postfix expression")
@@ -1029,6 +1030,7 @@ extension Option {
       Option.clangIncludeTreeFilelist,
       Option.clangIncludeTreeRoot,
       Option.clangScannerModuleCachePath,
+      Option.clangTargetVariant,
       Option.clangTarget,
       Option.codeCompleteCallPatternHeuristics,
       Option.codeCompleteInitsInPostfixExpr,
