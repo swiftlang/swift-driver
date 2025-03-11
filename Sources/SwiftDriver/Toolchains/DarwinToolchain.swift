@@ -453,6 +453,23 @@ public final class DarwinToolchain: Toolchain {
 
       commandLine.appendFlag(.clangTarget)
       commandLine.appendFlag(clangTargetTriple)
+
+      // Repeat the above for the '-target-variant' flag
+      if driver.parsedOptions.contains(.targetVariant),
+         driver.isFrontendArgSupported(.clangTargetVariant),
+         let targetVariantTripleStr = frontendTargetInfo.targetVariant?.triple {
+        let clangTargetVariantTriple: String
+        if let explicitClangTargetVariantArg = driver.parsedOptions.getLastArgument(.clangTargetVariant)?.asSingle {
+          clangTargetVariantTriple = explicitClangTargetVariantArg
+        } else {
+          let currentVariantTriple = targetVariantTripleStr
+          let sdkVersionedOSSString = currentVariantTriple.osNameUnversioned + sdkInfo.sdkVersion(for: currentVariantTriple).sdkVersionString
+          clangTargetVariantTriple = currentVariantTriple.triple.replacingOccurrences(of: currentVariantTriple.osName, with: sdkVersionedOSSString)
+        }
+
+        commandLine.appendFlag(.clangTargetVariant)
+        commandLine.appendFlag(clangTargetVariantTriple)
+      }
     }
 
     if driver.isFrontendArgSupported(.externalPluginPath) {
