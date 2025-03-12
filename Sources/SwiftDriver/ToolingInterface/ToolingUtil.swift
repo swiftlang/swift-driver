@@ -14,6 +14,7 @@ import class TSCBasic.DiagnosticsEngine
 import struct TSCBasic.Diagnostic
 import class TSCBasic.ProcessSet
 import enum TSCBasic.ProcessEnv
+import struct TSCBasic.ProcessEnvironmentBlock
 import var TSCBasic.localFileSystem
 import SwiftOptions
 
@@ -79,6 +80,28 @@ public func getSingleFrontendInvocationFromDriverArgumentsV3(driverPath: UnsafeP
   return result
 }
 
+public func getSingleFrontendInvocationFromDriverArgumentsV2(driverPath: String,
+                                                             argList: [String],
+                                                             action: ([String]) -> Bool,
+                                                             diagnostics: inout [Diagnostic],
+                                                             diagnosticCallback:  @escaping (CInt, String) -> Void,
+                                                             compilerIntegratedTooling: Bool = false,
+                                                             forceNoOutputs: Bool = false) -> Bool {
+    let env = ProcessEnv.vars
+    let executor: SimpleExecutor
+    do {
+        let resolver = try ArgsResolver(fileSystem: localFileSystem)
+        executor = SimpleExecutor(resolver: resolver,
+                                      fileSystem: localFileSystem,
+                                      env: env)
+    } catch {
+        print("Unexpected error: \(error)")
+        return true
+    }
+
+    return getSingleFrontendInvocationFromDriverArgumentsV3(driverPath: driverPath, argList: argList, action: action, diagnostics: &diagnostics, diagnosticCallback: diagnosticCallback, env: env, executor: executor, compilerIntegratedTooling: compilerIntegratedTooling, forceNoOutputs: forceNoOutputs)
+}
+
 /// Generates the list of arguments that would be passed to the compiler
 /// frontend from the given driver arguments, for a single-compiler-invocation
 /// context.
@@ -97,11 +120,13 @@ public func getSingleFrontendInvocationFromDriverArgumentsV3(driverPath: UnsafeP
 ///
 /// \note This function is not intended to create invocations which are
 /// suitable for use in REPL or immediate modes.
-public func getSingleFrontendInvocationFromDriverArgumentsV2(driverPath: String,
+public func getSingleFrontendInvocationFromDriverArgumentsV3(driverPath: String,
                                                              argList: [String],
                                                              action: ([String]) -> Bool,
                                                              diagnostics: inout [Diagnostic],
                                                              diagnosticCallback:  @escaping (CInt, String) -> Void,
+                                                             env: [String: String],
+                                                             executor: some DriverExecutor,
                                                              compilerIntegratedTooling: Bool = false,
                                                              forceNoOutputs: Bool = false) -> Bool {
   /// Handler for emitting diagnostics to tooling clients.
@@ -160,11 +185,8 @@ public func getSingleFrontendInvocationFromDriverArgumentsV2(driverPath: String,
     }
 
     // Instantiate the driver, setting up the toolchain in the process, etc.
-    let resolver = try ArgsResolver(fileSystem: localFileSystem)
-    let executor = SimpleExecutor(resolver: resolver,
-                                  fileSystem: localFileSystem,
-                                  env: ProcessEnv.vars)
     var driver = try Driver(args: parsedOptions.commandLine,
+                            env: env,
                             diagnosticsOutput: .engine(diagnosticsEngine),
                             executor: executor,
                             compilerIntegratedTooling: compilerIntegratedTooling)
@@ -185,8 +207,7 @@ public func getSingleFrontendInvocationFromDriverArgumentsV2(driverPath: String,
       diagnosticsEngine.emit(.error_expected_frontend_command())
       return true
     }
-    singleFrontendTaskCommand = try executor.description(of: compileJob,
-                                                         forceResponseFiles: false).components(separatedBy: " ")
+    singleFrontendTaskCommand = try executor.resolver.resolveArgumentList(for: compileJob, useResponseFiles: .disabled)
   } catch {
     print("Unexpected error: \(error).")
     return true

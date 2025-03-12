@@ -20,20 +20,20 @@ import class TSCBasic.Process
 /// TODO: It would be nice if build planning did not involve an executor.
 /// We must hunt down all uses of an executor during planning and move
 /// relevant compiler functionality into libSwiftScan.
-internal class SimpleExecutor: DriverExecutor {
-  let resolver: ArgsResolver
+@_spi(Testing) public class SimpleExecutor: DriverExecutor {
+  public let resolver: ArgsResolver
   let fileSystem: FileSystem
   let env: [String: String]
 
-  init(resolver: ArgsResolver, fileSystem: FileSystem, env: [String: String]) {
+  public init(resolver: ArgsResolver, fileSystem: FileSystem, env: [String: String]) {
     self.resolver = resolver
     self.fileSystem = fileSystem
     self.env = env
   }
 
-  func execute(job: Job,
-               forceResponseFiles: Bool,
-               recordedInputModificationDates: [TypedVirtualPath : TimePoint]) throws -> ProcessResult {
+  public func execute(job: Job,
+                      forceResponseFiles: Bool,
+                      recordedInputModificationDates: [TypedVirtualPath : TimePoint]) throws -> ProcessResult {
     let arguments: [String] = try resolver.resolveArgumentList(for: job,
                                                                useResponseFiles: .heuristic)
     var childEnv = env
@@ -42,17 +42,17 @@ internal class SimpleExecutor: DriverExecutor {
     return try process.waitUntilExit()
   }
 
-  func execute(workload: DriverExecutorWorkload, delegate: JobExecutionDelegate,
-               numParallelJobs: Int, forceResponseFiles: Bool,
-               recordedInputModificationDates: [TypedVirtualPath : TimePoint]) throws {
+  public func execute(workload: DriverExecutorWorkload, delegate: JobExecutionDelegate,
+                      numParallelJobs: Int, forceResponseFiles: Bool,
+                      recordedInputModificationDates: [TypedVirtualPath : TimePoint]) throws {
     fatalError("Unsupported operation on current executor")
   }
 
-  func checkNonZeroExit(args: String..., environment: [String : String]) throws -> String {
+  public func checkNonZeroExit(args: String..., environment: [String : String]) throws -> String {
     try Process.checkNonZeroExit(arguments: args, environment: environment)
   }
 
-  func description(of job: Job, forceResponseFiles: Bool) throws -> String {
+  public func description(of job: Job, forceResponseFiles: Bool) throws -> String {
     let useResponseFiles : ResponseFileHandling = forceResponseFiles ? .forced : .heuristic
     let (args, usedResponseFile) = try resolver.resolveArgumentList(for: job, useResponseFiles: useResponseFiles)
     var result = args.map { $0.spm_shellEscaped() }.joined(separator: " ")
