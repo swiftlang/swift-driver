@@ -21,6 +21,15 @@ extension String {
     return start.isValidSwiftIdentifierStart &&
            continuation.allSatisfy { $0.isValidSwiftIdentifierContinuation }
   }
+
+  /// Whether this string is a valid Swift raw identifier.
+  public var sd_isValidAsRawIdentifier: Bool {
+    guard !isEmpty else {
+      return false
+    }
+    return unicodeScalars.allSatisfy { $0.isValidRawIdentifierScalar }
+           && !unicodeScalars.allSatisfy { $0.isPermittedRawIdentifierWhitespace }
+  }
 }
 
 extension DefaultStringInterpolation {
@@ -119,6 +128,43 @@ extension Unicode.Scalar {
 
   /// `true` if this character is an ASCII digit: [0-9]
   var isASCIIDigit: Bool { (0x30...0x39).contains(value) }
+
+  /// `true` if this scalar is valid in a Swift raw identifier.
+  var isValidRawIdentifierScalar: Bool {
+    // A raw identifier is terminated by a backtick, and the backslash is reserved for possible
+    // future escaping.
+    if self == "`" || self == "\\" {
+      return false
+    }
+    // Unprintable ASCII control characters are forbidden.
+    if (0x0000...0x001F).contains(value) || value == 0x007F {
+      return false;
+    }
+    return !isForbiddenRawIdentifierWhitespace
+  }
+
+  var isForbiddenRawIdentifierWhitespace: Bool {
+    // This is the set of code points satisfying the `White_Space` property, excluding the set
+    // satisfying the `Pattern_White_Space` property, and excluding any other ASCII non-printables
+    // and Unicode separators. In other words, the only whitespace code points allowed in a raw
+    // identifier are U+0020, and U+200E/200F (LTR/RTL marks) (see
+    // `isPermittedRawIdentifierWhitespace` below).
+    return (0x0009...0x000D).contains(value) ||
+           value == 0x0085 ||
+           value == 0x00A0 ||
+           value == 0x1680 ||
+           (0x2000...0x200A).contains(value) ||
+           (0x2028...0x2029).contains(value) ||
+           value == 0x202F ||
+           value == 0x205F ||
+           value == 0x3000
+  }
+
+  var isPermittedRawIdentifierWhitespace: Bool {
+    return value == 0x0020 ||
+           value == 0x200E ||
+           value == 0x200F
+  }
 
   /// `true` if this is a body character of a C identifier,
   /// which is [a-zA-Z0-9_].
