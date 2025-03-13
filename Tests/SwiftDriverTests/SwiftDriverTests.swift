@@ -4182,7 +4182,7 @@ final class SwiftDriverTests: XCTestCase {
         "-emit-module-path", "target.swiftmodule",
         "-emit-variant-module-path", "variant.swiftmodule",
         "-Xfrontend", "-emit-module-doc-path", "-Xfrontend", "target.swiftdoc",
-        "-Xfrontend", "-emit-variant-module-doc-path", "variant.swiftdoc",
+        "-Xfrontend", "-emit-variant-module-doc-path", "-Xfrontend", "variant.swiftdoc",
         "-emit-module-source-info-path", "target.sourceinfo",
         "-emit-variant-module-source-info-path", "variant.sourceinfo",
         "-emit-package-module-interface-path", "target.package.swiftinterface",
