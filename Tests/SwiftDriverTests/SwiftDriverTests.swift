@@ -4212,6 +4212,25 @@ final class SwiftDriverTests: XCTestCase {
         try toPath("target.abi.json"))
       XCTAssertEqual(variantModuleJob.outputs.filter { $0.type == .jsonABIBaseline}.last!.file,
         try toPath("variant.abi.json"))
+
+      // Get the last instance of `-target` flag
+      if let targetTripleFlagIndex = targetModuleJob.commandLine.lastIndex(of: .flag("-target")) {
+        XCTAssert(targetModuleJob.commandLine[targetTripleFlagIndex...].contains(subsequence: [
+          .flag("-target"),
+          .flag("x86_64-apple-macosx10.14")
+        ]))
+      } else {
+        XCTFail("Expected target triple passed to target module job")
+      }
+
+      if let variantTripleIndex = variantModuleJob.commandLine.lastIndex(of: .flag("-target")) {
+        XCTAssert(variantModuleJob.commandLine[variantTripleIndex...].contains(subsequence: [
+          .flag("-target"),
+          .flag("x86_64-apple-ios13.1-macabi")
+        ]))
+      } else {
+        XCTFail("Expected target triple passed to target variant module job")
+      }
     }
 
 #if os(macOS)
