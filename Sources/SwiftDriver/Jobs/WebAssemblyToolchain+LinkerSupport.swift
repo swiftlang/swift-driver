@@ -90,7 +90,7 @@ extension WebAssemblyToolchain {
         isShared: false
       )
 
-      if !parsedOptions.hasArgument(.nostartfiles) {
+      if !parsedOptions.hasArgument(.nostartfiles) && !parsedOptions.isEmbeddedEnabled {
         let swiftrtPath = VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
           .appending(
             components: targetTriple.platformName() ?? "",
@@ -125,15 +125,17 @@ extension WebAssemblyToolchain {
         commandLine.appendPath(path)
       }
 
-      // Link the standard library and dependencies.
-      let linkFilePath: VirtualPath =
-          VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
-              .appending(components: targetTriple.platformName() ?? "",
-                                     "static-executable-args.lnk")
-      guard try fileSystem.exists(linkFilePath) else {
-        throw Error.missingExternalDependency(linkFilePath.name)
+      if !parsedOptions.isEmbeddedEnabled {
+        // Link the standard library and dependencies.
+        let linkFilePath: VirtualPath =
+        VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
+          .appending(components: targetTriple.platformName() ?? "",
+                     "static-executable-args.lnk")
+        guard try fileSystem.exists(linkFilePath) else {
+          throw Error.missingExternalDependency(linkFilePath.name)
+        }
+        commandLine.append(.responseFilePath(linkFilePath))
       }
-      commandLine.append(.responseFilePath(linkFilePath))
 
       // Pass down an optimization level
       if let optArg = mapOptimizationLevelToClangArg(from: &parsedOptions) {
