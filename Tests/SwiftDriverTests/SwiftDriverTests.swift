@@ -6861,6 +6861,23 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertFalse(linkJob.commandLine.joinedUnresolvedArguments.contains("swiftrt.o"))
     }
 
+    // Embedded WASI link job
+    do {
+      for tripleEnv in ["wasi", "wasi-wasm", "wasip1", "wasip1-wasm", "wasip1-threads"] {
+        var driver = try Driver(
+          args: ["swiftc", "-target", "wasm32-unknown-\(tripleEnv)", "test.o", "-enable-experimental-feature", "Embedded", "-wmo", "-o", "a.wasm"],
+          env: env
+        )
+        let plannedJobs = try driver.planBuild()
+        XCTAssertEqual(plannedJobs.count, 1)
+        let linkJob = plannedJobs[0]
+        XCTAssertFalse(linkJob.commandLine.contains(.flag("-force_load")))
+        XCTAssertFalse(linkJob.commandLine.contains(.flag("-rpath")))
+        XCTAssertFalse(linkJob.commandLine.contains(.flag("-lswiftCore")))
+        XCTAssertFalse(linkJob.commandLine.joinedUnresolvedArguments.contains("swiftrt.o"))
+      }
+    }
+
     do {
       let diags = DiagnosticsEngine()
       var driver = try Driver(args: ["swiftc", "-target", "arm64-apple-macosx10.13",  "test.swift", "-enable-experimental-feature", "Embedded", "-parse-as-library", "-wmo", "-o", "a.out", "-module-name", "main", "-enable-library-evolution"], diagnosticsEngine: diags)
@@ -6874,7 +6891,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(diags.diagnostics.first!.message.text, Diagnostic.Message.error_need_wmo_embedded.text)
     } catch _ { }
     do {
-      var environment = ProcessEnv.vars
+      var environment = ProcessEnv.block
       environment["SDKROOT"] = nil
 
       // Indexing embedded Swift code should not require WMO
