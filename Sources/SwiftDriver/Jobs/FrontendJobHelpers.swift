@@ -505,6 +505,15 @@ extension Driver {
       }
     }
 
+    if parsedOptions.contains(.enableDeterministicCheck),
+        isFrontendArgSupported(.enableDeterministicCheck) {
+      commandLine.appendFlag(.enableDeterministicCheck)
+      commandLine.appendFlag(.alwaysCompileOutputFiles)
+      if enableCaching {
+        commandLine.appendFlag(.cacheDisableReplay)
+      }
+    }
+
     // Pass along -no-verify-emitted-module-interface only if it's effective.
     // Assume verification by default as we want to know only when the user skips
     // the verification.

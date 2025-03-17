@@ -7069,6 +7069,17 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testDeterministicCheck() throws {
+    do {
+      var driver = try Driver(args: ["swiftc", "-enable-deterministic-check", "foo.swift",
+                                     "-import-objc-header", "foo.h", "-enable-bridging-pch"])
+      let plannedJobs = try driver.planBuild()
+      // Check bridging header compilation command and main module command.
+      XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-enable-deterministic-check"), .flag("-always-compile-output-files"))
+      XCTAssertJobInvocationMatches(plannedJobs[1], .flag("-enable-deterministic-check"), .flag("-always-compile-output-files"))
+    }
+  }
+
   func testWarnConcurrency() throws {
     do {
       var driver = try Driver(args: ["swiftc", "-warn-concurrency", "foo.swift"])
