@@ -3358,10 +3358,21 @@ final class SwiftDriverTests: XCTestCase {
       $1.expect(.error("module alias \"Foo\" should be different from the module name \"Foo\""))
     }
 
+    // A module alias is allowed to be a valid raw identifier, not just a regular Swift identifier.
+    try assertNoDriverDiagnostics(
+      args: "swiftc", "foo.swift", "-module-name", "Foo", "-module-alias", "//car/far:par=Bar", "-emit-module", "-emit-module-path", "/tmp/dir/Foo.swiftmodule"
+    )
+    // The alias target (an actual module name), however, may not be a raw identifier.
     try assertDriverDiagnostics(
-      args: ["swiftc", "foo.swift", "-module-name", "Foo", "-module-alias", "C-ar=Bar", "-emit-module", "-emit-module-path", "/tmp/dir/Foo.swiftmodule"]
+      args: ["swiftc", "foo.swift", "-module-name", "Foo", "-module-alias", "Bar=C-ar", "-emit-module", "-emit-module-path", "/tmp/dir/Foo.swiftmodule"]
     ) {
       $1.expect(.error("module name \"C-ar\" is not a valid identifier"))
+    }
+    // We should still diagnose names that are not valid raw identifiers.
+    try assertDriverDiagnostics(
+      args: ["swiftc", "foo.swift", "-module-name", "Foo", "-module-alias", "C`ar=Bar", "-emit-module", "-emit-module-path", "/tmp/dir/Foo.swiftmodule"]
+    ) {
+      $1.expect(.error("module name \"C`ar\" is not a valid identifier"))
     }
 
     try assertDriverDiagnostics(
