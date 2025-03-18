@@ -431,7 +431,7 @@ extension Option {
   public static let enableDeserializationRecovery: Option = Option("-enable-deserialization-recovery", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Attempt to recover from missing xrefs (etc) in swiftmodules")
   public static let enableDeserializationSafety: Option = Option("-enable-deserialization-safety", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Avoid reading potentially unsafe decls in swiftmodules")
   public static let enableDestroyHoisting: Option = Option("-enable-destroy-hoisting=", .joined, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "true|false", helpText: "Whether to enable destroy hoisting")
-  public static let enableDeterministicCheck: Option = Option("-enable-deterministic-check", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Check compiler output determinism by running it twice")
+  public static let enableDeterministicCheck: Option = Option("-enable-deterministic-check", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild, .cacheInvariant], helpText: "Check compiler output determinism by running it twice")
   public static let enableDynamicReplacementChaining: Option = Option("-enable-dynamic-replacement-chaining", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable chaining of dynamic replacements")
   public static let enableEmitGenericClassRoTList: Option = Option("-enable-emit-generic-class-ro_t-list", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable emission of a section with references to class_ro_t of generic class patterns")
   public static let enableEmitTypeMallocForCoroFrame: Option = Option("-enable-emit-type-malloc-for-coro-frame", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable emitting typed malloc for coroutine frame allocation")
@@ -564,6 +564,7 @@ extension Option {
   public static let forcePublicLinkage: Option = Option("-force-public-linkage", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Force public linkage for private symbols. Used by LLDB.")
   public static let forceSingleFrontendInvocation: Option = Option("-force-single-frontend-invocation", .flag, alias: Option.wholeModuleOptimization, attributes: [.helpHidden, .frontend, .noInteractive])
   public static let forceStructTypeLayouts: Option = Option("-force-struct-type-layouts", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Force type layout based lowering for structs")
+  public static let formalCxxInteroperabilityMode: Option = Option("-formal-cxx-interoperability-mode=", .joined, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<cxx-interop-version>|off", helpText: "What version of C++ interoperability a textual interface was originally generated with")
   public static let framework: Option = Option("-framework", .separate, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Specifies a framework which should be linked against", group: .linkerOption)
   public static let frontendParseableOutput: Option = Option("-frontend-parseable-output", .flag, attributes: [.frontend, .noDriver, .cacheInvariant], helpText: "Emit textual output in a parseable format")
   public static let Fsystem: Option = Option("-Fsystem", .separate, attributes: [.frontend, .synthesizeInterface, .argumentIsPath], helpText: "Add directory to system framework search path")
@@ -848,7 +849,7 @@ extension Option {
   public static let staticExecutable: Option = Option("-static-executable", .flag, helpText: "Statically link the executable")
   public static let staticStdlib: Option = Option("-static-stdlib", .flag, attributes: [.doesNotAffectIncrementalBuild], helpText: "Statically link the Swift standard library")
   public static let `static`: Option = Option("-static", .flag, attributes: [.frontend, .noInteractive, .moduleInterface], helpText: "Make this module statically linkable and make the output of -emit-library a static library.")
-  public static let statsOutputDir: Option = Option("-stats-output-dir", .separate, attributes: [.helpHidden, .frontend, .argumentIsPath], helpText: "Directory to write unified compilation-statistics files to")
+  public static let statsOutputDir: Option = Option("-stats-output-dir", .separate, attributes: [.helpHidden, .frontend, .argumentIsPath, .cacheInvariant], helpText: "Directory to write unified compilation-statistics files to")
   public static let strictConcurrency: Option = Option("-strict-concurrency=", .joined, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Specify the how strict concurrency checking will be. The value may be 'minimal' (most 'Sendable' checking is disabled), 'targeted' ('Sendable' checking is enabled in code that uses the concurrency model, or 'complete' ('Sendable' and other checking is enabled for all code in the module)")
   public static let strictImplicitModuleContext: Option = Option("-strict-implicit-module-context", .flag, attributes: [.helpHidden, .frontend], helpText: "Enable the strict forwarding of compilation context to downstream implicit module dependencies")
   public static let strictMemorySafety: Option = Option("-strict-memory-safety", .flag, attributes: [.frontend, .synthesizeInterface], helpText: "Enable strict memory safety checking")
@@ -1508,6 +1509,7 @@ extension Option {
       Option.forcePublicLinkage,
       Option.forceSingleFrontendInvocation,
       Option.forceStructTypeLayouts,
+      Option.formalCxxInteroperabilityMode,
       Option.framework,
       Option.frontendParseableOutput,
       Option.Fsystem,

@@ -1043,6 +1043,50 @@ final class CachingBuildTests: XCTestCase {
     }
   }
 
+  func testDeterministicCheck() throws {
+    try withTemporaryDirectory { path in
+      try localFileSystem.changeCurrentWorkingDirectory(to: path)
+      let moduleCachePath = path.appending(component: "ModuleCache")
+      let casPath = path.appending(component: "cas")
+      try localFileSystem.createDirectory(moduleCachePath)
+      let main = path.appending(component: "testCachingBuild.swift")
+      let mainFileContent = "import C;"
+      try localFileSystem.writeFileContents(main) {
+        $0.send(mainFileContent)
+      }
+      let cHeadersPath: AbsolutePath =
+          try testInputsPath.appending(component: "ExplicitModuleBuilds")
+                            .appending(component: "CHeaders")
+      let swiftModuleInterfacesPath: AbsolutePath =
+          try testInputsPath.appending(component: "ExplicitModuleBuilds")
+                            .appending(component: "Swift")
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+      let bridgingHeaderpath: AbsolutePath =
+          cHeadersPath.appending(component: "Bridging.h")
+      var driver = try Driver(args: ["swiftc",
+                                     "-I", cHeadersPath.nativePathString(escaped: true),
+                                     "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                     "-explicit-module-build", "-enable-deterministic-check",
+                                     "-module-cache-path", moduleCachePath.nativePathString(escaped: true),
+                                     "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: true),
+                                     "-import-objc-header", bridgingHeaderpath.nativePathString(escaped: true),
+                                     "-working-directory", path.nativePathString(escaped: true),
+                                     main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
+                              interModuleDependencyOracle: dependencyOracle)
+      let jobs = try driver.planBuild()
+      jobs.forEach { job in
+        guard job.kind == .compile else {
+          return
+        }
+        XCTAssertJobInvocationMatches(job,
+                                      .flag("-enable-deterministic-check"),
+                                      .flag("-always-compile-output-files"),
+                                      .flag("-cache-disable-replay"))
+      }
+    }
+
+  }
+
   func testCASManagement() throws {
     try withTemporaryDirectory { path in
       let casPath = path.appending(component: "cas")
