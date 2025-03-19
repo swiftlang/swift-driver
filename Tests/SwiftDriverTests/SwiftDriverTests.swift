@@ -6880,6 +6880,13 @@ final class SwiftDriverTests: XCTestCase {
       }
     }
 
+    // 32-bit iOS jobs under Embedded should be allowed regardless of OS version
+    do {
+      try Driver(args: ["swiftc", "-c", "-target", "armv7-apple-ios8", "-enable-experimental-feature", "Embedded", "foo.swift"])
+      try Driver(args: ["swiftc", "-c", "-target", "armv7-apple-ios12.1", "-enable-experimental-feature", "Embedded", "foo.swift"])
+      try Driver(args: ["swiftc", "-c", "-target", "armv7-apple-ios16", "-enable-experimental-feature", "Embedded", "foo.swift"])
+    }
+
     do {
       let diags = DiagnosticsEngine()
       var driver = try Driver(args: ["swiftc", "-target", "arm64-apple-macosx10.13",  "test.swift", "-enable-experimental-feature", "Embedded", "-parse-as-library", "-wmo", "-o", "a.out", "-module-name", "main", "-enable-library-evolution"], diagnosticsEngine: diags)
