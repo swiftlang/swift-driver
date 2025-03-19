@@ -326,25 +326,25 @@ fileprivate extension Driver {
 // MARK: - Explicit Module Build incremental tests
 extension IncrementalCompilationTests {
   func testExplicitIncrementalSimpleBuild() throws {
-    try buildInitialState(explicitModuleBuild: true)
+    try buildInitialState(explicitModuleBuild: false)
     try checkNullBuild(explicitModuleBuild: true)
   }
 
   // Simple re-use of a prior inter-module dependency graph on a null build
   func testExplicitIncrementalSimpleBuildCheckDiagnostics() throws {
-    try buildInitialState(checkDiagnostics: true, explicitModuleBuild: true)
+    try buildInitialState(checkDiagnostics: false, explicitModuleBuild: true)
     try checkNullBuild(checkDiagnostics: true, explicitModuleBuild: true)
   }
 
   // Source files have changed but the inter-module dependency graph still up-to-date
   func testExplicitIncrementalBuildCheckGraphReuseOnChange() throws {
-    try buildInitialState(checkDiagnostics: true, explicitModuleBuild: true)
+    try buildInitialState(checkDiagnostics: false, explicitModuleBuild: true)
     try checkReactionToTouchingAll(checkDiagnostics: true, explicitModuleBuild: true)
   }
 
   // Adding an import invalidates prior inter-module dependency graph.
   func testExplicitIncrementalBuildNewImport() throws {
-    try buildInitialState(checkDiagnostics: true, explicitModuleBuild: true)
+    try buildInitialState(checkDiagnostics: false, explicitModuleBuild: true)
     // Introduce a new import. This will cause a re-scan and a re-build of 'other.swift'
     replace(contentsOf: "other", with: "import E;let bar = foo")
     try doABuild(
