@@ -815,6 +815,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       }
       """))
 
+      let swiftInterfaceOutput = path.appending(component: "Test.swiftinterface")
       let cHeadersPath: AbsolutePath =
           try testInputsPath.appending(component: "ExplicitModuleBuilds")
                             .appending(component: "CHeaders")
@@ -825,11 +826,12 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let invocationArguments = ["swiftc",
                                  "-incremental", "-c",
                                  "-emit-module",
-                                 "-enable-library-evolution", "-emit-module-interface", "-driver-show-incremental", "-v",
+                                 "-enable-library-evolution", "-emit-module-interface", "-driver-show-incremental",
                                  "-Xcc", "-Xclang", "-Xcc", "-fbuiltin-headers-in-system-modules",
                                  "-I", cHeadersPath.nativePathString(escaped: true),
                                  "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
                                  "-explicit-module-build",
+                                 "-emit-module-interface-path", swiftInterfaceOutput.nativePathString(escaped: true),
                                  "-output-file-map", outputFileMap.nativePathString(escaped: true),
                                  "-module-cache-path", moduleCachePath.nativePathString(escaped: true),
                                  "-working-directory", path.nativePathString(escaped: true),
@@ -843,6 +845,15 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let incrementalJobs = try incrementalDriver.planBuild()
       try incrementalDriver.run(jobs: incrementalJobs)
       XCTAssertFalse(incrementalDriver.diagnosticEngine.hasErrors)
+
+      // TODO: emitModule job should run again if interface is deleted.
+      // try localFileSystem.removeFileTree(swiftInterfaceOutput)
+
+      // This should be a null build but it is actually building the main module due to the previous build of all the modules.
+      var reDriver = try Driver(args: invocationArguments + ["-color-diagnostics"])
+      let reJobs = try reDriver.planBuild()
+      XCTAssertFalse(reJobs.contains { $0.kind == .emitModule })
+      XCTAssertFalse(reJobs.contains { $0.kind == .verifyModuleInterface })
     }
   }
 

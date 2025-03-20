@@ -69,6 +69,8 @@ extension IncrementalCompilationState {
     /// for the first wave to execute.
     /// The primaries could be other than .swift files, i.e. .sib
     let mandatoryJobsInOrder: [Job]
+
+    let jobsAfterCompiles: [Job]
   }
 }
 
