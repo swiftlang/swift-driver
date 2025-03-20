@@ -143,7 +143,7 @@ extension IncrementalCompilationState.FirstWaveComputer {
     if afterCompilesDependingJobs.isEmpty {
       return false
     } else if afterCompilesDependingJobs.allSatisfy({ $0.kind == .verifyModuleInterface }) {
-      return jobsInPhases.beforeCompiles.contains { $0.kind == .generatePCM || $0.kind == .compileModuleFromInterface }
+      return jobsInPhases.beforeCompiles.contains { $0.kind == .generatePCM || $0.kind == .compileModuleFromInterface || $0.kind == .emitModule }
     } else {
       return true
     }
