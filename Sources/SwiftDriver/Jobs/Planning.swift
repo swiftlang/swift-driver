@@ -61,7 +61,7 @@ extension Driver {
   /// Plan a standard compilation, which produces jobs for compiling separate
   /// primary files.
   private mutating func planStandardCompile() throws
-  -> ([Job], IncrementalCompilationState?) {
+  -> ([Job], IncrementalCompilationState?, InterModuleDependencyGraph?) {
     precondition(compilerMode.isStandardCompilationForPlanning,
                  "compiler mode \(compilerMode) is handled elsewhere")
     // Determine the initial state for incremental compilation that is required during
@@ -101,7 +101,7 @@ extension Driver {
                                         jobCreatingPch: jobsInPhases.allJobs.first(where: {$0.kind == .generatePCH}))
     }
 
-    return (batchedJobs, incrementalCompilationState)
+    return (batchedJobs, incrementalCompilationState, interModuleDependencyGraph)
   }
 
   /// If performing an explicit module build, compute an inter-module dependency graph.
@@ -750,17 +750,17 @@ extension Driver {
   /// Plan a build by producing a set of jobs to complete the build.
   /// Should be private, but compiler bug
   /*private*/ mutating func planPossiblyIncrementalBuild() throws
-  -> ([Job], IncrementalCompilationState?) {
+  -> ([Job], IncrementalCompilationState?, InterModuleDependencyGraph?) {
 
     if let job = try immediateForwardingJob() {
-      return ([job], nil)
+      return ([job], nil, nil)
     }
 
     // The REPL doesn't require input files, but all other modes do.
     guard !inputFiles.isEmpty || compilerMode == .repl || compilerMode == .intro else {
       if parsedOptions.hasArgument(.v) {
         // `swiftc -v` is allowed and prints version information.
-        return ([], nil)
+        return ([], nil, nil)
       }
       throw Error.noInputFiles
     }
@@ -771,7 +771,7 @@ extension Driver {
       if !inputFiles.isEmpty {
         throw PlanningError.replReceivedInput
       }
-      return ([try replJob()], nil)
+      return ([try replJob()], nil, nil)
 
     case .immediate:
       var jobs: [Job] = []
@@ -783,7 +783,7 @@ extension Driver {
                                               initialIncrementalState: nil,
                                               addJob: { jobs.append($0) })
       jobs.append(try interpretJob(inputs: inputFiles))
-      return (jobs, nil)
+      return (jobs, nil, nil)
 
     case .standardCompile, .batchCompile, .singleCompile:
       return try planStandardCompile()
@@ -792,15 +792,15 @@ extension Driver {
       if inputFiles.count != 1 {
         throw PlanningError.emitPCMWrongInputFiles
       }
-      return ([try generateEmitPCMJob(input: inputFiles.first!)], nil)
+      return ([try generateEmitPCMJob(input: inputFiles.first!)], nil, nil)
 
     case .dumpPCM:
       if inputFiles.count != 1 {
         throw PlanningError.dumpPCMWrongInputFiles
       }
-      return ([try generateDumpPCMJob(input: inputFiles.first!)], nil)
+      return ([try generateDumpPCMJob(input: inputFiles.first!)], nil, nil)
     case .intro:
-      return (try helpIntroJobs(), nil)
+      return (try helpIntroJobs(), nil, nil)
     }
   }
 }
