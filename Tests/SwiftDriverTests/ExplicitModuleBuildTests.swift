@@ -773,6 +773,79 @@ final class ExplicitModuleBuildTests: XCTestCase {
     }
   }
 
+  // This is a regression test for the following scenario:
+  // 1. The user does a clean build of their project with explicit modules
+  // 2. The user starts a subsequent build using changed flags/environment which do not affect incremental builds (e.g. color diagnostics)
+  // 3. That flag/environment change does affect PCM hashes returned by the clang dependency scanner.
+  // 4. The driver determines that modules need to rebuild, sources don't need to rebuild, and verification needs to re-run.
+  // 5. The driver decides it's safe to skip the pre-compile jobs (the module builds) because the only post-compile jobs are for verification.
+  // 6. Verification fails because the modules with the new PCM hashes are missing.
+  // Ideally, this should never happen. If a flag doesn't invalidate Swift compilation, it shouldn;t be impacting module hashes either. But I
+  // think we should be resilient to this by rebuilding the modules in this scenario.
+  //
+  // The below test is somewhat fragile in that it will be redundant if we canonicalize away -fcolor-diagnostics in clang, but it's useful to ensure
+  // end to end behavior does not regress again.
+  func testExplicitModuleBuildDoesNotSkipPrecompiledModulesWhenOnlyVerificationIsInvalidated() throws {
+    try withTemporaryDirectory { path in
+      try localFileSystem.changeCurrentWorkingDirectory(to: path)
+      let moduleCachePath = path.appending(component: "ModuleCache")
+      try localFileSystem.createDirectory(moduleCachePath)
+      let main = path.appending(component: "testExplicitModuleBuildEndToEnd.swift")
+      try localFileSystem.writeFileContents(main, bytes:
+        """
+        import C;
+        import E;
+        import G;
+
+        func foo() {
+          funcE()
+        }
+        """
+      )
+      let outputFileMap = path.appending(component: "output-file-map.json")
+      try localFileSystem.writeFileContents(outputFileMap, bytes: ByteString(encodingAsUTF8: """
+      {
+        "": {
+          "swift-dependencies": "\(path.appending(component: "main.swiftdeps").nativePathString(escaped: true))"
+        },
+        "\(path.appending(component: "testExplicitModuleBuildEndToEnd.swift").nativePathString(escaped: true))": {
+          "swift-dependencies": "\(path.appending(component: "testExplicitModuleBuildEndToEnd.swiftdeps").nativePathString(escaped: true))",
+          "object": "\(path.appending(component: "testExplicitModuleBuildEndToEnd.o").nativePathString(escaped: true))"
+        }
+      }
+      """))
+
+      let cHeadersPath: AbsolutePath =
+          try testInputsPath.appending(component: "ExplicitModuleBuilds")
+                            .appending(component: "CHeaders")
+      let swiftModuleInterfacesPath: AbsolutePath =
+          try testInputsPath.appending(component: "ExplicitModuleBuilds")
+                            .appending(component: "Swift")
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+      let invocationArguments = ["swiftc",
+                                 "-incremental", "-c",
+                                 "-emit-module",
+                                 "-enable-library-evolution", "-emit-module-interface", "-driver-show-incremental", "-v",
+                                 "-Xcc", "-Xclang", "-Xcc", "-fbuiltin-headers-in-system-modules",
+                                 "-I", cHeadersPath.nativePathString(escaped: true),
+                                 "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                 "-explicit-module-build",
+                                 "-output-file-map", outputFileMap.nativePathString(escaped: true),
+                                 "-module-cache-path", moduleCachePath.nativePathString(escaped: true),
+                                 "-working-directory", path.nativePathString(escaped: true),
+                                 main.nativePathString(escaped: true)] + sdkArgumentsForTesting
+      var driver = try Driver(args: invocationArguments)
+      let jobs = try driver.planBuild()
+      try driver.run(jobs: jobs)
+      XCTAssertFalse(driver.diagnosticEngine.hasErrors)
+
+      var incrementalDriver = try Driver(args: invocationArguments + ["-color-diagnostics"])
+      let incrementalJobs = try incrementalDriver.planBuild()
+      try incrementalDriver.run(jobs: incrementalJobs)
+      XCTAssertFalse(incrementalDriver.diagnosticEngine.hasErrors)
+    }
+  }
+
   /// Test generation of explicit module build jobs for dependency modules when the driver
   /// is invoked with -explicit-module-build, -verify-emitted-module-interface and -enable-library-evolution.
   func testExplicitModuleVerifyInterfaceJobs() throws {

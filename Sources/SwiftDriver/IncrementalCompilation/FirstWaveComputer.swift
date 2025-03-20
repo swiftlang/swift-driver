@@ -139,9 +139,11 @@ extension IncrementalCompilationState.FirstWaveComputer {
   private func nonVerifyAfterCompileJobsDependOnBeforeCompileJobs() -> Bool {
     let beforeCompileJobOutputs = jobsInPhases.beforeCompiles.reduce(into: Set<TypedVirtualPath>(),
                                                                      { (pathSet, job) in pathSet.formUnion(job.outputs) })
-    let afterCompilesDependnigJobs = jobsInPhases.afterCompiles.filter {postCompileJob in postCompileJob.inputs.contains(where: beforeCompileJobOutputs.contains)}
-    if afterCompilesDependnigJobs.isEmpty || afterCompilesDependnigJobs.allSatisfy({ $0.kind == .verifyModuleInterface }) {
+    let afterCompilesDependingJobs = jobsInPhases.afterCompiles.filter {postCompileJob in postCompileJob.inputs.contains(where: beforeCompileJobOutputs.contains)}
+    if afterCompilesDependingJobs.isEmpty {
       return false
+    } else if afterCompilesDependingJobs.allSatisfy({ $0.kind == .verifyModuleInterface }) {
+      return jobsInPhases.beforeCompiles.contains { $0.kind == .generatePCM || $0.kind == .compileModuleFromInterface }
     } else {
       return true
     }

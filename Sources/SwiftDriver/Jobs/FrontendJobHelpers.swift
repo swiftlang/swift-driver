@@ -199,10 +199,12 @@ extension Driver {
     try commandLine.appendLast(.AssertConfig, from: &parsedOptions)
     try commandLine.appendLast(.autolinkForceLoad, from: &parsedOptions)
 
-    if let colorOption = parsedOptions.last(for: .colorDiagnostics, .noColorDiagnostics) {
-      commandLine.appendFlag(colorOption.option)
-    } else if shouldColorDiagnostics() {
+    if parsedOptions.hasFlag(positive: .colorDiagnostics, negative: .noColorDiagnostics, default: shouldColorDiagnostics()) {
       commandLine.appendFlag(.colorDiagnostics)
+      appendXccFlag("-fcolor-diagnostics")
+    } else {
+      commandLine.appendFlag(.noColorDiagnostics)
+      appendXccFlag("-fno-color-diagnostics")
     }
     try commandLine.appendLast(.fixitAll, from: &parsedOptions)
     try commandLine.appendLast(.warnSwift3ObjcInferenceMinimal, .warnSwift3ObjcInferenceComplete, from: &parsedOptions)
