@@ -4159,7 +4159,7 @@ final class SwiftDriverTests: XCTestCase {
         "-emit-module-path", "target.swiftmodule",
         "-emit-variant-module-path", "variant.swiftmodule",
         "-Xfrontend", "-emit-module-doc-path", "-Xfrontend", "target.swiftdoc",
-        "-Xfrontend", "-emit-variant-module-doc-path", "variant.swiftdoc",
+        "-Xfrontend", "-emit-variant-module-doc-path", "-Xfrontend", "variant.swiftdoc",
         "-emit-module-source-info-path", "target.sourceinfo",
         "-emit-variant-module-source-info-path", "variant.sourceinfo",
         "-emit-package-module-interface-path", "target.package.swiftinterface",
@@ -4214,6 +4214,25 @@ final class SwiftDriverTests: XCTestCase {
         try toPath("target.abi.json"))
       XCTAssertEqual(variantModuleJob.outputs.filter { $0.type == .jsonABIBaseline}.last!.file,
         try toPath("variant.abi.json"))
+
+      // Get the last instance of `-target` flag
+      if let targetTripleFlagIndex = targetModuleJob.commandLine.lastIndex(of: .flag("-target")) {
+        XCTAssert(targetModuleJob.commandLine[targetTripleFlagIndex...].contains(subsequence: [
+          .flag("-target"),
+          .flag("x86_64-apple-macosx10.14")
+        ]))
+      } else {
+        XCTFail("Expected target triple passed to target module job")
+      }
+
+      if let variantTripleIndex = variantModuleJob.commandLine.lastIndex(of: .flag("-target")) {
+        XCTAssert(variantModuleJob.commandLine[variantTripleIndex...].contains(subsequence: [
+          .flag("-target"),
+          .flag("x86_64-apple-ios13.1-macabi")
+        ]))
+      } else {
+        XCTFail("Expected target triple passed to target variant module job")
+      }
     }
 
 #if os(macOS)
@@ -8258,7 +8277,7 @@ func assertString(
                 """, file: file, line: line)
 }
 
-extension Array where Element: Equatable {
+extension BidirectionalCollection where Element: Equatable, Index: Strideable, Index.Stride: SignedInteger {
   /// Returns true if the receiver contains the given elements as a subsequence
   /// (i.e., all elements are present, contiguous, and in the same order).
   ///
@@ -8272,10 +8291,15 @@ extension Array where Element: Equatable {
   {
     precondition(!subsequence.isEmpty,  "Subsequence may not be empty")
 
-    let subsequenceCount = subsequence.count
-    for index in 0...(self.count - subsequence.count) {
-      let subsequenceEnd = index + subsequenceCount
-      if self[index..<subsequenceEnd].elementsEqual(subsequence) {
+    guard self.count >= subsequence.count else {
+      return false
+    }
+
+    for index in self.startIndex...self.index(self.endIndex,
+                                              offsetBy: -subsequence.count) {
+      if self[index..<self.index(index,
+                                 offsetBy: subsequence.count)]
+                          .elementsEqual(subsequence) {
         return true
       }
     }

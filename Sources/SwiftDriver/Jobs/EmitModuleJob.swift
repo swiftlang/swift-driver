@@ -108,6 +108,15 @@ extension Driver {
     try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs, kind: .emitModule)
     // FIXME: Add MSVC runtime library flags
 
+    // Ensure that the target variant is the target triple when generating the
+    // swift module and interface. This is only necessary in the emit-module job
+    // since the compilation job results in a single zippered object file.
+    if isVariantJob,
+        let triple = targetVariantTriple {
+        commandLine.appendFlag(.target)
+        commandLine.appendFlag(triple.triple)
+    }
+
     try addCommonModuleOptions(
       commandLine: &commandLine,
       outputs: &outputs,
