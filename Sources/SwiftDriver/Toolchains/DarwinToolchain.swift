@@ -238,6 +238,11 @@ public final class DarwinToolchain: Toolchain {
       return
     }
 
+    // Embedded Swift should accept all target triples / OS versions / arch combinations
+    guard !parsedOptions.isEmbeddedEnabled else {
+      return
+    }
+
     // Check minimum supported OS versions. Note that Mac Catalyst falls into the iOS device case. The driver automatically uplevels the deployment target to iOS >= 13.1.
     let minVersions: [Triple.OS: (DarwinPlatform, Triple.Version)] = [
       .macosx: (.macOS, Triple.Version(10, 9, 0)),
