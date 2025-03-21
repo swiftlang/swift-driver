@@ -77,7 +77,7 @@ public final class IncrementalCompilationState {
       jobsInPhases.allJobs.first(where: {$0.kind == .generatePCH}),
       &driver)
     self.mandatoryJobsInOrder = firstWave.mandatoryJobsInOrder
-    self.jobsAfterCompiles = jobsInPhases.afterCompiles
+    self.jobsAfterCompiles = firstWave.jobsAfterCompiles
   }
 
   /// Allow concurrent access to while preventing mutation of ``IncrementalCompilationState/protectedState``

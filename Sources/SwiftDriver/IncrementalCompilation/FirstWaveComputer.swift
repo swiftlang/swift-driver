@@ -51,11 +51,12 @@ extension IncrementalCompilationState {
 
     public func compute(batchJobFormer: inout Driver) throws -> FirstWave {
       return try blockingConcurrentAccessOrMutation {
-        let (initiallySkippedCompileJobs, mandatoryJobsInOrder) =
+        let (initiallySkippedCompileJobs, mandatoryJobsInOrder, afterCompiles) =
         try computeInputsAndGroups(batchJobFormer: &batchJobFormer)
         return FirstWave(
           initiallySkippedCompileJobs: initiallySkippedCompileJobs,
-          mandatoryJobsInOrder: mandatoryJobsInOrder)
+          mandatoryJobsInOrder: mandatoryJobsInOrder,
+          jobsAfterCompiles: afterCompiles)
       }
     }
   }
@@ -74,34 +75,39 @@ extension IncrementalCompilationState.FirstWaveComputer {
   /// listed in fingerprintExternalDependencies.
   private func computeInputsAndGroups(batchJobFormer: inout Driver)
   throws -> (initiallySkippedCompileJobs: [TypedVirtualPath: Job],
-             mandatoryJobsInOrder: [Job])
+             mandatoryJobsInOrder: [Job],
+             jobsAfterCompiles: [Job])
   {
     let compileJobs =
       Dictionary(uniqueKeysWithValues:
                   jobsInPhases.compileJobs.map { ($0.primaryInputs[0], $0) })
     let buildRecord = self.moduleDependencyGraph.buildRecord
-    let jobCreatingPch = jobsInPhases.beforeCompiles.first(where: {$0.kind == .generatePCH})
-    guard !buildRecord.inputInfos.isEmpty else {
-      func everythingIsMandatory()
-        throws -> (initiallySkippedCompileJobs: [TypedVirtualPath: Job],
-                   mandatoryJobsInOrder: [Job])
-      {
-        let mandatoryCompileJobsInOrder = self.inputFiles.swiftSourceFiles.compactMap {
-          input -> Job? in
-          compileJobs[input.typedFile]
-        }
+    let jobCreatingPch = jobsInPhases.beforeCompiles.first { $0.kind == .generatePCH }
 
-        let mandatoryJobsInOrder = try
-        jobsInPhases.beforeCompiles +
-        batchJobFormer.formBatchedJobs(
-          mandatoryCompileJobsInOrder,
-          showJobLifecycle: showJobLifecycle,
-          jobCreatingPch: jobCreatingPch)
-
-        moduleDependencyGraph.setPhase(to: .buildingAfterEachCompilation)
-        return (initiallySkippedCompileJobs: [:],
-                mandatoryJobsInOrder: mandatoryJobsInOrder)
+    func everythingIsMandatory()
+      throws -> (initiallySkippedCompileJobs: [TypedVirtualPath: Job],
+                 mandatoryJobsInOrder: [Job],
+                 jobsAfterCompiles: [Job])
+    {
+      let mandatoryCompileJobsInOrder = self.inputFiles.swiftSourceFiles.compactMap {
+        input -> Job? in
+        compileJobs[input.typedFile]
       }
+
+      let mandatoryJobsInOrder = try
+      jobsInPhases.beforeCompiles +
+      batchJobFormer.formBatchedJobs(
+        mandatoryCompileJobsInOrder,
+        showJobLifecycle: showJobLifecycle,
+        jobCreatingPch: jobCreatingPch)
+
+      moduleDependencyGraph.setPhase(to: .buildingAfterEachCompilation)
+      return (initiallySkippedCompileJobs: [:],
+              mandatoryJobsInOrder: mandatoryJobsInOrder,
+              jobsAfterCompiles: jobsInPhases.afterCompiles)
+    }
+
+    guard !buildRecord.inputInfos.isEmpty else {
       return try everythingIsMandatory()
     }
     moduleDependencyGraph.setPhase(to: .updatingAfterCompilation)
@@ -115,9 +121,7 @@ extension IncrementalCompilationState.FirstWaveComputer {
 
     let mandatoryCompileJobsInOrder = inputFiles.compactMap {
       input -> Job? in
-      initiallySkippedInputs.contains(input)
-        ? nil
-        : compileJobs[input]
+      return initiallySkippedInputs.contains(input) ? nil : compileJobs[input]
     }
 
     let batchedCompilationJobs = try batchJobFormer.formBatchedJobs(
@@ -129,9 +133,16 @@ extension IncrementalCompilationState.FirstWaveComputer {
     // we can skip running `beforeCompiles` jobs if we also ensure that none of the `afterCompiles` jobs
     // have any dependencies on them.
     let skipAllJobs = batchedCompilationJobs.isEmpty ? !nonVerifyAfterCompileJobsDependOnBeforeCompileJobs() : false
-    let mandatoryJobsInOrder = skipAllJobs ? [] : jobsInPhases.beforeCompiles + batchedCompilationJobs
+
+    // Schedule emitModule job together with verify module interface job.
+    let beforeCompileJobs = skipAllJobs ? [] : jobsInPhases.beforeCompiles
+    let afterCompileJobs = jobsInPhases.afterCompiles.compactMap { job in
+      skipAllJobs && job.kind == .verifyModuleInterface ? nil : job
+    }
+    let mandatoryJobsInOrder = beforeCompileJobs + batchedCompilationJobs
     return (initiallySkippedCompileJobs: initiallySkippedCompileJobs,
-            mandatoryJobsInOrder: mandatoryJobsInOrder)
+            mandatoryJobsInOrder: mandatoryJobsInOrder,
+            jobsAfterCompiles: afterCompileJobs)
   }
 
   /// Determine if any of the jobs in the `afterCompiles` group depend on outputs produced by jobs in
