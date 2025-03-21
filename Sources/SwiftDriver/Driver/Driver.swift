@@ -314,6 +314,9 @@ public struct Driver {
   /// Code & data for incremental compilation. Nil if not running in incremental mode.
   /// Set during planning because needs the jobs to look at outputs.
   @_spi(Testing) public private(set) var incrementalCompilationState: IncrementalCompilationState? = nil
+  
+  /// The graph of explicit module dependencies of this module, if the driver has planned an explicit module build.
+  public private(set) var intermoduleDependencyGraph: InterModuleDependencyGraph? = nil
 
   /// The path of the SDK.
   public var absoluteSDKPath: AbsolutePath? {
@@ -1354,8 +1357,9 @@ public struct Driver {
   }
 
   public mutating func planBuild() throws -> [Job] {
-    let (jobs, incrementalCompilationState) = try planPossiblyIncrementalBuild()
+    let (jobs, incrementalCompilationState, intermoduleDependencyGraph) = try planPossiblyIncrementalBuild()
     self.incrementalCompilationState = incrementalCompilationState
+    self.intermoduleDependencyGraph = intermoduleDependencyGraph
     return jobs
   }
 }
