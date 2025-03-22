@@ -185,10 +185,6 @@ extension Driver {
     // If -always-rebuild-module-dependencies is specified, no filtering needed
     if parsedOptions.contains(.alwaysRebuildModuleDependencies) {
       mandatoryModuleCompileJobs = modulePrebuildJobs
-    // If this is an initial incremental build (no prior build record), no filtering required
-    } else if let initialState = initialIncrementalState,
-              initialState.graph.buildRecord.inputInfos.isEmpty {
-      mandatoryModuleCompileJobs = modulePrebuildJobs
     } else {
       let enableIncrementalRemarks = initialIncrementalState != nil && initialIncrementalState!.incrementalOptions.contains(.showIncremental)
       let reporter: IncrementalCompilationState.Reporter? = enableIncrementalRemarks ?
