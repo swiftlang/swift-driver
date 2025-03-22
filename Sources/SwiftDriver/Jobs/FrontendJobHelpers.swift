@@ -311,6 +311,9 @@ extension Driver {
     if isFrontendArgSupported(.strictConcurrency) {
       try commandLine.appendLast(.strictConcurrency, from: &parsedOptions)
     }
+    if isFrontendArgSupported(.defaultIsolation) {
+      try commandLine.appendLast(.defaultIsolation, from: &parsedOptions)
+    }
     if kind == .scanDependencies,
         isFrontendArgSupported(.experimentalClangImporterDirectCc1Scan) {
       try commandLine.appendAll(
