@@ -293,8 +293,7 @@ extension Driver {
     }
 
     try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs, kind: .compile)
-
-    // FIXME: MSVC runtime flags
+    try addRuntimeLibraryFlags(commandLine: &commandLine)
 
     if Driver.canDoCrossModuleOptimization(parsedOptions: &parsedOptions) &&
        // For historical reasons, -cross-module-optimization turns on "aggressive" CMO

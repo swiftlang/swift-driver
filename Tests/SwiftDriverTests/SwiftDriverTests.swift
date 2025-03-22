@@ -8268,6 +8268,48 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertFalse(driver.diagnosticEngine.hasErrors)
     }
   }
+
+  func testWindowsRuntimeLibraryFlags() throws {
+    do {
+      var driver = try Driver(args: ["swiftc", "-target", "x86_64-unknown-windows-msvc", "-libc", "MD", "-use-ld=lld", "-c", "input.swift"])
+      let jobs = try driver.planBuild()
+
+      XCTAssertEqual(jobs.count, 1)
+      XCTAssertEqual(jobs[0].kind, .compile)
+
+      XCTAssertJobInvocationMatches(jobs[0], .flag("-autolink-library"), .flag("oldnames"), .flag("-autolink-library"), .flag("msvcrt"), .flag("-Xcc"), .flag("-D_MT"), .flag("-Xcc"), .flag("-D_DLL"))
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-target", "x86_64-unknown-windows-msvc", "-use-ld=lld", "-c", "input.swift"])
+      let jobs = try driver.planBuild()
+
+      XCTAssertEqual(jobs.count, 1)
+      XCTAssertEqual(jobs[0].kind, .compile)
+
+      XCTAssertJobInvocationMatches(jobs[0], .flag("-autolink-library"), .flag("oldnames"), .flag("-autolink-library"), .flag("msvcrt"), .flag("-Xcc"), .flag("-D_MT"), .flag("-Xcc"), .flag("-D_DLL"))
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-target", "x86_64-unknown-windows-msvc", "-libc", "MultiThreadedDLL", "-use-ld=lld", "-c", "input.swift"])
+      let jobs = try driver.planBuild()
+
+      XCTAssertEqual(jobs.count, 1)
+      XCTAssertEqual(jobs[0].kind, .compile)
+
+      XCTAssertJobInvocationMatches(jobs[0], .flag("-autolink-library"), .flag("oldnames"), .flag("-autolink-library"), .flag("msvcrt"), .flag("-Xcc"), .flag("-D_MT"), .flag("-Xcc"), .flag("-D_DLL"))
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-target", "x86_64-unknown-windows-msvc", "-libc", "MTd", "-use-ld=lld", "-c", "input.swift"])
+      let jobs = try driver.planBuild()
+
+      XCTAssertEqual(jobs.count, 1)
+      XCTAssertEqual(jobs[0].kind, .compile)
+
+      XCTAssertJobInvocationMatches(jobs[0], .flag("-autolink-library"), .flag("oldnames"), .flag("-autolink-library"), .flag("libcmtd"), .flag("-Xcc"), .flag("-D_MT"))
+    }
+  }
 }
 
 func assertString(

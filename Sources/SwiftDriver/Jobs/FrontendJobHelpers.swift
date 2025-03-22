@@ -583,6 +583,61 @@ extension Driver {
     }
   }
 
+  mutating func addRuntimeLibraryFlags(commandLine: inout [Job.ArgTemplate]) throws {
+    guard targetTriple.isWindows else { return }
+
+    enum RuntimeFlavour {
+      case MT
+      case MTd
+      case MD
+      case MDd
+    }
+
+    let option = parsedOptions.getLastArgument(.libc)
+
+    // NOTE: default to `/MD`.  This is different from `cl`'s default behaviour
+    // of `/MT` on the command line, however, Visual Studio 2015 and newer will
+    // default `/MD` as well.  Furthermore, this is far more useful of a mode
+    // since the `/MT` mode requires that everything is statically linked.
+    let runtime: RuntimeFlavour? = switch (option?.asSingle ?? "MD") {
+      case "MD", "MultiThreadedDLL", "shared-ucrt":
+        .MD
+      case "MDd", "MultiThreadedDebugDLL", "shared-debug-ucrt":
+        .MDd
+      case "MT", "MultiThreaded", "static-ucrt":
+        .MT
+      case "MTd", "MultiThreadedDebug", "static-debug-ucrt":
+        .MTd
+      default:
+        nil
+    }
+
+    guard let runtime else {
+      diagnosticEngine.emit(.error_invalid_arg_value(arg: .libc, value: option!.asSingle))
+      return
+    }
+
+    commandLine.appendFlag(.autolinkLibrary)
+    commandLine.appendFlag("oldnames")
+
+    commandLine.appendFlag(.autolinkLibrary)
+    let name = switch (runtime) {
+      case .MD: "msvcrt"
+      case .MDd: "msvcrtd"
+      case .MT: "libcmt"
+      case .MTd: "libcmtd"
+    }
+    commandLine.appendFlag(name)
+
+    commandLine.appendFlag(.Xcc)
+    commandLine.appendFlag("-D_MT")
+
+    if [.MD, .MDd].contains(runtime) {
+      commandLine.appendFlag(.Xcc)
+      commandLine.appendFlag("-D_DLL")
+    }
+  }
+
   mutating func addBridgingHeaderPCHCacheKeyArguments(commandLine: inout [Job.ArgTemplate],
                                                       pchCompileJob: Job?) throws {
     guard let pchJob = pchCompileJob, isCachingEnabled else { return }

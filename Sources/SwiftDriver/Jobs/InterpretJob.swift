@@ -28,7 +28,7 @@ extension Driver {
     }
 
     try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs, kind: .interpret)
-    // FIXME: MSVC runtime flags
+    try addRuntimeLibraryFlags(commandLine: &commandLine)
 
     try commandLine.appendLast(.parseSil, from: &parsedOptions)
     toolchain.addLinkedLibArgs(to: &commandLine, parsedOptions: &parsedOptions)
