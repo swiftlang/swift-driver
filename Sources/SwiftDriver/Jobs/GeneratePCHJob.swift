@@ -36,6 +36,7 @@ extension Driver {
     } else {
       try addGeneratePCHFlags(commandLine: &commandLine, inputs: &inputs)
     }
+    try addRuntimeLibraryFlags(commandLine: &commandLine)
 
     // TODO: Should this just be pch output with extension changed?
     if parsedOptions.hasArgument(.serializeDiagnostics), let outputDirectory = parsedOptions.getLastArgument(.pchOutputDir)?.asSingle {

@@ -16,7 +16,7 @@ extension Driver {
     var inputs: [TypedVirtualPath] = []
 
     try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs, kind: .repl)
-    // FIXME: MSVC runtime flags
+    try addRuntimeLibraryFlags(commandLine: &commandLine)
 
     try commandLine.appendLast(.importObjcHeader, from: &parsedOptions)
     toolchain.addLinkedLibArgs(

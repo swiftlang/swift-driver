@@ -115,7 +115,7 @@ public extension Driver {
     try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs, kind: .scanDependencies,
                                  bridgingHeaderHandling: .parsed,
                                  moduleDependencyGraphUse: .dependencyScan)
-    // FIXME: MSVC runtime flags
+    try addRuntimeLibraryFlags(commandLine: &commandLine)
 
     // Pass in external target dependencies to be treated as placeholder dependencies by the scanner
     if let externalTargetDetailsMap = externalTargetModuleDetailsMap,
@@ -355,7 +355,7 @@ public extension Driver {
     try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs, kind: .scanDependencies,
                                  bridgingHeaderHandling: .parsed,
                                  moduleDependencyGraphUse: .dependencyScan)
-    // FIXME: MSVC runtime flags
+    try addRuntimeLibraryFlags(commandLine: &commandLine)
 
     // Pass on the input files
     commandLine.append(contentsOf: inputFiles.map { .path($0.file) })
