@@ -2977,8 +2977,10 @@ extension Driver {
                                      with moduleName: String,
                                      onError diagnosticsEngine: DiagnosticsEngine) -> [String: String]? {
     var moduleAliases: [String: String]? = nil
-    let validate = { (_ arg: String, allowModuleName: Bool) -> Bool in
-      if !arg.sd_isSwiftIdentifier {
+    // validatingModuleName should be true when validating the alias target (an actual module
+    // name), or false when validating the alias name (which can be a raw identifier).
+    let validate = { (_ arg: String, validatingModuleName: Bool) -> Bool in
+      if (validatingModuleName && !arg.sd_isSwiftIdentifier) || !arg.sd_isValidAsRawIdentifier {
         diagnosticsEngine.emit(.error_bad_module_name(moduleName: arg, explicitModuleName: true))
         return false
       }
@@ -2986,7 +2988,7 @@ extension Driver {
         diagnosticsEngine.emit(.error_stdlib_module_name(moduleName: arg, explicitModuleName: true))
         return false
       }
-      if !allowModuleName, arg == moduleName {
+      if !validatingModuleName, arg == moduleName {
         diagnosticsEngine.emit(.error_bad_module_alias(arg, moduleName: moduleName))
         return false
       }

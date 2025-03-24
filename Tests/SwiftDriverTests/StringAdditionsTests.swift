@@ -76,4 +76,16 @@ final class StringAdditionsTests: XCTestCase {
         XCTAssertFalse("".sd_isSwiftIdentifier,
                        "Private-use characters aren't valid Swift identifiers")
     }
+
+    func testRawIdentifiers() {
+        XCTAssertTrue("plain".sd_isValidAsRawIdentifier)
+        XCTAssertTrue("has spaces".sd_isValidAsRawIdentifier)
+        XCTAssertTrue("$^has/other!characters@#".sd_isValidAsRawIdentifier)
+
+        XCTAssertFalse("has`backtick".sd_isValidAsRawIdentifier)
+        XCTAssertFalse("has\\backslash".sd_isValidAsRawIdentifier)
+        XCTAssertFalse("has\u{0000}control\u{007F}characters".sd_isValidAsRawIdentifier)
+        XCTAssertFalse("has\u{00A0}forbidden\u{2028}whitespace".sd_isValidAsRawIdentifier)
+        XCTAssertFalse(" ".sd_isValidAsRawIdentifier)
+    }
 }
