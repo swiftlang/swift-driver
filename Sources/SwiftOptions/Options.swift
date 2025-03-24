@@ -134,6 +134,8 @@ extension Option {
   public static let debugTimeFunctionBodies: Option = Option("-debug-time-function-bodies", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Dumps the time it takes to type-check each function body")
   public static let debuggerSupport: Option = Option("-debugger-support", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Process swift code as if running in the debugger")
   public static let debuggerTestingTransform: Option = Option("-debugger-testing-transform", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Instrument the code with calls to an intrinsic that record the expected values of local variables so they can be compared against the results from the debugger.")
+  public static let defaultIsolationEQ: Option = Option("-default-isolation=", .joined, alias: Option.defaultIsolation, attributes: [.frontend])
+  public static let defaultIsolation: Option = Option("-default-isolation", .separate, attributes: [.frontend], metaVar: "MainActor|nonisolated", helpText: "Specify the default actor isolation: MainActor or nonisolated. Defaults to nonisolated.")
   public static let defineAvailability: Option = Option("-define-availability", .separate, attributes: [.frontend, .noInteractive], metaVar: "<macro>", helpText: "Define an availability macro in the format 'macroName : iOS 13.0, macOS 10.15'")
   public static let defineDisabledAvailabilityDomain: Option = Option("-define-disabled-availability-domain", .separate, attributes: [.helpHidden, .frontend, .noInteractive], metaVar: "<domain>", helpText: "Defines a custom availability domain that is unavailable at compile time")
   public static let defineDynamicAvailabilityDomain: Option = Option("-define-dynamic-availability-domain", .separate, attributes: [.helpHidden, .frontend, .noInteractive], metaVar: "<domain>", helpText: "Defines a custom availability domain that can be enabled or disabled at runtime")
@@ -1079,6 +1081,8 @@ extension Option {
       Option.debugTimeFunctionBodies,
       Option.debuggerSupport,
       Option.debuggerTestingTransform,
+      Option.defaultIsolationEQ,
+      Option.defaultIsolation,
       Option.defineAvailability,
       Option.defineDisabledAvailabilityDomain,
       Option.defineDynamicAvailabilityDomain,

@@ -3935,6 +3935,18 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-disable-dynamic-actor-isolation")))
   }
 
+  func testDefaultIsolation() throws {
+      var driver = try Driver(args: ["swiftc", "test.swift", "-default-isolation", "MainActor"])
+      guard driver.isFrontendArgSupported(.defaultIsolation) else {
+        throw XCTSkip("Skipping: compiler does not support '-default-isolation'")
+      }
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+      XCTAssertEqual(plannedJobs[1].kind, .link)
+      try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-default-isolation"), "MainActor")
+  }
+
   func testImmediateMode() throws {
     do {
       var driver = try Driver(args: ["swift", "foo.swift"])
