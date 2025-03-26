@@ -65,11 +65,14 @@ extension IncrementalCompilationState {
     /// incremental dependency graph and the status of the input files for this
     /// incremental build.
     let initiallySkippedCompileJobs: [TypedVirtualPath: Job]
+    /// The non-compile jobs that can be skipped given the state of the
+    /// incremental build.
+    let skippedNonCompileJobs: [Job]
     /// All of the pre-compile or compilation job (groups) known to be required
     /// for the first wave to execute.
     /// The primaries could be other than .swift files, i.e. .sib
     let mandatoryJobsInOrder: [Job]
-
+    /// The job after compilation that needs to run.
     let jobsAfterCompiles: [Job]
   }
 }
