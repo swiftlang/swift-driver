@@ -239,13 +239,7 @@ extension Driver {
 
     var linkerInputs = [TypedVirtualPath]()
     func addLinkerInput(_ li: TypedVirtualPath) { linkerInputs.append(li) }
-
-    var moduleInputs = [TypedVirtualPath]()
     let acceptBitcodeAsLinkerInput = lto == .llvmThin || lto == .llvmFull
-    func addModuleInput(_ mi: TypedVirtualPath) { moduleInputs.append(mi) }
-    var moduleInputsFromJobOutputs = [TypedVirtualPath]()
-    func addModuleInputFromJobOutputs(_ mis: TypedVirtualPath) {
-      moduleInputsFromJobOutputs.append(mis) }
 
     func addJobOutputs(_ jobOutputs: [TypedVirtualPath]) {
       for jobOutput in jobOutputs {
@@ -254,8 +248,6 @@ extension Driver {
             addLinkerInput(jobOutput)
           case .llvmBitcode where acceptBitcodeAsLinkerInput:
             addLinkerInput(jobOutput)
-          case .swiftModule:
-            addModuleInputFromJobOutputs(jobOutput)
 
           default:
             break
@@ -296,7 +288,7 @@ extension Driver {
       try addPostModuleFilesJobs(emitModuleJob)
 
       try addWrapJobOrMergeOutputs(
-        mergeJob: emitModuleJob,
+        emitModuleJob: emitModuleJob,
         debugInfo: debugInfo,
         addJob: addJobAfterCompiles,
         addLinkerInput: addLinkerInput)
@@ -311,7 +303,6 @@ extension Driver {
 
     try addJobsForPrimaryInputs(
       addCompileJob: addCompileJob,
-      addModuleInput: addModuleInput,
       addLinkerInput: addLinkerInput,
       addJobOutputs: addJobOutputs,
       pchCompileJob: jobCreatingPch)
@@ -319,20 +310,6 @@ extension Driver {
     try addAutolinkExtractJob(linkerInputs: linkerInputs,
                               addLinkerInput: addLinkerInput,
                               addJob: addJobAfterCompiles)
-
-    // Merge-module
-    if let mergeJob = try mergeModuleJob(
-        moduleInputs: moduleInputs,
-        moduleInputsFromJobOutputs: moduleInputsFromJobOutputs) {
-      addJobAfterCompiles(mergeJob)
-      try addPostModuleFilesJobs(mergeJob)
-
-      try addWrapJobOrMergeOutputs(
-        mergeJob: mergeJob,
-        debugInfo: debugInfo,
-        addJob: addJobAfterCompiles,
-        addLinkerInput: addLinkerInput)
-    }
     return linkerInputs
   }
 
@@ -361,7 +338,6 @@ extension Driver {
 
   private mutating func addJobsForPrimaryInputs(
     addCompileJob: (Job) -> Void,
-    addModuleInput: (TypedVirtualPath) -> Void,
     addLinkerInput: (TypedVirtualPath) -> Void,
     addJobOutputs: ([TypedVirtualPath]) -> Void,
     pchCompileJob: Job?)
@@ -374,7 +350,6 @@ extension Driver {
       try addJobForPrimaryInput(
         input: input,
         addCompileJob: addCompileJob,
-        addModuleInput: addModuleInput,
         addLinkerInput: addLinkerInput,
         addJobOutputs: addJobOutputs,
         pchCompileJob: pchCompileJob,
@@ -385,7 +360,6 @@ extension Driver {
   private mutating func addJobForPrimaryInput(
     input: TypedVirtualPath,
     addCompileJob: (Job) -> Void,
-    addModuleInput: (TypedVirtualPath) -> Void,
     addLinkerInput: (TypedVirtualPath) -> Void,
     addJobOutputs: ([TypedVirtualPath]) -> Void,
     pchCompileJob: Job?,
@@ -416,13 +390,8 @@ extension Driver {
       }
 
     case .swiftModule:
-      if moduleOutputInfo.output != nil && linkerOutputType == nil {
-        // When generating a .swiftmodule as a top-level output (as opposed
-        // to, for example, linking an image), treat .swiftmodule files as
-        // inputs to a MergeModule action.
-        addModuleInput(input)
-      } else if linkerOutputType != nil {
-        // Otherwise, if linking, pass .swiftmodule files as inputs to the
+      if linkerOutputType != nil {
+        // If linking, pass .swiftmodule files as inputs to the
         // linker, so that their debug info is available.
         addLinkerInput(input)
       } else {
@@ -454,19 +423,6 @@ extension Driver {
                                  emitModuleTrace: emitModuleTrace,
                                  produceCacheKey: !compilerMode.isBatchCompile)
     addCompileJob(compile)
-  }
-
-  /// Need a merge module job if there are module inputs
-  private mutating func mergeModuleJob(
-    moduleInputs: [TypedVirtualPath],
-    moduleInputsFromJobOutputs: [TypedVirtualPath]
-  ) throws -> Job? {
-    guard moduleOutputInfo.output != nil,
-          !(moduleInputs.isEmpty && moduleInputsFromJobOutputs.isEmpty),
-          compilerMode.usesPrimaryFileInputs,
-          !emitModuleSeparately
-    else { return nil }
-    return try mergeModuleJob(inputs: moduleInputs, inputsFromOutputs: moduleInputsFromJobOutputs)
   }
 
   func getAdopterConfigPathFromXcodeDefaultToolchain() -> AbsolutePath? {
@@ -611,22 +567,22 @@ extension Driver {
     }
   }
 
-  private mutating func addWrapJobOrMergeOutputs(mergeJob: Job,
+  private mutating func addWrapJobOrMergeOutputs(emitModuleJob: Job,
                                                  debugInfo: DebugInfo,
                                                  addJob: (Job) -> Void,
                                                  addLinkerInput: (TypedVirtualPath) -> Void)
   throws {
     guard case .astTypes = debugInfo.level else { return }
 
-    let mergeModuleOutputs = mergeJob.outputs.filter { $0.type == .swiftModule }
-    assert(mergeModuleOutputs.count == 1,
-            "Merge module job should only have one swiftmodule output")
+    let moduleOutputs = emitModuleJob.outputs.filter { $0.type == .swiftModule }
+    assert(moduleOutputs.count == 1,
+            "Emit module job should only have one swiftmodule output")
 
     if targetTriple.objectFormat == .macho {
-      addLinkerInput(mergeModuleOutputs[0])
+      addLinkerInput(moduleOutputs[0])
     } else {
       // Module wrapping is required.
-      let wrapJob = try moduleWrapJob(moduleInput: mergeModuleOutputs[0])
+      let wrapJob = try moduleWrapJob(moduleInput: moduleOutputs[0])
       addJob(wrapJob)
 
       wrapJob.outputs.forEach(addLinkerInput)
