@@ -94,7 +94,7 @@ extension Driver {
     // If the jobs are batched during the incremental build, reuse the computation rather than computing the batches again.
     if let incrementalState = incrementalCompilationState {
       // For compatibility reasons, all the jobs planned will be returned, even the incremental state suggests the job is not mandatory.
-      batchedJobs = incrementalState.skippedJobs + incrementalState.mandatoryJobsInOrder + incrementalState.jobsAfterCompiles
+      batchedJobs = incrementalState.skippedJobs + incrementalState.skippedJobsNonCompile + incrementalState.mandatoryJobsInOrder + incrementalState.jobsAfterCompiles
     } else {
       batchedJobs = try formBatchedJobs(jobsInPhases.allJobs,
                                         showJobLifecycle: showJobLifecycle,

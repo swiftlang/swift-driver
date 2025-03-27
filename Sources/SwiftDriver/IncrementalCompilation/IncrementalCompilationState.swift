@@ -44,6 +44,9 @@ public final class IncrementalCompilationState {
   /// Jobs to run *after* the last compile, for instance, link-editing.
   public let jobsAfterCompiles: [Job]
 
+  /// The skipped non compile jobs.
+  public let skippedJobsNonCompile: [Job]
+
   public let info: IncrementalCompilationState.IncrementalDependencyAndInputSetup
 
   internal let upToDateInterModuleDependencyGraph: InterModuleDependencyGraph?
@@ -78,6 +81,7 @@ public final class IncrementalCompilationState {
       &driver)
     self.mandatoryJobsInOrder = firstWave.mandatoryJobsInOrder
     self.jobsAfterCompiles = firstWave.jobsAfterCompiles
+    self.skippedJobsNonCompile = firstWave.skippedNonCompileJobs
   }
 
   /// Allow concurrent access to while preventing mutation of ``IncrementalCompilationState/protectedState``

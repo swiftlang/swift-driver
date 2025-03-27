@@ -220,12 +220,14 @@ extension IncrementalCompilationTests {
 
   // Null planning should not return an empty compile job for compatibility reason.
   // `swift-build` wraps the jobs returned by swift-driver in `Executor` so returning an empty list of compile job will break build system.
-  func testNullPlanningCompatility() throws {
+  func testNullPlanningCompatibility() throws {
     guard let sdkArgumentsForTesting = try Driver.sdkArgumentsForTesting() else {
       throw XCTSkip("Cannot perform this test on this host")
     }
-    var driver = try Driver(args: commonArgs + sdkArgumentsForTesting)
+    let extraArguments = ["-experimental-emit-module-separately", "-emit-module"]
+    var driver = try Driver(args: commonArgs + extraArguments + sdkArgumentsForTesting)
     let initialJobs = try driver.planBuild()
+    XCTAssertTrue(initialJobs.contains { $0.kind == .emitModule})
     try driver.run(jobs: initialJobs)
 
     // Plan the build again without touching any file. This should be a null build but for compatibility reason,
@@ -235,6 +237,7 @@ extension IncrementalCompilationTests {
     XCTAssertFalse(
       replanJobs.filter { $0.kind == .compile }.isEmpty,
       "more than one compile job needs to be planned")
+    XCTAssertTrue(replanJobs.contains { $0.kind == .emitModule})
   }
 }
 

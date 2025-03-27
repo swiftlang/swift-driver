@@ -845,15 +845,19 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let incrementalJobs = try incrementalDriver.planBuild()
       try incrementalDriver.run(jobs: incrementalJobs)
       XCTAssertFalse(incrementalDriver.diagnosticEngine.hasErrors)
+      let state = try XCTUnwrap(incrementalDriver.incrementalCompilationState)
+      XCTAssertTrue(state.mandatoryJobsInOrder.contains { $0.kind == .emitModule })
+      XCTAssertTrue(state.jobsAfterCompiles.contains { $0.kind == .verifyModuleInterface })
 
       // TODO: emitModule job should run again if interface is deleted.
       // try localFileSystem.removeFileTree(swiftInterfaceOutput)
 
       // This should be a null build but it is actually building the main module due to the previous build of all the modules.
       var reDriver = try Driver(args: invocationArguments + ["-color-diagnostics"])
-      let reJobs = try reDriver.planBuild()
-      XCTAssertFalse(reJobs.contains { $0.kind == .emitModule })
-      XCTAssertFalse(reJobs.contains { $0.kind == .verifyModuleInterface })
+      let _ = try reDriver.planBuild()
+      let reState = try XCTUnwrap(reDriver.incrementalCompilationState)
+      XCTAssertFalse(reState.mandatoryJobsInOrder.contains { $0.kind == .emitModule })
+      XCTAssertFalse(reState.jobsAfterCompiles.contains { $0.kind == .verifyModuleInterface })
     }
   }
 
