@@ -13,49 +13,6 @@
 import func TSCBasic.topologicalSort
 import protocol TSCBasic.FileSystem
 
-@_spi(Testing) public extension InterModuleDependencyGraph {
-  /// For targets that are built alongside the driver's current module, the scanning action will report them as
-  /// textual targets to be built from source. Because we can rely on these targets to have been built prior
-  /// to the driver's current target, we resolve such external targets as prebuilt binary modules, in the graph.
-  mutating func resolveExternalDependencies(for externalTargetModuleDetailsMap: ExternalTargetModuleDetailsMap)
-  throws {
-    for (externalModuleId, externalModuleDetails) in externalTargetModuleDetailsMap {
-      let externalModulePath = externalModuleDetails.path
-      // Replace the occurrence of a Swift module to-be-built from source-file
-      // to an info that describes a pre-built binary module.
-      let swiftModuleId: ModuleDependencyId = .swift(externalModuleId.moduleName)
-      let prebuiltModuleId: ModuleDependencyId = .swiftPrebuiltExternal(externalModuleId.moduleName)
-      if let currentInfo = modules[swiftModuleId],
-         externalModuleId.moduleName != mainModuleName {
-        let newExternalModuleDetails =
-        SwiftPrebuiltExternalModuleDetails(compiledModulePath:
-                                            TextualVirtualPath(path: VirtualPath.absolute(externalModulePath).intern()),
-                                           isFramework: externalModuleDetails.isFramework)
-        let newInfo = ModuleInfo(modulePath: TextualVirtualPath(path: VirtualPath.absolute(externalModulePath).intern()),
-                                 sourceFiles: [],
-                                 directDependencies: currentInfo.directDependencies,
-                                 linkLibraries: currentInfo.linkLibraries,
-                                 details: .swiftPrebuiltExternal(newExternalModuleDetails))
-        Self.replaceModule(originalId: swiftModuleId, replacementId: prebuiltModuleId,
-                           replacementInfo: newInfo, in: &modules)
-      } else if let currentPrebuiltInfo = modules[prebuiltModuleId] {
-        // Just update the isFramework bit on this prebuilt module dependency
-        let newExternalModuleDetails =
-        SwiftPrebuiltExternalModuleDetails(compiledModulePath:
-                                            TextualVirtualPath(path: VirtualPath.absolute(externalModulePath).intern()),
-                                           isFramework: externalModuleDetails.isFramework)
-        let newInfo = ModuleInfo(modulePath: TextualVirtualPath(path: VirtualPath.absolute(externalModulePath).intern()),
-                                 sourceFiles: [],
-                                 directDependencies: currentPrebuiltInfo.directDependencies,
-                                 linkLibraries: currentPrebuiltInfo.linkLibraries,
-                                 details: .swiftPrebuiltExternal(newExternalModuleDetails))
-        Self.replaceModule(originalId: prebuiltModuleId, replacementId: prebuiltModuleId,
-                           replacementInfo: newInfo, in: &modules)
-      }
-    }
-  }
-}
-
 extension InterModuleDependencyGraph {
   var topologicalSorting: [ModuleDependencyId] {
     get throws {
@@ -91,38 +48,6 @@ extension InterModuleDependencyGraph {
       transitiveClosureMap[key]!.remove(key)
     }
     return transitiveClosureMap
-  }
-}
-
-@_spi(Testing) public extension InterModuleDependencyGraph {
-
-  /// Replace an existing module in the moduleInfoMap
-  static func replaceModule(originalId: ModuleDependencyId, replacementId: ModuleDependencyId,
-                            replacementInfo: ModuleInfo,
-                            in moduleInfoMap: inout ModuleInfoMap) {
-    precondition(moduleInfoMap[originalId] != nil)
-    moduleInfoMap.removeValue(forKey: originalId)
-    moduleInfoMap[replacementId] = replacementInfo
-    if originalId != replacementId {
-      updateDependencies(from: originalId, to: replacementId, in: &moduleInfoMap)
-    }
-  }
-
-  /// Replace all references to the original module in other externalModules' dependencies with the new module.
-  static func updateDependencies(from originalId: ModuleDependencyId,
-                                 to replacementId: ModuleDependencyId,
-                                 in moduleInfoMap: inout ModuleInfoMap) {
-    for moduleId in moduleInfoMap.keys {
-      var moduleInfo = moduleInfoMap[moduleId]!
-      // Skip over placeholders, they do not have dependencies
-      if case .swiftPlaceholder(_) = moduleId {
-        continue
-      }
-      if let originalModuleIndex = moduleInfo.directDependencies?.firstIndex(of: originalId) {
-        moduleInfo.directDependencies![originalModuleIndex] = replacementId;
-        moduleInfoMap[moduleId] = moduleInfo
-      }
-    }
   }
 }
 
@@ -350,7 +275,7 @@ internal extension InterModuleDependencyGraph {
 }
 
 internal extension InterModuleDependencyGraph {
-  func explainDependency(dependencyModuleName: String, allPaths: Bool) throws -> [[ModuleDependencyId]]? {
+  func explainDependency(_ dependencyModuleName: String, allPaths: Bool) throws -> [[ModuleDependencyId]]? {
     guard modules.contains(where: { $0.key.moduleName == dependencyModuleName }) else { return nil }
     var result: Set<[ModuleDependencyId]> = []
     if allPaths {

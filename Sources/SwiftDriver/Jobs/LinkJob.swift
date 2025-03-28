@@ -46,7 +46,8 @@ extension Driver {
   }
 
   /// Link the given inputs.
-  mutating func linkJob(inputs: [TypedVirtualPath]) throws -> Job {
+  mutating func linkJob(inputs: [TypedVirtualPath],
+                        explicitModulePlanner: ExplicitDependencyBuildPlanner?) throws -> Job {
     var commandLine: [Job.ArgTemplate] = []
 
     // Compute the final output file
@@ -76,7 +77,7 @@ extension Driver {
     )
 
     if parsedOptions.hasArgument(.explicitAutoLinking) {
-      try explicitDependencyBuildPlanner?.getLinkLibraryLoadCommandFlags(&commandLine)
+      try explicitModulePlanner?.getLinkLibraryLoadCommandFlags(&commandLine)
     }
 
     return Job(
