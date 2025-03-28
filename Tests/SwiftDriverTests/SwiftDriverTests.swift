@@ -1248,23 +1248,6 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
-  func testMergeModuleEmittingDependencies() throws {
-    var driver1 = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Foo", "-emit-dependencies", "-emit-module", "-serialize-diagnostics", "-driver-filelist-threshold=9999", "-no-emit-module-separately"])
-    let plannedJobs = try driver1.planBuild().removingAutolinkExtractJobs()
-
-    XCTAssertEqual(plannedJobs[0].kind, .compile)
-    XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-emit-dependencies-path"))
-    XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-serialize-diagnostics-path"))
-
-    XCTAssertEqual(plannedJobs[1].kind, .compile)
-    XCTAssertJobInvocationMatches(plannedJobs[1], .flag("-emit-dependencies-path"))
-    XCTAssertJobInvocationMatches(plannedJobs[1], .flag("-serialize-diagnostics-path"))
-
-    XCTAssertEqual(plannedJobs[2].kind, .mergeModule)
-    XCTAssertFalse(plannedJobs[2].commandLine.contains(.flag("-emit-dependencies-path")))
-    XCTAssertFalse(plannedJobs[2].commandLine.contains(.flag("-serialize-diagnostics-path")))
-  }
-
   func testEmitModuleEmittingDependencies() throws {
     var driver1 = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Foo", "-emit-dependencies", "-emit-module", "-serialize-diagnostics", "-driver-filelist-threshold=9999", "-experimental-emit-module-separately"])
     let plannedJobs = try driver1.planBuild().removingAutolinkExtractJobs()
@@ -1855,32 +1838,6 @@ final class SwiftDriverTests: XCTestCase {
         try resolver.resolveArgumentList(for: emitModuleJob)
       XCTAssertEqual(emitModuleResolvedArgs.count, 3)
       XCTAssertEqual(emitModuleResolvedArgs[2].first, "@")
-
-      let compileJobs = jobs.filter { $0.kind == .compile }
-      XCTAssertEqual(compileJobs.count, 2)
-      for compileJob in compileJobs {
-        let compileResolvedArgs: [String] =
-          try resolver.resolveArgumentList(for: compileJob)
-        XCTAssertEqual(compileResolvedArgs.count, 3)
-        XCTAssertEqual(compileResolvedArgs[2].first, "@")
-      }
-    }
-
-    // Compile + no separate emit module job
-    do {
-      let resolver = try ArgsResolver(fileSystem: localFileSystem)
-      var driver = try Driver(
-        args: ["swiftc", "-emit-module", "-no-emit-module-separately"] + manyArgs
-          + ["-module-name", "foo", "foo.swift", "bar.swift"])
-      let jobs = try driver.planBuild().removingAutolinkExtractJobs()
-      XCTAssertEqual(jobs.count, 3)
-      XCTAssertEqual(Set(jobs.map { $0.kind }), Set([.compile, .mergeModule]))
-
-      let mergeModuleJob = try jobs.findJob(.mergeModule)
-      let mergeModuleResolvedArgs: [String] =
-        try resolver.resolveArgumentList(for: mergeModuleJob)
-      XCTAssertEqual(mergeModuleResolvedArgs.count, 3)
-      XCTAssertEqual(mergeModuleResolvedArgs[2].first, "@")
 
       let compileJobs = jobs.filter { $0.kind == .compile }
       XCTAssertEqual(compileJobs.count, 2)
@@ -3257,15 +3214,6 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[0].kind, .emitModule)
       XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-emit-abi-descriptor-path"))
     }
-    do {
-      var driver = try Driver(args: ["swiftc", "-module-name=ThisModule", "main.swift", "multi-threaded.swift", "-emit-module", "-o", "test.swiftmodule", "-no-emit-module-separately"])
-      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
-
-      XCTAssertEqual(plannedJobs.count, 3)
-
-      XCTAssertEqual(plannedJobs[2].kind, .mergeModule)
-      XCTAssertJobInvocationMatches(plannedJobs[2], .flag("-emit-abi-descriptor-path"))
-    }
   }
 
   func testWMOWithNonSourceInput() throws {
@@ -3554,98 +3502,6 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
-  func testMergeModulesOnly() throws {
-    do {
-      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module", "-disable-bridging-pch", "-import-objc-header", "TestInputHeader.h", "-emit-dependencies", "-emit-module-source-info-path", "/foo/bar/Test.swiftsourceinfo", "-no-emit-module-separately"])
-      let plannedJobs = try driver.planBuild()
-      XCTAssertEqual(plannedJobs.count, 3)
-      XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .mergeModule]))
-      XCTAssertEqual(plannedJobs[0].outputs.count, 4)
-
-      XCTAssertTrue(matchTemporary(plannedJobs[0].outputs[0].file, "foo.swiftmodule"))
-      XCTAssertTrue(matchTemporary(plannedJobs[0].outputs[1].file, "foo.swiftdoc"))
-      XCTAssertTrue(matchTemporary(plannedJobs[0].outputs[2].file, "foo.swiftsourceinfo"))
-      XCTAssertTrue(matchTemporary(plannedJobs[0].outputs[3].file, "foo.d"))
-      XCTAssert(plannedJobs[0].commandLine.contains(.flag("-import-objc-header")))
-
-      XCTAssertEqual(plannedJobs[1].outputs.count, 4)
-      XCTAssertTrue(matchTemporary(plannedJobs[1].outputs[0].file, "bar.swiftmodule"))
-      XCTAssertTrue(matchTemporary(plannedJobs[1].outputs[1].file, "bar.swiftdoc"))
-      XCTAssertTrue(matchTemporary(plannedJobs[1].outputs[2].file, "bar.swiftsourceinfo"))
-      XCTAssertTrue(matchTemporary(plannedJobs[1].outputs[3].file, "bar.d"))
-      XCTAssert(plannedJobs[1].commandLine.contains(.flag("-import-objc-header")))
-
-      XCTAssertTrue(plannedJobs[2].tool.name.contains("swift"))
-      XCTAssertEqual(plannedJobs[2].outputs.count, driver.targetTriple.isDarwin ? 4 : 3)
-      XCTAssertEqual(plannedJobs[2].outputs[0].file, try toPath("Test.swiftmodule"))
-      XCTAssertEqual(plannedJobs[2].outputs[1].file, try toPath("Test.swiftdoc"))
-      XCTAssertEqual(plannedJobs[2].outputs[2].file, .absolute(try .init(validating: "/foo/bar/Test.swiftsourceinfo")))
-      if driver.targetTriple.isDarwin {
-          XCTAssertEqual(plannedJobs[2].outputs[3].file, try toPath("Test.abi.json"))
-      }
-      XCTAssert(plannedJobs[2].commandLine.contains(.flag("-import-objc-header")))
-    }
-
-    do {
-      let root = localFileSystem.currentWorkingDirectory!.appending(components: "foo", "bar")
-
-      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-no-emit-module-separately"])
-      let plannedJobs = try driver.planBuild()
-      XCTAssertEqual(plannedJobs.count, 3)
-      XCTAssertTrue(plannedJobs[2].tool.name.contains("swift"))
-      XCTAssertEqual(plannedJobs[2].outputs.count, driver.targetTriple.isDarwin ? 4 : 3)
-      XCTAssertEqual(plannedJobs[2].outputs[0].file, .absolute(try .init(validating: rebase("Test.swiftmodule", at: root))))
-      XCTAssertEqual(plannedJobs[2].outputs[1].file, .absolute(try .init(validating: rebase("Test.swiftdoc", at: root))))
-      XCTAssertEqual(plannedJobs[2].outputs[2].file, .absolute(try .init(validating: rebase("Test.swiftsourceinfo", at: root))))
-      if driver.targetTriple.isDarwin {
-          XCTAssertEqual(plannedJobs[2].outputs[3].file, .absolute(try .init(validating: rebase("Test.abi.json", at: root))))
-      }
-    }
-
-    do {
-      // Make sure the swiftdoc path is correct for a relative module
-      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", "Test.swiftmodule", "-no-emit-module-separately"])
-      let plannedJobs = try driver.planBuild()
-      XCTAssertEqual(plannedJobs.count, 3)
-      XCTAssertTrue(plannedJobs[2].tool.name.contains("swift"))
-      XCTAssertEqual(plannedJobs[2].outputs.count, driver.targetTriple.isDarwin ? 4 : 3)
-      XCTAssertEqual(plannedJobs[2].outputs[0].file, try toPath("Test.swiftmodule"))
-      XCTAssertEqual(plannedJobs[2].outputs[1].file, try toPath("Test.swiftdoc"))
-      XCTAssertEqual(plannedJobs[2].outputs[2].file, try toPath("Test.swiftsourceinfo"))
-      if driver.targetTriple.isDarwin {
-          XCTAssertEqual(plannedJobs[2].outputs[3].file, try toPath("Test.abi.json"))
-      }
-    }
-
-    do {
-      // Make sure the swiftdoc path is correct for an inferred module
-      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module", "-no-emit-module-separately"])
-      let plannedJobs = try driver.planBuild()
-      XCTAssertEqual(plannedJobs.count, 3)
-      XCTAssertTrue(plannedJobs[2].tool.name.contains("swift"))
-      XCTAssertEqual(plannedJobs[2].outputs.count, driver.targetTriple.isDarwin ? 4 : 3)
-      XCTAssertEqual(plannedJobs[2].outputs[0].file, try toPath("Test.swiftmodule"))
-      XCTAssertEqual(plannedJobs[2].outputs[1].file, try toPath("Test.swiftdoc"))
-      XCTAssertEqual(plannedJobs[2].outputs[2].file, try toPath("Test.swiftsourceinfo"))
-      if driver.targetTriple.isDarwin {
-          XCTAssertEqual(plannedJobs[2].outputs[3].file, try toPath("Test.abi.json"))
-      }
-    }
-
-    do {
-      // -o specified
-      var driver = try Driver(args: ["swiftc", "-emit-module", "-o", "/tmp/test.swiftmodule", "input.swift", "-no-emit-module-separately"])
-      let plannedJobs = try driver.planBuild()
-
-      XCTAssertEqual(plannedJobs.count, 2)
-      XCTAssertEqual(plannedJobs[0].kind, .compile)
-      XCTAssertTrue(matchTemporary(plannedJobs[0].outputs[0].file, "input.swiftmodule"))
-      XCTAssertEqual(plannedJobs[1].kind, .mergeModule)
-      XCTAssertTrue(matchTemporary(plannedJobs[1].inputs[0].file, "input.swiftmodule"))
-      XCTAssertEqual(plannedJobs[1].outputs[0].file, .absolute(try .init(validating: "/tmp/test.swiftmodule")))
-    }
-  }
-
   func testEmitModuleSeparately() throws {
     var envVars = ProcessEnv.vars
     envVars["SWIFT_DRIVER_LD_EXEC"] = ld.nativePathString(escaped: false)
@@ -3689,14 +3545,6 @@ final class SwiftDriverTests: XCTestCase {
       if driver.targetTriple.isDarwin {
           XCTAssertEqual(plannedJobs[0].outputs[3].file, .absolute(try .init(validating: rebase("Test.abi.json", at: root))))
       }
-    }
-
-    do {
-      // Specifying -no-emit-module-separately uses a mergeModule job.
-      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", "/foo/bar/Test.swiftmodule", "-experimental-emit-module-separately", "-no-emit-module-separately" ])
-      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
-      XCTAssertEqual(plannedJobs.count, 3)
-      XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .mergeModule]))
     }
 
     do {
@@ -4285,11 +4133,16 @@ final class SwiftDriverTests: XCTestCase {
         "foo.swift"])
 
       let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
-      // emit module, emit module, compile foo.swift,
-      // verify target.swiftinterface,
-      // verify target.private.swiftinterface,
-      // verify target.package.swiftinterface,
-      XCTAssertEqual(plannedJobs.count, 6)
+      // emit module
+      // emit module
+      // compile foo.swift
+      // verify target.swiftinterface
+      // verify target.private.swiftinterface
+      // verify target.package.swiftinterface
+      // verify variant.swiftinterface
+      // verify variant.private.swiftinterface
+      // verify variant.package.swiftinterface
+      XCTAssertEqual(plannedJobs.count, 9)
 
       let targetModuleJob: Job = plannedJobs[0]
       let variantModuleJob = plannedJobs[1]
@@ -6363,17 +6216,6 @@ final class SwiftDriverTests: XCTestCase {
       }
     }
 
-    // Disabled by default in merge-module
-    do {
-      var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-module-name",
-                                     "foo", "-emit-module-interface",
-                                     "-enable-library-evolution",
-                                     "-no-emit-module-separately"], env: envVars)
-      let plannedJobs = try driver.planBuild()
-      XCTAssertEqual(plannedJobs.count, 2)
-      XCTAssertFalse(plannedJobs.containsJob(.verifyModuleInterface))
-    }
-
     // Emit-module separately
     do {
       var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-module-name",
@@ -6825,34 +6667,6 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[1].kind, .compile)
       XCTAssertEqual(plannedJobs[1].inputs.count, 2)
       XCTAssertEqual(plannedJobs[1].inputs[0].file, try toPath("foo.swift"))
-    }
-
-    // Ensure the merge-module step is not passed the precompiled header
-    do {
-      var driver = try Driver(args: ["swiftc", "-emit-module", "-import-objc-header", "header.h", "foo.swift", "-no-emit-module-separately"])
-      let plannedJobs = try driver.planBuild()
-      XCTAssertEqual(plannedJobs.count, 3)
-
-      XCTAssertEqual(plannedJobs[0].kind, .generatePCH)
-      XCTAssertEqual(plannedJobs[0].inputs.count, 1)
-      XCTAssertEqual(plannedJobs[0].inputs[0].file, try toPath("header.h"))
-      XCTAssertEqual(plannedJobs[0].inputs[0].type, .objcHeader)
-      XCTAssertEqual(plannedJobs[0].outputs.count, 1)
-      XCTAssertTrue(matchTemporary(plannedJobs[0].outputs[0].file, "header.pch"))
-      XCTAssertEqual(plannedJobs[0].outputs[0].type, .pch)
-      XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-emit-pch"))
-      XCTAssertTrue(commandContainsFlagTemporaryPathSequence(plannedJobs[0].commandLine,
-                                                             flag: "-o", filename: "header.pch"))
-
-      XCTAssertEqual(plannedJobs[1].kind, .compile)
-      XCTAssertTrue(commandContainsFlagTemporaryPathSequence(plannedJobs[1].commandLine,
-                                                             flag: "-import-objc-header",
-                                                             filename: "header.pch") ||
-                    commandContainsFlagTemporaryPathSequence(plannedJobs[1].commandLine,
-                                                             flag: "-import-pch",
-                                                             filename: "header.pch"))
-      XCTAssertEqual(plannedJobs[2].kind, .mergeModule)
-      try XCTAssertJobInvocationMatches(plannedJobs[2], .flag("-import-objc-header"), toPathOption("header.h"))
     }
 
     // Immediate mode doesn't generate a pch

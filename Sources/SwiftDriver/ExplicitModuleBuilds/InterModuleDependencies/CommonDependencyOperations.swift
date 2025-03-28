@@ -51,34 +51,6 @@ extension InterModuleDependencyGraph {
   }
 }
 
-@_spi(Testing) public extension InterModuleDependencyGraph {
-
-  /// Replace an existing module in the moduleInfoMap
-  static func replaceModule(originalId: ModuleDependencyId, replacementId: ModuleDependencyId,
-                            replacementInfo: ModuleInfo,
-                            in moduleInfoMap: inout ModuleInfoMap) {
-    precondition(moduleInfoMap[originalId] != nil)
-    moduleInfoMap.removeValue(forKey: originalId)
-    moduleInfoMap[replacementId] = replacementInfo
-    if originalId != replacementId {
-      updateDependencies(from: originalId, to: replacementId, in: &moduleInfoMap)
-    }
-  }
-
-  /// Replace all references to the original module in other externalModules' dependencies with the new module.
-  static func updateDependencies(from originalId: ModuleDependencyId,
-                                 to replacementId: ModuleDependencyId,
-                                 in moduleInfoMap: inout ModuleInfoMap) {
-    for moduleId in moduleInfoMap.keys {
-      var moduleInfo = moduleInfoMap[moduleId]!
-      if let originalModuleIndex = moduleInfo.directDependencies?.firstIndex(of: originalId) {
-        moduleInfo.directDependencies![originalModuleIndex] = replacementId;
-        moduleInfoMap[moduleId] = moduleInfo
-      }
-    }
-  }
-}
-
 /// Incremental Build Machinery
 internal extension InterModuleDependencyGraph {
   /// We must determine if any of the module dependencies require re-compilation
@@ -297,7 +269,7 @@ internal extension InterModuleDependencyGraph {
 }
 
 internal extension InterModuleDependencyGraph {
-  func explainDependency(dependencyModuleName: String, allPaths: Bool) throws -> [[ModuleDependencyId]]? {
+  func explainDependency(_ dependencyModuleName: String, allPaths: Bool) throws -> [[ModuleDependencyId]]? {
     guard modules.contains(where: { $0.key.moduleName == dependencyModuleName }) else { return nil }
     var result: Set<[ModuleDependencyId]> = []
     if allPaths {
