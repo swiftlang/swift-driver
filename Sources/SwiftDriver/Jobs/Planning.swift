@@ -61,7 +61,7 @@ extension Driver {
   /// Plan a standard compilation, which produces jobs for compiling separate
   /// primary files.
   private mutating func planStandardCompile() throws
-  -> ([Job], IncrementalCompilationState?, InterModuleDependencyGraph?) {
+  -> ([Job], IncrementalCompilationState?, ExplicitDependencyBuildPlanner?) {
     precondition(compilerMode.isStandardCompilationForPlanning,
                  "compiler mode \(compilerMode) is handled elsewhere")
     // Determine the initial state for incremental compilation that is required during
@@ -71,10 +71,10 @@ extension Driver {
       try IncrementalCompilationState.computeIncrementalStateForPlanning(driver: &self)
 
     // For an explicit build, compute the inter-module dependency graph
-    let interModuleDependencyGraph = try computeInterModuleDependencyGraph()
+    let explicitModulePlanner = try configureExplicitModulePlanner()
 
     // Compute the set of all jobs required to build this module
-    let jobsInPhases = try computeJobsForPhasedStandardBuild(moduleDependencyGraph: interModuleDependencyGraph,
+    let jobsInPhases = try computeJobsForPhasedStandardBuild(explicitModulePlanner: explicitModulePlanner,
                                                              initialIncrementalState: initialIncrementalState)
 
     // Determine the state for incremental compilation
@@ -85,7 +85,7 @@ extension Driver {
         try IncrementalCompilationState(driver: &self,
                                         jobsInPhases: jobsInPhases,
                                         initialState: initialState,
-                                        interModuleDepGraph: interModuleDependencyGraph)
+                                        explicitModulePlanner: explicitModulePlanner)
     } else {
       incrementalCompilationState = nil
     }
@@ -98,21 +98,30 @@ extension Driver {
     } else {
       batchedJobs = try formBatchedJobs(jobsInPhases.allJobs,
                                         showJobLifecycle: showJobLifecycle,
-                                        jobCreatingPch: jobsInPhases.allJobs.first(where: {$0.kind == .generatePCH}))
+                                        jobCreatingPch: jobsInPhases.allJobs.first(where: {$0.kind == .generatePCH}),
+                                        explicitModulePlanner: explicitModulePlanner)
     }
 
-    return (batchedJobs, incrementalCompilationState, interModuleDependencyGraph)
+    return (batchedJobs, incrementalCompilationState, explicitModulePlanner)
   }
 
   /// If performing an explicit module build, compute an inter-module dependency graph.
   /// If performing an incremental build, and the initial incremental state contains a valid
   /// graph already, it is safe to re-use without repeating the scan.
-  private mutating func computeInterModuleDependencyGraph()
-  throws -> InterModuleDependencyGraph? {
+  private mutating func configureExplicitModulePlanner(forVariantModule: Bool = false)
+  throws -> ExplicitDependencyBuildPlanner? {
     if (parsedOptions.contains(.driverExplicitModuleBuild) ||
         parsedOptions.contains(.explainModuleDependency)) &&
        inputFiles.contains(where: { $0.type.isPartOfSwiftCompilation }) {
-      return try gatherModuleDependencies()
+      let interModuleDependencyGraph = try scanModuleDependencies(forVariantModule: forVariantModule)
+      return try ExplicitDependencyBuildPlanner(dependencyGraph: interModuleDependencyGraph,
+                                                toolchain: toolchain,
+                                                integratedDriver: integratedDriver,
+                                                supportsExplicitInterfaceBuild:
+                                                  isFrontendArgSupported(.explicitInterfaceModuleBuild),
+                                                cas: cas,
+                                                supportsBridgingHeaderPCHCommand:
+                                                  interModuleDependencyOracle.supportsBridgingHeaderPCHCommand)
     } else {
       return nil
     }
@@ -122,7 +131,7 @@ extension Driver {
   /// At build time, incremental state will be used to distinguish which of these jobs must run.
   ///
   /// For Explicitly-Built module dependencies, filter out all up-to-date modules.
-  @_spi(Testing) public mutating func computeJobsForPhasedStandardBuild(moduleDependencyGraph: InterModuleDependencyGraph?,
+  @_spi(Testing) public mutating func computeJobsForPhasedStandardBuild(explicitModulePlanner: ExplicitDependencyBuildPlanner?,
                                                                         initialIncrementalState:
                                                                         IncrementalCompilationState.InitialStateForPlanning? = nil)
   throws -> JobsInPhases {
@@ -146,35 +155,72 @@ extension Driver {
       jobsAfterCompiles.append(job)
     }
 
-    try addPrecompileModuleDependenciesJobs(dependencyGraph: moduleDependencyGraph,
-                                            initialIncrementalState: initialIncrementalState,
+    try addPrecompileModuleDependenciesJobs(explicitModulePlanner: explicitModulePlanner,
+                                            incrementalRemarks: initialIncrementalState != nil && initialIncrementalState!.incrementalOptions.contains(.showIncremental),
                                             addJob: addJobBeforeCompiles)
-    try addPrecompileBridgingHeaderJob(addJob: addJobBeforeCompiles)
+    let pchCompileJob = try addPrecompileBridgingHeaderJob(explicitModulePlanner: explicitModulePlanner)
+    if pchCompileJob != nil {
+      addJobBeforeCompiles(pchCompileJob!)
+    }
     let linkerInputs = try addJobsFeedingLinker(
       addJobBeforeCompiles: addJobBeforeCompiles,
-      jobsBeforeCompiles: jobsBeforeCompiles,
+      pchCompileJob: pchCompileJob,
       addCompileJob: addCompileJob,
-      addJobAfterCompiles: addJobAfterCompiles)
+      addJobAfterCompiles: addJobAfterCompiles,
+      explicitModulePlanner: explicitModulePlanner)
+    try addVariantModuleJobs(addJobBeforeCompiles: addJobBeforeCompiles,
+                             addJobAfterCompiles: addJobAfterCompiles)
     try addAPIDigesterJobs(addJob: addJobAfterCompiles)
     try addLinkAndPostLinkJobs(linkerInputs: linkerInputs,
                                debugInfo: debugInfo,
-                               addJob: addJobAfterCompiles)
+                               addJob: addJobAfterCompiles,
+                               explicitModulePlanner: explicitModulePlanner)
 
     return JobsInPhases(beforeCompiles: jobsBeforeCompiles,
                         compileJobs: compileJobs,
                         afterCompiles: jobsAfterCompiles)
   }
 
-  private mutating func addPrecompileModuleDependenciesJobs(
-    dependencyGraph: InterModuleDependencyGraph?,
-    initialIncrementalState: IncrementalCompilationState.InitialStateForPlanning?,
-    addJob: (Job) -> Void)
-  throws {
-    guard let resolvedDependencyGraph = dependencyGraph else {
+  private mutating func addVariantModuleJobs(addJobBeforeCompiles: (Job) -> Void,
+                                             addJobAfterCompiles: (Job) -> Void) throws {
+    guard variantModuleOutputInfo != nil else {
       return
     }
-    let modulePrebuildJobs =
-        try generateExplicitModuleDependenciesJobs(dependencyGraph: resolvedDependencyGraph)
+
+    let explicitModulePlanner: ExplicitDependencyBuildPlanner? =
+             try configureExplicitModulePlanner(forVariantModule: true)
+    try addPrecompileModuleDependenciesJobs(explicitModulePlanner: explicitModulePlanner,
+                                            incrementalRemarks: false,
+                                            addJob: addJobBeforeCompiles)
+
+    let pchCompileJob = try addPrecompileBridgingHeaderJob(explicitModulePlanner: explicitModulePlanner)
+    if pchCompileJob != nil {
+      addJobBeforeCompiles(pchCompileJob!)
+    }
+
+    let emitVariantModuleJob = try addEmitModuleJob(
+      addJobBeforeCompiles: addJobBeforeCompiles,
+      pchCompileJob: pchCompileJob,
+      explicitModulePlanner: explicitModulePlanner,
+      isVariantModule: true)!
+
+    if emitVariantModuleJob.outputs.contains(where: { out in out.type == .swiftInterface }) {
+      try addVerifyJobs(emitModuleJob: emitVariantModuleJob, addJob: addJobAfterCompiles,
+                        explicitModulePlanner: explicitModulePlanner,
+                        forVariantModule: true)
+
+    }
+  }
+
+  private mutating func addPrecompileModuleDependenciesJobs(
+    explicitModulePlanner: ExplicitDependencyBuildPlanner?,
+    incrementalRemarks: Bool,
+    addJob: (Job) -> Void)
+  throws {
+    guard var resolvedModulePlanner = explicitModulePlanner else {
+      return
+    }
+    let modulePrebuildJobs = try resolvedModulePlanner.generateExplicitModuleDependenciesBuildJobs()
     // If asked, add jobs to precompile module dependencies. Otherwise exit.
     // We may have a dependency graph but not be required to add pre-compile jobs to the build plan,
     // for example when `-explain-dependency` is being used.
@@ -186,36 +232,37 @@ extension Driver {
     if parsedOptions.contains(.alwaysRebuildModuleDependencies) {
       mandatoryModuleCompileJobs = modulePrebuildJobs
     } else {
-      let enableIncrementalRemarks = initialIncrementalState != nil && initialIncrementalState!.incrementalOptions.contains(.showIncremental)
-      let reporter: IncrementalCompilationState.Reporter? = enableIncrementalRemarks ?
+      let reporter: IncrementalCompilationState.Reporter? = incrementalRemarks ?
                                      IncrementalCompilationState.Reporter(diagnosticEngine: diagnosticEngine, outputFileMap: outputFileMap) : nil
       mandatoryModuleCompileJobs =
-        try resolvedDependencyGraph.filterMandatoryModuleDependencyCompileJobs(modulePrebuildJobs,
-                                                                               fileSystem: fileSystem,
-                                                                               cas: cas,
-                                                                               reporter: reporter)
+        try resolvedModulePlanner.filterMandatoryModuleDependencyCompileJobs(modulePrebuildJobs,
+                                                                             fileSystem: fileSystem,
+                                                                             cas: cas,
+                                                                             reporter: reporter)
     }
     mandatoryModuleCompileJobs.forEach(addJob)
   }
 
 
-  private mutating func addPrecompileBridgingHeaderJob(addJob: (Job) -> Void) throws {
+  private mutating func addPrecompileBridgingHeaderJob(explicitModulePlanner: ExplicitDependencyBuildPlanner?) throws -> Job? {
+    let (importedObjCHeader, precompiledObjCHeader) =
+              try computeCanonicalObjCHeader(explicitModulePlanner: explicitModulePlanner)
     guard
       let importedObjCHeader = importedObjCHeader,
-      let bridgingPrecompiledHeader = bridgingPrecompiledHeader
-    else { return }
+      let bridgingPrecompiledHeader = precompiledObjCHeader
+    else { return nil }
 
-    addJob(
-      try generatePCHJob(input:  .init(file: importedObjCHeader,
-                                       type: .objcHeader),
-                         output: .init(file: bridgingPrecompiledHeader,
-                                       type: .pch))
-    )
+    return try generatePCHJob(input:  .init(file: importedObjCHeader,
+                                            type: .objcHeader),
+                              output: .init(file: bridgingPrecompiledHeader,
+                                            type: .pch),
+                              explicitModulePlanner: explicitModulePlanner)
   }
 
   private mutating func addEmitModuleJob(
     addJobBeforeCompiles: (Job) -> Void,
     pchCompileJob: Job?,
+    explicitModulePlanner: ExplicitDependencyBuildPlanner?,
     isVariantModule: Bool = false) throws -> Job? {
       // The target variant module is always emitted separately, so we need to
       // add an explicit job regardless of whether the primary target was
@@ -223,7 +270,8 @@ extension Driver {
       if emitModuleSeparately || isVariantModule {
         let emitJob = try emitModuleJob(
           pchCompileJob: pchCompileJob,
-          isVariantJob: isVariantModule)
+          explicitModulePlanner: explicitModulePlanner,
+          forVariantModule: isVariantModule)
         addJobBeforeCompiles(emitJob)
         return emitJob
       }
@@ -232,9 +280,10 @@ extension Driver {
 
   private mutating func addJobsFeedingLinker(
     addJobBeforeCompiles: (Job) -> Void,
-    jobsBeforeCompiles: [Job],
+    pchCompileJob: Job?,
     addCompileJob: (Job) -> Void,
-    addJobAfterCompiles: (Job) -> Void
+    addJobAfterCompiles: (Job) -> Void,
+    explicitModulePlanner: ExplicitDependencyBuildPlanner?
   ) throws -> [TypedVirtualPath] {
 
     var linkerInputs = [TypedVirtualPath]()
@@ -268,23 +317,23 @@ extension Driver {
       assert(jobCreatingSwiftModule == nil)
       jobCreatingSwiftModule = emitModuleJob
 
-      try addVerifyJobs(emitModuleJob: emitModuleJob, addJob: addJobAfterCompiles)
+      try addVerifyJobs(emitModuleJob: emitModuleJob, addJob: addJobAfterCompiles,
+                        explicitModulePlanner: explicitModulePlanner)
     }
-
-    // Try to see if we scheduled a pch compile job. If so, pass it to the comile jobs.
-    let jobCreatingPch: Job? = jobsBeforeCompiles.first(where: {$0.kind == .generatePCH})
 
     // Whole-module
     if let compileJob = try addSingleCompileJobs(addJob: addJobBeforeCompiles,
                              addJobOutputs: addJobOutputs,
-                             pchCompileJob: jobCreatingPch,
-                             emitModuleTrace: loadedModuleTracePath != nil) {
+                             pchCompileJob: pchCompileJob,
+                             emitModuleTrace: loadedModuleTracePath != nil,
+                             explicitModulePlanner: explicitModulePlanner) {
       try addPostModuleFilesJobs(compileJob)
     }
 
     // Emit-module-separately
     if let emitModuleJob = try addEmitModuleJob(addJobBeforeCompiles: addJobBeforeCompiles,
-                                                pchCompileJob: jobCreatingPch) {
+                                                pchCompileJob: pchCompileJob,
+                                                explicitModulePlanner: explicitModulePlanner) {
       try addPostModuleFilesJobs(emitModuleJob)
 
       try addWrapJobOrMergeOutputs(
@@ -294,18 +343,12 @@ extension Driver {
         addLinkerInput: addLinkerInput)
     }
 
-    if variantModuleOutputInfo != nil {
-      _ = try addEmitModuleJob(
-        addJobBeforeCompiles: addJobBeforeCompiles,
-        pchCompileJob: jobCreatingPch,
-        isVariantModule: true)
-    }
-
     try addJobsForPrimaryInputs(
       addCompileJob: addCompileJob,
       addLinkerInput: addLinkerInput,
       addJobOutputs: addJobOutputs,
-      pchCompileJob: jobCreatingPch)
+      pchCompileJob: pchCompileJob,
+      explicitModulePlanner: explicitModulePlanner)
 
     try addAutolinkExtractJob(linkerInputs: linkerInputs,
                               addLinkerInput: addLinkerInput,
@@ -319,7 +362,8 @@ extension Driver {
     addJob: (Job) -> Void,
     addJobOutputs: ([TypedVirtualPath]) -> Void,
     pchCompileJob: Job?,
-    emitModuleTrace: Bool
+    emitModuleTrace: Bool,
+    explicitModulePlanner: ExplicitDependencyBuildPlanner?
   ) throws -> Job? {
     guard case .singleCompile = compilerMode,
           inputFiles.contains(where: { $0.type.isPartOfSwiftCompilation })
@@ -331,7 +375,8 @@ extension Driver {
                                  addJobOutputs: addJobOutputs,
                                  pchCompileJob: pchCompileJob,
                                  emitModuleTrace: emitModuleTrace,
-                                 produceCacheKey: true)
+                                 produceCacheKey: true,
+                                 explicitModulePlanner: explicitModulePlanner)
     addJob(compile)
     return compile
   }
@@ -340,7 +385,8 @@ extension Driver {
     addCompileJob: (Job) -> Void,
     addLinkerInput: (TypedVirtualPath) -> Void,
     addJobOutputs: ([TypedVirtualPath]) -> Void,
-    pchCompileJob: Job?)
+    pchCompileJob: Job?,
+    explicitModulePlanner: ExplicitDependencyBuildPlanner?)
   throws {
     let loadedModuleTraceInputIndex = inputFiles.firstIndex(where: {
       $0.type.isPartOfSwiftCompilation && loadedModuleTracePath != nil
@@ -353,7 +399,8 @@ extension Driver {
         addLinkerInput: addLinkerInput,
         addJobOutputs: addJobOutputs,
         pchCompileJob: pchCompileJob,
-        emitModuleTrace: index == loadedModuleTraceInputIndex)
+        emitModuleTrace: index == loadedModuleTraceInputIndex,
+        explicitModulePlanner: explicitModulePlanner)
     }
   }
 
@@ -363,7 +410,8 @@ extension Driver {
     addLinkerInput: (TypedVirtualPath) -> Void,
     addJobOutputs: ([TypedVirtualPath]) -> Void,
     pchCompileJob: Job?,
-    emitModuleTrace: Bool
+    emitModuleTrace: Bool,
+    explicitModulePlanner: ExplicitDependencyBuildPlanner?
   ) throws
   {
     switch input.type {
@@ -380,7 +428,8 @@ extension Driver {
                                       canSkipIfOnlyModule: canSkipIfOnlyModule,
                                       pchCompileJob: pchCompileJob,
                                       addCompileJob: addCompileJob,
-                                      addJobOutputs: addJobOutputs)
+                                      addJobOutputs: addJobOutputs,
+                                      explicitModulePlanner: explicitModulePlanner)
 
     case .object, .autolink, .llvmBitcode, .tbd:
       if linkerOutputType != nil {
@@ -409,7 +458,8 @@ extension Driver {
     canSkipIfOnlyModule: Bool,
     pchCompileJob: Job?,
     addCompileJob: (Job) -> Void,
-    addJobOutputs: ([TypedVirtualPath]) -> Void
+    addJobOutputs: ([TypedVirtualPath]) -> Void,
+    explicitModulePlanner: ExplicitDependencyBuildPlanner?
   )  throws {
     // We can skip the compile jobs if all we want is a module when it's
     // built separately.
@@ -421,7 +471,8 @@ extension Driver {
                                  addJobOutputs: addJobOutputs,
                                  pchCompileJob: pchCompileJob,
                                  emitModuleTrace: emitModuleTrace,
-                                 produceCacheKey: !compilerMode.isBatchCompile)
+                                 produceCacheKey: !compilerMode.isBatchCompile,
+                                 explicitModulePlanner: explicitModulePlanner)
     addCompileJob(compile)
   }
 
@@ -472,7 +523,9 @@ extension Driver {
     return Set<String>(allModules)
   }
 
-  private mutating func addVerifyJobs(emitModuleJob: Job, addJob: (Job) -> Void )
+  private mutating func addVerifyJobs(emitModuleJob: Job, addJob: (Job) -> Void,
+                                      explicitModulePlanner: ExplicitDependencyBuildPlanner?,
+                                      forVariantModule: Bool = false)
   throws {
     guard
       // Only verify modules with library evolution.
@@ -515,13 +568,19 @@ extension Driver {
       case Public, Private, Package
     }
 
-    func addVerifyJob(for mode: InterfaceMode) throws {
+    func addVerifyJob(for mode: InterfaceMode,
+                      explicitModulePlanner: ExplicitDependencyBuildPlanner?,
+                      forVariantModule: Bool) throws {
       var isNeeded = false
       var outputType: FileType
 
       switch mode {
       case .Public:
-        isNeeded = parsedOptions.hasArgument(.emitModuleInterface, .emitModuleInterfacePath)
+        if forVariantModule {
+          isNeeded = parsedOptions.hasArgument(.emitVariantModuleInterfacePath)
+        } else {
+          isNeeded = parsedOptions.hasArgument(.emitModuleInterface, .emitModuleInterfacePath)
+        }
         outputType = FileType.swiftInterface
       case .Private:
         isNeeded = parsedOptions.hasArgument(.emitPrivateModuleInterfacePath)
@@ -538,13 +597,15 @@ extension Driver {
              "Merge module job should only have one swiftinterface output")
       let job = try verifyModuleInterfaceJob(interfaceInput: mergeInterfaceOutputs[0],
                                              emitModuleJob: emitModuleJob,
-                                             reportAsError: reportAsError)
+                                             reportAsError: reportAsError,
+                                             explicitModulePlanner: explicitModulePlanner,
+                                             forVariantModule: forVariantModule)
       addJob(job)
     }
-    try addVerifyJob(for: .Public)
-    try addVerifyJob(for: .Private)
+    try addVerifyJob(for: .Public, explicitModulePlanner: explicitModulePlanner, forVariantModule: forVariantModule)
+    try addVerifyJob(for: .Private, explicitModulePlanner: explicitModulePlanner, forVariantModule: forVariantModule)
     if parsedOptions.hasArgument(.packageName) {
-      try addVerifyJob(for: .Package)
+      try addVerifyJob(for: .Package, explicitModulePlanner: explicitModulePlanner, forVariantModule: forVariantModule)
     }
   }
 
@@ -603,12 +664,14 @@ extension Driver {
   private mutating func addLinkAndPostLinkJobs(
     linkerInputs: [TypedVirtualPath],
     debugInfo: DebugInfo,
-    addJob: (Job) -> Void
+    addJob: (Job) -> Void,
+    explicitModulePlanner: ExplicitDependencyBuildPlanner?
   ) throws {
     guard linkerOutputType != nil && !linkerInputs.isEmpty
     else { return }
 
-    let linkJ = try linkJob(inputs: linkerInputs)
+    let linkJ = try linkJob(inputs: linkerInputs,
+                            explicitModulePlanner: explicitModulePlanner)
     addJob(linkJ)
     guard targetTriple.isDarwin
     else { return }
@@ -628,24 +691,6 @@ extension Driver {
     if debugInfo.shouldVerify {
       addJob(try verifyDebugInfoJob(inputs: dsymJob.outputs))
     }
-  }
-
-  /// Scan the source files to produce a module dependency graph and turn it into a set
-  /// of jobs required to build all dependencies.
-  public mutating func generateExplicitModuleDependenciesJobs(dependencyGraph: InterModuleDependencyGraph)
-  throws -> [Job] {
-    // Plan build jobs for all direct and transitive module dependencies of the current target
-    explicitDependencyBuildPlanner =
-      try ExplicitDependencyBuildPlanner(dependencyGraph: dependencyGraph,
-                                         toolchain: toolchain,
-                                         dependencyOracle: interModuleDependencyOracle,
-                                         integratedDriver: integratedDriver,
-                                         supportsExplicitInterfaceBuild:
-                                         isFrontendArgSupported(.explicitInterfaceModuleBuild),
-                                         cas: cas,
-                                         prefixMap: prefixMapping)
-
-    return try explicitDependencyBuildPlanner!.generateExplicitModuleDependenciesBuildJobs()
   }
 }
 
@@ -710,7 +755,7 @@ extension Driver {
   /// Plan a build by producing a set of jobs to complete the build.
   /// Should be private, but compiler bug
   /*private*/ mutating func planPossiblyIncrementalBuild() throws
-  -> ([Job], IncrementalCompilationState?, InterModuleDependencyGraph?) {
+  -> ([Job], IncrementalCompilationState?, ExplicitDependencyBuildPlanner?) {
 
     if let job = try immediateForwardingJob() {
       return ([job], nil, nil)
@@ -736,13 +781,11 @@ extension Driver {
     case .immediate:
       var jobs: [Job] = []
       // Run the dependency scanner if this is an explicit module build
-      let moduleDependencyGraph =
-        try parsedOptions.contains(.driverExplicitModuleBuild) ?
-          gatherModuleDependencies() : nil
-      try addPrecompileModuleDependenciesJobs(dependencyGraph: moduleDependencyGraph,
-                                              initialIncrementalState: nil,
+      let explicitModulePlanner = parsedOptions.contains(.driverExplicitModuleBuild) ? try configureExplicitModulePlanner() : nil
+      try addPrecompileModuleDependenciesJobs(explicitModulePlanner: explicitModulePlanner,
+                                              incrementalRemarks: false,
                                               addJob: { jobs.append($0) })
-      jobs.append(try interpretJob(inputs: inputFiles))
+      jobs.append(try interpretJob(inputs: inputFiles, explicitModulePlanner: explicitModulePlanner))
       return (jobs, nil, nil)
 
     case .standardCompile, .batchCompile, .singleCompile:
@@ -752,13 +795,15 @@ extension Driver {
       if inputFiles.count != 1 {
         throw PlanningError.emitPCMWrongInputFiles
       }
-      return ([try generateEmitPCMJob(input: inputFiles.first!)], nil, nil)
+      return ([try generateEmitPCMJob(input: inputFiles.first!,
+                                      explicitModulePlanner: nil)], nil, nil)
 
     case .dumpPCM:
       if inputFiles.count != 1 {
         throw PlanningError.dumpPCMWrongInputFiles
       }
-      return ([try generateDumpPCMJob(input: inputFiles.first!)], nil, nil)
+      return ([try generateDumpPCMJob(input: inputFiles.first!,
+                                      explicitModulePlanner: nil)], nil, nil)
     case .intro:
       return (try helpIntroJobs(), nil, nil)
     }
@@ -784,7 +829,8 @@ extension Driver {
   ///
   /// So, in order to avoid making jobs and rebatching, the code would have to just get outputs for each
   /// compilation. But `compileJob` intermixes the output computation with other stuff.
-  mutating func formBatchedJobs(_ jobs: [Job], showJobLifecycle: Bool, jobCreatingPch: Job?) throws -> [Job] {
+  mutating func formBatchedJobs(_ jobs: [Job], showJobLifecycle: Bool, jobCreatingPch: Job?,
+                                explicitModulePlanner: ExplicitDependencyBuildPlanner?) throws -> [Job] {
     guard compilerMode.isBatchCompile else {
       // Don't even go through the logic so as to not print out confusing
       // "batched foobar" messages.
@@ -839,7 +885,8 @@ extension Driver {
                             addJobOutputs: {_ in },
                             pchCompileJob: jobCreatingPch,
                             emitModuleTrace: constituentsEmittedModuleTrace,
-                            produceCacheKey: true)
+                            produceCacheKey: true,
+                            explicitModulePlanner: explicitModulePlanner)
     }
     return batchedCompileJobs + noncompileJobs
   }

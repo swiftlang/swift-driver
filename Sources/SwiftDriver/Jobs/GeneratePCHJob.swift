@@ -13,28 +13,33 @@
 import struct TSCBasic.RelativePath
 
 extension Driver {
-  mutating func addGeneratePCHFlags(commandLine: inout [Job.ArgTemplate], inputs: inout [TypedVirtualPath]) throws {
+  mutating func addGeneratePCHFlags(commandLine: inout [Job.ArgTemplate], inputs: inout [TypedVirtualPath],
+                                    explicitModulePlanner: ExplicitDependencyBuildPlanner?) throws {
     commandLine.appendFlag("-frontend")
 
     try addCommonFrontendOptions(
-      commandLine: &commandLine, inputs: &inputs, kind: .generatePCH, bridgingHeaderHandling: .parsed)
+      commandLine: &commandLine, inputs: &inputs, kind: .generatePCH, bridgingHeaderHandling: .parsed,
+      explicitModulePlanner: explicitModulePlanner)
 
     try commandLine.appendLast(.indexStorePath, from: &parsedOptions)
 
     commandLine.appendFlag(.emitPch)
   }
 
-  mutating func generatePCHJob(input: TypedVirtualPath, output: TypedVirtualPath) throws -> Job {
+  mutating func generatePCHJob(input: TypedVirtualPath, output: TypedVirtualPath,
+                               explicitModulePlanner: ExplicitDependencyBuildPlanner?) throws -> Job {
     var inputs = [TypedVirtualPath]()
     var outputs = [TypedVirtualPath]()
 
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
 
-    if supportsBridgingHeaderPCHCommand {
-      try addExplicitPCHBuildArguments(inputs: &inputs, commandLine: &commandLine)
+    if let explicitModulePlanner = explicitModulePlanner,
+       explicitModulePlanner.supportsBridgingHeaderPCHCommand  {
+      explicitModulePlanner.resolveBridgingHeaderDependencies(inputs: &inputs, commandLine: &commandLine)
       addCacheReplayMapping(to: &commandLine)
     } else {
-      try addGeneratePCHFlags(commandLine: &commandLine, inputs: &inputs)
+      try addGeneratePCHFlags(commandLine: &commandLine, inputs: &inputs,
+                              explicitModulePlanner: explicitModulePlanner)
     }
     try addRuntimeLibraryFlags(commandLine: &commandLine)
 
@@ -84,5 +89,22 @@ extension Driver {
       outputs: outputs,
       outputCacheKeys: cacheKeys
     )
+  }
+}
+
+extension Driver {
+  mutating func computeCanonicalObjCHeader(explicitModulePlanner: ExplicitDependencyBuildPlanner?)
+  throws -> (VirtualPath.Handle?, VirtualPath.Handle?) {
+    let contextHash = try? explicitModulePlanner?.getMainModuleContextHash()
+    let chainedBridgingHeader = explicitModulePlanner?.chainedBridgingHeaderFile
+    let importedObjCHeader = try computeImportedObjCHeader(&parsedOptions, compilerMode: compilerMode,
+                                                           chainedBridgingHeader: chainedBridgingHeader) ?? originalObjCHeaderFile
+    let precompiledHeader = computeBridgingPrecompiledHeader(&parsedOptions,
+                                            compilerMode: compilerMode,
+                                            importedObjCHeader: importedObjCHeader,
+                                            outputFileMap: outputFileMap,
+                                            outputDirectory: bridgingPrecompiledHeaderOutputDir,
+                                            contextHash: contextHash)
+    return (importedObjCHeader, precompiledHeader)
   }
 }
