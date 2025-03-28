@@ -157,7 +157,7 @@ extension IncrementalCompilationState {
 extension IncrementalCompilationState {
   /// Only used when no compilations have run; otherwise the caller assumes every post-compile
   /// job is needed, and saves the cost of the filesystem accesses by not calling this function.
-  /// (For instance, if a build is cancelled in the merge-module phase, the compilations may be up-to-date
+  /// (For instance, if a build is cancelled, the compilations may be up-to-date
   /// but the postcompile-jobs (e.g. link-edit) may still need to be run.
   /// Since the use-case is rare, this function can afford to be expensive.
   /// Unlike the check in `IncrementalStateComputer.computeChangedInputs`,

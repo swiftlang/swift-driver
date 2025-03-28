@@ -50,26 +50,14 @@ extension Diagnostic.Message {
 @_spi(Testing) public extension Driver {
   /// Scan the current module's input source-files to compute its direct and transitive
   /// module dependencies.
-  mutating func gatherModuleDependencies()
+  mutating func scanModuleDependencies(forVariantModule: Bool)
   throws -> InterModuleDependencyGraph {
-    var dependencyGraph = try performDependencyScan()
+    let dependencyGraph = try performDependencyScan(forVariantModule: forVariantModule)
 
     if parsedOptions.hasArgument(.printPreprocessedExplicitDependencyGraph) {
       try stdoutStream.send(dependencyGraph.toJSONString())
       stdoutStream.flush()
     }
-
-    if let externalTargetDetails = externalTargetModuleDetailsMap {
-      // Resolve external dependencies in the dependency graph, if any.
-      try dependencyGraph.resolveExternalDependencies(for: externalTargetDetails)
-    }
-
-    // Re-scan Clang modules at all the targets they will be built against.
-    // This is currently disabled because we are investigating it being unnecessary
-    // try resolveVersionedClangDependencies(dependencyGraph: &dependencyGraph)
-
-    // Set dependency modules' paths to be saved in the module cache.
-    // try resolveDependencyModulePaths(dependencyGraph: &dependencyGraph)
 
     if parsedOptions.hasArgument(.printExplicitDependencyGraph) {
       let outputFormat = parsedOptions.getLastArgument(.explicitDependencyGraphFormat)?.asSingle
@@ -81,6 +69,13 @@ extension Diagnostic.Message {
       stdoutStream.flush()
     }
 
+    // If we're only supposed to explain a dependency on a given module, do so now.
+    if let explainModuleName = parsedOptions.getLastArgument(.explainModuleDependencyDetailed) {
+      try explainModuleDependency(explainModuleName.asSingle, allPaths: true, moduleDependencyGraph: dependencyGraph)
+    } else if let explainModuleNameDetailed = parsedOptions.getLastArgument(.explainModuleDependency) {
+      try explainModuleDependency(explainModuleNameDetailed.asSingle, allPaths: false, moduleDependencyGraph: dependencyGraph)
+    }
+
     return dependencyGraph
   }
 }
@@ -89,8 +84,8 @@ public extension Driver {
   /// Precompute the dependencies for a given Swift compilation, producing a
   /// dependency graph including all Swift and C module files and
   /// source files.
-  mutating func dependencyScanningJob() throws -> Job {
-    let (inputs, commandLine) = try dependencyScannerInvocationCommand()
+  mutating func dependencyScanningJob(forVariantModule: Bool) throws -> Job {
+    let (inputs, commandLine) = try dependencyScannerInvocationCommand(forVariantModule: forVariantModule)
 
     // Construct the scanning job.
     return Job(moduleName: moduleOutputInfo.name,
@@ -105,7 +100,7 @@ public extension Driver {
 
   /// Generate a full command-line invocation to be used for the dependency scanning action
   /// on the target module.
-  @_spi(Testing) mutating func dependencyScannerInvocationCommand()
+  @_spi(Testing) mutating func dependencyScannerInvocationCommand(forVariantModule: Bool)
   throws -> ([TypedVirtualPath],[Job.ArgTemplate]) {
     // Aggregate the fast dependency scanner arguments
     var inputs: [TypedVirtualPath] = []
@@ -114,7 +109,8 @@ public extension Driver {
     commandLine.appendFlag("-scan-dependencies")
     try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs, kind: .scanDependencies,
                                  bridgingHeaderHandling: .parsed,
-                                 moduleDependencyGraphUse: .dependencyScan)
+                                 explicitModulePlanner: nil,
+                                 forVariantEmitModule: forVariantModule)
     try addRuntimeLibraryFlags(commandLine: &commandLine)
 
     // Pass in external target dependencies to be treated as placeholder dependencies by the scanner
@@ -300,8 +296,8 @@ public extension Driver {
     }
   }
 
-  mutating func performDependencyScan() throws -> InterModuleDependencyGraph {
-    let scannerJob = try dependencyScanningJob()
+  mutating func performDependencyScan(forVariantModule: Bool = false) throws -> InterModuleDependencyGraph {
+    let scannerJob = try dependencyScanningJob(forVariantModule: forVariantModule)
     let forceResponseFiles = parsedOptions.hasArgument(.driverForceResponseFiles)
     let dependencyGraph: InterModuleDependencyGraph
 
@@ -354,7 +350,7 @@ public extension Driver {
     commandLine.appendFlag("-import-prescan")
     try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs, kind: .scanDependencies,
                                  bridgingHeaderHandling: .parsed,
-                                 moduleDependencyGraphUse: .dependencyScan)
+                                 explicitModulePlanner: nil)
     try addRuntimeLibraryFlags(commandLine: &commandLine)
 
     // Pass on the input files

@@ -624,7 +624,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
 
       let jobs = try driver.planBuild()
       // Figure out which Triples to use.
-      let dependencyGraph = try driver.gatherModuleDependencies()
+      let dependencyGraph = try driver.scanModuleDependencies()
       let mainModuleInfo = try dependencyGraph.moduleInfo(of: .swift("testExplicitModuleBuildJobs"))
       guard case .swift(_) = mainModuleInfo.details else {
         XCTFail("Main module does not have Swift details field")
@@ -896,7 +896,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       }
       let jobs = try driver.planBuild()
       // Figure out which Triples to use.
-      let dependencyGraph = try driver.gatherModuleDependencies()
+      let dependencyGraph = try driver.scanModuleDependencies()
       let mainModuleInfo = try dependencyGraph.moduleInfo(of: .swift("testExplicitModuleVerifyInterfaceJobs"))
       guard case .swift(_) = mainModuleInfo.details else {
         XCTFail("Main module does not have Swift details field")
@@ -1031,7 +1031,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
 
       let jobs = try driver.planBuild()
       // Figure out which Triples to use.
-      let dependencyGraph = try driver.gatherModuleDependencies()
+      let dependencyGraph = try driver.scanModuleDependencies()
       let mainModuleInfo = try dependencyGraph.moduleInfo(of: .swift("testExplicitModuleBuildPCHOutputJobs"))
       guard case .swift(_) = mainModuleInfo.details else {
         XCTFail("Main module does not have Swift details field")
@@ -1166,7 +1166,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       XCTAssertJobInvocationMatches(interpretJob, .flag("-Xcc"), .flag("-fno-implicit-modules"))
 
       // Figure out which Triples to use.
-      let dependencyGraph = try driver.gatherModuleDependencies()
+      let dependencyGraph = try driver.scanModuleDependencies()
       let mainModuleInfo = try dependencyGraph.moduleInfo(of: .swift("testExplicitModuleBuildJobs"))
       guard case .swift(_) = mainModuleInfo.details else {
         XCTFail("Main module does not have Swift details field")
@@ -1299,7 +1299,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                      ] + sdkArgumentsForTesting)
 
       // Resulting graph should contain the real module name Bar
-      let dependencyGraphA = try driverA.gatherModuleDependencies()
+      let dependencyGraphA = try driverA.scanModuleDependencies()
       XCTAssertTrue(dependencyGraphA.modules.contains { (key: ModuleDependencyId, value: ModuleInfo) in
         key.moduleName == "Bar"
       })
@@ -1326,7 +1326,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                      ] + sdkArgumentsForTesting)
 
       // Resulting graph should contain the real module name Bar
-      let dependencyGraphB = try driverB.gatherModuleDependencies()
+      let dependencyGraphB = try driverB.scanModuleDependencies()
       XCTAssertTrue(dependencyGraphB.modules.contains { (key: ModuleDependencyId, value: ModuleInfo) in
         key.moduleName == "Bar"
       })
@@ -1373,7 +1373,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       }
 
       // Resulting graph should contain the real module name Bar
-      let dependencyGraphA = try driverA.gatherModuleDependencies()
+      let dependencyGraphA = try driverA.scanModuleDependencies()
       XCTAssertTrue(dependencyGraphA.modules.contains { (key: ModuleDependencyId, value: ModuleInfo) in
         key.moduleName == "E"
       })
@@ -1399,7 +1399,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                      ] + sdkArgumentsForTesting)
 
       // Resulting graph should contain the real module name Bar
-      let dependencyGraphB = try driverB.gatherModuleDependencies()
+      let dependencyGraphB = try driverB.scanModuleDependencies()
       XCTAssertTrue(dependencyGraphB.modules.contains { (key: ModuleDependencyId, value: ModuleInfo) in
         key.moduleName == "E"
       })
