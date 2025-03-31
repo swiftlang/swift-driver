@@ -59,8 +59,9 @@ public final class CachedCompilation {
         } else {
           obj.callback(DependencyScanningError.casError("unknown makeGlobal error"))
         }
+      } else {
+        obj.callback(nil)
       }
-      obj.callback(nil)
     }
 
     let context = CallbackContext(self, callback)
