@@ -314,7 +314,7 @@ public struct Driver {
   /// Code & data for incremental compilation. Nil if not running in incremental mode.
   /// Set during planning because needs the jobs to look at outputs.
   @_spi(Testing) public private(set) var incrementalCompilationState: IncrementalCompilationState? = nil
-  
+
   /// The graph of explicit module dependencies of this module, if the driver has planned an explicit module build.
   public private(set) var intermoduleDependencyGraph: InterModuleDependencyGraph? = nil
 
@@ -703,6 +703,14 @@ public struct Driver {
     return try toolchain.lookupSwiftScanLib()
   }
 
+  func findBlocklists() throws ->  [AbsolutePath] {
+    if let mockBlocklistDir = env["_SWIFT_DRIVER_MOCK_BLOCK_LIST_DIR"] {
+      // Use testing block-list directory.
+      return try Driver.findBlocklists(RelativeTo: try AbsolutePath(validating: mockBlocklistDir))
+    }
+    return try Driver.findBlocklists(RelativeTo: try toolchain.executableDir)
+  }
+
   @_spi(Testing)
   public static func findBlocklists(RelativeTo execDir: AbsolutePath) throws ->  [AbsolutePath] {
     // Expect to find all blocklists in such dir:
@@ -890,7 +898,7 @@ public struct Driver {
       let cwd = fileSystem.currentWorkingDirectory
       return try cwd.map{ try AbsolutePath(validating: workingDirectoryArg.asSingle, relativeTo: $0) } ?? AbsolutePath(validating: workingDirectoryArg.asSingle)
     }
-    
+
     if let specifiedWorkingDir = self.workingDirectory {
       // Apply the working directory to the parsed options if passed explicitly.
       try Self.applyWorkingDirectory(specifiedWorkingDir, to: &self.parsedOptions)
@@ -987,8 +995,8 @@ public struct Driver {
 
     self.lto = Self.ltoKind(&parsedOptions, diagnosticsEngine: diagnosticsEngine)
     // Figure out the primary outputs from the driver.
-    (self.compilerOutputType, self.linkerOutputType) = 
-      Self.determinePrimaryOutputs(&parsedOptions, targetTriple: self.frontendTargetInfo.target.triple, 
+    (self.compilerOutputType, self.linkerOutputType) =
+      Self.determinePrimaryOutputs(&parsedOptions, targetTriple: self.frontendTargetInfo.target.triple,
                                    driverKind: driverKind, diagnosticsEngine: diagnosticEngine)
 
     // Multithreading.
@@ -1980,12 +1988,12 @@ extension Driver {
     guard let buildRecordInfo = self.buildRecordInfo, let incrementalCompilationState = self.incrementalCompilationState else {
       return
     }
-    
+
     let buildRecord = buildRecordInfo.buildRecord(
       jobs, self.incrementalCompilationState?.blockingConcurrentMutationToProtectedState{
         $0.skippedCompilationInputs
       })
-    
+
     do {
       try incrementalCompilationState.writeDependencyGraph(to: buildRecordInfo.dependencyGraphPath, buildRecord)
     } catch {
