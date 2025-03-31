@@ -314,7 +314,7 @@ public struct Driver {
   /// Code & data for incremental compilation. Nil if not running in incremental mode.
   /// Set during planning because needs the jobs to look at outputs.
   @_spi(Testing) public private(set) var incrementalCompilationState: IncrementalCompilationState? = nil
-  
+
   /// The graph of explicit module dependencies of this module, if the driver has planned an explicit module build.
   public private(set) var intermoduleDependencyGraph: InterModuleDependencyGraph? = nil
 
@@ -890,7 +890,7 @@ public struct Driver {
       let cwd = fileSystem.currentWorkingDirectory
       return try cwd.map{ try AbsolutePath(validating: workingDirectoryArg.asSingle, relativeTo: $0) } ?? AbsolutePath(validating: workingDirectoryArg.asSingle)
     }
-    
+
     if let specifiedWorkingDir = self.workingDirectory {
       // Apply the working directory to the parsed options if passed explicitly.
       try Self.applyWorkingDirectory(specifiedWorkingDir, to: &self.parsedOptions)
@@ -987,8 +987,8 @@ public struct Driver {
 
     self.lto = Self.ltoKind(&parsedOptions, diagnosticsEngine: diagnosticsEngine)
     // Figure out the primary outputs from the driver.
-    (self.compilerOutputType, self.linkerOutputType) = 
-      Self.determinePrimaryOutputs(&parsedOptions, targetTriple: self.frontendTargetInfo.target.triple, 
+    (self.compilerOutputType, self.linkerOutputType) =
+      Self.determinePrimaryOutputs(&parsedOptions, targetTriple: self.frontendTargetInfo.target.triple,
                                    driverKind: driverKind, diagnosticsEngine: diagnosticEngine)
 
     // Multithreading.
@@ -1121,7 +1121,7 @@ public struct Driver {
     }
     var maybeNeedPCH = parsedOptions.hasFlag(positive: .enableBridgingPch, negative: .disableBridgingPch, default: true)
     if enableCaching && !maybeNeedPCH {
-      diagnosticsEngine.emit(.warning("-cache-compile-job cannot be used with -disable-bridging-pch, turn on PCH generation"),
+      diagnosticsEngine.emit(.warning("-disable-bridging-pch is ignored because compilation caching (-cache-compile-job) is used"),
                              location: nil)
       maybeNeedPCH = true
     }
@@ -1980,12 +1980,12 @@ extension Driver {
     guard let buildRecordInfo = self.buildRecordInfo, let incrementalCompilationState = self.incrementalCompilationState else {
       return
     }
-    
+
     let buildRecord = buildRecordInfo.buildRecord(
       jobs, self.incrementalCompilationState?.blockingConcurrentMutationToProtectedState{
         $0.skippedCompilationInputs
       })
-    
+
     do {
       try incrementalCompilationState.writeDependencyGraph(to: buildRecordInfo.dependencyGraphPath, buildRecord)
     } catch {
