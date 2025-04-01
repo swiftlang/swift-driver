@@ -188,9 +188,10 @@ extension Driver {
       }
     }
 
-    try commandLine.appendAll(.I, from: &parsedOptions)
-    try commandLine.appendAll(.F, .Fsystem, from: &parsedOptions)
-    try commandLine.appendAll(.vfsoverlay, from: &parsedOptions)
+    // TODO: Can we drop all search paths for compile jobs for explicit module build?
+    try addAllArgumentsWithPath(.I, to: &commandLine, remap: jobNeedPathRemap)
+    try addAllArgumentsWithPath(.F, .Fsystem, to: &commandLine, remap: jobNeedPathRemap)
+    try addAllArgumentsWithPath(.vfsoverlay, to: &commandLine, remap: jobNeedPathRemap)
 
     if let gccToolchain = parsedOptions.getLastArgument(.gccToolchain) {
         appendXccFlag("--gcc-toolchain=\(gccToolchain.asSingle)")
@@ -247,8 +248,8 @@ extension Driver {
         commandLine.appendFlag("-sample-profile-use-profi")
     }
     try commandLine.appendAllExcept(
-      includeList: [.warningTreating], 
-      excludeList: [], 
+      includeList: [.warningTreating],
+      excludeList: [],
       from: &parsedOptions
     )
     try commandLine.appendLast(.sanitizeEQ, from: &parsedOptions)
@@ -350,9 +351,9 @@ extension Driver {
     }
 
     if isFrontendArgSupported(.blockListFile) {
-      try Driver.findBlocklists(RelativeTo: try toolchain.executableDir).forEach {
+      try findBlocklists().forEach {
         commandLine.appendFlag(.blockListFile)
-        commandLine.appendPath($0)
+        try addPathArgument(VirtualPath.absolute($0), to: &commandLine)
       }
     }
 
@@ -1012,15 +1013,20 @@ extension Driver {
   }
 
   public mutating func addPathOption(option: Option, path: VirtualPath, to commandLine: inout [Job.ArgTemplate], remap: Bool = true) throws {
-    commandLine.appendFlag(option)
-    let needRemap = remap && option.attributes.contains(.argumentIsPath) &&
+    let needRemap = remap && isCachingEnabled && option.attributes.contains(.argumentIsPath) &&
                     !option.attributes.contains(.cacheInvariant)
-    try addPathArgument(path, to: &commandLine, remap: needRemap)
+    let commandPath = needRemap ? remapPath(path) : path
+    if option.kind == .joined {
+      commandLine.append(.joinedOptionAndPath(option.spelling, commandPath))
+    } else {
+      // All other kinds that involves a path can be added as separated args.
+      commandLine.appendFlag(option)
+      commandLine.appendPath(commandPath)
+    }
   }
 
   /// Helper function to add last argument with path to command-line.
   public mutating func addLastArgumentWithPath(_ options: Option...,
-                                               from parsedOptions: inout ParsedOptions,
                                                to commandLine: inout [Job.ArgTemplate],
                                                remap: Bool = true) throws {
     guard let parsedOption = parsedOptions.last(for: options) else {
@@ -1031,7 +1037,6 @@ extension Driver {
 
   /// Helper function to add all arguments with path to command-line.
   public mutating func addAllArgumentsWithPath(_ options: Option...,
-                                               from parsedOptions: inout ParsedOptions,
                                                to commandLine: inout [Job.ArgTemplate],
                                                remap: Bool) throws {
     for matching in parsedOptions.arguments(for: options) {

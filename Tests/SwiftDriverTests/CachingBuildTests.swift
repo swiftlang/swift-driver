@@ -895,6 +895,9 @@ final class CachingBuildTests: XCTestCase {
                             .appending(component: "Swift")
       let casPath = path.appending(component: "cas")
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+      let mockBlocklistDir = try testInputsPath.appending(components: "Dummy.xctoolchain", "usr", "bin")
+      var env = ProcessEnv.vars
+      env["_SWIFT_DRIVER_MOCK_BLOCK_LIST_DIR"] = mockBlocklistDir.nativePathString(escaped: true)
       var driver = try Driver(args: ["swiftc",
                                      "-I", cHeadersPath.nativePathString(escaped: true),
                                      "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
@@ -907,6 +910,7 @@ final class CachingBuildTests: XCTestCase {
                                      "-scanner-prefix-map", testInputsPath.description + "=/^src",
                                      "-scanner-prefix-map", path.description + "=/^tmp",
                                      main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
+                              env: env,
                               interModuleDependencyOracle: dependencyOracle)
       guard driver.isFrontendArgSupported(.scannerPrefixMap) else {
         throw XCTSkip("frontend doesn't support prefix map")
@@ -929,7 +933,11 @@ final class CachingBuildTests: XCTestCase {
         // The only one that is not remapped should be the `-cas-path` that points to
         // `casPath`.
         XCTAssertFalse(command.contains {
-          return $0.starts(with: path.description) && $0 != casPath.description
+          $0.starts(with: path.description) && $0 != casPath.description
+        })
+        /// All source location path should be remapped as well.
+        XCTAssertFalse(try command.contains {
+          $0.starts(with: try testInputsPath.description)
         })
       }
     }

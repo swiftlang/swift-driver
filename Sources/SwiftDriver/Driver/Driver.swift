@@ -703,6 +703,14 @@ public struct Driver {
     return try toolchain.lookupSwiftScanLib()
   }
 
+  func findBlocklists() throws ->  [AbsolutePath] {
+    if let mockBlocklistDir = env["_SWIFT_DRIVER_MOCK_BLOCK_LIST_DIR"] {
+      // Use testing block-list directory.
+      return try Driver.findBlocklists(RelativeTo: try AbsolutePath(validating: mockBlocklistDir))
+    }
+    return try Driver.findBlocklists(RelativeTo: try toolchain.executableDir)
+  }
+
   @_spi(Testing)
   public static func findBlocklists(RelativeTo execDir: AbsolutePath) throws ->  [AbsolutePath] {
     // Expect to find all blocklists in such dir:
