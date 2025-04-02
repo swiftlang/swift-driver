@@ -518,6 +518,8 @@ extension Option {
   public static let entryPointFunctionName: Option = Option("-entry-point-function-name", .separate, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<string>", helpText: "Name of the entry point function")
   public static let errorOnAbiBreakage: Option = Option("-error-on-abi-breakage", .flag, attributes: [.noDriver], helpText: "Always treat ABI checker issues as errors")
   public static let errorOnAbiBreakage_: Option = Option("--error-on-abi-breakage", .flag, alias: Option.errorOnAbiBreakage, attributes: [.noDriver], helpText: "Always treat ABI checker issues as errors")
+  public static let executorFactoryEQ: Option = Option("-executor-factory=", .joined, alias: Option.executorFactory, attributes: [])
+  public static let executorFactory: Option = Option("-executor-factory", .joinedOrSeparate, attributes: [], metaVar: "<factory-type>", helpText: "Specify the factory to use to create the default executors for Swift Concurrency.  This must be a type conforming to the 'ExecutorFactory' protocol.")
   public static let experimentalAllowModuleWithCompilerErrors: Option = Option("-experimental-allow-module-with-compiler-errors", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Attempt to output .swiftmodule, regardless of compilation errors")
   public static let experimentalAllowNonResilientAccess: Option = Option("-experimental-allow-non-resilient-access", .flag, attributes: [.frontend], helpText: "Deprecated; use -allow-non-resilient-access instead")
   public static let experimentalAllowedReexportedModules: Option = Option("-experimental-allowed-reexported-modules=", .commaJoined, attributes: [.noDriver], helpText: "Allow reexporting symbols from the provided modules if they are themselves exported from the main module. This is a comma separated list of module names.")
@@ -1465,6 +1467,8 @@ extension Option {
       Option.entryPointFunctionName,
       Option.errorOnAbiBreakage,
       Option.errorOnAbiBreakage_,
+      Option.executorFactoryEQ,
+      Option.executorFactory,
       Option.experimentalAllowModuleWithCompilerErrors,
       Option.experimentalAllowNonResilientAccess,
       Option.experimentalAllowedReexportedModules,
