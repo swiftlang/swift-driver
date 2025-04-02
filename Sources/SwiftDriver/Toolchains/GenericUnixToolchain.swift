@@ -150,7 +150,8 @@ public final class GenericUnixToolchain: Toolchain {
     commandLine: inout [Job.ArgTemplate],
     inputs: inout [TypedVirtualPath],
     frontendTargetInfo: FrontendTargetInfo,
-    driver: inout Driver
+    driver: inout Driver,
+    skipMacroOptions: Bool
   ) throws {
     if let sysroot = driver.parsedOptions.getLastArgument(.sysroot)?.asSingle {
       commandLine.appendFlag("-sysroot")

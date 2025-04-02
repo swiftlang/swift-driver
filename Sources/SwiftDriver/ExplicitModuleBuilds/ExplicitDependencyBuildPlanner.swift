@@ -53,6 +53,7 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
   private let mainModuleName: String?
   private let cas: SwiftScanCAS?
   private let swiftScanOracle: InterModuleDependencyOracle
+  private let prefixMap: [(AbsolutePath, AbsolutePath)]
 
   /// Clang PCM names contain a hash of the command-line arguments that were used to build them.
   /// We avoid re-running the hash computation with the use of this cache
@@ -73,7 +74,8 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
               dependencyOracle: InterModuleDependencyOracle,
               integratedDriver: Bool = true,
               supportsExplicitInterfaceBuild: Bool = false,
-              cas: SwiftScanCAS? = nil) throws {
+              cas: SwiftScanCAS? = nil,
+              prefixMap:  [(AbsolutePath, AbsolutePath)] = []) throws {
     self.dependencyGraph = dependencyGraph
     self.toolchain = toolchain
     self.swiftScanOracle = dependencyOracle
@@ -82,6 +84,7 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
     self.reachabilityMap = try dependencyGraph.computeTransitiveClosure()
     self.supportsExplicitInterfaceBuild = supportsExplicitInterfaceBuild
     self.cas = cas
+    self.prefixMap = prefixMap
   }
 
   /// Supports resolving bridging header pch command from swiftScan.
@@ -185,6 +188,12 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
         }
       }
 
+      // Add prefix mapping. The option is cache invariant so it can be added without affecting cache key.
+      for (key, value) in prefixMap {
+        commandLine.appendFlag("-cache-replay-prefix-map")
+        commandLine.appendFlag(value.pathString + "=" + key.pathString)
+      }
+
       jobs.append(Job(
         moduleName: moduleId.moduleName,
         kind: .compileModuleFromInterface,
@@ -236,6 +245,12 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
         cacheKeys = [moduleMapPath: key]
       } else {
         cacheKeys = [:]
+      }
+
+      // Add prefix mapping. The option is cache invariant so it can be added without affecting cache key.
+      for (key, value) in prefixMap {
+        commandLine.appendFlag("-cache-replay-prefix-map")
+        commandLine.appendFlag(value.pathString + "=" + key.pathString)
       }
 
       jobs.append(Job(
