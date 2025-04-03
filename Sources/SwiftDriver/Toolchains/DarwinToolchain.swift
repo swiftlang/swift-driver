@@ -392,7 +392,8 @@ public final class DarwinToolchain: Toolchain {
     commandLine: inout [Job.ArgTemplate],
     inputs: inout [TypedVirtualPath],
     frontendTargetInfo: FrontendTargetInfo,
-    driver: inout Driver
+    driver: inout Driver,
+    skipMacroOptions: Bool
   ) throws {
     guard let sdkPath = frontendTargetInfo.sdkPath?.path,
           let sdkInfo = getTargetSDKInfo(sdkPath: sdkPath) else { return }
@@ -477,7 +478,7 @@ public final class DarwinToolchain: Toolchain {
       }
     }
 
-    if driver.isFrontendArgSupported(.externalPluginPath) {
+    if driver.isFrontendArgSupported(.externalPluginPath) && !skipMacroOptions {
       // If the PLATFORM_DIR environment variable is set, also add plugin
       // paths into it. Since this is a user override, it comes beore the
       // default platform path that's based on the SDK.
