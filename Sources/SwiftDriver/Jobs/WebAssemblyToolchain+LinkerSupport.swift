@@ -125,10 +125,17 @@ extension WebAssemblyToolchain {
         commandLine.appendPath(path)
       }
 
-      if !parsedOptions.isEmbeddedEnabled {
+      let runtimeResourcePath = VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
+      if parsedOptions.isEmbeddedEnabled {
+        // Allow linking certain standard library modules (`_Concurrency` etc)
+        let embeddedLibrariesPath: VirtualPath = runtimeResourcePath.appending(
+          components: "embedded", targetTriple.triple
+        )
+        commandLine.append(.flag("-Xlinker"))
+        commandLine.append(.joinedOptionAndPath("-L", embeddedLibrariesPath))
+      } else {
         // Link the standard library and dependencies.
-        let linkFilePath: VirtualPath =
-        VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
+        let linkFilePath: VirtualPath = runtimeResourcePath
           .appending(components: targetTriple.platformName() ?? "",
                      "static-executable-args.lnk")
         guard try fileSystem.exists(linkFilePath) else {
