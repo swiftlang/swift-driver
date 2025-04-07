@@ -6901,7 +6901,6 @@ final class SwiftDriverTests: XCTestCase {
         let plannedJobs = try driver.planBuild()
         XCTAssertEqual(plannedJobs.count, 1)
         let linkJob = plannedJobs[0]
-        print(linkJob.commandLine)
         XCTAssertFalse(linkJob.commandLine.contains(.flag("-force_load")))
         XCTAssertFalse(linkJob.commandLine.contains(.flag("-rpath")))
         XCTAssertFalse(linkJob.commandLine.contains(.flag("-lswiftCore")))
