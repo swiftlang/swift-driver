@@ -1124,4 +1124,92 @@ final class CachingBuildTests: XCTestCase {
       try cas.prune()
     }
   }
+
+  func testCASSizeLimiting() throws {
+    try withTemporaryDirectory { path in
+      let moduleCachePath = path.appending(component: "ModuleCache")
+      let casPath = path.appending(component: "cas")
+      try localFileSystem.createDirectory(moduleCachePath)
+
+      let main1 = path.appending(component: "testCachingBuild1.swift")
+      try localFileSystem.writeFileContents(main1) { $0.send("let x = 1") }
+      let main2 = path.appending(component: "testCachingBuild2.swift")
+      try localFileSystem.writeFileContents(main2) { $0.send("let x = 1") }
+
+      let cHeadersPath: AbsolutePath =
+          try testInputsPath.appending(component: "ExplicitModuleBuilds")
+                            .appending(component: "CHeaders")
+      let swiftModuleInterfacesPath: AbsolutePath =
+          try testInputsPath.appending(component: "ExplicitModuleBuilds")
+                            .appending(component: "Swift")
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+
+      func createDriver(main: AbsolutePath) throws -> Driver {
+        return try Driver(args: ["swiftc",
+                                 "-I", cHeadersPath.nativePathString(escaped: true),
+                                 "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                 "-explicit-module-build", "-Rcache-compile-job",
+                                 "-module-cache-path", moduleCachePath.nativePathString(escaped: true),
+                                 "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: true),
+                                 "-working-directory", path.nativePathString(escaped: true),
+                                 main.nativePathString(escaped: true)] + sdkArgumentsForTesting)
+      }
+
+      func buildAndGetSwiftCASKeys(main: AbsolutePath, forceCASLimit: Bool) throws -> [String] {
+        var driver = try createDriver(main: main)
+        let cas = try XCTUnwrap(driver.cas)
+        if forceCASLimit {
+          try cas.setSizeLimit(10)
+        }
+        let jobs = try driver.planBuild()
+        try driver.run(jobs: jobs)
+        XCTAssertFalse(driver.diagnosticEngine.hasErrors)
+
+        let dependencyOracle = driver.interModuleDependencyOracle
+
+        let scanLibPath = try XCTUnwrap(driver.getSwiftScanLibPath())
+        try dependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
+
+        var keys: [String] = []
+        for job in jobs {
+          guard job.kind.supportCaching else { continue }
+          for (path, key) in job.outputCacheKeys {
+            if path.type == .swift {
+              keys.append(key)
+            }
+          }
+        }
+        return keys
+      }
+
+      func verifyKeys(exist: Bool, keys: [String], main: AbsolutePath, file: StaticString = #file, line: UInt = #line) throws {
+        let driver = try createDriver(main: main)
+        let cas = try XCTUnwrap(driver.cas)
+        for key in keys {
+          let comp = try cas.queryCacheKey(key, globally: false)
+          if exist {
+            XCTAssertNotNil(comp, file: file, line: line)
+          } else {
+            XCTAssertNil(comp, file: file, line: line)
+          }
+        }
+      }
+
+      do {
+        // Without CAS size limitation the keys will be preserved.
+        let keys = try buildAndGetSwiftCASKeys(main: main1, forceCASLimit: false)
+        _ = try buildAndGetSwiftCASKeys(main: main2, forceCASLimit: false)
+        try verifyKeys(exist: true, keys: keys, main: main1)
+      }
+
+      try localFileSystem.removeFileTree(casPath)
+
+      do {
+        // 2 separate builds with CAS size limiting, the keys of first build will not be preserved.
+        let keys = try buildAndGetSwiftCASKeys(main: main1, forceCASLimit: true)
+        _ = try buildAndGetSwiftCASKeys(main: main2, forceCASLimit: true)
+        try verifyKeys(exist: false, keys: keys, main: main1)
+      }
+    }
+  }
 }

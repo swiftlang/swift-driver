@@ -170,9 +170,18 @@ public final class CacheReplayResult {
 
 public final class SwiftScanCAS {
   let cas: swiftscan_cas_t
-  private let scanner: SwiftScan
+  private var scanner: SwiftScan!
   deinit {
-    scanner.api.swiftscan_cas_dispose(cas)
+    // FIXME: `cas` needs to be disposed after `scanner`. This is because `scanner` contains a separate
+    // CAS instance contained in `clang::CASOptions` but `cas` is the one exposed to the build system
+    // and the one that a size limit is set on. When the `scanner` is disposed last then it's the last
+    // instance closing the database and it doesn't impose any size limit.
+    //
+    // This is extremely fragile, a proper fix would be to either eliminate the extra CAS instance
+    // from `scanner` or have the `scanner`'s CAS instance exposed to the build system.
+    let swiftscan_cas_dispose = scanner.api.swiftscan_cas_dispose!
+    scanner = nil
+    swiftscan_cas_dispose(cas)
   }
 
   init(cas: swiftscan_cas_t, scanner: SwiftScan) {
