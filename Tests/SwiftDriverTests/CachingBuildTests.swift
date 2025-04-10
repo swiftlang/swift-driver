@@ -172,7 +172,7 @@ private func checkCachingBuildJobDependencies(job: Job,
     XCTAssertTrue(job.commandLine.contains(.flag(String(cacheKey))))
   }
 
-  for dependencyId in moduleInfo.directDependencies! {
+  for dependencyId in moduleInfo.allDependencies {
     let dependencyInfo = try dependencyGraph.moduleInfo(of: dependencyId)
     switch dependencyInfo.details {
       case .swift(let swiftDependencyDetails):
@@ -186,7 +186,7 @@ private func checkCachingBuildJobDependencies(job: Job,
     }
 
     // Ensure all transitive dependencies got added as well.
-    for transitiveDependencyId in dependencyInfo.directDependencies! {
+    for transitiveDependencyId in dependencyInfo.allDependencies {
       try checkCachingBuildJobDependencies(job: job,
                                            moduleInfo: try dependencyGraph.moduleInfo(of: transitiveDependencyId),
                                            dependencyGraph: dependencyGraph)
