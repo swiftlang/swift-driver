@@ -901,8 +901,7 @@ final class CachingBuildTests: XCTestCase {
       var driver = try Driver(args: ["swiftc",
                                      "-I", cHeadersPath.nativePathString(escaped: true),
                                      "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
-                                     "/tmp/Foo.o", "-g",
-                                     "-explicit-module-build",
+                                     "-g", "-explicit-module-build",
                                      "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: true),
                                      "-working-directory", path.nativePathString(escaped: true),
                                      "-disable-clang-target", "-scanner-prefix-map-sdk", "/^sdk",
@@ -940,6 +939,9 @@ final class CachingBuildTests: XCTestCase {
           $0.starts(with: try testInputsPath.description)
         })
       }
+
+      try driver.run(jobs: jobs)
+      XCTAssertFalse(driver.diagnosticEngine.hasErrors)
     }
   }
 

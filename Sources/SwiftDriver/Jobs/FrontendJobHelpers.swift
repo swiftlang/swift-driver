@@ -353,7 +353,7 @@ extension Driver {
     if isFrontendArgSupported(.blockListFile) {
       try findBlocklists().forEach {
         commandLine.appendFlag(.blockListFile)
-        try addPathArgument(VirtualPath.absolute($0), to: &commandLine)
+        try addPathArgument(VirtualPath.absolute($0), to: &commandLine, remap: jobNeedPathRemap)
       }
     }
 
