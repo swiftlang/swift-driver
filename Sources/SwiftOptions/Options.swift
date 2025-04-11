@@ -157,6 +157,7 @@ extension Option {
   public static let directClangCc1ModuleBuild: Option = Option("-direct-clang-cc1-module-build", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Use the specified -Xcc options to build a PCM by using Clang frontend directly, bypassing the Clang driver")
   public static let disableAccessControl: Option = Option("-disable-access-control", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't respect access control restrictions")
   public static let disableActorDataRaceChecks: Option = Option("-disable-actor-data-race-checks", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Disable runtime checks for actor data races")
+  public static let disableAddressDependencies: Option = Option("-disable-address-dependencies", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable enforcement of lifetime dependencies on addressable values.")
   public static let disableAggressiveReg2mem: Option = Option("-disable-aggressive-reg2mem", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable a more aggressive reg2mem heuristic")
   public static let disableAliasModuleNamesInModuleInterface: Option = Option("-disable-alias-module-names-in-module-interface", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "When emitting a module interface, disable disambiguating modules using distinct alias names")
   public static let disableAllAutolinking: Option = Option("-disable-all-autolinking", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable all Swift autolink directives")
@@ -223,6 +224,7 @@ extension Option {
   public static let disableLlvmMergeFunctionsPass: Option = Option("-disable-llvm-merge-functions-pass", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable the MergeFunctionPass LLVM IR pass")
   public static let disableLlvmOptzns: Option = Option("-disable-llvm-optzns", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't run LLVM optimization passes")
   public static let disableLlvmValueNames: Option = Option("-disable-llvm-value-names", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't add names to local values in LLVM IR")
+  public static let disableLlvmVerifyEach: Option = Option("-disable-llvm-verify-each", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't run the LLVM IR verifier after every pass.")
   public static let disableLlvmVerify: Option = Option("-disable-llvm-verify", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't run the LLVM IR verifier.")
   public static let disableMigratorFixits: Option = Option("-disable-migrator-fixits", .flag, attributes: [.frontend, .noInteractive], helpText: "Disable the Migrator phase which automatically applies fix-its")
   public static let disableModulesValidateSystemHeaders: Option = Option("-disable-modules-validate-system-headers", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable validating system headers in the Clang importer")
@@ -279,6 +281,7 @@ extension Option {
   public static let disableVerifyExclusivity: Option = Option("-disable-verify-exclusivity", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable verification of access markers used to enforce exclusivity.")
   public static let disableX8664Corocc: Option = Option("-disable-x86_64-corocc", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't use swiftcorocc for yield_once_2 routines on x86_64.")
   public static let disallowForwardingDriver: Option = Option("-disallow-use-new-driver", .flag, helpText: "Disable using new swift-driver")
+  public static let disableCondFailMessageAnnotation: Option = Option("-dissable-cond-fail-message-annotation", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable cond_fail message annotation.")
   public static let downgradeTypecheckInterfaceError: Option = Option("-downgrade-typecheck-interface-error", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Downgrade error to warning when typechecking emitted module interfaces")
   public static let driverAlwaysRebuildDependents: Option = Option("-driver-always-rebuild-dependents", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Always rebuild dependents of files that have been modified", group: .internalDebug)
   public static let driverBatchCount: Option = Option("-driver-batch-count", .separate, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Use the given number of batch-mode partitions, rather than partitioning dynamically", group: .internalDebug)
@@ -426,6 +429,7 @@ extension Option {
   public static let EnableCMOEverything: Option = Option("-enable-cmo-everything", .flag, attributes: [.helpHidden, .frontend], helpText: "Perform cross-module optimization on everything (all APIs). This is the same level of serialization as Embedded Swift.")
   public static let enableCollocateMetadataFunctions: Option = Option("-enable-collocate-metadata-functions", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable collocate metadata functions")
   public static let enableColocateTypeDescriptors: Option = Option("-enable-colocate-type-descriptors", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable colocate type descriptors")
+  public static let enableCondFailMessageAnnotation: Option = Option("-enable-cond-fail-message-annotation", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable cond_fail message annotation. Will serialize a .o.yaml file per .o file.")
   public static let copyPropagationStateEQ: Option = Option("-enable-copy-propagation=", .joined, attributes: [.frontend, .noDriver], metaVar: "true|requested-passes-only|false", helpText: "Whether to enable copy propagation")
   public static let enableCopyPropagation: Option = Option("-enable-copy-propagation", .flag, attributes: [.frontend, .noDriver], helpText: "Run SIL copy propagation with lexical lifetimes to shorten object lifetimes while preserving variable lifetimes.")
   public static let enableCrossImportOverlays: Option = Option("-enable-cross-import-overlays", .flag, attributes: [.frontend, .noDriver], helpText: "Automatically import declared cross-import overlays.")
@@ -470,6 +474,7 @@ extension Option {
   public static let enableLibraryEvolution: Option = Option("-enable-library-evolution", .flag, attributes: [.frontend, .moduleInterface], helpText: "Build the module to allow binary-compatible library evolution")
   public static let enableLifetimeDependenceDiagnostics: Option = Option("-enable-lifetime-dependence-diagnostics", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable lifetime dependence diagnostics for Nonescapable types.")
   public static let enableLlvmValueNames: Option = Option("-enable-llvm-value-names", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Add names to local values in LLVM IR")
+  public static let enableLlvmVerifyEach: Option = Option("-enable-llvm-verify-each", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Run the LLVM IR verifier after every pass.")
   public static let enableLlvmVfe: Option = Option("-enable-llvm-vfe", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Use LLVM IR Virtual Function Elimination on Swift class virtual tables")
   public static let enableLlvmWme: Option = Option("-enable-llvm-wme", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Use LLVM IR Witness Method Elimination on Swift protocol witness tables")
   public static let enableMoveInoutStackProtector: Option = Option("-enable-move-inout-stack-protector", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable the stack protector by moving values to temporaries")
@@ -518,6 +523,8 @@ extension Option {
   public static let entryPointFunctionName: Option = Option("-entry-point-function-name", .separate, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<string>", helpText: "Name of the entry point function")
   public static let errorOnAbiBreakage: Option = Option("-error-on-abi-breakage", .flag, attributes: [.noDriver], helpText: "Always treat ABI checker issues as errors")
   public static let errorOnAbiBreakage_: Option = Option("--error-on-abi-breakage", .flag, alias: Option.errorOnAbiBreakage, attributes: [.noDriver], helpText: "Always treat ABI checker issues as errors")
+  public static let executorFactoryEQ: Option = Option("-executor-factory=", .joined, alias: Option.executorFactory, attributes: [.frontend])
+  public static let executorFactory: Option = Option("-executor-factory", .joinedOrSeparate, attributes: [.frontend], metaVar: "<factory-type>", helpText: "Specify the factory to use to create the default executors for Swift Concurrency.  This must be a type conforming to the 'ExecutorFactory' protocol.")
   public static let experimentalAllowModuleWithCompilerErrors: Option = Option("-experimental-allow-module-with-compiler-errors", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Attempt to output .swiftmodule, regardless of compilation errors")
   public static let experimentalAllowNonResilientAccess: Option = Option("-experimental-allow-non-resilient-access", .flag, attributes: [.frontend], helpText: "Deprecated; use -allow-non-resilient-access instead")
   public static let experimentalAllowedReexportedModules: Option = Option("-experimental-allowed-reexported-modules=", .commaJoined, attributes: [.noDriver], helpText: "Allow reexporting symbols from the provided modules if they are themselves exported from the main module. This is a comma separated list of module names.")
@@ -659,6 +666,7 @@ extension Option {
   public static let l: Option = Option("-l", .joinedOrSeparate, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Specifies a library which should be linked against", group: .linkerOption)
   public static let mergeModules: Option = Option("-merge-modules", .flag, attributes: [.frontend, .noDriver], helpText: "Merge the input modules without otherwise processing them", group: .modes)
   public static let mergeableSymbols: Option = Option("-mergeable-symbols", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Emit symbol definitions as mergeable (linkonce_odr)")
+  public static let mergeableTraps: Option = Option("-mergeable-traps", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Emit mergeable traps even in optimized builds")
   public static let migrateKeepObjcVisibility: Option = Option("-migrate-keep-objc-visibility", .flag, attributes: [.frontend, .noInteractive], helpText: "When migrating, add '@objc' to declarations that would've been implicitly visible in Swift 3")
   public static let migratorUpdateSdk: Option = Option("-migrator-update-sdk", .flag, attributes: [.frontend, .noInteractive], helpText: "Does nothing. Temporary compatibility flag for Xcode.")
   public static let migratorUpdateSwift: Option = Option("-migrator-update-swift", .flag, attributes: [.frontend, .noInteractive], helpText: "Does nothing. Temporary compatibility flag for Xcode.")
@@ -768,6 +776,7 @@ extension Option {
   public static let protocolRequirementAllowList_: Option = Option("--protocol-requirement-allow-list", .separate, alias: Option.protocolRequirementAllowList, attributes: [.noDriver, .argumentIsPath], metaVar: "<path>", helpText: "File containing a new-line separated list of protocol names")
   public static let publicAutolinkLibrary: Option = Option("-public-autolink-library", .separate, attributes: [.helpHidden, .frontend, .noDriver, .moduleInterface], helpText: "Add public dependent library")
   public static let publicModuleName: Option = Option("-public-module-name", .separate, attributes: [.frontend], helpText: "Public facing module name to use in diagnostics and documentation")
+  public static let remarkAbiInference: Option = Option("-Rabi-inference", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Emit a remark when an '@abi' attribute adds an attribute or modifier to the ABI declaration based on its presence in the API")
   public static let RaccessNoteEQ: Option = Option("-Raccess-note=", .joined, alias: Option.RaccessNote, attributes: [.frontend, .noDriver])
   public static let RaccessNote: Option = Option("-Raccess-note", .separate, attributes: [.frontend, .noDriver], metaVar: "none|failures|all|all-validate", helpText: "Control access note remarks (default: all)")
   public static let cacheRemarks: Option = Option("-Rcache-compile-job", .flag, attributes: [.frontend, .cacheInvariant], helpText: "Show remarks for compiler caching")
@@ -787,6 +796,7 @@ extension Option {
   public static let requirementMachineMaxRuleLength: Option = Option("-requirement-machine-max-rule-length=", .joined, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Set the maximum rule length before giving up")
   public static let requirementMachineMaxSplitConcreteEquivClassAttempts: Option = Option("-requirement-machine-max-split-concrete-equiv-class-attempts=", .joined, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Set the maximum concrete number of attempts at splitting concrete equivalence classes before giving up. There should never be a reason to change this")
   public static let resolveImports: Option = Option("-resolve-imports", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Parse and resolve imports in input file(s)", group: .modes)
+  public static let resolvedPluginVerification: Option = Option("-resolved-plugin-verification", .flag, attributes: [.frontend, .noDriver], helpText: "verify resolved plugins")
   public static let resourceDir: Option = Option("-resource-dir", .separate, attributes: [.helpHidden, .frontend, .synthesizeInterface, .argumentIsPath], metaVar: "</usr/lib/swift>", helpText: "The directory that holds the compiler resource files")
   public static let remarkIndexingSystemModule: Option = Option("-Rindexing-system-module", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Emit a remark when indexing a system module")
   public static let remarkMacroLoading: Option = Option("-Rmacro-loading", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Emit remarks about loaded macro implementations")
@@ -1104,6 +1114,7 @@ extension Option {
       Option.directClangCc1ModuleBuild,
       Option.disableAccessControl,
       Option.disableActorDataRaceChecks,
+      Option.disableAddressDependencies,
       Option.disableAggressiveReg2mem,
       Option.disableAliasModuleNamesInModuleInterface,
       Option.disableAllAutolinking,
@@ -1170,6 +1181,7 @@ extension Option {
       Option.disableLlvmMergeFunctionsPass,
       Option.disableLlvmOptzns,
       Option.disableLlvmValueNames,
+      Option.disableLlvmVerifyEach,
       Option.disableLlvmVerify,
       Option.disableMigratorFixits,
       Option.disableModulesValidateSystemHeaders,
@@ -1226,6 +1238,7 @@ extension Option {
       Option.disableVerifyExclusivity,
       Option.disableX8664Corocc,
       Option.disallowForwardingDriver,
+      Option.disableCondFailMessageAnnotation,
       Option.downgradeTypecheckInterfaceError,
       Option.driverAlwaysRebuildDependents,
       Option.driverBatchCount,
@@ -1373,6 +1386,7 @@ extension Option {
       Option.EnableCMOEverything,
       Option.enableCollocateMetadataFunctions,
       Option.enableColocateTypeDescriptors,
+      Option.enableCondFailMessageAnnotation,
       Option.copyPropagationStateEQ,
       Option.enableCopyPropagation,
       Option.enableCrossImportOverlays,
@@ -1417,6 +1431,7 @@ extension Option {
       Option.enableLibraryEvolution,
       Option.enableLifetimeDependenceDiagnostics,
       Option.enableLlvmValueNames,
+      Option.enableLlvmVerifyEach,
       Option.enableLlvmVfe,
       Option.enableLlvmWme,
       Option.enableMoveInoutStackProtector,
@@ -1465,6 +1480,8 @@ extension Option {
       Option.entryPointFunctionName,
       Option.errorOnAbiBreakage,
       Option.errorOnAbiBreakage_,
+      Option.executorFactoryEQ,
+      Option.executorFactory,
       Option.experimentalAllowModuleWithCompilerErrors,
       Option.experimentalAllowNonResilientAccess,
       Option.experimentalAllowedReexportedModules,
@@ -1606,6 +1623,7 @@ extension Option {
       Option.l,
       Option.mergeModules,
       Option.mergeableSymbols,
+      Option.mergeableTraps,
       Option.migrateKeepObjcVisibility,
       Option.migratorUpdateSdk,
       Option.migratorUpdateSwift,
@@ -1715,6 +1733,7 @@ extension Option {
       Option.protocolRequirementAllowList_,
       Option.publicAutolinkLibrary,
       Option.publicModuleName,
+      Option.remarkAbiInference,
       Option.RaccessNoteEQ,
       Option.RaccessNote,
       Option.cacheRemarks,
@@ -1734,6 +1753,7 @@ extension Option {
       Option.requirementMachineMaxRuleLength,
       Option.requirementMachineMaxSplitConcreteEquivClassAttempts,
       Option.resolveImports,
+      Option.resolvedPluginVerification,
       Option.resourceDir,
       Option.remarkIndexingSystemModule,
       Option.remarkMacroLoading,

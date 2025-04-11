@@ -688,7 +688,8 @@ extension Driver {
                                          integratedDriver: integratedDriver,
                                          supportsExplicitInterfaceBuild:
                                          isFrontendArgSupported(.explicitInterfaceModuleBuild),
-                                         cas: cas)
+                                         cas: cas,
+                                         prefixMap: prefixMapping)
 
     return try explicitDependencyBuildPlanner!.generateExplicitModuleDependenciesBuildJobs()
   }
