@@ -203,7 +203,10 @@ public struct ModuleInfo: Codable, Hashable {
   /// The source files used to build this module.
   public var sourceFiles: [String]?
 
-  /// The set of direct module dependencies of this module.
+  /// The set of directly-imported module dependencies of this module.
+  /// For the complete set of all module dependencies of this module,
+  /// including Swift overlay dependencies and bridging header dependenceis,
+  /// use the `allDependencies` computed property.
   public var directDependencies: [ModuleDependencyId]?
 
   /// The set of libraries that need to be linked
@@ -298,6 +301,35 @@ extension ModuleInfo {
     default:
       return nil
     }
+  }
+}
+
+public extension ModuleInfo {
+  // Directly-imported dependencies plus additional dependency
+  // kinds for Swift modules:
+  // - Swift overlay dependencies
+  // - Bridging Header dependencies
+  var allDependencies: [ModuleDependencyId] {
+    var result: [ModuleDependencyId] = directDependencies ?? []
+    if case .swift(let swiftModuleDetails) = details {
+      // Ensure the dependnecies emitted are unique and follow a predictable ordering:
+      // 1. directDependencies in the order reported by the scanner
+      // 2. swift overlay dependencies
+      // 3. briding header dependencies
+      var addedSoFar: Set<ModuleDependencyId> = []
+      addedSoFar.formUnion(directDependencies ?? [])
+      for depId in swiftModuleDetails.swiftOverlayDependencies ?? [] {
+        if addedSoFar.insert(depId).inserted {
+          result.append(depId)
+        }
+      }
+      for depId in swiftModuleDetails.bridgingHeaderDependencies ?? [] {
+        if addedSoFar.insert(depId).inserted {
+          result.append(depId)
+        }
+      }
+    }
+    return result
   }
 }
 

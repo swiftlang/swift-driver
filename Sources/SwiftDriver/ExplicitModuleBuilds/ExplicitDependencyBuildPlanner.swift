@@ -510,7 +510,7 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
                                 clangDependencyArtifacts: &clangDependencyArtifacts,
                                 swiftDependencyArtifacts: &swiftDependencyArtifacts)
       let depInfo = try dependencyGraph.moduleInfo(of: bridgingHeaderDepID)
-      dependenciesWorklist.append(contentsOf: depInfo.directDependencies ?? [])
+      dependenciesWorklist.append(contentsOf: depInfo.allDependencies)
     }
 
     // Clang module dependencies are specified on the command line explicitly

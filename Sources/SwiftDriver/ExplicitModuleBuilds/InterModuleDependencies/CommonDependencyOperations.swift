@@ -59,16 +59,7 @@ import protocol TSCBasic.FileSystem
 extension InterModuleDependencyGraph {
   var topologicalSorting: [ModuleDependencyId] {
     get throws {
-      try topologicalSort(Array(modules.keys),
-                          successors: {
-        var dependencies: [ModuleDependencyId] = []
-        let moduleInfo = try moduleInfo(of: $0)
-        dependencies.append(contentsOf: moduleInfo.directDependencies ?? [])
-        if case .swift(let swiftModuleDetails) = moduleInfo.details {
-          dependencies.append(contentsOf: swiftModuleDetails.swiftOverlayDependencies ?? [])
-        }
-        return dependencies
-      })
+      try topologicalSort(Array(modules.keys), successors: { try Array(moduleInfo(of: $0).allDependencies) })
     }
   }
 
@@ -91,21 +82,8 @@ extension InterModuleDependencyGraph {
       }
     // Traverse the set of modules in reverse topological order, assimilating transitive closures
     for moduleId in topologicalIdList.reversed() {
-      let moduleInfo = try moduleInfo(of: moduleId)
-      for dependencyId in moduleInfo.directDependencies! {
+      for dependencyId in try moduleInfo(of: moduleId).allDependencies {
         transitiveClosureMap[moduleId]!.formUnion(transitiveClosureMap[dependencyId]!)
-      }
-      // For Swift dependencies, their corresponding Swift Overlay dependencies
-      // and bridging header dependencies are equivalent to direct dependencies.
-      if case .swift(let swiftModuleDetails) = moduleInfo.details {
-        let swiftOverlayDependencies = swiftModuleDetails.swiftOverlayDependencies ?? []
-        for dependencyId in swiftOverlayDependencies {
-          transitiveClosureMap[moduleId]!.formUnion(transitiveClosureMap[dependencyId]!)
-        }
-        let bridgingHeaderDependencies = swiftModuleDetails.bridgingHeaderDependencies ?? []
-        for dependencyId in bridgingHeaderDependencies {
-          transitiveClosureMap[moduleId]!.formUnion(transitiveClosureMap[dependencyId]!)
-        }
       }
     }
     // For ease of use down-the-line, remove the node's self from its set of reachable nodes
@@ -167,7 +145,7 @@ internal extension InterModuleDependencyGraph {
     var visited: Set<ModuleDependencyId> = []
     // Scan from the main module's dependencies to avoid reporting
     // the main module itself in the results.
-    for dependencyId in mainModuleInfo.directDependencies ?? [] {
+    for dependencyId in mainModuleInfo.allDependencies {
       try outOfDateModuleScan(from: dependencyId, visited: &visited,
                               modulesRequiringRebuild: &modulesRequiringRebuild,
                               fileSystem: fileSystem, cas: cas, forRebuild: forRebuild,
@@ -225,7 +203,7 @@ internal extension InterModuleDependencyGraph {
     let sourceModuleInfo = try moduleInfo(of: sourceModuleId)
     // Visit the module's dependencies
     var hasOutOfDateModuleDependency = false
-    for dependencyId in sourceModuleInfo.directDependencies ?? [] {
+    for dependencyId in sourceModuleInfo.allDependencies {
       // If we have not already visited this module, recurse.
       if !visited.contains(dependencyId) {
         try outOfDateModuleScan(from: dependencyId, visited: &visited,
@@ -319,7 +297,7 @@ internal extension InterModuleDependencyGraph {
     }
 
     // Check if a dependency of this module has a newer output than this module
-    for dependencyId in checkedModuleInfo.directDependencies ?? [] {
+    for dependencyId in checkedModuleInfo.allDependencies {
       let dependencyInfo = try moduleInfo(of: dependencyId)
       if !verifyInputOlderThanOutputModTime(moduleID.moduleName,
                                             VirtualPath.lookup(dependencyInfo.modulePath.path),
@@ -409,21 +387,14 @@ internal extension InterModuleDependencyGraph {
       // depends on a corresponding Clang module with the same name.
       // If it does, add it to the path as well.
       var completePath = pathSoFar
-      if let dependencies = sourceInfo.directDependencies,
-         dependencies.contains(.clang(source.moduleName)) {
+      if sourceInfo.allDependencies.contains(.clang(source.moduleName)) {
         completePath.append(.clang(source.moduleName))
       }
       result = completePath
       return true
     }
 
-    var allDependencies = sourceInfo.directDependencies ?? []
-    if case .swift(let swiftModuleDetails) = sourceInfo.details,
-          let overlayDependencies = swiftModuleDetails.swiftOverlayDependencies {
-      allDependencies.append(contentsOf: overlayDependencies)
-    }
-
-    for dependency in allDependencies {
+    for dependency in sourceInfo.allDependencies {
       if !visited.contains(dependency),
          try findAPath(source: dependency,
                        pathSoFar: pathSoFar + [dependency],
@@ -446,20 +417,14 @@ internal extension InterModuleDependencyGraph {
       // depends on a corresponding Clang module with the same name.
       // If it does, add it to the path as well.
       var completePath = pathSoFar
-      if let dependencies = sourceInfo.directDependencies,
-         dependencies.contains(.clang(source.moduleName)) {
+      if sourceInfo.allDependencies.contains(.clang(source.moduleName)) {
         completePath.append(.clang(source.moduleName))
       }
       results.insert(completePath)
       return
     }
 
-    var allDependencies = sourceInfo.directDependencies ?? []
-    if case .swift(let swiftModuleDetails) = sourceInfo.details,
-          let overlayDependencies = swiftModuleDetails.swiftOverlayDependencies {
-      allDependencies.append(contentsOf: overlayDependencies)
-    }
-    for dependency in allDependencies {
+    for dependency in sourceInfo.allDependencies {
       try findAllPaths(source: dependency,
                        pathSoFar: pathSoFar + [dependency],
                        results: &results,

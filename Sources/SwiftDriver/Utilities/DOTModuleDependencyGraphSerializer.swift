@@ -64,10 +64,7 @@ import TSCBasic
     stream.write("digraph Modules {\n")
     for (moduleId, moduleInfo) in graph.modules {
       stream.write(outputNode(for: moduleId))
-      guard let dependencies = moduleInfo.directDependencies else {
-        continue
-      }
-      for dependencyId in dependencies {
+      for dependencyId in moduleInfo.allDependencies {
         stream.write("  \(quoteName(label(for: moduleId))) -> \(quoteName(label(for: dependencyId))) [color=black];\n")
       }
     }

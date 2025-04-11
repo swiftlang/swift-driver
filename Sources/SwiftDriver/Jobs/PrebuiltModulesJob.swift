@@ -633,7 +633,7 @@ extension InterModuleDependencyGraph {
           if !includingPCM && isPCM(key) {
             break
           }
-          modules[key]!.directDependencies?.forEach { dep in
+          modules[key]!.allDependencies.forEach { dep in
             if !includingPCM && isPCM(dep) {
               return
             }
@@ -814,7 +814,8 @@ extension Driver {
 
     func getSwiftDependencies(for module: String) -> [String] {
       let info = dependencyGraph.modules[.swift(module)]!
-      guard let dependencies = info.directDependencies else {
+      let dependencies = info.allDependencies
+      guard !dependencies.isEmpty else {
         return []
       }
       return collectSwiftModuleNames(dependencies)
@@ -859,31 +860,29 @@ extension Driver {
     }
     // Keep track of modules we haven't handled.
     var unhandledModules = Set<String>(inputMap.keys)
-    if let importedModules = dependencyGraph.mainModule.directDependencies {
-      // Start from those modules explicitly imported into the file under scanning
-      var openModules = collectSwiftModuleNames(importedModules)
-      var idx = 0
-      while idx != openModules.count {
-        let module = openModules[idx]
-        let dependencies = getSwiftDependencies(for: module)
-        try forEachInputOutputPair(module) { input, output in
-          jobs.append(contentsOf: try generateSingleModuleBuildingJob(module,
-            prebuiltModuleDir, input, output,
-            try getOutputPaths(withName: dependencies, loadableFor: input.arch),
-            currentABIDir, baselineABIDir))
-        }
-        // For each dependency, add to the list to handle if the list doesn't
-        // contain this dependency.
-        dependencies.forEach({ newModule in
-          if !openModules.contains(newModule) {
-            diagnosticEngine.emit(.note("\(newModule) is discovered."),
-                                  location: nil)
-            openModules.append(newModule)
-          }
-        })
-        unhandledModules.remove(module)
-        idx += 1
+    // Start from those modules explicitly imported into the file under scanning
+    var openModules = collectSwiftModuleNames(dependencyGraph.mainModule.allDependencies)
+    var idx = 0
+    while idx != openModules.count {
+      let module = openModules[idx]
+      let dependencies = getSwiftDependencies(for: module)
+      try forEachInputOutputPair(module) { input, output in
+        jobs.append(contentsOf: try generateSingleModuleBuildingJob(module,
+          prebuiltModuleDir, input, output,
+          try getOutputPaths(withName: dependencies, loadableFor: input.arch),
+          currentABIDir, baselineABIDir))
       }
+      // For each dependency, add to the list to handle if the list doesn't
+      // contain this dependency.
+      dependencies.forEach({ newModule in
+        if !openModules.contains(newModule) {
+          diagnosticEngine.emit(.note("\(newModule) is discovered."),
+                                location: nil)
+          openModules.append(newModule)
+        }
+      })
+      unhandledModules.remove(module)
+      idx += 1
     }
 
     // We are done if we don't need to handle all inputs exhaustively.

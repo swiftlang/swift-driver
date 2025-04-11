@@ -88,7 +88,7 @@ private func checkExplicitModuleBuildJobDependencies(job: Job,
     XCTAssertJobInvocationMatches(job, .flag("-fmodule-file=\(dependencyId.moduleName)=\(clangDependencyModulePathString)"))
   }
 
-  for dependencyId in moduleInfo.directDependencies! {
+  for dependencyId in moduleInfo.allDependencies {
     let dependencyInfo = try dependencyGraph.moduleInfo(of: dependencyId)
     switch dependencyInfo.details {
       case .swift(_):
@@ -102,7 +102,7 @@ private func checkExplicitModuleBuildJobDependencies(job: Job,
     }
 
     // Ensure all transitive dependencies got added as well.
-    for transitiveDependencyId in dependencyInfo.directDependencies! {
+    for transitiveDependencyId in dependencyInfo.allDependencies {
       try checkExplicitModuleBuildJobDependencies(job: job,
                                                   moduleInfo: try dependencyGraph.moduleInfo(of: transitiveDependencyId),
                                                   dependencyGraph: dependencyGraph)
@@ -2442,13 +2442,10 @@ final class ExplicitModuleBuildTests: XCTestCase {
             main.nativePathString(escaped: true)
         ] + sdkArgumentsForTesting) { driver, diagnostics in
           diagnostics.forbidUnexpected(.error, .warning, .note, .remark)
-
-          let jobs = try driver.planBuild()
-          try driver.run(jobs: jobs)
-
           diagnostics.expect(.remark("Module 'testTraceDependency' depends on 'A'"))
           diagnostics.expect(.note("[testTraceDependency] -> [A] -> [A](ObjC)"))
           diagnostics.expect(.note("[testTraceDependency] -> [C](ObjC) -> [B](ObjC) -> [A](ObjC)"))
+          try driver.run(jobs: driver.planBuild())
         }
       }
 
@@ -2466,13 +2463,10 @@ final class ExplicitModuleBuildTests: XCTestCase {
             main.nativePathString(escaped: true)
         ] + sdkArgumentsForTesting) { driver, diagnostics in
           diagnostics.forbidUnexpected(.error, .warning, .note, .remark)
-
-          let jobs = try driver.planBuild()
-          try driver.run(jobs: jobs)
-
           diagnostics.expect(.remark("Module 'testTraceDependency' depends on 'A'"))
           diagnostics.expect(.note("[testTraceDependency] -> [A] -> [A](ObjC)"),
                              alternativeMessage: .note("[testTraceDependency] -> [C](ObjC) -> [B](ObjC) -> [A](ObjC)"))
+          try driver.run(jobs: driver.planBuild())
         }
       }
     }
