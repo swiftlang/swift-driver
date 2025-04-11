@@ -938,6 +938,10 @@ final class CachingBuildTests: XCTestCase {
         XCTAssertFalse(try command.contains {
           $0.starts(with: try testInputsPath.description)
         })
+        /// command-line that compiles swift should contains -cache-replay-prefix-map
+        XCTAssertTrue(command.contains { $0 == "-cache-replay-prefix-map" })
+        XCTAssertFalse(command.contains { $0 == "-plugin-path" || $0 == "-external-plugin-path" ||
+                                          $0 == "-load-plugin-library" || $0 == "-load-plugin-executable" })
       }
 
       try driver.run(jobs: jobs)

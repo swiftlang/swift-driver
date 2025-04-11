@@ -84,12 +84,13 @@ extension Driver {
       break
     }
 
+    let isPlanJobForExplicitModule = parsedOptions.contains(.driverExplicitModuleBuild) &&
+                                     moduleDependencyGraphUse == .computed
     let jobNeedPathRemap: Bool
     // If in ExplicitModuleBuild mode and the dependency graph has been computed, add module
     // dependencies.
     // May also be used for generation of the dependency graph itself in ExplicitModuleBuild mode.
-    if (parsedOptions.contains(.driverExplicitModuleBuild) &&
-          moduleDependencyGraphUse == .computed) {
+    if isPlanJobForExplicitModule {
       switch kind {
       case .generatePCH:
         try addExplicitPCHBuildArguments(inputs: &inputs, commandLine: &commandLine)
@@ -344,10 +345,12 @@ extension Driver {
     }
 
     // Emit user-provided plugin paths, in order.
-    if isFrontendArgSupported(.externalPluginPath) {
-      try commandLine.appendAll(.pluginPath, .externalPluginPath, .loadPluginLibrary, .loadPluginExecutable, from: &parsedOptions)
-    } else if isFrontendArgSupported(.pluginPath) {
-      try commandLine.appendAll(.pluginPath, .loadPluginLibrary, from: &parsedOptions)
+    if !isPlanJobForExplicitModule {
+      if isFrontendArgSupported(.externalPluginPath) {
+        try commandLine.appendAll(.pluginPath, .externalPluginPath, .loadPluginLibrary, .loadPluginExecutable, from: &parsedOptions)
+      } else if isFrontendArgSupported(.pluginPath) {
+        try commandLine.appendAll(.pluginPath, .loadPluginLibrary, from: &parsedOptions)
+      }
     }
 
     if isFrontendArgSupported(.blockListFile) {
@@ -563,19 +566,22 @@ extension Driver {
       .appending(components: frontendTargetInfo.target.triple.platformName() ?? "", "Swift.swiftmodule")
     let hasToolchainStdlib = try fileSystem.exists(toolchainStdlibPath)
 
+    let skipMacroOptions = isPlanJobForExplicitModule && isFrontendArgSupported(.loadResolvedPlugin)
     // If the resource directory has the standard library, prefer the toolchain's plugins
     // to the platform SDK plugins.
-    if hasToolchainStdlib {
+    // For explicit module build, the resolved plugins are provided by scanner.
+    if hasToolchainStdlib, !skipMacroOptions {
       try addPluginPathArguments(commandLine: &commandLine)
     }
 
     try toolchain.addPlatformSpecificCommonFrontendOptions(commandLine: &commandLine,
                                                            inputs: &inputs,
                                                            frontendTargetInfo: frontendTargetInfo,
-                                                           driver: &self)
+                                                           driver: &self,
+                                                           skipMacroOptions: skipMacroOptions)
 
     // Otherwise, prefer the platform's plugins.
-    if !hasToolchainStdlib {
+    if !hasToolchainStdlib, !skipMacroOptions {
       try addPluginPathArguments(commandLine: &commandLine)
     }
 

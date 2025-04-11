@@ -154,7 +154,8 @@ public protocol Toolchain {
     commandLine: inout [Job.ArgTemplate],
     inputs: inout [TypedVirtualPath],
     frontendTargetInfo: FrontendTargetInfo,
-    driver: inout Driver
+    driver: inout Driver,
+    skipMacroOptions: Bool
   ) throws
 
   var dummyForTestingObjectFormat: Triple.ObjectFormat {get}
@@ -326,7 +327,8 @@ extension Toolchain {
     commandLine: inout [Job.ArgTemplate],
     inputs: inout [TypedVirtualPath],
     frontendTargetInfo: FrontendTargetInfo,
-    driver: inout Driver
+    driver: inout Driver,
+    skipMacroOptions: Bool
   ) throws {}
 
   /// Resolves the path to the given tool and whether or not it supports response files so that it
