@@ -113,6 +113,12 @@ extension WindowsToolchain.ToolchainValidationError {
     }
   }
 
+  public func addAutoLinkFlags(for linkLibraries: [LinkLibraryInfo], to commandLine: inout [Job.ArgTemplate]) {
+    for linkLibrary in linkLibraries {
+      commandLine.appendFlag("-l\(linkLibrary.linkName)")
+    }
+  }
+
   public func defaultSDKPath(_ target: Triple?) throws -> AbsolutePath? {
     // TODO(compnerd): replicate the SPM processing of the SDKInfo.plist
     if let SDKROOT = env["SDKROOT"] {

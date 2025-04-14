@@ -79,6 +79,12 @@ public final class WebAssemblyToolchain: Toolchain {
     }
   }
 
+  public func addAutoLinkFlags(for linkLibraries: [LinkLibraryInfo], to commandLine: inout [Job.ArgTemplate]) {
+    for linkLibrary in linkLibraries {
+      commandLine.appendFlag("-l\(linkLibrary.linkName)")
+    }
+  }
+
   /// Retrieve the absolute path for a given tool.
   public func getToolPath(_ tool: Tool) throws -> AbsolutePath {
     // Check the cache

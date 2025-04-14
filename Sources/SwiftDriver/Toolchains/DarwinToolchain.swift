@@ -114,6 +114,20 @@ public final class DarwinToolchain: Toolchain {
     }
   }
 
+  public func addAutoLinkFlags(for linkLibraries: [LinkLibraryInfo], to commandLine: inout [Job.ArgTemplate]) {
+    for linkLibrary in linkLibraries {
+      if !linkLibrary.isFramework {
+        commandLine.appendFlag(.Xlinker)
+        commandLine.appendFlag("-possible-l\(linkLibrary.linkName)")
+      } else {
+        commandLine.appendFlag(.Xlinker)
+        commandLine.appendFlag("-possible_framework")
+        commandLine.appendFlag(.Xlinker)
+        commandLine.appendFlag(linkLibrary.linkName)
+      }
+    }
+  }
+
   public func defaultSDKPath(_ target: Triple?) throws -> AbsolutePath? {
     let hostIsMacOS: Bool
     #if os(macOS)
