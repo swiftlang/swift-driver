@@ -421,17 +421,7 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
         allLinkLibraries.append(linkLibrary)
       }
     }
-
-    for linkLibrary in allLinkLibraries {
-      if !linkLibrary.isFramework {
-        commandLine.appendFlag("-l\(linkLibrary.linkName)")
-      } else {
-        commandLine.appendFlag(.Xlinker)
-        commandLine.appendFlag("-framework")
-        commandLine.appendFlag(.Xlinker)
-        commandLine.appendFlag(linkLibrary.linkName)
-      }
-    }
+    toolchain.addAutoLinkFlags(for: allLinkLibraries, to: &commandLine)
   }
 
   /// Resolve all module dependencies of the main module and add them to the lists of
