@@ -20,9 +20,8 @@ import struct TSCBasic.RelativePath
 import var TSCBasic.localFileSystem
 
 /// Describes information about the compiler's supported arguments and features
-@_spi(Testing) public struct SupportedCompilerFeatures: Codable {
+@_spi(Testing) public struct SupportedCompilerArguments: Codable {
   var SupportedArguments: [String]
-  var SupportedFeatures: [String]
 }
 
 extension Toolchain {
@@ -30,6 +29,7 @@ extension Toolchain {
                                         swiftCompilerPrefixArgs: [String]) throws -> Job {
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
     var inputs: [TypedVirtualPath] = []
+    // FIXME: This flag has been renamed to `-emit-supported-arguments`
     commandLine.append(contentsOf: [.flag("-frontend"),
                                     .flag("-emit-supported-features")])
 
@@ -83,7 +83,7 @@ extension Driver {
                                                       frontendOverride.prefixArgsForTargetInfo)
     let decodedSupportedFlagList = try executor.execute(
       job: frontendFeaturesJob,
-      capturingJSONOutputAs: SupportedCompilerFeatures.self,
+      capturingJSONOutputAs: SupportedCompilerArguments.self,
       forceResponseFiles: false,
       recordedInputModificationDates: [:]).SupportedArguments
     return Set(decodedSupportedFlagList)

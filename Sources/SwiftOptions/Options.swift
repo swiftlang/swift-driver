@@ -394,7 +394,8 @@ extension Option {
   public static let emitSingletonMetadataPointer: Option = Option("-emit-singleton-metadata-pointer", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Emit a pointer to the corresponding type metadata into non-public non-generic type descriptors.")
   public static let emitSortedSil: Option = Option("-emit-sorted-sil", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "When printing SIL, print out all sil entities sorted by name to ease diffing")
   public static let stackPromotionChecks: Option = Option("-emit-stack-promotion-checks", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Emit runtime checks for correct stack promotion of objects.")
-  public static let emitSupportedFeatures: Option = Option("-emit-supported-features", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Emit a JSON file including all supported compiler features", group: .modes)
+  public static let emitSupportedArguments: Option = Option("-emit-supported-arguments", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Emit a JSON file including all supported compiler arguments", group: .modes)
+  public static let emitSupportedFeatures: Option = Option("-emit-supported-features", .flag, alias: Option.emitSupportedArguments, attributes: [.helpHidden, .frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "This is a compatibility alias for '-emit-supported-arguments'", group: .modes)
   public static let emitSymbolGraphDir: Option = Option("-emit-symbol-graph-dir", .separate, attributes: [.helpHidden, .frontend, .noInteractive, .argumentIsPath, .supplementaryOutput, .cacheInvariant], metaVar: "<dir>", helpText: "Emit a symbol graph to directory <dir>")
   public static let emitSymbolGraph: Option = Option("-emit-symbol-graph", .flag, attributes: [.helpHidden, .frontend, .noInteractive, .supplementaryOutput], helpText: "Emit a symbol graph")
   public static let emitTbdPathEQ: Option = Option("-emit-tbd-path=", .joined, alias: Option.emitTbdPath, attributes: [.frontend, .noInteractive, .argumentIsPath, .supplementaryOutput, .cacheInvariant])
@@ -763,6 +764,7 @@ extension Option {
   public static let printModule_: Option = Option("--print-module", .flag, alias: Option.printModule, attributes: [.noDriver], helpText: "Print module names in diagnostics")
   public static let printPreprocessedExplicitDependencyGraph: Option = Option("-print-preprocessed-explicit-dependency-graph", .flag, attributes: [.helpHidden], helpText: "Print the result of module dependency scanning to output")
   public static let printStats: Option = Option("-print-stats", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Print various statistics")
+  public static let printSupportedFeatures: Option = Option("-print-supported-features", .flag, attributes: [.frontend], metaVar: "<features>", helpText: "Print information about features supported by the compiler")
   public static let printTargetInfo: Option = Option("-print-target-info", .flag, attributes: [.frontend], metaVar: "<triple>", helpText: "Print target information for the given target <triple>, such as x86_64-apple-macos10.9")
   public static let printZeroStats: Option = Option("-print-zero-stats", .flag, attributes: [.helpHidden, .frontend], helpText: "Prints all stats even if they are zero")
   public static let profileCoverageMapping: Option = Option("-profile-coverage-mapping", .flag, attributes: [.frontend, .noInteractive], helpText: "Generate coverage data for use with profiled execution counts")
@@ -1351,6 +1353,7 @@ extension Option {
       Option.emitSingletonMetadataPointer,
       Option.emitSortedSil,
       Option.stackPromotionChecks,
+      Option.emitSupportedArguments,
       Option.emitSupportedFeatures,
       Option.emitSymbolGraphDir,
       Option.emitSymbolGraph,
@@ -1720,6 +1723,7 @@ extension Option {
       Option.printModule_,
       Option.printPreprocessedExplicitDependencyGraph,
       Option.printStats,
+      Option.printSupportedFeatures,
       Option.printTargetInfo,
       Option.printZeroStats,
       Option.profileCoverageMapping,
