@@ -120,6 +120,7 @@ extension Driver {
                                                 supportsExplicitInterfaceBuild:
                                                   isFrontendArgSupported(.explicitInterfaceModuleBuild),
                                                 cas: cas,
+                                                prefixMap: prefixMapping,
                                                 supportsBridgingHeaderPCHCommand:
                                                   interModuleDependencyOracle.supportsBridgingHeaderPCHCommand)
     } else {
