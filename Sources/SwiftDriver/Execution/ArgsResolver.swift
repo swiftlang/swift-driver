@@ -134,13 +134,19 @@ public final class ArgsResolver {
         try createFileList(path: actualPath, contents: items)
       case let .fileList(_, .outputFileMap(map)):
         try createFileList(path: actualPath, outputFileMap: map)
-      case .relative, .absolute, .standardInput, .standardOutput:
+      case .relative, .absolute, .standardInput, .standardOutput, .buildArtifactWithKnownContents:
         fatalError("Not a temporary path.")
       }
 
       let result = actualPath.name
       pathMapping[path] = result
       return result
+    }
+
+    // First time resolving a build product with a known path and driver-computed
+    // contents, write it to the filesystem.
+    if case let .buildArtifactWithKnownContents(absolutePath, contents) = path {
+      try fileSystem.writeFileContents(absolutePath, bytes: .init(contents))
     }
 
     // Otherwise, return the path.

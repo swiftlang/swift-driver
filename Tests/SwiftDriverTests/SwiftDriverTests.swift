@@ -8298,6 +8298,10 @@ extension Array where Element == Job {
   func findJob(_ kind: Job.Kind) throws -> Job {
     return try XCTUnwrap(first(where: { $0.kind == kind }))
   }
+
+  func findJobs(_ kind: Job.Kind) throws -> [Job] {
+    return try XCTUnwrap(filter({ $0.kind == kind }))
+  }
 }
 
 private extension Array where Element == Job.ArgTemplate {
