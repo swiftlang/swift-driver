@@ -115,6 +115,9 @@ public protocol Toolchain {
   /// Constructs a proper output file name for a linker product.
   func makeLinkerOutputFilename(moduleName: String, type: LinkOutputType) -> String
 
+  /// Adds linker flags corresponding to the specified set of link libraries
+  func addAutoLinkFlags(for linkLibraries: [LinkLibraryInfo], to commandLine: inout [Job.ArgTemplate])
+
   /// Perform platform-specific argument validation.
   func validateArgs(_ parsedOptions: inout ParsedOptions,
                     targetTriple: Triple,

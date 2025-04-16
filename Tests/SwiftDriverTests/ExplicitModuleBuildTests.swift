@@ -500,6 +500,61 @@ final class ExplicitModuleBuildTests: XCTestCase {
     }
   }
 
+  func testExplicitLinkFlags() throws {
+    try withTemporaryDirectory { path in
+      let (_, _, toolchain, _) = try getDriverArtifactsForScanning()
+
+      let main = path.appending(component: "testExplicitLinkLibraries.swift")
+      try localFileSystem.writeFileContents(main, bytes:
+        """
+        import C;import E;import G;
+        """
+      )
+
+      let cHeadersPath: AbsolutePath =
+      try testInputsPath.appending(component: "ExplicitModuleBuilds")
+        .appending(component: "CHeaders")
+      let bridgingHeaderpath: AbsolutePath =
+      cHeadersPath.appending(component: "Bridging.h")
+      let swiftModuleInterfacesPath: AbsolutePath =
+      try testInputsPath.appending(component: "ExplicitModuleBuilds")
+        .appending(component: "Swift")
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+
+      // Verify the dependency scanner supports link library reporting
+      let dependencyOracle = InterModuleDependencyOracle()
+      let scanLibPath = try XCTUnwrap(toolchain.lookupSwiftScanLib())
+      try dependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
+      guard try dependencyOracle.supportsLinkLibraries() else {
+        throw XCTSkip("libSwiftScan does not support link library reporting.")
+      }
+
+      let args = ["swiftc",
+                  "-I", cHeadersPath.nativePathString(escaped: true),
+                  "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                  "-explicit-module-build", "-explicit-auto-linking",
+                  "-import-objc-header", bridgingHeaderpath.nativePathString(escaped: true),
+                  main.nativePathString(escaped: true)] + sdkArgumentsForTesting
+      var driver = try Driver(args: args)
+      let jobs = try driver.planBuild()
+
+      let linkJob = try jobs.findJob(.link)
+      if driver.targetTriple.isDarwin {
+        XCTAssertFalse(linkJob.commandLine.contains("-possible_lswiftCore"))
+        XCTAssertFalse(linkJob.commandLine.contains("-possible_lswift_StringProcessing"))
+        XCTAssertFalse(linkJob.commandLine.contains("-possible_lobjc"))
+        XCTAssertFalse(linkJob.commandLine.contains("-possible_lswift_Concurrency"))
+        XCTAssertFalse(linkJob.commandLine.contains("-possible_lswiftSwiftOnoneSupport"))
+      } else {
+        XCTAssertFalse(linkJob.commandLine.contains("-lswiftCore"))
+        XCTAssertFalse(linkJob.commandLine.contains("-lswift_StringProcessing"))
+        XCTAssertFalse(linkJob.commandLine.contains("-lobjc"))
+        XCTAssertFalse(linkJob.commandLine.contains("-lswift_Concurrency"))
+        XCTAssertFalse(linkJob.commandLine.contains("-lswiftSwiftOnoneSupport"))
+      }
+    }
+  }
+
   func testExplicitLinkLibraries() throws {
     try withTemporaryDirectory { path in
       let (_, _, toolchain, _) = try getDriverArtifactsForScanning()
