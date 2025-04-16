@@ -2591,6 +2591,167 @@ final class ExplicitModuleBuildTests: XCTestCase {
     }
   }
 
+  func testTargetVariantEmitModuleExplicit() throws {
+    let (stdlibPath, shimsPath, _, _) = try getDriverArtifactsForScanning()
+    let cHeadersPath: AbsolutePath =
+      try testInputsPath.appending(component: "ExplicitModuleBuilds")
+        .appending(component: "CHeaders")
+    let swiftModuleInterfacesPath: AbsolutePath =
+      try testInputsPath.appending(component: "ExplicitModuleBuilds")
+        .appending(component: "Swift")
+    let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+
+    // Ensure we produce two separate module precompilation task graphs
+    // one for the main triple, one for the variant triple
+    do {
+      try withTemporaryDirectory { path in
+        let main = path.appending(component: "testDependencyScanning.swift")
+        try localFileSystem.writeFileContents(main, bytes:
+          """
+          import C;\
+          import E;\
+          import G;
+          """
+        )
+        var driver = try Driver(args: ["swiftc",
+                                       "-target", "x86_64-apple-macosx10.14",
+                                       "-target-variant", "x86_64-apple-ios13.1-macabi",
+                                       "-clang-target", "x86_64-apple-macosx12.14",
+                                       "-clang-target-variant", "x86_64-apple-ios15.1-macabi",
+                                       "-enable-library-evolution", "-emit-module", "-emit-module-interface",
+                                       "-emit-module-path", "foo.swiftmodule/target.swiftmodule",
+                                       "-emit-variant-module-path", "foo.swiftmodule/variant.swiftmodule",
+                                       "-emit-module-interface-path", "foo.swiftmodule/target.swiftinterface",
+                                       "-emit-variant-module-interface-path", "foo.swiftmodule/variant.swiftinterface",
+                                       "-disable-implicit-concurrency-module-import",
+                                       "-disable-implicit-string-processing-module-import",
+                                       "-I", cHeadersPath.nativePathString(escaped: true),
+                                       "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                       "-I", stdlibPath.nativePathString(escaped: true),
+                                       "-I", shimsPath.nativePathString(escaped: true),
+                                       "-explicit-module-build",
+                                       main.pathString] + sdkArgumentsForTesting)
+
+        let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+        let emitModuleJobs = try plannedJobs.findJobs(.emitModule)
+        let targetModuleJob = emitModuleJobs[0]
+        let variantModuleJob = emitModuleJobs[1]
+
+        XCTAssert(targetModuleJob.commandLine.contains(.flag("-emit-module")))
+        XCTAssert(variantModuleJob.commandLine.contains(.flag("-emit-module")))
+
+        XCTAssert(targetModuleJob.commandLine.contains(.path(.relative(try .init(validating: "foo.swiftmodule/target.swiftdoc")))))
+        XCTAssert(targetModuleJob.commandLine.contains(.path(.relative(try .init(validating: "foo.swiftmodule/target.swiftsourceinfo")))))
+        XCTAssert(targetModuleJob.commandLine.contains(.path(.relative(try .init(validating: "foo.swiftmodule/target.abi.json")))))
+        XCTAssertTrue(targetModuleJob.commandLine.contains(subsequence: [.flag("-o"), .path(.relative(try .init(validating: "foo.swiftmodule/target.swiftmodule")))]))
+
+        XCTAssert(variantModuleJob.commandLine.contains(.path(.relative(try .init(validating: "foo.swiftmodule/variant.swiftdoc")))))
+        XCTAssert(variantModuleJob.commandLine.contains(.path(.relative(try .init(validating: "foo.swiftmodule/variant.swiftsourceinfo")))))
+        XCTAssert(variantModuleJob.commandLine.contains(.path(.relative(try .init(validating: "foo.swiftmodule/variant.abi.json")))))
+        XCTAssertTrue(variantModuleJob.commandLine.contains(subsequence: [.flag("-o"), .path(.relative(try .init(validating: "foo.swiftmodule/variant.swiftmodule")))]))
+
+        let verifyModuleJobs = try plannedJobs.findJobs(.verifyModuleInterface)
+        let verifyTargetModuleJob = verifyModuleJobs[0]
+        let verifyVariantModuleJob = verifyModuleJobs[1]
+        XCTAssert(verifyTargetModuleJob.commandLine.contains(.flag("-typecheck-module-from-interface")))
+        XCTAssert(verifyVariantModuleJob.commandLine.contains(.flag("-typecheck-module-from-interface")))
+
+        XCTAssert(verifyTargetModuleJob.commandLine.contains(.flag("-target")))
+        XCTAssert(verifyTargetModuleJob.commandLine.contains(.flag("x86_64-apple-macosx10.14")))
+        XCTAssert(verifyTargetModuleJob.commandLine.contains(.path(.relative(try .init(validating: "foo.swiftmodule/target.swiftinterface")))))
+
+        XCTAssert(verifyVariantModuleJob.commandLine.contains(.flag("-target")))
+        XCTAssert(verifyVariantModuleJob.commandLine.contains(.flag("x86_64-apple-ios13.1-macabi")))
+        XCTAssert(verifyVariantModuleJob.commandLine.contains(.path(.relative(try .init(validating: "foo.swiftmodule/variant.swiftinterface")))))
+
+        let interfaceCompilationJobs = try plannedJobs.findJobs(.compileModuleFromInterface)
+        let _ = try XCTUnwrap(interfaceCompilationJobs.first { $0.commandLine.contains(subsequence: [.flag("-module-name"), .flag("A")]) &&
+                                                               $0.commandLine.contains(subsequence: [.flag("-target"), .flag("x86_64-apple-macosx10.14")])})
+        let _ = try XCTUnwrap(interfaceCompilationJobs.first { $0.commandLine.contains(subsequence: [.flag("-module-name"), .flag("A")]) &&
+                                                               $0.commandLine.contains(subsequence: [.flag("-target"), .flag("x86_64-apple-ios13.1-macabi")])})
+
+        let _ = try XCTUnwrap(interfaceCompilationJobs.first { $0.commandLine.contains(subsequence: [.flag("-module-name"), .flag("G")]) &&
+                                                               $0.commandLine.contains(subsequence: [.flag("-target"), .flag("x86_64-apple-macosx10.14")])})
+        let _ = try XCTUnwrap(interfaceCompilationJobs.first { $0.commandLine.contains(subsequence: [.flag("-module-name"), .flag("G")]) &&
+                                                               $0.commandLine.contains(subsequence: [.flag("-target"), .flag("x86_64-apple-ios13.1-macabi")])})
+
+        let _ = try XCTUnwrap(interfaceCompilationJobs.first { $0.commandLine.contains(subsequence: [.flag("-module-name"), .flag("E")]) &&
+                                                               $0.commandLine.contains(subsequence: [.flag("-target"), .flag("x86_64-apple-macosx10.14")])})
+        let _ = try XCTUnwrap(interfaceCompilationJobs.first { $0.commandLine.contains(subsequence: [.flag("-module-name"), .flag("E")]) &&
+                                                               $0.commandLine.contains(subsequence: [.flag("-target"), .flag("x86_64-apple-ios13.1-macabi")])})
+
+        let pcmCompilationJobs = try plannedJobs.findJobs(.generatePCM)
+        let _ = try XCTUnwrap(pcmCompilationJobs.first { $0.commandLine.contains(subsequence: [.flag("-module-name"), .flag("A")]) &&
+                                                         $0.commandLine.contains(subsequence: [.flag("-Xcc"), .flag("-triple"), .flag("-Xcc"), .flag("x86_64-apple-macosx12.14.0")]) &&
+                                                         !$0.commandLine.contains(.flag("-darwin-target-variant-triple"))})
+        let _ = try XCTUnwrap(pcmCompilationJobs.first { $0.commandLine.contains(subsequence: [.flag("-module-name"), .flag("A")]) &&
+                                                         $0.commandLine.contains(subsequence: [.flag("-Xcc"), .flag("-darwin-target-variant-triple"), .flag("-Xcc"), .flag("x86_64-apple-ios15.1-macabi")])})
+
+        let _ = try XCTUnwrap(pcmCompilationJobs.first { $0.commandLine.contains(subsequence: [.flag("-module-name"), .flag("C")]) &&
+                                                         $0.commandLine.contains(subsequence: [.flag("-Xcc"), .flag("-triple"), .flag("-Xcc"), .flag("x86_64-apple-macosx12.14.0")]) &&
+                                                         !$0.commandLine.contains(.flag("-darwin-target-variant-triple"))})
+        let _ = try XCTUnwrap(pcmCompilationJobs.first { $0.commandLine.contains(subsequence: [.flag("-module-name"), .flag("C")]) &&
+                                                         $0.commandLine.contains(subsequence: [.flag("-Xcc"), .flag("-darwin-target-variant-triple"), .flag("-Xcc"), .flag("x86_64-apple-ios15.1-macabi")])})
+
+        let _ = try XCTUnwrap(pcmCompilationJobs.first { $0.commandLine.contains(subsequence: [.flag("-module-name"), .flag("G")]) &&
+                                                         $0.commandLine.contains(subsequence: [.flag("-Xcc"), .flag("-triple"), .flag("-Xcc"), .flag("x86_64-apple-macosx12.14.0")]) &&
+                                                         !$0.commandLine.contains(.flag("-darwin-target-variant-triple"))})
+        let _ = try XCTUnwrap(pcmCompilationJobs.first { $0.commandLine.contains(subsequence: [.flag("-module-name"), .flag("G")]) &&
+                                                         $0.commandLine.contains(subsequence: [.flag("-Xcc"), .flag("-darwin-target-variant-triple"), .flag("-Xcc"), .flag("x86_64-apple-ios15.1-macabi")])})
+      }
+    }
+
+    // Ensure each emit-module gets a distinct PCH file
+    do {
+      try withTemporaryDirectory { path in
+        let main = path.appending(component: "testDependencyScanning.swift")
+        try localFileSystem.writeFileContents(main, bytes:
+          """
+          import C;\
+          import E;\
+          import G;
+          """
+        )
+        let PCHPath = path.appending(component: "PCH")
+        let fooHeader = path.appending(component: "foo.h")
+        try localFileSystem.writeFileContents(fooHeader) {
+          $0.send("struct Profiler { void* ptr; };")
+        }
+        var driver = try Driver(args: ["swiftc",
+                                       "-target", "x86_64-apple-macosx10.14",
+                                       "-target-variant", "x86_64-apple-ios13.1-macabi",
+                                       "-clang-target", "x86_64-apple-macosx12.14",
+                                       "-clang-target-variant", "x86_64-apple-ios15.1-macabi",
+                                       "-emit-module",
+                                       "-emit-module-path", "foo.swiftmodule/target.swiftmodule",
+                                       "-emit-variant-module-path", "foo.swiftmodule/variant.swiftmodule",
+                                       "-disable-implicit-concurrency-module-import",
+                                       "-disable-implicit-string-processing-module-import",
+                                       "-I", cHeadersPath.nativePathString(escaped: true),
+                                       "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                       "-I", stdlibPath.nativePathString(escaped: true),
+                                       "-I", shimsPath.nativePathString(escaped: true),
+                                       "-import-objc-header", fooHeader.nativePathString(escaped: true),
+                                       "-pch-output-dir", PCHPath.nativePathString(escaped: true),
+                                       "-explicit-module-build",
+                                       main.pathString] + sdkArgumentsForTesting)
+
+        let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+        let emitModuleJobs = try plannedJobs.findJobs(.emitModule)
+        let targetModuleJob = emitModuleJobs[0]
+        let variantModuleJob = emitModuleJobs[1]
+
+        let pchJobs = try plannedJobs.findJobs(.generatePCH)
+        let pchTargetJob = try XCTUnwrap(pchJobs.first { $0.commandLine.contains(subsequence: [.flag("-Xcc"), .flag("-triple"), .flag("-Xcc"), .flag("x86_64-apple-macosx12.14.0")]) &&
+                                                         $0.commandLine.contains(subsequence: [.flag("-Xcc"), .flag("-darwin-target-variant-triple"), .flag("-Xcc"),.flag("x86_64-apple-ios15.1-macabi")])})
+        let pchVariantJob = try XCTUnwrap(pchJobs.first { $0.commandLine.contains(subsequence: [.flag("-Xcc"), .flag("-triple"), .flag("-Xcc"), .flag("x86_64-apple-macosx12.14.0")]) &&
+                                                          !$0.commandLine.contains(.flag("-darwin-target-variant-triple"))})
+        XCTAssertTrue(targetModuleJob.inputs.contains(try XCTUnwrap(pchTargetJob.outputs.first)))
+        XCTAssertTrue(variantModuleJob.inputs.contains(try XCTUnwrap(pchVariantJob.outputs.first)))
+      }
+    }
+  }
+
 // We only care about prebuilt modules in macOS.
 #if os(macOS)
   func testPrebuiltModuleGenerationJobs() throws {

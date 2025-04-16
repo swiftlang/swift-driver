@@ -47,6 +47,9 @@ public enum VirtualPath: Hashable {
   /// Standard output
   case standardOutput
 
+  /// ACTODO: Comment
+  case buildArtifactWithKnownContents(AbsolutePath, Data)
+
   /// We would like to direct clients to use the temporary file creation utilities `createUniqueTemporaryFile`, etc.
   /// To ensure temporary files are unique.
   /// TODO: If/When Swift gains enum access control, we can prohibit direct instantiation of temporary file cases,
@@ -72,6 +75,8 @@ public enum VirtualPath: Hashable {
     case .relative(let path), .temporary(let path),
          .temporaryWithKnownContents(let path, _), .fileList(let path, _):
       return path.extension
+    case .buildArtifactWithKnownContents(let path, _):
+      return path.extension
     case .absolute(let path):
       return path.extension
     case .standardInput, .standardOutput:
@@ -82,7 +87,7 @@ public enum VirtualPath: Hashable {
   /// Whether this virtual path is to a temporary.
   public var isTemporary: Bool {
     switch self {
-    case .relative, .absolute, .standardInput, .standardOutput:
+    case .relative, .absolute, .standardInput, .standardOutput, .buildArtifactWithKnownContents:
       return false
     case .temporary, .temporaryWithKnownContents, .fileList:
       return true
@@ -91,7 +96,7 @@ public enum VirtualPath: Hashable {
 
   public var absolutePath: AbsolutePath? {
     switch self {
-    case let .absolute(absolutePath):
+    case .absolute(let absolutePath), .buildArtifactWithKnownContents(let absolutePath, _):
       return absolutePath
     case .relative, .temporary, .temporaryWithKnownContents, .fileList, .standardInput, .standardOutput:
       return nil
@@ -111,7 +116,7 @@ public enum VirtualPath: Hashable {
          .fileList(let name, _),
          .temporaryWithKnownContents(let name, _):
       return name
-    case .absolute, .relative, .standardInput, .standardOutput:
+    case .absolute, .relative, .standardInput, .standardOutput, .buildArtifactWithKnownContents:
       return nil
     }
   }
@@ -119,7 +124,7 @@ public enum VirtualPath: Hashable {
   /// Retrieve the basename of the path.
   public var basename: String {
     switch self {
-    case .absolute(let path):
+    case .absolute(let path), .buildArtifactWithKnownContents(let path, _):
       return path.basename
     case .relative(let path), .temporary(let path), .temporaryWithKnownContents(let path, _), .fileList(let path, _):
       return path.basename
@@ -131,7 +136,7 @@ public enum VirtualPath: Hashable {
   /// Retrieve the basename of the path without the extension.
   public var basenameWithoutExt: String {
     switch self {
-    case .absolute(let path):
+    case .absolute(let path), .buildArtifactWithKnownContents(let path, _):
       return path.basenameWithoutExt
     case .relative(let path), .temporary(let path), .temporaryWithKnownContents(let path, _), .fileList(let path, _):
       return path.basenameWithoutExt
@@ -143,7 +148,7 @@ public enum VirtualPath: Hashable {
   /// Retrieve the path to the parent directory.
   public var parentDirectory: VirtualPath {
     switch self {
-    case .absolute(let path):
+    case .absolute(let path), .buildArtifactWithKnownContents(let path, _):
       return .absolute(path.parentDirectory)
     case .relative(let path):
       return .relative(try! RelativePath(validating: path.dirname))
@@ -162,7 +167,7 @@ public enum VirtualPath: Hashable {
   /// This should not be used with `.standardInput` or `.standardOutput`.
   public func appending(component: String) -> VirtualPath {
     switch self {
-    case .absolute(let path):
+    case .absolute(let path), .buildArtifactWithKnownContents(let path, _):
       return .absolute(path.appending(component: component))
     case .relative(let path):
       return .relative(path.appending(component: component))
@@ -180,7 +185,7 @@ public enum VirtualPath: Hashable {
 
   public func appending(components: String...) -> VirtualPath {
     switch self {
-    case .absolute(let path):
+    case .absolute(let path), .buildArtifactWithKnownContents(let path, _):
       return .absolute(path.appending(components: components))
     case .relative(let path):
       return .relative(path.appending(components: components))
@@ -201,7 +206,7 @@ public enum VirtualPath: Hashable {
   /// This should not be used with `.standardInput` or `.standardOutput`.
   public func appendingToBaseName(_ suffix: String) throws -> VirtualPath {
     switch self {
-    case let .absolute(path):
+    case let .absolute(path), .buildArtifactWithKnownContents(let path, _):
       return .absolute(try AbsolutePath(validating: path.pathString + suffix))
     case let .relative(path):
       return .relative(try RelativePath(validating: path.pathString + suffix))
@@ -297,6 +302,8 @@ extension VirtualPath {
       return path.pathString
     case .absolute(let path):
       return path.pathString
+    case .buildArtifactWithKnownContents(let path, _):
+      return "buildArtifactWithKnownContents:" + path.pathString
     case .temporary(let path):
       // N.B. Mangle in a discrimintor for temporaries so they intern apart
       // from normal kinds of paths.
@@ -429,6 +436,13 @@ extension VirtualPath {
   }
 }
 
+extension VirtualPath {
+  public static func createBuildProductFileWithKnownContents(_ path: AbsolutePath, _ data: Data)
+  throws -> VirtualPath {
+    return .buildArtifactWithKnownContents(path, data)
+  }
+}
+
 // MARK: Temporary File Creation
 
 /// Most client contexts require temporary files they request to be unique (e.g. auxiliary compile outputs).
@@ -511,7 +525,7 @@ extension VirtualPath.Handle: Hashable {}
 extension VirtualPath: Codable {
   private enum CodingKeys: String, CodingKey {
     case relative, absolute, standardInput, standardOutput, temporary,
-         temporaryWithKnownContents, fileList
+         temporaryWithKnownContents, buildProductWithKnownContents, fileList
   }
 
   public func encode(to encoder: Encoder) throws {
@@ -532,6 +546,10 @@ extension VirtualPath: Codable {
       try unkeyedContainer.encode(a1)
     case let .temporaryWithKnownContents(path, contents):
       var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .temporaryWithKnownContents)
+      try unkeyedContainer.encode(path)
+      try unkeyedContainer.encode(contents)
+    case let .buildArtifactWithKnownContents(path, contents):
+      var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .buildProductWithKnownContents)
       try unkeyedContainer.encode(path)
       try unkeyedContainer.encode(contents)
     case .fileList(let path, let fileList):
@@ -568,6 +586,11 @@ extension VirtualPath: Codable {
       let path = try unkeyedValues.decode(RelativePath.self)
       let contents = try unkeyedValues.decode(Data.self)
       self = .temporaryWithKnownContents(path, contents)
+    case .buildProductWithKnownContents:
+      var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
+      let path = try unkeyedValues.decode(AbsolutePath.self)
+      let contents = try unkeyedValues.decode(Data.self)
+      self = .buildArtifactWithKnownContents(path, contents)
     case .fileList:
       var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
       let path = try unkeyedValues.decode(RelativePath.self)
@@ -593,7 +616,7 @@ public struct TextualVirtualPath: Codable, Hashable {
   public func encode(to encoder: Encoder) throws {
     var container = encoder.singleValueContainer()
     switch VirtualPath.lookup(self.path) {
-    case .absolute(let path):
+    case .absolute(let path), .buildArtifactWithKnownContents(let path, _):
       try container.encode(path.pathString)
     case .relative(let path):
       try container.encode(path.pathString)
@@ -612,7 +635,7 @@ extension VirtualPath: CustomStringConvertible {
     case .relative(let path):
       return path.pathString
 
-    case .absolute(let path):
+    case .absolute(let path), .buildArtifactWithKnownContents(let path, _):
       return path.pathString
 
     case .standardInput, .standardOutput:
@@ -632,6 +655,8 @@ extension VirtualPath: CustomDebugStringConvertible {
       return ".relative(\(path.pathString))"
     case .absolute(let path):
       return ".absolute(\(path.pathString))"
+    case .buildArtifactWithKnownContents(let path, _):
+      return "buildProductWithKnownContents(\(path.pathString))"
     case .standardInput:
       return ".standardInput"
     case .standardOutput:
@@ -653,6 +678,8 @@ extension VirtualPath {
     switch self {
     case let .absolute(path):
       return .absolute(try AbsolutePath(validating: path.pathString.withoutExt(path.extension).appendingFileTypeExtension(fileType)))
+    case let .buildArtifactWithKnownContents(path, content):
+      return .buildArtifactWithKnownContents(try AbsolutePath(validating: path.pathString.withoutExt(path.extension).appendingFileTypeExtension(fileType)), content)
     case let .relative(path):
       return .relative(try RelativePath(validating: path.pathString.withoutExt(path.extension).appendingFileTypeExtension(fileType)))
     case let .temporary(path):
@@ -699,6 +726,8 @@ extension TSCBasic.FileSystem {
   ) throws -> T {
     switch path {
     case let .absolute(absPath):
+      return try f(absPath)
+    case let .buildArtifactWithKnownContents(absPath, _):
       return try f(absPath)
     case let .relative(relPath):
       guard let cwd = currentWorkingDirectory else {

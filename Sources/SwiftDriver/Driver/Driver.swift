@@ -330,7 +330,7 @@ public struct Driver {
     case .relative(let path):
       let cwd = workingDirectory ?? fileSystem.currentWorkingDirectory
       return cwd.map { AbsolutePath($0, path) }
-    case .standardInput, .standardOutput, .temporary, .temporaryWithKnownContents, .fileList:
+    case .standardInput, .standardOutput, .temporary, .temporaryWithKnownContents, .fileList, .buildArtifactWithKnownContents:
       fatalError("Frontend target information will never include a path of this type.")
     }
   }
@@ -3103,15 +3103,11 @@ extension Driver {
     chainedBridgingHeader: ChainedBridgingHeaderFile?) throws -> VirtualPath.Handle? {
     // handle chained bridging header.
     if let chainedHeader = chainedBridgingHeader, !chainedHeader.path.isEmpty {
-      let path = try VirtualPath(path: chainedHeader.path)
-      let dirExists = try fileSystem.exists(path.parentDirectory)
-      if !dirExists, let dirToCreate = path.parentDirectory.absolutePath {
-        try fileSystem.createDirectory(dirToCreate, recursive: true)
+      let path = try AbsolutePath(validating: chainedHeader.path)
+      if !fileSystem.exists(path.parentDirectory) {
+        try fileSystem.createDirectory(path.parentDirectory, recursive: true)
       }
-      try fileSystem.writeFileContents(path,
-                                       bytes: ByteString(encodingAsUTF8: chainedHeader.content),
-                                       atomically: true)
-      return path.intern()
+      return try VirtualPath.createBuildProductFileWithKnownContents(path, chainedHeader.content.data(using: .utf8)!).intern()
     }
     return originalObjCHeaderFile
   }
