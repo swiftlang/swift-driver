@@ -136,7 +136,10 @@ public struct SwiftModuleDetails: Codable, Hashable {
   public var isFramework: Bool?
 
   /// A set of Swift Overlays of Clang Module Dependencies
-  var swiftOverlayDependencies: [ModuleDependencyId]?
+  public var swiftOverlayDependencies: [ModuleDependencyId]?
+
+  /// A set of directly-imported in source module dependencies
+  public var sourceImportDependencies: [ModuleDependencyId]?
 
   /// The module cache key of the output module.
   public var moduleCacheKey: String?
