@@ -141,6 +141,8 @@ typedef struct {
   (*swiftscan_swift_textual_detail_get_is_framework)(swiftscan_module_details_t);
   swiftscan_string_set_t *
   (*swiftscan_swift_textual_detail_get_swift_overlay_dependencies)(swiftscan_module_details_t);
+  swiftscan_string_set_t *
+  (*swiftscan_swift_textual_detail_get_swift_source_import_module_dependencies)(swiftscan_module_details_t);
   swiftscan_string_ref_t
   (*swiftscan_swift_textual_detail_get_module_cache_key)(swiftscan_module_details_t);
   swiftscan_string_ref_t
