@@ -200,6 +200,16 @@ private extension SwiftScan {
       swiftOverlayDependencies = nil
     }
 
+    let sourceImportedDependencies: [ModuleDependencyId]?
+    if supportsSeparateImportOnlyDependencise,
+       let encodedImportedDepsRef = api.swiftscan_swift_textual_detail_get_swift_source_import_module_dependencies(moduleDetailsRef) {
+      let encodedImportedDepsendencies = try toSwiftStringArray(encodedImportedDepsRef.pointee)
+      sourceImportedDependencies =
+        try encodedImportedDepsendencies.map { try decodeModuleNameAndKind(from: $0, moduleAliases: moduleAliases) }
+    } else {
+      sourceImportedDependencies = nil
+    }
+
     return SwiftModuleDetails(moduleInterfacePath: moduleInterfacePath,
                               compiledModuleCandidates: compiledModuleCandidates,
                               bridgingHeader: bridgingHeader,
@@ -208,6 +218,7 @@ private extension SwiftScan {
                               contextHash: contextHash,
                               isFramework: isFramework,
                               swiftOverlayDependencies: swiftOverlayDependencies,
+                              sourceImportDependencies: sourceImportedDependencies,
                               moduleCacheKey: moduleCacheKey,
                               chainedBridgingHeaderPath: chainedBridgingHeaderPath,
                               chainedBridgingHeaderContent: chainedBridgingHeaderContent)

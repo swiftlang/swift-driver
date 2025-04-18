@@ -619,6 +619,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                      "-I", stdlibPath.nativePathString(escaped: true),
                                      "-I", shimsPath.nativePathString(escaped: true),
                                      "-explicit-module-build",
+                                     "-disable-implicit-concurrency-module-import",
+                                     "-disable-implicit-string-processing-module-import",
                                      "-import-objc-header", bridgingHeaderpath.nativePathString(escaped: true),
                                      main.nativePathString(escaped: true)] + sdkArgumentsForTesting)
 
@@ -626,9 +628,26 @@ final class ExplicitModuleBuildTests: XCTestCase {
       // Figure out which Triples to use.
       let dependencyGraph = try driver.gatherModuleDependencies()
       let mainModuleInfo = try dependencyGraph.moduleInfo(of: .swift("testExplicitModuleBuildJobs"))
-      guard case .swift(_) = mainModuleInfo.details else {
+
+      guard case .swift(let mainModuleDetails) = mainModuleInfo.details else {
         XCTFail("Main module does not have Swift details field")
         return
+      }
+
+      if try driver.interModuleDependencyOracle.supportsSeparateImportOnlyDependencise() {
+          let directImportedDependencies = try XCTUnwrap(mainModuleDetails.sourceImportDependencies)
+        XCTAssertFalse(directImportedDependencies.contains(.swift("A")))
+        XCTAssertFalse(directImportedDependencies.contains(.clang("D")))
+        XCTAssertFalse(directImportedDependencies.contains(.clang("F")))
+        XCTAssertFalse(directImportedDependencies.contains(.clang("G")))
+
+        XCTAssertTrue(directImportedDependencies.contains(.swift("Swift")) ||
+                      directImportedDependencies.contains(.swiftPrebuiltExternal("Swift")))
+        XCTAssertTrue(directImportedDependencies.contains(.swift("SwiftOnoneSupport")) ||
+                      directImportedDependencies.contains(.swiftPrebuiltExternal("SwiftOnoneSupport")))
+        XCTAssertTrue(directImportedDependencies.contains(.swift("E")))
+        XCTAssertTrue(directImportedDependencies.contains(.clang("C")))
+        XCTAssertTrue(directImportedDependencies.contains(.swift("G")))
       }
 
       for job in jobs {
@@ -649,12 +668,6 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                             dependencyGraph: dependencyGraph)
           } else if pathMatchesSwiftModule(path: outputFilePath, "Swift") {
             try checkExplicitModuleBuildJob(job: job, moduleId: .swift("Swift"),
-                                            dependencyGraph: dependencyGraph)
-          } else if pathMatchesSwiftModule(path: outputFilePath, "_Concurrency") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .swift("_Concurrency"),
-                                            dependencyGraph: dependencyGraph)
-          } else if pathMatchesSwiftModule(path: outputFilePath, "_StringProcessing") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .swift("_StringProcessing"),
                                             dependencyGraph: dependencyGraph)
           } else if pathMatchesSwiftModule(path: outputFilePath, "SwiftOnoneSupport") {
             try checkExplicitModuleBuildJob(job: job, moduleId: .swift("SwiftOnoneSupport"),
