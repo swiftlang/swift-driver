@@ -18,7 +18,10 @@ import struct TSCBasic.AbsolutePath
 extension GenericUnixToolchain {
   private func majorArchitectureName(for triple: Triple) -> String {
     // The concept of a "major" arch name only applies to Linux triples
-    guard triple.os == .linux else { return triple.archName }
+    // We change spellings for amd64/x86_64 for OpenBSD here too to match LLVM.
+    guard triple.os == .linux || triple.os == .openbsd else { return triple.archName }
+
+    if triple.os == .openbsd && triple.archName == "amd64" { return "x86_64" }
 
     // HACK: We don't wrap LLVM's ARM target architecture parsing, and we should
     //       definitely not try to port it. This check was only normalizing
