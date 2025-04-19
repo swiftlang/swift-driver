@@ -119,6 +119,16 @@ extension GenericUnixToolchain {
         }
       }
 
+      if targetTriple.os == .openbsd && targetTriple.arch == .aarch64 {
+        let btcfiEnabled = targetInfo.target.openbsdBTCFIEnabled ?? false
+        if !btcfiEnabled {
+          commandLine.appendFlag("-Xlinker")
+          commandLine.appendFlag("-z")
+          commandLine.appendFlag("-Xlinker")
+          commandLine.appendFlag("nobtcfi")
+        }
+      }
+
       let staticStdlib = parsedOptions.hasFlag(positive: .staticStdlib,
                                                negative: .noStaticStdlib,
                                                    default: false)
