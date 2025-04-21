@@ -763,6 +763,7 @@ extension Option {
   public static let printModule_: Option = Option("--print-module", .flag, alias: Option.printModule, attributes: [.noDriver], helpText: "Print module names in diagnostics")
   public static let printPreprocessedExplicitDependencyGraph: Option = Option("-print-preprocessed-explicit-dependency-graph", .flag, attributes: [.helpHidden], helpText: "Print the result of module dependency scanning to output")
   public static let printStats: Option = Option("-print-stats", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Print various statistics")
+  public static let printSupportedFeatures: Option = Option("-print-supported-features", .flag, attributes: [.frontend], metaVar: "<features>", helpText: "Print information about features supported by the compiler")
   public static let printTargetInfo: Option = Option("-print-target-info", .flag, attributes: [.frontend], metaVar: "<triple>", helpText: "Print target information for the given target <triple>, such as x86_64-apple-macos10.9")
   public static let printZeroStats: Option = Option("-print-zero-stats", .flag, attributes: [.helpHidden, .frontend], helpText: "Prints all stats even if they are zero")
   public static let profileCoverageMapping: Option = Option("-profile-coverage-mapping", .flag, attributes: [.frontend, .noInteractive], helpText: "Generate coverage data for use with profiled execution counts")
@@ -1720,6 +1721,7 @@ extension Option {
       Option.printModule_,
       Option.printPreprocessedExplicitDependencyGraph,
       Option.printStats,
+      Option.printSupportedFeatures,
       Option.printTargetInfo,
       Option.printZeroStats,
       Option.profileCoverageMapping,
