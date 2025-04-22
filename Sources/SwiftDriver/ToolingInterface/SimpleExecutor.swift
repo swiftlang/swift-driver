@@ -32,8 +32,8 @@ import class TSCBasic.Process
   }
 
   public func execute(job: Job,
-                      forceResponseFiles: Bool,
-                      recordedInputModificationDates: [TypedVirtualPath : TimePoint]) throws -> ProcessResult {
+               forceResponseFiles: Bool,
+               recordedInputMetadata: [TypedVirtualPath : FileMetadata]) throws -> ProcessResult {
     let arguments: [String] = try resolver.resolveArgumentList(for: job,
                                                                useResponseFiles: .heuristic)
     var childEnv = env
@@ -43,8 +43,8 @@ import class TSCBasic.Process
   }
 
   public func execute(workload: DriverExecutorWorkload, delegate: JobExecutionDelegate,
-                      numParallelJobs: Int, forceResponseFiles: Bool,
-                      recordedInputModificationDates: [TypedVirtualPath : TimePoint]) throws {
+               numParallelJobs: Int, forceResponseFiles: Bool,
+               recordedInputMetadata: [TypedVirtualPath : FileMetadata]) throws {
     fatalError("Unsupported operation on current executor")
   }
 

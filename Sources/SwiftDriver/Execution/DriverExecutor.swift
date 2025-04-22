@@ -25,7 +25,7 @@ public protocol DriverExecutor {
   @discardableResult
   func execute(job: Job,
                forceResponseFiles: Bool,
-               recordedInputModificationDates: [TypedVirtualPath: TimePoint]) throws -> ProcessResult
+               recordedInputMetadata: [TypedVirtualPath: FileMetadata]) throws -> ProcessResult
 
   /// Execute multiple jobs, tracking job status using the provided execution delegate.
   /// Pass in the `IncrementalCompilationState` to allow for incremental compilation.
@@ -34,7 +34,7 @@ public protocol DriverExecutor {
                delegate: JobExecutionDelegate,
                numParallelJobs: Int,
                forceResponseFiles: Bool,
-               recordedInputModificationDates: [TypedVirtualPath: TimePoint]
+               recordedInputMetadata: [TypedVirtualPath: FileMetadata]
   ) throws
 
   /// Execute multiple jobs, tracking job status using the provided execution delegate.
@@ -42,7 +42,7 @@ public protocol DriverExecutor {
                delegate: JobExecutionDelegate,
                numParallelJobs: Int,
                forceResponseFiles: Bool,
-               recordedInputModificationDates: [TypedVirtualPath: TimePoint]
+               recordedInputMetadata: [TypedVirtualPath: FileMetadata]
   ) throws
 
   /// Launch a process with the given command line and report the result.
@@ -96,10 +96,10 @@ extension DriverExecutor {
   func execute<T: Decodable>(job: Job,
                              capturingJSONOutputAs outputType: T.Type,
                              forceResponseFiles: Bool,
-                             recordedInputModificationDates: [TypedVirtualPath: TimePoint]) throws -> T {
+                             recordedInputMetadata: [TypedVirtualPath: FileMetadata]) throws -> T {
     let result = try execute(job: job,
                              forceResponseFiles: forceResponseFiles,
-                             recordedInputModificationDates: recordedInputModificationDates)
+                             recordedInputMetadata: recordedInputMetadata)
 
     if (result.exitStatus != .terminated(code: EXIT_SUCCESS)) {
       let returnCode = Self.computeReturnCode(exitStatus: result.exitStatus)
@@ -121,14 +121,14 @@ extension DriverExecutor {
     delegate: JobExecutionDelegate,
     numParallelJobs: Int,
     forceResponseFiles: Bool,
-    recordedInputModificationDates: [TypedVirtualPath: TimePoint]
+    recordedInputMetadata: [TypedVirtualPath: FileMetadata]
   ) throws {
     try execute(
       workload: .all(jobs),
       delegate: delegate,
       numParallelJobs: numParallelJobs,
       forceResponseFiles: forceResponseFiles,
-      recordedInputModificationDates: recordedInputModificationDates)
+      recordedInputMetadata: recordedInputMetadata)
   }
 
   static func computeReturnCode(exitStatus: ProcessResult.ExitStatus) -> Int {

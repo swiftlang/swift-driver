@@ -923,6 +923,7 @@ extension ModuleDependencyGraph {
         case .inputInfo:
           guard
             record.fields.count == 5,
+            case .blob(let hashBlob) = record.payload,
             let path = try nonemptyInternedString(field: 4)
           else {
             throw malformedError
@@ -931,12 +932,14 @@ extension ModuleDependencyGraph {
             lower: UInt32(record.fields[0]),
             upper: UInt32(record.fields[1]),
             nanoseconds: UInt32(record.fields[2]))
+          
           let status = try InputInfo.Status(code: UInt32(record.fields[3]))
           let pathString = path.lookup(in: internedStringTable)
           let pathHandle = try VirtualPath.intern(path: pathString)
+          let hash = String(decoding: hashBlob, as: UTF8.self)
           self.inputInfos[VirtualPath.lookup(pathHandle)] = InputInfo(
             status: status,
-            previousModTime: modTime)
+            previousModTime: modTime, hash: hash)
         case .moduleDepGraphNode:
           guard record.fields.count == 6 else {
             throw malformedError
@@ -1162,12 +1165,12 @@ extension ModuleDependencyGraph {
         let inputID = input.name.intern(in: self.internedStringTable)
         let pathID = self.lookupIdentifierCode(for: inputID)
 
-        self.stream.writeRecord(self.abbreviations[.inputInfo]!) {
+        self.stream.writeRecord(self.abbreviations[.inputInfo]!, {
           $0.append(RecordID.inputInfo)
           $0.append(inputInfo.previousModTime)
           $0.append(inputInfo.status.code)
           $0.append(pathID)
-        }
+        }, blob: inputInfo.hash)
       }
     }
 
@@ -1254,6 +1257,8 @@ extension ModuleDependencyGraph {
         .fixed(bitWidth: 3),
         // path ID
         .vbr(chunkBitWidth: 13),
+        // file hash
+        .blob,
       ])
       self.abbreviate(.moduleDepGraphNode,
         [Bitstream.Abbreviation.Operand.literal(RecordID.moduleDepGraphNode.rawValue)] +

@@ -266,7 +266,7 @@ public extension Driver {
         try self.executor.execute(job: preScanJob,
                                   capturingJSONOutputAs: InterModuleDependencyImports.self,
                                   forceResponseFiles: forceResponseFiles,
-                                  recordedInputModificationDates: recordedInputModificationDates)
+                                  recordedInputMetadata: recordedInputMetadata)
     }
     return imports
   }
@@ -343,7 +343,7 @@ public extension Driver {
         try self.executor.execute(job: scannerJob,
                                   capturingJSONOutputAs: InterModuleDependencyGraph.self,
                                   forceResponseFiles: forceResponseFiles,
-                                  recordedInputModificationDates: recordedInputModificationDates)
+                                  recordedInputMetadata: recordedInputMetadata)
     }
     return dependencyGraph
   }
