@@ -2591,6 +2591,142 @@ final class ExplicitModuleBuildTests: XCTestCase {
     }
   }
 
+  func testClangTargetOptionsExplicit() throws {
+    let (stdlibPath, shimsPath, _, _) = try getDriverArtifactsForScanning()
+    let cHeadersPath: AbsolutePath =
+      try testInputsPath.appending(component: "ExplicitModuleBuilds")
+        .appending(component: "CHeaders")
+    let swiftModuleInterfacesPath: AbsolutePath =
+      try testInputsPath.appending(component: "ExplicitModuleBuilds")
+        .appending(component: "Swift")
+    let mockSDKPath: AbsolutePath =
+      try testInputsPath.appending(component: "mock-sdk.sdk")
+
+    // Only '-target' is specified, the driver infers '-clang-target' from SDK deployment target
+    do {
+      try withTemporaryDirectory { path in
+        let main = path.appending(component: "testDependencyScanning.swift")
+        try localFileSystem.writeFileContents(main, bytes:
+          """
+          import A;
+          """
+        )
+        var driver = try Driver(args: ["swiftc",
+                                       "-target", "x86_64-apple-macosx10.10",
+                                       "-Xfrontend", "-disable-implicit-concurrency-module-import",
+                                       "-Xfrontend", "-disable-implicit-string-processing-module-import",
+                                       "-emit-module",
+                                       "-emit-module-path", "foo.swiftmodule/target.swiftmodule",
+                                       "-I", cHeadersPath.nativePathString(escaped: true),
+                                       "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                       "-I", stdlibPath.nativePathString(escaped: true),
+                                       "-I", shimsPath.nativePathString(escaped: true),
+                                       "-explicit-module-build",
+                                       "-sdk", mockSDKPath.nativePathString(escaped: true),
+                                       main.pathString])
+        let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+        let emitModuleJob = try XCTUnwrap(plannedJobs.findJobs(.emitModule).spm_only)
+        XCTAssertTrue(emitModuleJob.commandLine.contains(subsequence: [.flag("-sdk"), .path(.absolute(mockSDKPath))]))
+        XCTAssertTrue(emitModuleJob.commandLine.contains(subsequence: [.flag("-clang-target"), .flag("x86_64-apple-macosx10.15")]))
+      }
+    }
+
+    // User-specified '-clang-target'
+    do {
+      try withTemporaryDirectory { path in
+        let main = path.appending(component: "testDependencyScanning.swift")
+        try localFileSystem.writeFileContents(main, bytes:
+          """
+          import A;
+          """
+        )
+        var driver = try Driver(args: ["swiftc",
+                                       "-target", "x86_64-apple-macosx10.10",
+                                       "-clang-target", "x86_64-apple-macosx10.12",
+                                       "-Xfrontend", "-disable-implicit-concurrency-module-import",
+                                       "-Xfrontend", "-disable-implicit-string-processing-module-import",
+                                       "-emit-module",
+                                       "-emit-module-path", "foo.swiftmodule/target.swiftmodule",
+                                       "-I", cHeadersPath.nativePathString(escaped: true),
+                                       "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                       "-I", stdlibPath.nativePathString(escaped: true),
+                                       "-I", shimsPath.nativePathString(escaped: true),
+                                       "-explicit-module-build",
+                                       "-sdk", mockSDKPath.nativePathString(escaped: true),
+                                       main.pathString])
+        let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+        let emitModuleJob = try XCTUnwrap(plannedJobs.findJobs(.emitModule).spm_only)
+        XCTAssertTrue(emitModuleJob.commandLine.contains(subsequence: [.flag("-sdk"), .path(.absolute(mockSDKPath))]))
+        XCTAssertTrue(emitModuleJob.commandLine.contains(subsequence: [.flag("-clang-target"), .flag("x86_64-apple-macosx10.12")]))
+      }
+    }
+
+    // Only '-target' and '-target-variant' is specified, the driver infers '-clang-target' from SDK deployment target
+    // and '-clang-target-variant' form the
+    do {
+      try withTemporaryDirectory { path in
+        let main = path.appending(component: "testDependencyScanning.swift")
+        try localFileSystem.writeFileContents(main, bytes:
+          """
+          import A;
+          """
+        )
+        var driver = try Driver(args: ["swiftc",
+                                       "-target", "x86_64-apple-macosx10.10",
+                                       "-target-variant", "x86_64-apple-ios13.0-macabi",
+                                       "-Xfrontend", "-disable-implicit-concurrency-module-import",
+                                       "-Xfrontend", "-disable-implicit-string-processing-module-import",
+                                       "-emit-module",
+                                       "-emit-module-path", "foo.swiftmodule/target.swiftmodule",
+                                       "-I", cHeadersPath.nativePathString(escaped: true),
+                                       "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                       "-I", stdlibPath.nativePathString(escaped: true),
+                                       "-I", shimsPath.nativePathString(escaped: true),
+                                       "-explicit-module-build",
+                                       "-sdk", mockSDKPath.nativePathString(escaped: true),
+                                       main.pathString])
+        let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+        let emitModuleJob = try XCTUnwrap(plannedJobs.findJobs(.emitModule).spm_only)
+        XCTAssertTrue(emitModuleJob.commandLine.contains(subsequence: [.flag("-sdk"), .path(.absolute(mockSDKPath))]))
+        XCTAssertTrue(emitModuleJob.commandLine.contains(subsequence: [.flag("-clang-target"), .flag("x86_64-apple-macosx10.15")]))
+        XCTAssertTrue(emitModuleJob.commandLine.contains(subsequence: [.flag("-clang-target-variant"), .flag("x86_64-apple-ios13.1-macabi")]))
+      }
+    }
+
+    // User-specified '-clang-target' and '-clang-target-variant'
+    do {
+      try withTemporaryDirectory { path in
+        let main = path.appending(component: "testDependencyScanning.swift")
+        try localFileSystem.writeFileContents(main, bytes:
+          """
+          import A;
+          """
+        )
+        var driver = try Driver(args: ["swiftc",
+                                       "-target", "x86_64-apple-macosx10.10",
+                                       "-target-variant", "x86_64-apple-ios13.0-macabi",
+                                       "-clang-target", "x86_64-apple-macosx10.12",
+                                       "-clang-target-variant", "x86_64-apple-ios14.0-macabi",
+                                       "-Xfrontend", "-disable-implicit-concurrency-module-import",
+                                       "-Xfrontend", "-disable-implicit-string-processing-module-import",
+                                       "-emit-module",
+                                       "-emit-module-path", "foo.swiftmodule/target.swiftmodule",
+                                       "-I", cHeadersPath.nativePathString(escaped: true),
+                                       "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                       "-I", stdlibPath.nativePathString(escaped: true),
+                                       "-I", shimsPath.nativePathString(escaped: true),
+                                       "-explicit-module-build",
+                                       "-sdk", mockSDKPath.nativePathString(escaped: true),
+                                       main.pathString])
+        let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+        let emitModuleJob = try XCTUnwrap(plannedJobs.findJobs(.emitModule).spm_only)
+        XCTAssertTrue(emitModuleJob.commandLine.contains(subsequence: [.flag("-sdk"), .path(.absolute(mockSDKPath))]))
+        XCTAssertTrue(emitModuleJob.commandLine.contains(subsequence: [.flag("-clang-target"), .flag("x86_64-apple-macosx10.12")]))
+        XCTAssertTrue(emitModuleJob.commandLine.contains(subsequence: [.flag("-clang-target-variant"), .flag("x86_64-apple-ios14.0-macabi")]))
+      }
+    }
+  }
+
   func testTargetVariantEmitModuleExplicit() throws {
     let (stdlibPath, shimsPath, _, _) = try getDriverArtifactsForScanning()
     let cHeadersPath: AbsolutePath =
@@ -2623,8 +2759,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                        "-emit-variant-module-path", "foo.swiftmodule/variant.swiftmodule",
                                        "-emit-module-interface-path", "foo.swiftmodule/target.swiftinterface",
                                        "-emit-variant-module-interface-path", "foo.swiftmodule/variant.swiftinterface",
-                                       "-disable-implicit-concurrency-module-import",
-                                       "-disable-implicit-string-processing-module-import",
+                                       "-Xfrontend", "-disable-implicit-concurrency-module-import",
+                                       "-Xfrontend", "-disable-implicit-string-processing-module-import",
                                        "-I", cHeadersPath.nativePathString(escaped: true),
                                        "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
                                        "-I", stdlibPath.nativePathString(escaped: true),
@@ -2725,8 +2861,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                        "-emit-module",
                                        "-emit-module-path", "foo.swiftmodule/target.swiftmodule",
                                        "-emit-variant-module-path", "foo.swiftmodule/variant.swiftmodule",
-                                       "-disable-implicit-concurrency-module-import",
-                                       "-disable-implicit-string-processing-module-import",
+                                       "-Xfrontend", "-disable-implicit-concurrency-module-import",
+                                       "-Xfrontend", "-disable-implicit-string-processing-module-import",
                                        "-I", cHeadersPath.nativePathString(escaped: true),
                                        "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
                                        "-I", stdlibPath.nativePathString(escaped: true),

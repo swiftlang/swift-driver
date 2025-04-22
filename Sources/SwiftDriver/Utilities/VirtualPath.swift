@@ -47,7 +47,8 @@ public enum VirtualPath: Hashable {
   /// Standard output
   case standardOutput
 
-  /// ACTODO: Comment
+  /// A file with a known absolute path and contents computed by
+  /// the driver, it gets written to the filesystem at resolution time
   case buildArtifactWithKnownContents(AbsolutePath, Data)
 
   /// We would like to direct clients to use the temporary file creation utilities `createUniqueTemporaryFile`, etc.

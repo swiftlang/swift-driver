@@ -59,6 +59,7 @@ public struct Driver {
     case cannotSpecify_OForMultipleOutputs
     case conflictingOptions(Option, Option)
     case unableToLoadOutputFileMap(String, String)
+    case malformedChainedBridgingHeader(String)
     case unableToDecodeFrontendTargetInfo(String?, [String], String)
     case failedToRetrieveFrontendTargetInfo
     case failedToRunFrontendToRetrieveTargetInfo(Int, String?)
@@ -111,6 +112,8 @@ public struct Driver {
         return "failed to retrieve frontend target info"
       case .unableToReadFrontendTargetInfo:
         return "could not read frontend target info"
+      case .malformedChainedBridgingHeader(let content):
+        return "could not convert bridging header content to utf-8: \(content)"
       case let .failedToRunFrontendToRetrieveTargetInfo(returnCode, stderr):
         return "frontend job retrieving target info failed with code \(returnCode)"
           + (stderr.map {": \($0)"} ?? "")
@@ -3107,7 +3110,10 @@ extension Driver {
       if !fileSystem.exists(path.parentDirectory) {
         try fileSystem.createDirectory(path.parentDirectory, recursive: true)
       }
-      return try VirtualPath.createBuildProductFileWithKnownContents(path, chainedHeader.content.data(using: .utf8)!).intern()
+      guard let headerData = chainedHeader.content.data(using: .utf8) else {
+        throw Driver.Error.malformedChainedBridgingHeader(chainedHeader.content)
+      }
+      return try VirtualPath.createBuildProductFileWithKnownContents(path, headerData).intern()
     }
     return originalObjCHeaderFile
   }
