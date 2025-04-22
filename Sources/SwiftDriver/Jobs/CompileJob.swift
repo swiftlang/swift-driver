@@ -98,7 +98,7 @@ extension Driver {
          .clangModuleMap, .jsonCompilerFeatures, .jsonTargetInfo, .jsonSwiftArtifacts,
          .indexUnitOutputPath, .modDepCache, .jsonAPIBaseline, .jsonABIBaseline,
          .swiftConstValues, .jsonAPIDescriptor, .moduleSummary, .moduleSemanticInfo,
-         .cachedDiagnostics, nil:
+         .cachedDiagnostics, .jsonSupportedFeatures, nil:
       return false
     }
   }
@@ -487,6 +487,8 @@ extension FileType {
       return .printTargetInfo
     case .jsonCompilerFeatures:
       return .emitSupportedFeatures
+    case .jsonSupportedFeatures:
+      return .printSupportedFeatures
 
     case .swift, .dSYM, .autolink, .dependencies, .emitModuleDependencies,
          .swiftDocumentation, .pcm, .diagnostics, .emitModuleDiagnostics,

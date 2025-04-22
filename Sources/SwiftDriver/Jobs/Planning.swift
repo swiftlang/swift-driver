@@ -713,6 +713,15 @@ extension Driver {
                                               swiftCompilerPrefixArgs: swiftCompilerPrefixArgs)
     }
 
+    if parsedOptions.hasArgument(.printSupportedFeatures) {
+      try verifyFrontendSupportsOptionIfNecessary(.printSupportedFeatures)
+
+      return try toolchain.printSupportedFeaturesJob(
+        requiresInPlaceExecution: true,
+        swiftCompilerPrefixArgs: swiftCompilerPrefixArgs
+      )
+    }
+
     if parsedOptions.hasArgument(.version) || parsedOptions.hasArgument(.version_) {
       return Job(
         moduleName: moduleOutputInfo.name,
