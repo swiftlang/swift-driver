@@ -117,6 +117,9 @@ public enum FileType: String, Hashable, CaseIterable, Codable {
   /// JSON-based -emit-supported-features output
   case jsonCompilerFeatures = "compilerFeatures.json"
 
+  /// JSON-based -print-supported-features output
+  case jsonSupportedFeatures = "supportedFeatures.json"
+
   /// JSON-based binary Swift module artifact description
   case jsonSwiftArtifacts = "artifacts.json"
 
@@ -271,6 +274,9 @@ extension FileType: CustomStringConvertible {
 
     case .cachedDiagnostics:
       return "cached-diagnostics"
+
+    case .jsonSupportedFeatures:
+      return "json-supported-swift-features"
     }
   }
 }
@@ -291,7 +297,8 @@ extension FileType {
          .jsonDependencies, .clangModuleMap, .jsonTargetInfo, .jsonCompilerFeatures,
          .jsonSwiftArtifacts, .indexUnitOutputPath, .modDepCache, .jsonAPIBaseline,
          .jsonABIBaseline, .swiftConstValues, .jsonAPIDescriptor,
-         .moduleSummary, .moduleSemanticInfo, .cachedDiagnostics, .raw_llvmIr:
+         .moduleSummary, .moduleSemanticInfo, .cachedDiagnostics, .raw_llvmIr,
+         .jsonSupportedFeatures:
       return false
     }
   }
@@ -408,6 +415,8 @@ extension FileType {
       return "module-semantic-info"
     case .cachedDiagnostics:
       return "cached-diagnostics"
+    case .jsonSupportedFeatures:
+      return "json-supported-swift-features"
     }
   }
 }
@@ -421,7 +430,7 @@ extension FileType {
          .jsonDependencies, .clangModuleMap, .jsonCompilerFeatures, .jsonTargetInfo,
          .jsonSwiftArtifacts, .jsonAPIBaseline, .jsonABIBaseline, .swiftConstValues,
          .jsonAPIDescriptor, .moduleSummary, .moduleSemanticInfo, .cachedDiagnostics,
-         .raw_llvmIr:
+         .raw_llvmIr, .jsonSupportedFeatures:
       return true
     case .image, .object, .dSYM, .pch, .sib, .raw_sib, .swiftModule,
          .swiftDocumentation, .swiftSourceInfoFile, .llvmBitcode, .diagnostics,
@@ -446,7 +455,7 @@ extension FileType {
          .clangModuleMap, .jsonCompilerFeatures, .jsonTargetInfo, .jsonSwiftArtifacts,
          .indexUnitOutputPath, .jsonAPIBaseline, .jsonABIBaseline, .swiftConstValues,
          .jsonAPIDescriptor, .moduleSummary, .moduleSemanticInfo, .cachedDiagnostics,
-         .raw_llvmIr:
+         .raw_llvmIr, .jsonSupportedFeatures:
       return false
     }
   }
@@ -454,7 +463,7 @@ extension FileType {
   /// Returns true if producing the file type requires running SILGen.
   var requiresSILGen: Bool {
     switch self {
-    case .swift, .ast, .indexData, .indexUnitOutputPath, .jsonCompilerFeatures, .jsonTargetInfo:
+    case .swift, .ast, .indexData, .indexUnitOutputPath, .jsonCompilerFeatures, .jsonTargetInfo, .jsonSupportedFeatures:
       return false
     case .sil, .sib, .image, .object, .dSYM, .dependencies, .autolink, .swiftModule, .swiftDocumentation, .swiftInterface, .privateSwiftInterface, .packageSwiftInterface, .swiftSourceInfoFile, .swiftConstValues, .assembly, .raw_sil, .raw_sib, .llvmIR, .llvmBitcode, .diagnostics, .emitModuleDiagnostics, .emitModuleDependencies, .objcHeader, .swiftDeps, .modDepCache, .remap, .importedModules, .tbd, .jsonDependencies, .jsonSwiftArtifacts, .moduleTrace, .yamlOptimizationRecord, .bitstreamOptimizationRecord, .pcm, .pch, .clangModuleMap, .jsonAPIBaseline, .jsonABIBaseline, .jsonAPIDescriptor, .moduleSummary, .moduleSemanticInfo, .cachedDiagnostics, .raw_llvmIr:
       return true
@@ -469,7 +478,7 @@ extension FileType {
          .jsonSwiftArtifacts, .remap, .indexUnitOutputPath, .modDepCache,
          // the remaining should not be an output from a caching swift job.
          .swift, .image, .dSYM, .importedModules, .clangModuleMap,
-         .jsonCompilerFeatures, .jsonTargetInfo, .autolink:
+         .jsonCompilerFeatures, .jsonTargetInfo, .autolink, .jsonSupportedFeatures:
       return false
     case .assembly, .llvmIR, .llvmBitcode, .object, .sil, .sib, .ast,
          .dependencies, .emitModuleDependencies, .swiftModule,
