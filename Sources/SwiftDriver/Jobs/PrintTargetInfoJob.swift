@@ -259,6 +259,6 @@ extension Driver {
       job: frontendTargetInfoJob,
       capturingJSONOutputAs: FrontendTargetInfo.self,
       forceResponseFiles: false,
-      recordedInputModificationDates: [:])
+      recordedInputMetadata: [:])
   }
 }

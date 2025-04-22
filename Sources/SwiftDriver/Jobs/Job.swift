@@ -151,9 +151,9 @@ extension Job {
     }
   }
 
-  public func verifyInputsNotModified(since recordedInputModificationDates: [TypedVirtualPath: TimePoint], fileSystem: FileSystem) throws {
+  public func verifyInputsNotModified(since recordedInputMetadata: [TypedVirtualPath: TimePoint], fileSystem: FileSystem) throws {
     for input in inputs {
-      if let recordedModificationTime = recordedInputModificationDates[input],
+      if let recordedModificationTime = recordedInputMetadata[input],
          try fileSystem.lastModificationTime(for: input.file) != recordedModificationTime {
         throw InputError.inputUnexpectedlyModified(input)
       }

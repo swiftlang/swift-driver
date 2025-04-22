@@ -48,7 +48,7 @@ import class Dispatch.DispatchQueue
   @_spi(Testing) public let actualSwiftVersion: String
   @_spi(Testing) public let timeBeforeFirstJob: TimePoint
   let diagnosticEngine: DiagnosticsEngine
-  let compilationInputModificationDates: [TypedVirtualPath: TimePoint]
+  let compilationInputModificationDates: [TypedVirtualPath: FileMetadata]
   private var explicitModuleDependencyGraph: InterModuleDependencyGraph? = nil
 
   private var finishedJobResults = [JobResult]()
@@ -64,7 +64,7 @@ import class Dispatch.DispatchQueue
     actualSwiftVersion: String,
     timeBeforeFirstJob: TimePoint,
     diagnosticEngine: DiagnosticsEngine,
-    compilationInputModificationDates: [TypedVirtualPath: TimePoint])
+    compilationInputModificationDates: [TypedVirtualPath: FileMetadata])
   {
     self.buildRecordPath = buildRecordPath
     self.fileSystem = fileSystem
@@ -85,7 +85,7 @@ import class Dispatch.DispatchQueue
     outputFileMap: OutputFileMap?,
     incremental: Bool,
     parsedOptions: ParsedOptions,
-    recordedInputModificationDates: [TypedVirtualPath: TimePoint]
+    recordedInputMetadata: [TypedVirtualPath: FileMetadata]
   ) {
     // Cannot write a buildRecord without a path.
     guard let buildRecordPath = try? Self.computeBuildRecordPath(
@@ -99,7 +99,7 @@ import class Dispatch.DispatchQueue
     }
     let currentArgsHash = BuildRecordArguments.computeHash(parsedOptions)
     let compilationInputModificationDates =
-      recordedInputModificationDates.filter { input, _ in
+      recordedInputMetadata.filter { input, _ in
         input.type.isPartOfSwiftCompilation
       }
 

@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import struct TSCBasic.ProcessResult
+import struct TSCBasic.SHA256
 
 /// Contains information about the current status of an input to the incremental
 /// build.
@@ -25,9 +26,12 @@ import struct TSCBasic.ProcessResult
   /// The last known modification time of this input.
   /*@_spi(Testing)*/ public let previousModTime: TimePoint
 
-  /*@_spi(Testing)*/ public init(status: Status, previousModTime: TimePoint) {
+  /*@_spi(Testing)*/ public let hash: String
+
+  /*@_spi(Testing)*/ public init(status: Status, previousModTime: TimePoint, hash: String) {
     self.status = status
     self.previousModTime = previousModTime
+    self.hash = hash
   }
 }
 
