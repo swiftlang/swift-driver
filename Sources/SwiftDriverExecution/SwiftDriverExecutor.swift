@@ -70,6 +70,12 @@ public final class SwiftDriverExecutor: DriverExecutor {
     }
   }
 
+  public func execute(job: Job,
+                      forceResponseFiles: Bool,
+                      recordedInputModificationDates: [TypedVirtualPath : TimePoint]) throws -> ProcessResult {
+    fatalError("Unsuppored legacy operation on current executor")
+  }
+
   public func execute(workload: DriverExecutorWorkload,
                       delegate: JobExecutionDelegate,
                       numParallelJobs: Int = 1,
@@ -86,6 +92,14 @@ public final class SwiftDriverExecutor: DriverExecutor {
       forceResponseFiles: forceResponseFiles,
       recordedInputMetadata: recordedInputMetadata)
     try llbuildExecutor.execute(env: env, fileSystem: fileSystem)
+  }
+
+  public func execute(workload: DriverExecutorWorkload,
+                      delegate: JobExecutionDelegate,
+                      numParallelJobs: Int = 1,
+                      forceResponseFiles: Bool = false,
+                      recordedInputModificationDates: [TypedVirtualPath: TimePoint]) throws {
+    fatalError("Unsuppored legacy operation on current executor")
   }
 
   @discardableResult

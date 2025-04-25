@@ -27,6 +27,11 @@ public protocol DriverExecutor {
                forceResponseFiles: Bool,
                recordedInputMetadata: [TypedVirtualPath: FileMetadata]) throws -> ProcessResult
 
+  func execute(job: Job,
+               forceResponseFiles: Bool,
+               recordedInputModificationDates: [TypedVirtualPath: TimePoint]) throws -> ProcessResult
+
+
   /// Execute multiple jobs, tracking job status using the provided execution delegate.
   /// Pass in the `IncrementalCompilationState` to allow for incremental compilation.
   /// Pass in the `InterModuleDependencyGraph` to allow for module dependency tracking.
@@ -37,6 +42,13 @@ public protocol DriverExecutor {
                recordedInputMetadata: [TypedVirtualPath: FileMetadata]
   ) throws
 
+  func execute(workload: DriverExecutorWorkload,
+               delegate: JobExecutionDelegate,
+               numParallelJobs: Int,
+               forceResponseFiles: Bool,
+               recordedInputModificationDates: [TypedVirtualPath: TimePoint]
+  ) throws
+
   /// Execute multiple jobs, tracking job status using the provided execution delegate.
   func execute(jobs: [Job],
                delegate: JobExecutionDelegate,
@@ -45,12 +57,47 @@ public protocol DriverExecutor {
                recordedInputMetadata: [TypedVirtualPath: FileMetadata]
   ) throws
 
+  func execute(jobs: [Job],
+               delegate: JobExecutionDelegate,
+               numParallelJobs: Int,
+               forceResponseFiles: Bool,
+               recordedInputModificationDates: [TypedVirtualPath: TimePoint]
+  ) throws
+
   /// Launch a process with the given command line and report the result.
   @discardableResult
   func checkNonZeroExit(args: String..., environment: [String: String]) throws -> String
 
   /// Returns a textual description of the job as it would be run by the executor.
   func description(of job: Job, forceResponseFiles: Bool) throws -> String
+}
+
+extension DriverExecutor {
+    public func execute(job: Job,
+                 forceResponseFiles: Bool,
+                 recordedInputMetadata: [TypedVirtualPath: FileMetadata]) throws -> ProcessResult
+    {
+        return try execute(job: job, forceResponseFiles: forceResponseFiles, recordedInputModificationDates: recordedInputMetadata.mapValues { $0.mTime })
+    }
+
+
+    public func execute(workload: DriverExecutorWorkload,
+                 delegate: JobExecutionDelegate,
+                 numParallelJobs: Int,
+                 forceResponseFiles: Bool,
+                 recordedInputMetadata: [TypedVirtualPath: FileMetadata]
+    ) throws {
+       try execute(workload: workload, delegate: delegate, numParallelJobs: numParallelJobs, forceResponseFiles: forceResponseFiles, recordedInputModificationDates: recordedInputMetadata.mapValues { $0.mTime })
+    }
+
+    public func execute(jobs: [Job],
+                 delegate: JobExecutionDelegate,
+                 numParallelJobs: Int,
+                 forceResponseFiles: Bool,
+                 recordedInputMetadata: [TypedVirtualPath: FileMetadata]
+    ) throws {
+        try execute(jobs: jobs, delegate: delegate, numParallelJobs: numParallelJobs, forceResponseFiles: forceResponseFiles, recordedInputModificationDates: recordedInputMetadata.mapValues { $0.mTime })
+  }
 }
 
 public struct DriverExecutorWorkload {
@@ -121,14 +168,14 @@ extension DriverExecutor {
     delegate: JobExecutionDelegate,
     numParallelJobs: Int,
     forceResponseFiles: Bool,
-    recordedInputMetadata: [TypedVirtualPath: FileMetadata]
+    recordedInputModificationDates: [TypedVirtualPath: TimePoint]
   ) throws {
     try execute(
       workload: .all(jobs),
       delegate: delegate,
       numParallelJobs: numParallelJobs,
       forceResponseFiles: forceResponseFiles,
-      recordedInputMetadata: recordedInputMetadata)
+      recordedInputModificationDates: recordedInputModificationDates)
   }
 
   static func computeReturnCode(exitStatus: ProcessResult.ExitStatus) -> Int {

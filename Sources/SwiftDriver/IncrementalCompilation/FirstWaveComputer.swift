@@ -322,6 +322,8 @@ extension IncrementalCompilationState.FirstWaveComputer {
       let previousModTime = inputInfo?.previousModTime
       let previousHash = inputInfo?.hash 
 
+      assert(metadata.hash != nil || !useHashes)
+
       switch previousCompilationStatus {
       case .upToDate where metadata.mTime == previousModTime:
         reporter?.report("May skip current input:", input)

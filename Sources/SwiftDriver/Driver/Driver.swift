@@ -45,15 +45,6 @@ extension Driver.ErrorDiagnostics: CustomStringConvertible {
   }
 }
 
-public struct FileMetadata {
-    public let mTime: TimePoint
-    public let hash: String
-    init(mTime: TimePoint, hash: String = "") {
-        self.mTime = mTime
-        self.hash = hash
-    }
-}
-
 /// The Swift driver.
 public struct Driver {
   public enum Error: Swift.Error, Equatable, DiagnosticData {
@@ -966,8 +957,8 @@ public struct Driver {
     self.recordedInputMetadata = .init(uniqueKeysWithValues:
       Set(inputFiles).compactMap { inputFile -> (TypedVirtualPath, FileMetadata)? in 
         guard let modTime = try? fileSystem.lastModificationTime(for: inputFile.file) else { return nil }
-        guard let data = try? fileSystem.readFileContents(inputFile.file)  else { return nil }
         if incrementalFileHashes {
+            guard let data = try? fileSystem.readFileContents(inputFile.file)  else { return nil }
             let hash = SHA256().hash(data).hexadecimalRepresentation
             return (inputFile, FileMetadata(mTime: modTime, hash: hash))
         } else {

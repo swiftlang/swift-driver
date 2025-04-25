@@ -5740,7 +5740,29 @@ final class SwiftDriverTests: XCTestCase {
         func description(of job: Job, forceResponseFiles: Bool) throws -> String {
           fatalError()
         }
-      }
+
+        public func execute(job: Job,
+                             forceResponseFiles: Bool,
+                             recordedInputModificationDates: [TypedVirtualPath : TimePoint]) throws -> ProcessResult {
+          fatalError("This DriverExecutor protocol method is only for backwards compatibility and should not be called directly")
+        }
+
+        public func execute(workload: DriverExecutorWorkload,
+                            delegate: JobExecutionDelegate,
+                            numParallelJobs: Int,
+                            forceResponseFiles: Bool,
+                            recordedInputModificationDates: [TypedVirtualPath : TimePoint]) throws {
+          fatalError("This DriverExecutor protocol method is only for backwards compatibility and should not be called directly")
+        }
+
+        public func execute(jobs: [Job],
+                            delegate: JobExecutionDelegate,
+                            numParallelJobs: Int,
+                            forceResponseFiles: Bool,
+                            recordedInputModificationDates: [TypedVirtualPath: TimePoint]) throws {
+          fatalError("This DriverExecutor protocol method is only for backwards compatibility and should not be called directly")
+        }
+    }
 
       // Override path to libSwiftScan to force the fallback of using the executor
       var hideSwiftScanEnv = ProcessEnv.vars
