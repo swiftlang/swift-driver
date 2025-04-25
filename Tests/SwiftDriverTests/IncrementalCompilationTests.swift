@@ -345,6 +345,37 @@ extension IncrementalCompilationTests {
     try checkReactionToTouchingAll(checkDiagnostics: true, explicitModuleBuild: true)
   }
 
+  // Source file and external deps timestamps updated but contents are the same, and file-hashing is enabled
+  func testExplicitIncrementalBuildWithHashing() throws {
+    replace(contentsOf: "other", with: "import E;let bar = foo")
+    try buildInitialState(extraArguments: ["-enable-incremental-file-hashing"], explicitModuleBuild: true)
+    touch("main")
+    touch("other")
+    touch(try AbsolutePath(validating: explicitSwiftDependenciesPath.appending(component: "E.swiftinterface").pathString))
+    let driver = try checkNullBuild(extraArguments: ["-enable-incremental-file-hashing"], explicitModuleBuild: true)
+    let mandatoryJobs = try XCTUnwrap(driver.incrementalCompilationState?.mandatoryJobsInOrder)
+    XCTAssertTrue(mandatoryJobs.isEmpty)
+  }
+
+  // External deps timestamp updated but contents are the same, and file-hashing is explicitly disabled 
+  func testExplicitIncrementalBuildExternalDepsWithoutHashing() throws {
+    replace(contentsOf: "other", with: "import E;let bar = foo")
+    try buildInitialState(extraArguments: ["-disable-incremental-file-hashing"], explicitModuleBuild: true)
+    touch(try AbsolutePath(validating: explicitSwiftDependenciesPath.appending(component: "E.swiftinterface").pathString))
+    let driver = try checkNullBuild(extraArguments: ["-disable-incremental-file-hashing"], explicitModuleBuild: true)
+    let mandatoryJobs = try XCTUnwrap(driver.incrementalCompilationState?.mandatoryJobsInOrder)
+    XCTAssertFalse(mandatoryJobs.isEmpty)
+  }
+
+  // Source file timestamps updated but contents are the same, and file-hashing is explicitly disabled 
+  func testExplicitIncrementalBuildSourceFilesWithoutHashing() throws {
+    try buildInitialState(extraArguments: ["-disable-incremental-file-hashing"], explicitModuleBuild: true)
+    touch("main")
+    let driver = try checkNullBuild(extraArguments: ["-disable-incremental-file-hashing"], explicitModuleBuild: true)
+    let mandatoryJobs = try XCTUnwrap(driver.incrementalCompilationState?.mandatoryJobsInOrder)
+    XCTAssertFalse(mandatoryJobs.isEmpty)
+  }
+
   // Adding an import invalidates prior inter-module dependency graph.
   func testExplicitIncrementalBuildNewImport() throws {
     try buildInitialState(checkDiagnostics: false, explicitModuleBuild: true)
