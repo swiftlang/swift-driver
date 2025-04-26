@@ -164,12 +164,14 @@ public final class GenericUnixToolchain: Toolchain {
     }
 
     if driver.targetTriple.os == .openbsd && driver.targetTriple.arch == .aarch64 {
-      commandLine.appendFlag(.Xcc)
-      commandLine.appendFlag("-Xclang=-msign-return-address=non-leaf")
-      commandLine.appendFlag(.Xcc)
-      commandLine.appendFlag("-Xclang=-msign-return-address-key=a_key")
-      commandLine.appendFlag(.Xcc)
-      commandLine.appendFlag("-Xclang=-mbranch-target-enforce")
+      if frontendTargetInfo.target.openbsdBTCFIEnabled ?? false {
+        commandLine.appendFlag(.Xcc)
+        commandLine.appendFlag("-Xclang=-msign-return-address=non-leaf")
+        commandLine.appendFlag(.Xcc)
+        commandLine.appendFlag("-Xclang=-msign-return-address-key=a_key")
+        commandLine.appendFlag(.Xcc)
+        commandLine.appendFlag("-Xclang=-mbranch-target-enforce")
+      }
     }
   }
 }
