@@ -246,10 +246,6 @@ private extension String {
     return api.swiftscan_swift_textual_detail_get_swift_overlay_dependencies != nil
   }
 
-  @_spi(Testing) public var supportsSeparateImportOnlyDependencise: Bool {
-    return api.swiftscan_swift_textual_detail_get_swift_source_import_module_dependencies != nil
-  }
-
   @_spi(Testing) public var supportsScannerDiagnostics : Bool {
     return api.swiftscan_scanner_diagnostics_query != nil &&
            api.swiftscan_scanner_diagnostics_reset != nil &&
@@ -576,10 +572,6 @@ private extension swiftscan_functions_t {
     // Swift Overlay Dependencies
     self.swiftscan_swift_textual_detail_get_swift_overlay_dependencies =
       loadOptional("swiftscan_swift_textual_detail_get_swift_overlay_dependencies")
-
-    // Directly-imported source dependencies
-    self.swiftscan_swift_textual_detail_get_swift_source_import_module_dependencies =
-      loadOptional("swiftscan_swift_textual_detail_get_swift_source_import_module_dependencies")
 
     // Header dependencies of binary modules
     self.swiftscan_swift_binary_detail_get_header_dependencies =
