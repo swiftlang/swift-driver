@@ -296,9 +296,9 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
     // SwiftModuleArtifactInfo
     guard moduleId == .swift(dependencyGraph.mainModuleName) else { return }
     let dependencyFileContent =
-      try serializeModuleDependencies(swiftDependencyArtifacts: swiftDependencyArtifacts,
-                                      clangDependencyArtifacts: clangDependencyArtifacts,
-                                      cachingEnabled: cas != nil)
+      try serializeModuleDependencies(for: moduleId,
+                                      swiftDependencyArtifacts: swiftDependencyArtifacts,
+                                      clangDependencyArtifacts: clangDependencyArtifacts)
     if let cas = self.cas {
       // When using a CAS, write JSON into CAS and pass the ID on command-line.
       let casID = try cas.store(data: dependencyFileContent)
@@ -534,9 +534,9 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
                             "-Xcc", "-fno-implicit-module-maps")
 
     let dependencyFileContent =
-      try serializeModuleDependencies(swiftDependencyArtifacts: swiftDependencyArtifacts,
-                                      clangDependencyArtifacts: clangDependencyArtifacts,
-                                      cachingEnabled: false)
+      try serializeModuleDependencies(for: mainModuleId,
+                                      swiftDependencyArtifacts: swiftDependencyArtifacts,
+                                      clangDependencyArtifacts: clangDependencyArtifacts)
 
     let dependencyFile =
       try VirtualPath.createUniqueTemporaryFileWithKnownContents(.init(validating: "\(mainModuleId.moduleName)-dependencies.json"),
@@ -548,43 +548,15 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
   }
 
   /// Serialize the output file artifacts for a given module in JSON format.
-  private func serializeModuleDependencies(swiftDependencyArtifacts: Set<SwiftModuleArtifactInfo>,
-                                           clangDependencyArtifacts: Set<ClangModuleArtifactInfo>,
-                                           cachingEnabled: Bool
+  private func serializeModuleDependencies(for moduleId: ModuleDependencyId,
+                                           swiftDependencyArtifacts: Set<SwiftModuleArtifactInfo>,
+                                           clangDependencyArtifacts: Set<ClangModuleArtifactInfo>
   ) throws -> Data {
-    // Helper function to abstract the path.
-    func abstractPath(_ module: String, suffix: String) throws -> TextualVirtualPath {
-      let path = try VirtualPath(path: module + suffix)
-      return TextualVirtualPath(path: path.intern())
-    }
     // The module dependency map in CAS needs to be stable.
-    // For caching build, updated the dependency info to exclude paths that are compiler outputs from the mapping.
-    // Use abstract names and paths because caching build loads modules directly from CAS.
+    // Sort the dependencies by name.
     let allDependencyArtifacts: [ModuleDependencyArtifactInfo] =
-      try swiftDependencyArtifacts.sorted().map { info in
-        if !cachingEnabled {
-          return ModuleDependencyArtifactInfo.swift(info)
-        }
-        let updatedInfo = try SwiftModuleArtifactInfo(name: info.moduleName,
-                                                      modulePath: abstractPath(info.moduleName, suffix: ".swiftmodule"),
-                                                      docPath: nil,
-                                                      sourceInfoPath: nil,
-                                                      headerDependencies: info.prebuiltHeaderDependencyPaths,
-                                                      isFramework: info.isFramework,
-                                                      moduleCacheKey: info.moduleCacheKey)
-        return ModuleDependencyArtifactInfo.swift(updatedInfo)
-      } +
-      clangDependencyArtifacts.sorted().map { info in
-        if !cachingEnabled {
-          return ModuleDependencyArtifactInfo.clang(info)
-        }
-        let updatedInfo = try ClangModuleArtifactInfo(name: info.moduleName,
-                                                      modulePath: abstractPath(info.moduleName, suffix: ".pcm"),
-                                                      moduleMapPath: info.clangModuleMapPath,
-                                                      moduleCacheKey: info.clangModuleCacheKey,
-                                                      isBridgingHeaderDependency: info.isBridgingHeaderDependency)
-        return ModuleDependencyArtifactInfo.clang(updatedInfo)
-      }
+      swiftDependencyArtifacts.sorted().map {ModuleDependencyArtifactInfo.swift($0)} +
+      clangDependencyArtifacts.sorted().map {ModuleDependencyArtifactInfo.clang($0)}
     let encoder = JSONEncoder()
     // Use sorted key to ensure the order of the keys is stable.
     encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
