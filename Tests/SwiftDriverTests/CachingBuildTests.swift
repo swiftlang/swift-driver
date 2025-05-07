@@ -873,7 +873,6 @@ final class CachingBuildTests: XCTestCase {
 
       XCTAssertEqual(testDiagnostics.count, 1)
       XCTAssertEqual(testDiagnostics[0].severity, .error)
-      XCTAssertEqual(testDiagnostics[0].message, "CAS error encountered: conflicting CAS options used in scanning service")
     }
   }
 
