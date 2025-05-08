@@ -53,7 +53,7 @@ extension Diagnostic.Message {
   /// module dependencies.
   mutating func gatherModuleDependencies()
   throws -> InterModuleDependencyGraph {
-    var dependencyGraph = try performDependencyScan()
+    let dependencyGraph = try performDependencyScan()
 
     if parsedOptions.hasArgument(.printPreprocessedExplicitDependencyGraph) {
       try stdoutStream.send(dependencyGraph.toJSONString())
