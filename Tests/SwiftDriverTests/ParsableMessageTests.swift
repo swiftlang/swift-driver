@@ -271,7 +271,7 @@ final class ParsableMessageTests: XCTestCase {
         // Now hijack the error stream and emit finished messages
         let errorOutput = try withHijackedErrorStream {
           let resultSuccess = ProcessResult(arguments: args!,
-                                            environment: ProcessEnv.vars,
+                                            environmentBlock: ProcessEnv.block,
                                             exitStatus: ProcessResult.ExitStatus.terminated(code: EXIT_SUCCESS),
                                             output: Result.success([]),
                                             stderrOutput: Result.success([]))
@@ -360,7 +360,7 @@ final class ParsableMessageTests: XCTestCase {
         // Now hijack the error stream and emit finished messages
         let errorOutput = try withHijackedErrorStream {
           let resultSignalled = ProcessResult(arguments: args!,
-                                              environment: ProcessEnv.vars,
+                                              environmentBlock: ProcessEnv.block,
                                               exitStatus: status,
                                               output: Result.success([]),
                                               stderrOutput: Result.success([]))

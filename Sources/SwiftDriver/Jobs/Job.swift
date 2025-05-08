@@ -12,6 +12,8 @@
 
 import protocol TSCBasic.DiagnosticData
 import protocol TSCBasic.FileSystem
+import typealias TSCBasic.ProcessEnvironmentBlock
+import struct TSCBasic.ProcessEnvironmentKey
 
 /// A job represents an individual subprocess that should be invoked during compilation.
 public struct Job: Codable, Equatable, Hashable {
@@ -93,7 +95,7 @@ public struct Job: Codable, Equatable, Hashable {
   public var outputs: [TypedVirtualPath]
 
   /// Any extra environment variables which should be set while running the job.
-  public var extraEnvironment: [String: String]
+  public var extraEnvironment: ProcessEnvironmentBlock
 
   /// Whether or not the job must be executed in place, replacing the current driver process.
   public var requiresInPlaceExecution: Bool
@@ -118,7 +120,7 @@ public struct Job: Codable, Equatable, Hashable {
     outputs: [TypedVirtualPath],
     outputCacheKeys: [TypedVirtualPath: String] = [:],
     inputOutputMap: [TypedVirtualPath : [TypedVirtualPath]] = [:],
-    extraEnvironment: [String: String] = [:],
+    extraEnvironment: ProcessEnvironmentBlock = [:],
     requiresInPlaceExecution: Bool = false
   ) {
     self.moduleName = moduleName
@@ -131,7 +133,8 @@ public struct Job: Codable, Equatable, Hashable {
     self.outputs = outputs
     self.outputCacheKeys = outputCacheKeys
     self.compileInputOutputMap = inputOutputMap
-    self.extraEnvironment = extraEnvironment
+    self.extraEnvironmentBlock = extraEnvironment
+    self.extraEnvironment = self.extraEnvironmentBlock.legacyVars
     self.requiresInPlaceExecution = requiresInPlaceExecution
     self.supportsResponseFiles = tool.supportsResponseFiles
   }

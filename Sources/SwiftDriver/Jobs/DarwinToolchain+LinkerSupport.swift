@@ -19,7 +19,7 @@ extension DarwinToolchain {
   internal func findXcodeClangPath() throws -> AbsolutePath? {
     let result = try executor.checkNonZeroExit(
       args: "xcrun", "-toolchain", "default", "-f", "clang",
-      environment: env
+      environment: env.legacyVars
     ).trimmingCharacters(in: .whitespacesAndNewlines)
 
     return result.isEmpty ? nil : try AbsolutePath(validating: result)

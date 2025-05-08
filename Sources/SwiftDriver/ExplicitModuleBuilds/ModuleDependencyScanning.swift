@@ -16,6 +16,7 @@ import struct TSCBasic.RelativePath
 import struct TSCBasic.Diagnostic
 import var TSCBasic.localFileSystem
 import var TSCBasic.stdoutStream
+import typealias TSCBasic.ProcessEnvironmentBlock
 
 import SwiftOptions
 import struct Foundation.Data
@@ -334,7 +335,7 @@ public extension Driver {
                                             useResponseFiles: useResponseFiles).0.map { $0.spm_shellEscaped() }
   }
 
-  static func getRootPath(of toolchain: Toolchain, env: [String: String])
+  static func getRootPath(of toolchain: Toolchain, env: ProcessEnvironmentBlock)
   throws -> AbsolutePath {
     return try toolchain.getToolPath(.swiftCompiler)
       .parentDirectory // bin

@@ -98,9 +98,10 @@ final class SwiftDriverToolingInterfaceTests: XCTestCase {
       let inputFile = path.appending(components: "test.swift")
       try localFileSystem.writeFileContents(inputFile) { $0.send("public func foo()") }
 
-      let env = ProcessEnv.vars
+      let envBlock = ProcessEnv.block
+      let env = envBlock.legacyVars
       let resolver = try ArgsResolver(fileSystem: localFileSystem)
-      let executor = SimpleExecutor(resolver: resolver, fileSystem: localFileSystem, env: env)
+      let executor = SimpleExecutor(resolver: resolver, fileSystem: localFileSystem, env: envBlock)
 
       // Expected success scenarios:
       do {
@@ -191,9 +192,10 @@ final class SwiftDriverToolingInterfaceTests: XCTestCase {
       let inputFile = path.appending(components: "test.swift")
       try localFileSystem.writeFileContents(inputFile) { $0.send("public func foo()") }
 
-      let env = ProcessEnv.vars
+      let envBlock = ProcessEnv.block
+      let env = envBlock.legacyVars
       let resolver = try ArgsResolver(fileSystem: localFileSystem)
-      let executor = SimpleExecutor(resolver: resolver, fileSystem: localFileSystem, env: env)
+      let executor = SimpleExecutor(resolver: resolver, fileSystem: localFileSystem, env: envBlock)
 
       // Expected success scenarios:
       do {
@@ -272,6 +274,99 @@ final class SwiftDriverToolingInterfaceTests: XCTestCase {
                                                                        diagnostics: &emittedDiagnostics,
                                                                        diagnosticCallback: {_,_ in },
                                                                        env: env,
+                                                                       executor: executor))
+        let errorMessage = try XCTUnwrap(emittedDiagnostics.first?.message.text)
+        XCTAssertEqual(errorMessage, "unable to handle compilation, expected exactly one frontend job")
+      }
+    }
+  }
+
+  func testCreateCompilerInvocationV5() throws {
+    try withTemporaryDirectory { path in
+      let inputFile = path.appending(components: "test.swift")
+      try localFileSystem.writeFileContents(inputFile) { $0.send("public func foo()") }
+
+      let env = ProcessEnv.block
+      let resolver = try ArgsResolver(fileSystem: localFileSystem)
+      let executor = SimpleExecutor(resolver: resolver, fileSystem: localFileSystem, env: ProcessEnv.block)
+
+      // Expected success scenarios:
+      do {
+        let testCommand = inputFile.description
+        var emittedDiagnostics: [Diagnostic] = []
+        XCTAssertFalse(getSingleFrontendInvocationFromDriverArgumentsV5(driverPath: "swiftc",
+                                                                        argList: testCommand.components(separatedBy: " "),
+                                                                        action: { _ in false },
+                                                                        diagnostics: &emittedDiagnostics,
+                                                                        diagnosticCallback: {_,_ in },
+                                                                        envBlock: env,
+                                                                        executor: executor))
+      }
+      do {
+        let testCommand = "-emit-executable " + inputFile.description + " main.swift lib.swift -module-name createCompilerInvocation -emit-module -emit-objc-header -o t.out"
+        var emittedDiagnostics: [Diagnostic] = []
+        XCTAssertFalse(getSingleFrontendInvocationFromDriverArgumentsV5(driverPath: "swiftc",
+                                                                        argList: testCommand.components(separatedBy: " "),
+                                                                        action: { _ in false },
+                                                                        diagnostics: &emittedDiagnostics,
+                                                                        diagnosticCallback: {_,_ in },
+                                                                        envBlock: env,
+                                                                        executor: executor))
+      }
+      do {
+        let testCommand = "-c " + inputFile.description + " main.swift lib.swift -module-name createCompilerInvocation -emit-module -emit-objc-header"
+        var emittedDiagnostics: [Diagnostic] = []
+        XCTAssertFalse(getSingleFrontendInvocationFromDriverArgumentsV5(driverPath: "swiftc",
+                                                                        argList: testCommand.components(separatedBy: " "),
+                                                                        action: { _ in false },
+                                                                        diagnostics: &emittedDiagnostics,
+                                                                        diagnosticCallback: {_,_ in },
+                                                                        envBlock: env,
+                                                                        executor: executor))
+      }
+      do {
+        let testCommand = inputFile.description + " -enable-batch-mode"
+        var emittedDiagnostics: [Diagnostic] = []
+        XCTAssertFalse(getSingleFrontendInvocationFromDriverArgumentsV5(driverPath: "swiftc",
+                                                                        argList: testCommand.components(separatedBy: " "),
+                                                                        action: { _ in false },
+                                                                        diagnostics: &emittedDiagnostics,
+                                                                        diagnosticCallback: {_,_ in },
+                                                                        envBlock: env,
+                                                                        executor: executor))
+      }
+      do { // Force no outputs
+        let testCommand = "-module-name foo -emit-module -emit-module-path /tmp/foo.swiftmodule -emit-objc-header -emit-objc-header-path /tmp/foo.h -enable-library-evolution -emit-module-interface -emit-module-interface-path /tmp/foo.swiftinterface -emit-library -emit-tbd -emit-tbd-path /tmp/foo.tbd -emit-dependencies -serialize-diagnostics " + inputFile.description
+        var resultingFrontendArgs: [String] = []
+        var emittedDiagnostics: [Diagnostic] = []
+        XCTAssertFalse(getSingleFrontendInvocationFromDriverArgumentsV5(driverPath: "swiftc",
+                                                                        argList: testCommand.components(separatedBy: " "),
+                                                                        action: { args in
+                                                                          resultingFrontendArgs = args
+                                                                          return false
+                                                                        },
+                                                                        diagnostics: &emittedDiagnostics,
+                                                                        diagnosticCallback: {_,_ in },
+                                                                        envBlock: env,
+                                                                        executor: executor,
+                                                                        forceNoOutputs: true))
+        XCTAssertFalse(resultingFrontendArgs.contains("-emit-module-interface-path"))
+        XCTAssertFalse(resultingFrontendArgs.contains("-emit-objc-header"))
+        XCTAssertFalse(resultingFrontendArgs.contains("-emit-objc-header-path"))
+        XCTAssertFalse(resultingFrontendArgs.contains("-emit-module-path"))
+        XCTAssertFalse(resultingFrontendArgs.contains("-emit-tbd-path"))
+      }
+
+      // Expected failure scenarios:
+      do {
+        let testCommand = "-v" // No inputs
+        var emittedDiagnostics: [Diagnostic] = []
+        XCTAssertTrue(getSingleFrontendInvocationFromDriverArgumentsV5(driverPath: "swiftc",
+                                                                       argList: testCommand.components(separatedBy: " "),
+                                                                       action: { _ in false },
+                                                                       diagnostics: &emittedDiagnostics,
+                                                                       diagnosticCallback: {_,_ in },
+                                                                       envBlock: env,
                                                                        executor: executor))
         let errorMessage = try XCTUnwrap(emittedDiagnostics.first?.message.text)
         XCTAssertEqual(errorMessage, "unable to handle compilation, expected exactly one frontend job")
