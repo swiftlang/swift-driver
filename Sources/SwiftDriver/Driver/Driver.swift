@@ -27,6 +27,8 @@ import struct TSCBasic.RelativePath
 import var TSCBasic.localFileSystem
 import var TSCBasic.stderrStream
 import var TSCBasic.stdoutStream
+import typealias TSCBasic.ProcessEnvironmentBlock
+import struct TSCBasic.ProcessEnvironmentKey
 
 extension Driver {
   /// Stub Error for terminating the process.
@@ -150,7 +152,7 @@ public struct Driver {
   /// The set of environment variables that are visible to the driver and
   /// processes it launches. This is a hook for testing; in actual use
   /// it should be identical to the real environment.
-  public let env: [String: String]
+  public let env: ProcessEnvironmentBlock
 
   /// Whether we are using the driver as the integrated driver via libSwiftDriver
   public let integratedDriver: Bool
@@ -819,6 +821,38 @@ public struct Driver {
     )
   }
 
+  @available(*, deprecated, renamed: "init(args:envBlock:diagnosticsOutput:fileSystem:executor:integratedDriver:compilerIntegratedTooling:compilerExecutableDir:externalTargetModuleDetailsMap:interModuleDependencyOracle:)")
+  public init(
+    args: [String],
+    env: [String: String] = ProcessEnv.vars,
+    diagnosticsOutput: DiagnosticsOutput = .engine(DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler])),
+    fileSystem: FileSystem = localFileSystem,
+    executor: DriverExecutor,
+    integratedDriver: Bool = true,
+    compilerIntegratedTooling: Bool = false,
+    compilerExecutableDir: AbsolutePath? = nil,
+    externalTargetModuleDetailsMap: ExternalTargetModuleDetailsMap? = nil,
+    interModuleDependencyOracle: InterModuleDependencyOracle? = nil
+  ) throws {
+    let envBlock = env.reduce([:]) { (partialResult: ProcessEnvironmentBlock, tuple: (key: String, value: String)) in
+      var result = partialResult
+      result[ProcessEnvironmentKey(tuple.key)] = tuple.value
+      return result
+    }
+    try self.init(
+      args: args,
+      envBlock: envBlock,
+      diagnosticsOutput: diagnosticsOutput,
+      fileSystem: fileSystem,
+      executor: executor,
+      integratedDriver: integratedDriver,
+      compilerIntegratedTooling: false,
+      compilerExecutableDir: compilerExecutableDir,
+      externalTargetModuleDetailsMap: externalTargetModuleDetailsMap,
+      interModuleDependencyOracle: interModuleDependencyOracle
+    )
+  }
+
   /// Create the driver with the given arguments.
   ///
   /// - Parameter args: The command-line arguments, including the "swift" or "swiftc"
@@ -844,7 +878,7 @@ public struct Driver {
   ///   shared across different module builds by a build system.
   public init(
     args: [String],
-    env: [String: String] = ProcessEnv.vars,
+    envBlock: ProcessEnvironmentBlock = ProcessEnv.block,
     diagnosticsOutput: DiagnosticsOutput = .engine(DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler])),
     fileSystem: FileSystem = localFileSystem,
     executor: DriverExecutor,
@@ -854,7 +888,7 @@ public struct Driver {
     externalTargetModuleDetailsMap: ExternalTargetModuleDetailsMap? = nil,
     interModuleDependencyOracle: InterModuleDependencyOracle? = nil
   ) throws {
-    self.env = env
+    self.env = envBlock
     self.fileSystem = fileSystem
     self.integratedDriver = integratedDriver
     self.compilerIntegratedTooling = compilerIntegratedTooling
@@ -2550,7 +2584,7 @@ extension Driver {
   static func determineNumParallelJobs(
     _ parsedOptions: inout ParsedOptions,
     diagnosticsEngine: DiagnosticsEngine,
-    env: [String: String]
+    env: ProcessEnvironmentBlock
   ) -> Int? {
     guard let numJobs = parseIntOption(&parsedOptions, option: .j, diagnosticsEngine: diagnosticsEngine) else {
       return nil
@@ -3043,7 +3077,7 @@ extension Driver {
     targetTriple: Triple?,
     fileSystem: FileSystem,
     diagnosticsEngine: DiagnosticsEngine,
-    env: [String: String]
+    env: ProcessEnvironmentBlock
   ) -> VirtualPath? {
     var sdkPath: String?
 
@@ -3574,7 +3608,7 @@ extension Driver {
     _ parsedOptions: inout ParsedOptions,
     diagnosticsEngine: DiagnosticsEngine,
     compilerMode: CompilerMode,
-    env: [String: String],
+    env: ProcessEnvironmentBlock,
     executor: DriverExecutor,
     fileSystem: FileSystem,
     useStaticResourceDir: Bool,
@@ -3605,7 +3639,7 @@ extension Driver {
   static func computeTargetInfo(_ parsedOptions: inout ParsedOptions,
                                 diagnosticsEngine: DiagnosticsEngine,
                                 compilerMode: CompilerMode,
-                                env: [String: String],
+                                env: ProcessEnvironmentBlock,
                                 executor: DriverExecutor,
                                 libSwiftScan: SwiftScan?,
                                 toolchain: Toolchain,

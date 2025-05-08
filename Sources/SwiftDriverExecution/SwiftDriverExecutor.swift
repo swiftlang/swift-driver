@@ -15,23 +15,23 @@ import class Foundation.FileHandle
 
 import class TSCBasic.DiagnosticsEngine
 import class TSCBasic.Process
-import class TSCBasic.ProcessSet
 import enum TSCBasic.ProcessEnv
 import func TSCBasic.exec
 import protocol TSCBasic.FileSystem
 import struct TSCBasic.ProcessResult
+import typealias TSCBasic.ProcessEnvironmentBlock
 
 public final class SwiftDriverExecutor: DriverExecutor {
   let diagnosticsEngine: DiagnosticsEngine
   let processSet: ProcessSet
   let fileSystem: FileSystem
   public let resolver: ArgsResolver
-  let env: [String: String]
+  let env: ProcessEnvironmentBlock
 
   public init(diagnosticsEngine: DiagnosticsEngine,
               processSet: ProcessSet,
               fileSystem: FileSystem,
-              env: [String: String]) throws {
+              env: ProcessEnvironmentBlock) throws {
     self.diagnosticsEngine = diagnosticsEngine
     self.processSet = processSet
     self.fileSystem = fileSystem
@@ -51,7 +51,7 @@ public final class SwiftDriverExecutor: DriverExecutor {
 
     if job.requiresInPlaceExecution {
       for (envVar, value) in job.extraEnvironment {
-        try ProcessEnv.setVar(envVar, value: value)
+        try ProcessEnv.setVar(envVar.value, value: value)
       }
 
       try exec(path: arguments[0], args: arguments)
@@ -89,8 +89,8 @@ public final class SwiftDriverExecutor: DriverExecutor {
   }
 
   @discardableResult
-  public func checkNonZeroExit(args: String..., environment: [String: String] = ProcessEnv.vars) throws -> String {
-    return try Process.checkNonZeroExit(arguments: args, environment: environment)
+  public func checkNonZeroExit(args: String..., environment: ProcessEnvironmentBlock = ProcessEnv.block) throws -> String {
+    return try Process.checkNonZeroExit(arguments: args, environmentBlock: environment)
   }
 
   public func description(of job: Job, forceResponseFiles: Bool) throws -> String {

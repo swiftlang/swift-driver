@@ -15,7 +15,7 @@
       "location" : "https://github.com/swiftlang/swift-llbuild.git",
       "state" : {
         "branch" : "main",
-        "revision" : "02db743e7fd4ba241b78207309ddb3c9c2ec5f3f"
+        "revision" : "9087bdf8c7d4c95402d6d811745ca5ff3e149741"
       }
     },
     {
@@ -23,8 +23,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/swiftlang/swift-toolchain-sqlite",
       "state" : {
-        "revision" : "bb8321a7eea3830af401a1501c7c8cc27ded6793",
-        "version" : "1.0.2"
+        "revision" : "4ee66b3ab1c40d20176045e61d8276242e73b01d",
+        "version" : "1.0.3"
       }
     },
     {
@@ -33,7 +33,7 @@
       "location" : "https://github.com/swiftlang/swift-tools-support-core.git",
       "state" : {
         "branch" : "main",
-        "revision" : "4074f4db0971328c441fc1621c673937b9ca3b08"
+        "revision" : "e8fbc8b05a155f311b862178d92d043afb216fe3"
       }
     }
   ],

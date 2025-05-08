@@ -1443,7 +1443,7 @@ final class TripleTests: XCTestCase {
   }
 }
 
-extension Triple.Version: ExpressibleByStringLiteral {
+extension Triple.Version: @retroactive ExpressibleByStringLiteral {
   public init(stringLiteral value: String) {
     self.init(parse: value)
   }

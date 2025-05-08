@@ -10,13 +10,15 @@
 //
 //===----------------------------------------------------------------------===//
 
+import typealias TSCBasic.ProcessEnvironmentBlock
+import struct TSCBasic.ProcessEnvironmentKey
 import SwiftOptions
 
 extension Toolchain {
   func addPathEnvironmentVariableIfNeeded(
-    _ environmentVariable: String,
-    to env: inout [String : String],
-    currentEnv: [String: String],
+    _ environmentVariable: ProcessEnvironmentKey,
+    to env: inout ProcessEnvironmentBlock,
+    currentEnv: ProcessEnvironmentBlock,
     option: Option,
     parsedOptions: inout ParsedOptions,
     extraPaths: [String] = []
@@ -31,17 +33,17 @@ extension Toolchain {
 
 extension DarwinToolchain {
   public func platformSpecificInterpreterEnvironmentVariables(
-    env: [String : String],
+    env: ProcessEnvironmentBlock,
     parsedOptions: inout ParsedOptions,
     sdkPath: VirtualPath.Handle?,
-    targetInfo: FrontendTargetInfo) throws -> [String: String] {
-    var envVars: [String: String] = [:]
+    targetInfo: FrontendTargetInfo) throws -> ProcessEnvironmentBlock {
+    var envVars: ProcessEnvironmentBlock = [:]
 
-    addPathEnvironmentVariableIfNeeded("DYLD_LIBRARY_PATH", to: &envVars,
+    addPathEnvironmentVariableIfNeeded(ProcessEnvironmentKey("DYLD_LIBRARY_PATH"), to: &envVars,
                                        currentEnv: env, option: .L,
                                        parsedOptions: &parsedOptions)
 
-    addPathEnvironmentVariableIfNeeded("DYLD_FRAMEWORK_PATH", to: &envVars,
+    addPathEnvironmentVariableIfNeeded(ProcessEnvironmentKey("DYLD_FRAMEWORK_PATH"), to: &envVars,
                                        currentEnv: env, option: .F,
                                        parsedOptions: &parsedOptions,
                                        extraPaths: ["/System/Library/Frameworks"])
@@ -52,11 +54,11 @@ extension DarwinToolchain {
 
 extension GenericUnixToolchain {
   public func platformSpecificInterpreterEnvironmentVariables(
-    env: [String : String],
+    env: ProcessEnvironmentBlock,
     parsedOptions: inout ParsedOptions,
     sdkPath: VirtualPath.Handle?,
-    targetInfo: FrontendTargetInfo) throws -> [String: String] {
-    var envVars: [String: String] = [:]
+    targetInfo: FrontendTargetInfo) throws -> ProcessEnvironmentBlock {
+    var envVars: ProcessEnvironmentBlock = [:]
 
     let runtimePaths = try runtimeLibraryPaths(
       for: targetInfo,
@@ -65,7 +67,7 @@ extension GenericUnixToolchain {
       isShared: true
     ).map { $0.name }
 
-    addPathEnvironmentVariableIfNeeded("LD_LIBRARY_PATH", to: &envVars,
+    addPathEnvironmentVariableIfNeeded(ProcessEnvironmentKey("LD_LIBRARY_PATH"), to: &envVars,
                                        currentEnv: env, option: .L,
                                        parsedOptions: &parsedOptions,
                                        extraPaths: runtimePaths)
@@ -76,10 +78,10 @@ extension GenericUnixToolchain {
 
 extension WindowsToolchain {
   public func platformSpecificInterpreterEnvironmentVariables(
-    env: [String : String],
+    env: ProcessEnvironmentBlock,
     parsedOptions: inout ParsedOptions,
     sdkPath: VirtualPath.Handle?,
-    targetInfo: FrontendTargetInfo) throws -> [String: String] {
+    targetInfo: FrontendTargetInfo) throws -> ProcessEnvironmentBlock {
 
     // TODO(compnerd): setting up `Path` is meaningless currently as the lldb
     // support required for the interpreter mode fails to load the dependencies.
