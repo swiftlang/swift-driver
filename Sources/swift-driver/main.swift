@@ -144,6 +144,7 @@ do {
                                          fileSystem: localFileSystem,
                                          env: ProcessEnv.block)
   var driver = try Driver(args: arguments,
+                          envBlock: ProcessEnv.block,
                           diagnosticsOutput: .engine(diagnosticsEngine),
                           executor: executor,
                           integratedDriver: false)
