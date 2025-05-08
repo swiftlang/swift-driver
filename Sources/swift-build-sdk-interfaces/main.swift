@@ -174,6 +174,7 @@ do {
     // modules for which a textual interface is discovered, ensuring that modules
     // always build from interface when one is available.
     if let supportedFlagsTestDriver = try? Driver(args: ["swiftc", "-v"],
+                                                  envBlock: ProcessEnv.block,
                                                   executor: executor,
                                                   compilerExecutableDir: swiftcPath.parentDirectory),
        supportedFlagsTestDriver.isFrontendArgSupported(.moduleLoadMode) {
@@ -185,6 +186,7 @@ do {
 
     let baselineABIDir = try getArgumentAsPath("-baseline-abi-dir")
     var driver = try Driver(args: args,
+                            envBlock: ProcessEnv.block,
                             diagnosticsOutput: .engine(diagnosticsEngine),
                             executor: executor,
                             compilerExecutableDir: swiftcPath.parentDirectory)
