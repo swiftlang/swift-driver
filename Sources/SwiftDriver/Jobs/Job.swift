@@ -95,7 +95,11 @@ public struct Job: Codable, Equatable, Hashable {
   public var outputs: [TypedVirtualPath]
 
   /// Any extra environment variables which should be set while running the job.
-  public var extraEnvironment: ProcessEnvironmentBlock
+  @available(*, deprecated, message: "use extraEnvironmentBlock")
+  public var extraEnvironment: [String: String]
+
+  /// Any extra environment variables which should be set while running the job.
+  public var extraEnvironmentBlock: ProcessEnvironmentBlock
 
   /// Whether or not the job must be executed in place, replacing the current driver process.
   public var requiresInPlaceExecution: Bool

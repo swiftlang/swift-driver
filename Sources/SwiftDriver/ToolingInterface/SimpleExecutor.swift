@@ -38,7 +38,7 @@ import typealias TSCBasic.ProcessEnvironmentBlock
     let arguments: [String] = try resolver.resolveArgumentList(for: job,
                                                                useResponseFiles: .heuristic)
     var childEnv = env
-    childEnv.merge(job.extraEnvironment, uniquingKeysWith: { (_, new) in new })
+    childEnv.merge(job.extraEnvironmentBlock, uniquingKeysWith: { (_, new) in new })
     let process = try Process.launchProcess(arguments: arguments, env: childEnv)
     return try process.waitUntilExit()
   }
