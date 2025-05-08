@@ -584,7 +584,7 @@ class ExecuteJobRule: LLBuildRule {
     let context = self.context
     let resolver = context.argsResolver
     let job = myJob
-    let env = context.env.merging(job.extraEnvironment, uniquingKeysWith: { $1 })
+    let env = context.env.merging(job.extraEnvironmentBlock, uniquingKeysWith: { $1 })
 
     let value: DriverBuildValue
     var pendingFinish = false
