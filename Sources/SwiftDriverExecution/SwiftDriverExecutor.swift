@@ -15,7 +15,6 @@ import class Foundation.FileHandle
 
 import class TSCBasic.DiagnosticsEngine
 import class TSCBasic.Process
-import class TSCBasic.ProcessSet
 import enum TSCBasic.ProcessEnv
 import func TSCBasic.exec
 import protocol TSCBasic.FileSystem
@@ -105,12 +104,12 @@ public final class SwiftDriverExecutor: DriverExecutor {
 
   @discardableResult
   public func checkNonZeroExit(args: String..., environment: [String: String] = ProcessEnv.vars) throws -> String {
-    return try Process.checkNonZeroExit(arguments: args, environment: environment)
+    try Process.checkNonZeroExit(arguments: args, environmentBlock: ProcessEnvironmentBlock(environment))
   }
 
   @discardableResult
   public func checkNonZeroExit(args: String..., environmentBlock: ProcessEnvironmentBlock = ProcessEnv.block) throws -> String {
-    return try Process.checkNonZeroExit(arguments: args, environmentBlock: environmentBlock)
+    try Process.checkNonZeroExit(arguments: args, environmentBlock: environmentBlock)
   }
 
   public func description(of job: Job, forceResponseFiles: Bool) throws -> String {
@@ -123,9 +122,9 @@ public final class SwiftDriverExecutor: DriverExecutor {
       result += " # \(job.commandLine.joinedUnresolvedArguments)"
     }
 
-    if !job.extraEnvironment.isEmpty {
+    if !job.extraEnvironmentBlock.isEmpty {
       result += " #"
-      for (envVar, val) in job.extraEnvironment {
+      for (envVar, val) in job.extraEnvironmentBlock {
         result += " \(envVar)=\(val)"
       }
     }

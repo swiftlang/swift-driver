@@ -13,6 +13,7 @@
 import protocol TSCBasic.FileSystem
 import struct TSCBasic.ProcessResult
 import class TSCBasic.Process
+import enum TSCBasic.ProcessEnv
 import typealias TSCBasic.ProcessEnvironmentBlock
 
 /// A simple executor sufficient for managing processes required during
@@ -85,7 +86,11 @@ import typealias TSCBasic.ProcessEnvironmentBlock
   }
 
   public func checkNonZeroExit(args: String..., environment: [String: String]) throws -> String {
-    try Process.checkNonZeroExit(arguments: args, environment: environment)
+    try Process.checkNonZeroExit(arguments: args, environmentBlock: ProcessEnvironmentBlock(environment))
+  }
+
+  public func checkNonZeroExit(args: String..., environmentBlock: ProcessEnvironmentBlock = ProcessEnv.block) throws -> String {
+    try Process.checkNonZeroExit(arguments: args, environmentBlock: environmentBlock)
   }
 
   public func description(of job: Job, forceResponseFiles: Bool) throws -> String {

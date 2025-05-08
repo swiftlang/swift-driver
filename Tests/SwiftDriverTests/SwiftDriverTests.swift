@@ -2887,7 +2887,7 @@ final class SwiftDriverTests: XCTestCase {
 
     func checkWASITarget(target: String, clangOSDir: String) throws {
       try withTemporaryDirectory { resourceDir in
-        var env = ProcessEnv.vars
+        var env = ProcessEnv.block
         env["SWIFT_DRIVER_SWIFT_AUTOLINK_EXTRACT_EXEC"] = "/garbage/swift-autolink-extract"
 
         let asanRuntimeLibPath = resourceDir.appending(components: [
@@ -5735,7 +5735,7 @@ final class SwiftDriverTests: XCTestCase {
           fatalError()
         }
         func checkNonZeroExit(args: String..., environment: [String: String]) throws -> String {
-          return try Process.checkNonZeroExit(arguments: args, environment: environment)
+          return try Process.checkNonZeroExit(arguments: args, environmentBlock: ProcessEnvironmentBlock(environment))
         }
         func checkNonZeroExit(args: String..., environmentBlock: ProcessEnvironmentBlock) throws -> String {
           return try Process.checkNonZeroExit(arguments: args, environmentBlock: environmentBlock)

@@ -789,33 +789,6 @@ public struct Driver {
     )
   }
 
-  @available(*, deprecated, renamed: "init(args:env:diagnosticsOutput:fileSystem:executor:integratedDriver:compilerExecutableDir:interModuleDependencyOracle:)")
-  @_disfavoredOverload
-  public init(
-    args: [String],
-    env: [String: String] = ProcessEnv.vars,
-    diagnosticsOutput: DiagnosticsOutput = .engine(DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler])),
-    fileSystem: FileSystem = localFileSystem,
-    executor: DriverExecutor,
-    integratedDriver: Bool = true,
-    compilerIntegratedTooling: Bool = false,
-    compilerExecutableDir: AbsolutePath? = nil,
-    externalTargetModuleDetailsMap: ExternalTargetModuleDetailsMap? = nil,
-    interModuleDependencyOracle: InterModuleDependencyOracle? = nil
-  ) throws {
-    try self.init(
-      args: args,
-      env: env,
-      diagnosticsOutput: diagnosticsOutput,
-      fileSystem: fileSystem,
-      executor: executor,
-      integratedDriver: integratedDriver,
-      compilerIntegratedTooling: false,
-      compilerExecutableDir: compilerExecutableDir,
-      interModuleDependencyOracle: interModuleDependencyOracle
-    )
-  }
-
   @available(*, deprecated, renamed: "init(args:envBlock:diagnosticsOutput:fileSystem:executor:integratedDriver:compilerIntegratedTooling:compilerExecutableDir:externalTargetModuleDetailsMap:interModuleDependencyOracle:)")
   @_disfavoredOverload
   public init(
@@ -844,7 +817,6 @@ public struct Driver {
       integratedDriver: integratedDriver,
       compilerIntegratedTooling: false,
       compilerExecutableDir: compilerExecutableDir,
-      externalTargetModuleDetailsMap: externalTargetModuleDetailsMap,
       interModuleDependencyOracle: interModuleDependencyOracle
     )
   }
