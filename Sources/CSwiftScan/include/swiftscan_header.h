@@ -257,10 +257,6 @@ typedef struct {
   (*swiftscan_import_set_create)(swiftscan_scanner_t, swiftscan_scan_invocation_t);
 
   //=== Scanner Diagnostics -------------------------------------------------===//
-  swiftscan_diagnostic_set_t*
-  (*swiftscan_scanner_diagnostics_query)(swiftscan_scanner_t);
-  void
-  (*swiftscan_scanner_diagnostics_reset)(swiftscan_scanner_t);
   swiftscan_string_ref_t
   (*swiftscan_diagnostic_get_message)(swiftscan_diagnostic_info_t);
   swiftscan_diagnostic_severity_t
