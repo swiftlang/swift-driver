@@ -15,7 +15,6 @@ import class Foundation.FileHandle
 
 import class TSCBasic.DiagnosticsEngine
 import class TSCBasic.Process
-import class TSCBasic.ProcessSet
 import enum TSCBasic.ProcessEnv
 import func TSCBasic.exec
 import protocol TSCBasic.FileSystem

@@ -12,7 +12,6 @@
 
 import class TSCBasic.DiagnosticsEngine
 import struct TSCBasic.Diagnostic
-import class TSCBasic.ProcessSet
 import enum TSCBasic.ProcessEnv
 import typealias TSCBasic.ProcessEnvironmentBlock
 import var TSCBasic.localFileSystem
