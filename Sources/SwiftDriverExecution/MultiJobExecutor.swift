@@ -21,7 +21,6 @@ import var Foundation.SIGINT
 
 import class TSCBasic.DiagnosticsEngine
 import class TSCBasic.Process
-import class TSCBasic.ProcessSet
 import protocol TSCBasic.DiagnosticData
 import protocol TSCBasic.FileSystem
 import struct TSCBasic.Diagnostic
