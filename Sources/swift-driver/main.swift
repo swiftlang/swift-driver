@@ -113,10 +113,6 @@ do {
     }
   }
 
-  if ProcessEnv.block["SWIFT_ENABLE_EXPLICIT_MODULE"] != nil {
-    CommandLine.arguments.append("-explicit-module-build")
-  }
-
   let (mode, arguments) = try Driver.invocationRunMode(forArgs: CommandLine.arguments)
   if case .subcommand(let subcommand) = mode {
     // We are running as a subcommand, try to find the subcommand adjacent to the executable we are running as.

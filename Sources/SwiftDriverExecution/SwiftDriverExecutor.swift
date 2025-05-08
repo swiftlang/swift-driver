@@ -51,14 +51,14 @@ public final class SwiftDriverExecutor: DriverExecutor {
                                     fileSystem: fileSystem)
 
     if job.requiresInPlaceExecution {
-      for (envVar, value) in job.extraEnvironment {
+      for (envVar, value) in job.extraEnvironmentBlock {
         try ProcessEnv.setVar(envVar.value, value: value)
       }
 
       try exec(path: arguments[0], args: arguments)
     } else {
       var childEnv = env
-      childEnv.merge(job.extraEnvironment, uniquingKeysWith: { (_, new) in new })
+      childEnv.merge(job.extraEnvironmentBlock, uniquingKeysWith: { (_, new) in new })
       let process : ProcessProtocol
       if job.inputs.contains(TypedVirtualPath(file: .standardInput, type: .swift)) {
         process = try Process.launchProcessAndWriteInput(
