@@ -13,6 +13,7 @@
 import protocol TSCBasic.FileSystem
 import struct TSCBasic.AbsolutePath
 import var TSCBasic.localFileSystem
+import typealias TSCBasic.ProcessEnvironmentBlock
 
 internal enum AndroidNDK {
   internal static func getOSName() -> String? {
@@ -28,7 +29,7 @@ internal enum AndroidNDK {
 #endif
   }
 
-  internal static func getDefaultSysrootPath(in env: [String:String]) -> AbsolutePath? {
+  internal static func getDefaultSysrootPath(in env: ProcessEnvironmentBlock) -> AbsolutePath? {
     // The NDK is only available on an x86_64 hosts currently.
 #if arch(x86_64)
     guard let ndk = env["ANDROID_NDK_ROOT"], let os = getOSName() else { return nil }
@@ -44,7 +45,7 @@ internal enum AndroidNDK {
 
 /// Toolchain for Unix-like systems.
 public final class GenericUnixToolchain: Toolchain {
-  public let env: [String: String]
+  public let env: ProcessEnvironmentBlock
 
   /// The executor used to run processes used to find tools and retrieve target info.
   public let executor: DriverExecutor
@@ -62,7 +63,7 @@ public final class GenericUnixToolchain: Toolchain {
 
   public let dummyForTestingObjectFormat = Triple.ObjectFormat.elf
 
-  public init(env: [String: String], executor: DriverExecutor, fileSystem: FileSystem = localFileSystem, compilerExecutableDir: AbsolutePath? = nil, toolDirectory: AbsolutePath? = nil) {
+  public init(env: ProcessEnvironmentBlock, executor: DriverExecutor, fileSystem: FileSystem = localFileSystem, compilerExecutableDir: AbsolutePath? = nil, toolDirectory: AbsolutePath? = nil) {
     self.env = env
     self.executor = executor
     self.fileSystem = fileSystem
