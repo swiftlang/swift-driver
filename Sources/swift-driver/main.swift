@@ -105,7 +105,7 @@ do {
     #endif
     let path: String = legacyExecutablePath.withUnsafeFileSystemRepresentation { String(cString: $0!) }
 
-    if localFileSystem.exists(AbsolutePath(path)) {
+    if localFileSystem.exists(try AbsolutePath(validating: path)) {
       let legacyDriverCommand = [path] + CommandLine.arguments[1...]
       try exec(path: path, args: legacyDriverCommand)
     } else {
@@ -146,7 +146,7 @@ do {
   let executor = try SwiftDriverExecutor(diagnosticsEngine: diagnosticsEngine,
                                          processSet: processSet,
                                          fileSystem: localFileSystem,
-                                         env: ProcessEnv.vars)
+                                         env: ProcessEnv.block)
   var driver = try Driver(args: arguments,
                           diagnosticsOutput: .engine(diagnosticsEngine),
                           executor: executor,

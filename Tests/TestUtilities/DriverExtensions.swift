@@ -20,7 +20,7 @@ extension Driver {
   /// Initializer which creates an executor suitable for use in tests.
   public init(
     args: [String],
-    env: [String: String] = ProcessEnv.vars,
+    env: ProcessEnvironmentBlock = ProcessEnv.block,
     diagnosticsEngine: DiagnosticsEngine = DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler]),
     fileSystem: FileSystem = localFileSystem,
     integratedDriver: Bool = true,
@@ -31,7 +31,7 @@ extension Driver {
                                        fileSystem: fileSystem,
                                        env: env)
     try self.init(args: args,
-                  env: env,
+                  envBlock: env,
                   diagnosticsOutput: .engine(diagnosticsEngine),
                   fileSystem: fileSystem,
                   executor: executor,
@@ -58,7 +58,7 @@ private let cachedSDKPath: Result<String, Error>? = {
   return nil
   #elseif os(macOS)
   return Result {
-    if let pathFromEnv = ProcessEnv.vars["SDKROOT"] {
+    if let pathFromEnv = ProcessEnv.block["SDKROOT"] {
       return pathFromEnv
     }
     let process = Process(arguments: ["xcrun", "-sdk", "macosx", "--show-sdk-path"])

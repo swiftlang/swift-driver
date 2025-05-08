@@ -142,7 +142,7 @@ do {
     let executor = try SwiftDriverExecutor(diagnosticsEngine: diagnosticsEngine,
                                            processSet: processSet,
                                            fileSystem: localFileSystem,
-                                           env: ProcessEnv.vars)
+                                           env: ProcessEnv.block)
     var args = ["swiftc",
                 "-target", collector.targetTriple,
                 tempPath.description,
