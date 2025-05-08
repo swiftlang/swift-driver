@@ -36,7 +36,6 @@ import func TSCBasic.exec
 import enum TSCBasic.ProcessEnv
 import class TSCBasic.DiagnosticsEngine
 import class TSCBasic.Process
-import class TSCBasic.ProcessSet
 import func TSCBasic.resolveSymlinks
 import protocol TSCBasic.DiagnosticData
 import var TSCBasic.localFileSystem
