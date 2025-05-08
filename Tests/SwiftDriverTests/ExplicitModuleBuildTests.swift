@@ -1985,7 +1985,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
 
   /// Test the libSwiftScan dependency scanning.
   func testDependencyScanningPluginFlagPropagation() throws {
-    let (stdlibPath, shimsPath, toolchain, hostTriple) = try getDriverArtifactsForScanning()
+    let (stdlibPath, shimsPath, toolchain, _) = try getDriverArtifactsForScanning()
 
     // The dependency oracle wraps an instance of libSwiftScan and ensures thread safety across
     // queries.
@@ -2023,7 +2023,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                      "-disable-clang-target",
                                      main.nativePathString(escaped: true)] + sdkArgumentsForTesting)
       let resolver = try ArgsResolver(fileSystem: localFileSystem)
-      var scannerCommand = try driver.dependencyScannerInvocationCommand().1.map { try resolver.resolve($0) }
+      let scannerCommand = try driver.dependencyScannerInvocationCommand().1.map { try resolver.resolve($0) }
       XCTAssertTrue(scannerCommand.contains("-plugin-path"))
       XCTAssertTrue(scannerCommand.contains("-external-plugin-path"))
     }
@@ -2284,13 +2284,13 @@ final class ExplicitModuleBuildTests: XCTestCase {
             """
             Unable to find module dependency: 'UnknownModule\(scanIndex)'
             import UnknownModule\(scanIndex);
-            ^
+                   ^
             """
           let errorVariant2 =
             """
             unable to resolve module dependency: 'UnknownModule\(scanIndex)'
             import UnknownModule\(scanIndex);
-            ^
+                   ^
             """
           XCTAssertTrue(diagnostics[0].message == errorVariant1 || diagnostics[0].message == errorVariant2)
           let noteSourceLoc = try XCTUnwrap(diagnostics[1].sourceLocation)
