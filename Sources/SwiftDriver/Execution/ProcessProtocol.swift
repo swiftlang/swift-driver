@@ -12,6 +12,7 @@
 
 import class TSCBasic.Process
 import struct TSCBasic.ProcessResult
+import typealias TSCBasic.ProcessEnvironmentBlock
 
 import class Foundation.FileHandle
 import struct Foundation.Data
@@ -32,17 +33,18 @@ public protocol ProcessProtocol {
 
   static func launchProcess(
     arguments: [String],
-    env: [String: String]
+    env: ProcessEnvironmentBlock
   ) throws -> Self
 
   static func launchProcessAndWriteInput(
     arguments: [String],
-    env: [String: String],
+    env: ProcessEnvironmentBlock,
     inputFileHandle: FileHandle
   ) throws -> Self
 }
 
 extension TSCBasic.Process: ProcessProtocol {
+  @available(*, deprecated, message: "use launchProcess(arguments:envBlock:) instead")
   public static func launchProcess(
     arguments: [String],
     env: [String: String]
@@ -52,12 +54,21 @@ extension TSCBasic.Process: ProcessProtocol {
     return process
   }
 
+  public static func launchProcess(
+    arguments: [String],
+    env: ProcessEnvironmentBlock
+  ) throws -> TSCBasic.Process {
+    let process = Process(arguments: arguments, environmentBlock: env)
+    try process.launch()
+    return process
+  }
+
   public static func launchProcessAndWriteInput(
     arguments: [String],
-    env: [String: String],
+    env: ProcessEnvironmentBlock,
     inputFileHandle: FileHandle
   ) throws -> TSCBasic.Process {
-    let process = Process(arguments: arguments, environment: env)
+    let process = Process(arguments: arguments, environmentBlock: env)
     let processInputStream = try process.launch()
     var input: Data
     // Write out the contents of the input handle and close the input stream

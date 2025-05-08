@@ -26,6 +26,7 @@ import protocol TSCBasic.DiagnosticData
 import protocol TSCBasic.FileSystem
 import struct TSCBasic.Diagnostic
 import struct TSCBasic.ProcessResult
+import typealias TSCBasic.ProcessEnvironmentBlock
 import enum TSCUtility.Diagnostics
 
 // We either import the llbuildSwift shared library or the llbuild framework.
@@ -64,7 +65,7 @@ public final class MultiJobExecutor {
     let argsResolver: ArgsResolver
 
     /// The environment variables.
-    let env: [String: String]
+    let env: ProcessEnvironmentBlock
 
     /// The file system.
     let fileSystem: TSCBasic.FileSystem
@@ -105,7 +106,7 @@ public final class MultiJobExecutor {
 
     init(
       argsResolver: ArgsResolver,
-      env: [String: String],
+      env: ProcessEnvironmentBlock,
       fileSystem: TSCBasic.FileSystem,
       workload: DriverExecutorWorkload,
       executorDelegate: JobExecutionDelegate,
@@ -296,7 +297,7 @@ public final class MultiJobExecutor {
   }
 
   /// Execute all jobs.
-  public func execute(env: [String: String], fileSystem: TSCBasic.FileSystem) throws {
+  public func execute(env: ProcessEnvironmentBlock, fileSystem: TSCBasic.FileSystem) throws {
     let context = createContext(env: env, fileSystem: fileSystem)
 
     let delegate = JobExecutorBuildDelegate(context)
@@ -323,7 +324,7 @@ public final class MultiJobExecutor {
   }
 
   /// Create the context required during the execution.
-  private func createContext(env: [String: String], fileSystem: TSCBasic.FileSystem) -> Context {
+  private func createContext(env: ProcessEnvironmentBlock, fileSystem: TSCBasic.FileSystem) -> Context {
     let jobQueue = OperationQueue()
     jobQueue.name = "org.swift.driver.job-execution"
     jobQueue.maxConcurrentOperationCount = numParallelJobs
@@ -660,7 +661,7 @@ class ExecuteJobRule: LLBuildRule {
         context.delegateQueue.sync {
           let result = ProcessResult(
             arguments: [],
-            environment: env,
+            environmentBlock: env,
             exitStatus: .terminated(code: EXIT_FAILURE),
             output: Result.success([]),
             stderrOutput: Result.success([])
