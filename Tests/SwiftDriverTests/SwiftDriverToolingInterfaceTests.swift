@@ -98,7 +98,12 @@ final class SwiftDriverToolingInterfaceTests: XCTestCase {
       let inputFile = path.appending(components: "test.swift")
       try localFileSystem.writeFileContents(inputFile) { $0.send("public func foo()") }
 
-      let env = ProcessEnv.vars
+      let envBlock = ProcessEnv.block
+      let env = envBlock.reduce([:]) { (partialResult: [String: String], tuple: (key: ProcessEnvironmentKey, value: String)) in
+        var result = partialResult
+        result[tuple.key.value] = tuple.value
+        return result
+      }
       let resolver = try ArgsResolver(fileSystem: localFileSystem)
       let executor = SimpleExecutor(resolver: resolver, fileSystem: localFileSystem, env: ProcessEnv.block)
 
@@ -191,7 +196,12 @@ final class SwiftDriverToolingInterfaceTests: XCTestCase {
       let inputFile = path.appending(components: "test.swift")
       try localFileSystem.writeFileContents(inputFile) { $0.send("public func foo()") }
 
-      let env = ProcessEnv.vars
+      let envBlock = ProcessEnv.block
+      let env = envBlock.reduce([:]) { (partialResult: [String: String], tuple: (key: ProcessEnvironmentKey, value: String)) in
+        var result = partialResult
+        result[tuple.key.value] = tuple.value
+        return result
+      }
       let resolver = try ArgsResolver(fileSystem: localFileSystem)
       let executor = SimpleExecutor(resolver: resolver, fileSystem: localFileSystem, env: ProcessEnv.block)
 
