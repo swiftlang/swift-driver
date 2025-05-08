@@ -15,6 +15,7 @@ import struct TSCBasic.ProcessResult
 import struct Foundation.Data
 import class Foundation.JSONDecoder
 import var Foundation.EXIT_SUCCESS
+import typealias TSCBasic.ProcessEnvironmentBlock
 
 /// A type that is capable of executing compilation jobs on some underlying
 /// build service.
@@ -47,7 +48,7 @@ public protocol DriverExecutor {
 
   /// Launch a process with the given command line and report the result.
   @discardableResult
-  func checkNonZeroExit(args: String..., environment: [String: String]) throws -> String
+  func checkNonZeroExit(args: String..., environment: ProcessEnvironmentBlock) throws -> String
 
   /// Returns a textual description of the job as it would be run by the executor.
   func description(of job: Job, forceResponseFiles: Bool) throws -> String

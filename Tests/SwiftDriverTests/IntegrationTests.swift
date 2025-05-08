@@ -25,7 +25,7 @@ private let packageDirectory = try! AbsolutePath(validating: #file).parentDirect
 
 // The "default" here means lit.py will be invoked as an executable, while otherwise let's use
 // python 3 explicitly.
-private let pythonExec = ProcessEnv.vars.keys.contains("SWIFT_DRIVER_INTEGRATION_TESTS_USE_PYTHON_DEFAULT") ? "" : "python3"
+private let pythonExec = ProcessEnv.block.keys.contains("SWIFT_DRIVER_INTEGRATION_TESTS_USE_PYTHON_DEFAULT") ? "" : "python3"
 
 func makeDriverSymlinks(
   in tempDir: AbsolutePath,
@@ -58,7 +58,7 @@ func makeDriverSymlinks(
   return (swift: swift, swiftc: swiftc)
 }
 
-func printCommand(args: [String], extraEnv: [String: String]) {
+func printCommand(args: [String], extraEnv: ProcessEnvironmentBlock) {
   print("$", terminator: "")
   if !extraEnv.isEmpty {
     print(" env", terminator: "")
@@ -86,13 +86,13 @@ final class IntegrationTests: IntegrationTestCase {
         "swift", "build", "--package-path", packageDirectory.pathString,
         "--scratch-path", buildPath.pathString
       ]
-      let extraEnv = [ "SWIFT_EXEC": compiler.pathString]
+      let extraEnv = [ProcessEnvironmentKey("SWIFT_EXEC"): compiler.pathString]
 
       printCommand(args: args, extraEnv: extraEnv)
 
       let result = try TSCBasic.Process.checkNonZeroExit(
         arguments: args,
-        environment: ProcessEnv.vars.merging(extraEnv) { $1 }
+        environmentBlock: ProcessEnv.block.merging(extraEnv) { $1 }
       )
 
       XCTAssertTrue(localFileSystem.isExecutableFile(try AbsolutePath(validating: "debug/swift-driver", relativeTo: buildPath)), result)
@@ -120,28 +120,28 @@ final class IntegrationTests: IntegrationTestCase {
   // they will fail.
 
   func testLitDriverTests() throws {
-    guard ProcessEnv.vars.keys.contains("SWIFT_DRIVER_ENABLE_FAILING_INTEGRATION_TESTS") else {
+    guard ProcessEnv.block.keys.contains("SWIFT_DRIVER_ENABLE_FAILING_INTEGRATION_TESTS") else {
       throw XCTSkip("Not all Driver tests supported")
     }
     try runLitTests(suite: "test", "Driver")
   }
 
   func testLitDriverValidationTests() throws {
-    guard ProcessEnv.vars.keys.contains("SWIFT_DRIVER_ENABLE_FAILING_INTEGRATION_TESTS") else {
+    guard ProcessEnv.block.keys.contains("SWIFT_DRIVER_ENABLE_FAILING_INTEGRATION_TESTS") else {
       throw XCTSkip("Not all Driver validation-tests supported")
     }
     try runLitTests(suite: "validation-test", "Driver")
   }
 
   func testLitInterpreterTests() throws {
-    guard ProcessEnv.vars.keys.contains("SWIFT_DRIVER_ENABLE_FAILING_INTEGRATION_TESTS") else {
+    guard ProcessEnv.block.keys.contains("SWIFT_DRIVER_ENABLE_FAILING_INTEGRATION_TESTS") else {
       throw XCTSkip("Interpreter tests unsupported")
     }
     try self.runLitTests(suite: "test", "Interpreter")
   }
 
   func testLitStdlibTests() throws {
-    guard ProcessEnv.vars.keys.contains("SWIFT_DRIVER_ENABLE_FAILING_INTEGRATION_TESTS") else {
+    guard ProcessEnv.block.keys.contains("SWIFT_DRIVER_ENABLE_FAILING_INTEGRATION_TESTS") else {
       throw XCTSkip("stdlib tests unsupported")
     }
     try self.runLitTests(suite: "test", "stdlib")
@@ -155,7 +155,7 @@ final class IntegrationTests: IntegrationTestCase {
   #if os(macOS)
     try withTemporaryDirectory() { tempDir in
       guard
-        let litConfigPathString = ProcessEnv.vars["SWIFT_DRIVER_LIT_DIR"]
+        let litConfigPathString = ProcessEnv.block["SWIFT_DRIVER_LIT_DIR"]
       else {
         print("Skipping lit tests because SWIFT_DRIVER_LIT_DIR is not set")
         return
@@ -217,7 +217,7 @@ final class IntegrationTests: IntegrationTestCase {
       ]
       let commandArgs = pythonExec.isEmpty ? args : [pythonExec] + args
 
-      let extraEnv = [
+      let extraEnv: ProcessEnvironmentBlock = [
         "SWIFT": swift.pathString,
         "SWIFTC": swiftc.pathString,
         "SWIFT_FORCE_TEST_NEW_DRIVER": "1",
@@ -230,7 +230,7 @@ final class IntegrationTests: IntegrationTestCase {
 
       let process = TSCBasic.Process(
         arguments: commandArgs,
-        environment: ProcessEnv.vars.merging(extraEnv) { $1 },
+        environmentBlock: ProcessEnv.block.merging(extraEnv) { $1 },
         outputRedirection: .none
       )
       try process.launch()
@@ -245,7 +245,7 @@ final class IntegrationTests: IntegrationTestCase {
 open class IntegrationTestCase: XCTestCase {
 #if os(macOS)
   override open class var defaultTestSuite: XCTestSuite {
-    if ProcessEnv.vars.keys.contains("SWIFT_DRIVER_ENABLE_INTEGRATION_TESTS") {
+    if ProcessEnv.block.keys.contains("SWIFT_DRIVER_ENABLE_INTEGRATION_TESTS") {
       return super.defaultTestSuite
     }
     return XCTestSuite(name: String(describing: type(of: self)))

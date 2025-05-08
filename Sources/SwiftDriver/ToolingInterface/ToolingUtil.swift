@@ -14,9 +14,10 @@ import class TSCBasic.DiagnosticsEngine
 import struct TSCBasic.Diagnostic
 import class TSCBasic.ProcessSet
 import enum TSCBasic.ProcessEnv
-import struct TSCBasic.ProcessEnvironmentBlock
+import typealias TSCBasic.ProcessEnvironmentBlock
 import var TSCBasic.localFileSystem
 import struct TSCBasic.AbsolutePath
+import struct TSCBasic.ProcessEnvironmentKey
 import SwiftOptions
 
 //typedef enum {
@@ -88,19 +89,18 @@ public func getSingleFrontendInvocationFromDriverArgumentsV2(driverPath: String,
                                                              diagnosticCallback:  @escaping (CInt, String) -> Void,
                                                              compilerIntegratedTooling: Bool = false,
                                                              forceNoOutputs: Bool = false) -> Bool {
-    let env = ProcessEnv.vars
     let executor: SimpleExecutor
     do {
         let resolver = try ArgsResolver(fileSystem: localFileSystem)
         executor = SimpleExecutor(resolver: resolver,
                                       fileSystem: localFileSystem,
-                                      env: env)
+                                      env: ProcessEnv.block)
     } catch {
         print("Unexpected error: \(error)")
         return true
     }
 
-    return getSingleFrontendInvocationFromDriverArgumentsV3(driverPath: driverPath, argList: argList, action: action, diagnostics: &diagnostics, diagnosticCallback: diagnosticCallback, env: env, executor: executor, compilerIntegratedTooling: compilerIntegratedTooling, forceNoOutputs: forceNoOutputs)
+  return getSingleFrontendInvocationFromDriverArgumentsV5(driverPath: driverPath, argList: argList, action: action, diagnostics: &diagnostics, diagnosticCallback: diagnosticCallback, envBlock: ProcessEnv.block, executor: executor, compilerIntegratedTooling: compilerIntegratedTooling, forceNoOutputs: forceNoOutputs)
 }
 
 public func getSingleFrontendInvocationFromDriverArgumentsV3(driverPath: String,
@@ -113,6 +113,24 @@ public func getSingleFrontendInvocationFromDriverArgumentsV3(driverPath: String,
                                                              compilerIntegratedTooling: Bool = false,
                                                              forceNoOutputs: Bool = false) -> Bool {
   return getSingleFrontendInvocationFromDriverArgumentsV4(driverPath: driverPath, argList: argList, action: action, diagnostics: &diagnostics, diagnosticCallback: diagnosticCallback, env: env, executor: executor, compilerIntegratedTooling: compilerIntegratedTooling, compilerExecutableDir: nil, forceNoOutputs: forceNoOutputs)
+}
+
+public func getSingleFrontendInvocationFromDriverArgumentsV4(driverPath: String,
+                                                             argList: [String],
+                                                             action: ([String]) -> Bool,
+                                                             diagnostics: inout [Diagnostic],
+                                                             diagnosticCallback:  @escaping (CInt, String) -> Void,
+                                                             env: [String: String],
+                                                             executor: some DriverExecutor,
+                                                             compilerIntegratedTooling: Bool = false,
+                                                             compilerExecutableDir: AbsolutePath? = nil,
+                                                             forceNoOutputs: Bool = false) -> Bool {
+  let envBlock = env.reduce([:]) { (partialResult: ProcessEnvironmentBlock, tuple: (key: String, value: String)) in
+    var result = partialResult
+    result[ProcessEnvironmentKey(tuple.key)] = tuple.value
+    return result
+  }
+  return getSingleFrontendInvocationFromDriverArgumentsV5(driverPath: driverPath, argList: argList, action: action, diagnostics: &diagnostics, diagnosticCallback: diagnosticCallback, envBlock: envBlock, executor: executor, compilerIntegratedTooling: compilerIntegratedTooling, compilerExecutableDir: nil, forceNoOutputs: forceNoOutputs)
 }
 
 /// Generates the list of arguments that would be passed to the compiler
@@ -133,12 +151,12 @@ public func getSingleFrontendInvocationFromDriverArgumentsV3(driverPath: String,
 ///
 /// \note This function is not intended to create invocations which are
 /// suitable for use in REPL or immediate modes.
-public func getSingleFrontendInvocationFromDriverArgumentsV4(driverPath: String,
+public func getSingleFrontendInvocationFromDriverArgumentsV5(driverPath: String,
                                                              argList: [String],
                                                              action: ([String]) -> Bool,
                                                              diagnostics: inout [Diagnostic],
                                                              diagnosticCallback:  @escaping (CInt, String) -> Void,
-                                                             env: [String: String],
+                                                             envBlock: ProcessEnvironmentBlock,
                                                              executor: some DriverExecutor,
                                                              compilerIntegratedTooling: Bool = false,
                                                              compilerExecutableDir: AbsolutePath? = nil,
@@ -200,7 +218,7 @@ public func getSingleFrontendInvocationFromDriverArgumentsV4(driverPath: String,
 
     // Instantiate the driver, setting up the toolchain in the process, etc.
     var driver = try Driver(args: parsedOptions.commandLine,
-                            env: env,
+                            envBlock: envBlock,
                             diagnosticsOutput: .engine(diagnosticsEngine),
                             executor: executor,
                             compilerIntegratedTooling: compilerIntegratedTooling,
