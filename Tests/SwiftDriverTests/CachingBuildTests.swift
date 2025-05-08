@@ -856,18 +856,8 @@ final class CachingBuildTests: XCTestCase {
         XCTAssertTrue(error is DependencyScanningError)
       }
 
-      let testDiagnostics: [ScannerDiagnosticPayload]
-      if try dependencyOracle.supportsPerScanDiagnostics(),
-         !scanDiagnostics.isEmpty {
-        testDiagnostics = scanDiagnostics
-        print("Using Per-Scan diagnostics")
-      } else {
-        testDiagnostics = try XCTUnwrap(dependencyOracle.getScannerDiagnostics())
-        print("Using Scanner-Global diagnostics")
-      }
-
-      XCTAssertEqual(testDiagnostics.count, 1)
-      XCTAssertEqual(testDiagnostics[0].severity, .error)
+      XCTAssertEqual(scanDiagnostics.count, 1)
+      XCTAssertEqual(scanDiagnostics[0].severity, .error)
     }
   }
 
