@@ -131,9 +131,9 @@ func getStdlibShimsPaths(_ driver: Driver) throws -> (AbsolutePath, AbsolutePath
     let executor = try SwiftDriverExecutor(diagnosticsEngine: DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler]),
                                            processSet: ProcessSet(),
                                            fileSystem: localFileSystem,
-                                           env: ProcessEnv.vars)
+                                           env: ProcessEnv.block)
     let sdkPath = try executor.checkNonZeroExit(
-      args: "xcrun", "-sdk", "macosx", "--show-sdk-path").spm_chomp()
+      args: "xcrun", "-sdk", "macosx", "--show-sdk-path", environmentBlock: ProcessEnv.block).spm_chomp()
     let stdLibPath = try AbsolutePath(validating: sdkPath).appending(component: "usr")
       .appending(component: "lib")
       .appending(component: "swift")
@@ -2163,7 +2163,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let dummyBrokenDylib = path.appending(component: "lib_InternalSwiftScan.dylib")
       try localFileSystem.writeFileContents(dummyBrokenDylib, bytes: "n/a")
 
-      var environment = ProcessEnv.vars
+      var environment = ProcessEnv.block
       environment["SWIFT_DRIVER_SWIFTSCAN_LIB"] = dummyBrokenDylib.nativePathString(escaped: true)
 
       let cHeadersPath: AbsolutePath =

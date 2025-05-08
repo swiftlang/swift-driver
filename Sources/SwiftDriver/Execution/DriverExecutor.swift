@@ -15,6 +15,8 @@ import struct TSCBasic.ProcessResult
 import struct Foundation.Data
 import class Foundation.JSONDecoder
 import var Foundation.EXIT_SUCCESS
+import typealias TSCBasic.ProcessEnvironmentBlock
+import struct TSCBasic.ProcessEnvironmentKey
 
 /// A type that is capable of executing compilation jobs on some underlying
 /// build service.
@@ -204,4 +206,15 @@ public protocol JobExecutionDelegate {
 
   /// Called when a job is skipped.
   func jobSkipped(job: Job)
+}
+
+@_spi(Testing) public extension ProcessEnvironmentBlock {
+  var legacyVars: [String: String] {
+    return self.reduce([:]) {
+      (partialResult: [String: String], tuple: (key: ProcessEnvironmentKey, value: String)) in
+      var result = partialResult
+      result[tuple.key.value] = tuple.value
+      return result
+    }
+  }
 }
