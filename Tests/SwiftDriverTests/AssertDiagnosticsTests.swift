@@ -186,7 +186,17 @@ class FailableTestCase: XCTestCase {
     }
 
     if #available(macOS 10.13, *) {
-      super.record(XCTIssue(type: .assertionFailure, compactDescription: description, sourceCodeContext: XCTSourceCodeContext(location: XCTSourceCodeLocation(filePath: filePath, lineNumber: lineNumber))))
+
+#if canImport(Darwin)
+      super.record(XCTIssue(type: .assertionFailure,
+                            compactDescription: description,
+                            sourceCodeContext: XCTSourceCodeContext(location: XCTSourceCodeLocation(filePath: filePath,
+                                                                                                    lineNumber: lineNumber))))
+#else
+      super.recordFailure(withDescription: description,
+                          inFile: filePath, atLine: lineNumber,
+                          expected: expected)
+#endif
     } else {
       fatalError(description, line: UInt(lineNumber))
     }

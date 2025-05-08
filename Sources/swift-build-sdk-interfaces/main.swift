@@ -24,7 +24,6 @@ import Bionic
 #endif
 
 import class TSCBasic.DiagnosticsEngine
-import class TSCBasic.ProcessSet
 import enum TSCBasic.ProcessEnv
 import func TSCBasic.withTemporaryFile
 import struct TSCBasic.AbsolutePath
