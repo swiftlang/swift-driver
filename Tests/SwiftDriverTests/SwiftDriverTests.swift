@@ -2877,6 +2877,47 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(linkCmd.contains(.flag("-fsanitize=address")))
     }
   #endif
+
+    func checkWASITarget(target: String, clangOSDir: String) throws {
+      try withTemporaryDirectory { resourceDir in
+        var env = ProcessEnv.vars
+        env["SWIFT_DRIVER_SWIFT_AUTOLINK_EXTRACT_EXEC"] = "/garbage/swift-autolink-extract"
+
+        let asanRuntimeLibPath = resourceDir.appending(components: [
+          "clang", "lib", clangOSDir, "libclang_rt.asan-wasm32.a"
+        ])
+        try localFileSystem.writeFileContents(asanRuntimeLibPath) {
+          $0.send("garbage")
+        }
+        try localFileSystem.writeFileContents(resourceDir.appending(components: "wasi", "static-executable-args.lnk")) {
+          $0.send("garbage")
+        }
+
+        var driver = try Driver(
+          args: commonArgs + [
+            "-target", target, "-sanitize=address",
+            "-resource-dir", resourceDir.pathString
+          ],
+          env: env
+        )
+        let plannedJobs = try driver.planBuild()
+
+        XCTAssertEqual(plannedJobs.count, 4)
+
+        let compileJob = plannedJobs[0]
+        let compileCmd = compileJob.commandLine
+        XCTAssertTrue(compileCmd.contains(.flag("-sanitize=address")))
+
+        let linkJob = plannedJobs[3]
+        let linkCmd = linkJob.commandLine
+        XCTAssertTrue(linkCmd.contains(.flag("-fsanitize=address")))
+      }
+    }
+    do {
+      try checkWASITarget(target: "wasm32-unknown-wasi", clangOSDir: "wasi")
+      try checkWASITarget(target: "wasm32-unknown-wasip1", clangOSDir: "wasip1")
+      try checkWASITarget(target: "wasm32-unknown-wasip1-threads", clangOSDir: "wasip1")
+    }
   }
 
   func testSanitizerCoverageArgs() throws {
