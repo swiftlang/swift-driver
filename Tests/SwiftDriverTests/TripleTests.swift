@@ -1317,6 +1317,15 @@ final class TripleTests: XCTestCase {
                                 shouldHaveJetPacks: true)
   }
 
+  func testClangOSLibName() {
+    XCTAssertEqual("darwin", Triple("x86_64-apple-macosx").clangOSLibName)
+    XCTAssertEqual("darwin", Triple("arm64-apple-ios13.0").clangOSLibName)
+    XCTAssertEqual("linux", Triple("aarch64-unknown-linux-android24").clangOSLibName)
+    XCTAssertEqual("wasi", Triple("wasm32-unknown-wasi").clangOSLibName)
+    XCTAssertEqual("wasip1", Triple("wasm32-unknown-wasip1-threads").clangOSLibName)
+    XCTAssertEqual("none", Triple("arm64-unknown-none").clangOSLibName)
+  }
+
   func testToolchainSelection() {
     let diagnostics = DiagnosticsEngine()
     struct None { }
