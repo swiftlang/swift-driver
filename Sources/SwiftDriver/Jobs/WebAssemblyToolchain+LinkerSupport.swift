@@ -165,8 +165,12 @@ extension WebAssemblyToolchain {
 
       // Delegate to Clang for sanitizers. It will figure out the correct linker
       // options.
-      guard sanitizers.isEmpty else {
-        throw Error.sanitizersUnsupportedForTarget(targetTriple.triple)
+      if linkerOutputType == .executable && !sanitizers.isEmpty {
+        let sanitizerNames = sanitizers
+          .map { $0.rawValue }
+          .sorted() // Sort so we get a stable, testable order
+          .joined(separator: ",")
+        commandLine.appendFlag("-fsanitize=\(sanitizerNames)")
       }
 
       if parsedOptions.hasArgument(.profileGenerate) {

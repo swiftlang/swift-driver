@@ -146,7 +146,12 @@ public final class WebAssemblyToolchain: Toolchain {
     targetTriple: Triple,
     isShared: Bool
   ) throws -> String {
-    throw Error.sanitizersUnsupportedForTarget(targetTriple.triple)
+    switch sanitizer {
+    case .address:
+      return "libclang_rt.\(sanitizer.libraryName)-\(targetTriple.archName).a"
+    default:
+      throw Error.sanitizersUnsupportedForTarget(targetTriple.triple)
+    }
   }
 
   public func platformSpecificInterpreterEnvironmentVariables(env: [String : String],
