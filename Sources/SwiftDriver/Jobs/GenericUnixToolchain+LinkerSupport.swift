@@ -101,9 +101,9 @@ extension GenericUnixToolchain {
         commandLine.appendPath(toolsDir)
       }
 
-      // Executables on Linux get -pie
+      // Executables on Linux get -fpie
       if targetTriple.os == .linux && linkerOutputType == .executable {
-        commandLine.appendFlag("-pie")
+        commandLine.appendFlag("-fpie")
       }
 
       // On some platforms we want to enable --build-id

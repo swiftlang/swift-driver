@@ -2070,6 +2070,16 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
+      // Ensure executables get '-fpie'
+      var driver = try Driver(args: commonArgs + ["-emit-executable", "-L", "/tmp", "-target", "x86_64-unknown-linux"], env: env)
+      let plannedJobs = try driver.planBuild()
+      XCTAssertEqual(plannedJobs.count, 4)
+      let linkJob = plannedJobs[3]
+      let cmd = linkJob.commandLine
+      XCTAssertTrue(cmd.contains(subsequence: [.flag("-fpie")]))
+    }
+
+    do {
       // Xlinker flags
       // Ensure that Xlinker flags are passed as such to the clang linker invocation.
       try withTemporaryDirectory { path in
