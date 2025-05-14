@@ -76,12 +76,12 @@ final class SwiftDriverTests: XCTestCase {
     try? localFileSystem.removeFileTree(AbsolutePath(validating: self.ld.dirname))
   }
 
-  private var envWithFakeSwiftHelp: [String: String] {
+  private var envWithFakeSwiftHelp: ProcessEnvironmentBlock {
     // During build-script builds, build products are not installed into the toolchain
     // until a project's tests pass. However, we're in the middle of those tests,
     // so there is no swift-help in the toolchain yet. Set the environment variable
     // as if we had found it for the purposes of testing build planning.
-    var env = ProcessEnv.vars
+    var env = ProcessEnv.block
     env["SWIFT_DRIVER_SWIFT_HELP_EXEC"] = "/tmp/.test-swift-help"
     return env
   }
@@ -92,14 +92,14 @@ final class SwiftDriverTests: XCTestCase {
     let executor = try SwiftDriverExecutor(diagnosticsEngine: DiagnosticsEngine(),
                                            processSet: ProcessSet(),
                                            fileSystem: localFileSystem,
-                                           env: ProcessEnv.vars)
+                                           env: ProcessEnv.block)
     let toolchain: Toolchain
     #if os(macOS)
-    toolchain = DarwinToolchain(env: ProcessEnv.vars, executor: executor)
+    toolchain = DarwinToolchain(env: ProcessEnv.block, executor: executor)
     #elseif os(Windows)
-    toolchain = WindowsToolchain(env: ProcessEnv.vars, executor: executor)
+    toolchain = WindowsToolchain(env: ProcessEnv.block, executor: executor)
     #else
-    toolchain = GenericUnixToolchain(env: ProcessEnv.vars, executor: executor)
+    toolchain = GenericUnixToolchain(env: ProcessEnv.block, executor: executor)
     #endif
     do {
       _ = try toolchain.getToolPath(.lldb)
@@ -516,7 +516,7 @@ final class SwiftDriverTests: XCTestCase {
 
       XCTAssertEqual(try Driver(args: ["swiftc", "-j", "4"]).numParallelJobs, 4)
 
-      var env = ProcessEnv.vars
+      var env = ProcessEnv.block
       env["SWIFTC_MAXIMUM_DETERMINISM"] = "1"
       XCTAssertEqual(try Driver(args: ["swiftc", "-j", "4"], env: env).numParallelJobs, 1)
     }
@@ -526,7 +526,7 @@ final class SwiftDriverTests: XCTestCase {
         $1.expect(.error("invalid value '0' in '-j'"))
       }
 
-      var env = ProcessEnv.vars
+      var env = ProcessEnv.block
       env["SWIFTC_MAXIMUM_DETERMINISM"] = "1"
       try assertDriverDiagnostics(args: "swiftc", "-j", "8", env: env) {
         $1.expect(.remark("SWIFTC_MAXIMUM_DETERMINISM overriding -j"))
@@ -555,7 +555,7 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
-      var env = ProcessEnv.vars
+      var env = ProcessEnv.block
       env["SWIFT_DRIVER_TESTS_ENABLE_EXEC_PATH_FALLBACK"] = "1"
       env["RC_DEBUG_PREFIX_MAP"] = "old=new"
       var driver = try Driver(args: ["swiftc", "-c", "-target", "arm64-apple-macos12", "foo.swift"], env: env)
@@ -609,7 +609,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertJobInvocationMatches(jobs[0], .flag("-file-compilation-dir"), .path(VirtualPath.lookup(path)))
     }
 
-    let workingDirectory = AbsolutePath("/tmp")
+    let workingDirectory = try AbsolutePath(validating: "/tmp")
     try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-g", "-c", "-working-directory", workingDirectory.nativePathString(escaped: false)) { driver in
       let jobs = try driver.planBuild()
       let path = try VirtualPath.intern(path: workingDirectory.nativePathString(escaped: false))
@@ -628,7 +628,7 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testDwarfVersionSetting() throws {
-    var environment = ProcessEnv.vars
+    var environment = ProcessEnv.block
     environment["SDKROOT"] = nil
 
     let driver = try Driver(args: ["swiftc", "foo.swift"])
@@ -1741,7 +1741,7 @@ final class SwiftDriverTests: XCTestCase {
     let manyArgs = (1...20000).map { "-DTEST_\($0)" }
     // Needs response file
     do {
-      let source = AbsolutePath("/foo.swift")
+      let source = try AbsolutePath(validating: "/foo.swift")
       var driver = try Driver(args: ["swift"] + manyArgs + [source.nativePathString(escaped: false)])
       let jobs = try driver.planBuild()
       XCTAssertEqual(jobs.count, 1)
@@ -1773,7 +1773,7 @@ final class SwiftDriverTests: XCTestCase {
 
     // Forced response file
     do {
-      let source = AbsolutePath("/foo.swift")
+      let source = try AbsolutePath(validating: "/foo.swift")
       var driver = try Driver(args: ["swift"] + [source.nativePathString(escaped: false)])
       let jobs = try driver.planBuild()
       XCTAssertEqual(jobs.count, 1)
@@ -1899,7 +1899,7 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testLinking() throws {
-    var env = ProcessEnv.vars
+    var env = ProcessEnv.block
     env["SWIFT_DRIVER_TESTS_ENABLE_EXEC_PATH_FALLBACK"] = "1"
     env["SWIFT_DRIVER_SWIFT_AUTOLINK_EXTRACT_EXEC"] = "/garbage/swift-autolink-extract"
     env["SWIFT_DRIVER_DSYMUTIL_EXEC"] = "/garbage/dsymutil"
@@ -2496,7 +2496,7 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testWebAssemblyUnsupportedFeatures() throws {
-    var env = ProcessEnv.vars
+    var env = ProcessEnv.block
     env["SWIFT_DRIVER_SWIFT_AUTOLINK_EXTRACT_EXEC"] = "/garbage/swift-autolink-extract"
     do {
       var driver = try Driver(args: ["swift", "-target", "wasm32-unknown-wasi", "foo.swift"], env: env)
@@ -2552,7 +2552,7 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testCompatibilityLibs() throws {
-    var env = ProcessEnv.vars
+    var env = ProcessEnv.block
     env["SWIFT_DRIVER_TESTS_ENABLE_EXEC_PATH_FALLBACK"] = "1"
     try withTemporaryDirectory { path in
       let path5_0Mac = path.appending(components: "macosx", "libswiftCompatibility50.a")
@@ -2997,7 +2997,7 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testADDITIONAL_SWIFT_DRIVER_FLAGS() throws {
-    var env = ProcessEnv.vars
+    var env = ProcessEnv.block
     env["ADDITIONAL_SWIFT_DRIVER_FLAGS"] = "-Xfrontend -unknown1 -Xfrontend -unknown2"
     var driver = try Driver(args: ["swiftc", "foo.swift", "-module-name", "Test"], env: env)
     let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
@@ -3053,7 +3053,7 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testPackageInterfacePathImplicit() throws {
-    let envVars = ProcessEnv.vars
+    let envVars = ProcessEnv.block
 
     // A .package.swiftinterface should only be generated if package-name is passed.
     do {
@@ -3096,7 +3096,7 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testSingleThreadedWholeModuleOptimizationCompiles() throws {
-    var envVars = ProcessEnv.vars
+    var envVars = ProcessEnv.block
     envVars["SWIFT_DRIVER_LD_EXEC"] = ld.nativePathString(escaped: false)
     var driver1 = try Driver(args: ["swiftc", "-whole-module-optimization", "foo.swift", "bar.swift", "-emit-library", "-emit-module", "-module-name", "Test", "-emit-module-interface", "-emit-objc-header-path", "Test-Swift.h", "-emit-private-module-interface-path", "Test.private.swiftinterface", "-emit-tbd", "-o", "libTest"],
                              env: envVars)
@@ -3136,7 +3136,7 @@ final class SwiftDriverTests: XCTestCase {
 
 
   func testIndexFileEntryInSupplementaryFileOutputMap() throws {
-    let workingDirectory = AbsolutePath("/tmp")
+    let workingDirectory = try AbsolutePath(validating: "/tmp")
     var driver1 = try Driver(args: [
       "swiftc", "foo1.swift", "foo2.swift", "foo3.swift", "foo4.swift", "foo5.swift",
       "-index-file", "-index-file-path", "foo5.swift", "-o", "/tmp/t.o",
@@ -3597,7 +3597,7 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testEmitModuleSeparately() throws {
-    var envVars = ProcessEnv.vars
+    var envVars = ProcessEnv.block
     envVars["SWIFT_DRIVER_LD_EXEC"] = ld.nativePathString(escaped: false)
 
     do {
@@ -3685,7 +3685,7 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testEmitModuleSeparatelyWMO() throws {
-    var envVars = ProcessEnv.vars
+    var envVars = ProcessEnv.block
     envVars["SWIFT_DRIVER_LD_EXEC"] = ld.nativePathString(escaped: false)
     let root = localFileSystem.currentWorkingDirectory!.appending(components: "foo", "bar")
 
@@ -3996,7 +3996,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs.count, 2)
       XCTAssertEqual(plannedJobs[0].kind, .compile)
       XCTAssertEqual(plannedJobs[1].kind, .link)
-      try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-default-isolation"), "MainActor")
+      XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-default-isolation"), "MainActor")
   }
 
   func testImmediateMode() throws {
@@ -4035,9 +4035,9 @@ final class SwiftDriverTests: XCTestCase {
       if !driver.targetTriple.isWindows {
         #if os(macOS)
         // On darwin, swift ships in the OS. Immediate mode should use that runtime.
-        XCTAssertFalse(job.extraEnvironment.keys.contains(envVar))
+        XCTAssertFalse(job.extraEnvironmentBlock.keys.contains(ProcessEnvironmentKey(envVar)))
         #else
-        XCTAssertTrue(job.extraEnvironment.keys.contains(envVar))
+        XCTAssertTrue(job.extraEnvironmentBlock.keys.contains(ProcessEnvironmentKey(envVar)))
         #endif
       }
     }
@@ -4070,7 +4070,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(job.inputs[0].file, try toPath("foo.swift"))
       XCTAssertEqual(job.outputs.count, 0)
 
-      let envVar: String
+      let envVar: ProcessEnvironmentKey
       if driver.targetTriple.isDarwin {
         envVar = "DYLD_LIBRARY_PATH"
       } else if driver.targetTriple.isWindows {
@@ -4084,9 +4084,9 @@ final class SwiftDriverTests: XCTestCase {
       // libraries on Windows.  There is no way to derive the path from the
       // command on Windows.
       if !driver.targetTriple.isWindows {
-        XCTAssertTrue(job.extraEnvironment[envVar, default: ""].contains("/path/to/lib"))
+        XCTAssertTrue(job.extraEnvironmentBlock[envVar, default: ""].contains("/path/to/lib"))
         if driver.targetTriple.isDarwin {
-          XCTAssertTrue(job.extraEnvironment["DYLD_FRAMEWORK_PATH", default: ""].contains("/path/to/framework"))
+          XCTAssertTrue(job.extraEnvironmentBlock["DYLD_FRAMEWORK_PATH", default: ""].contains("/path/to/framework"))
         }
       }
 
@@ -4122,7 +4122,7 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testTargetVariant() throws {
-    var envVars = ProcessEnv.vars
+    var envVars = ProcessEnv.block
     envVars["SWIFT_DRIVER_LD_EXEC"] = ld.nativePathString(escaped: false)
 
     do {
@@ -4283,7 +4283,7 @@ final class SwiftDriverTests: XCTestCase {
 #if os(macOS)
     do {
       try withTemporaryDirectory { path in
-        var env = ProcessEnv.vars
+        var env = ProcessEnv.block
         env["LD_TRACE_FILE"] = path.appending(component: ".LD_TRACE").nativePathString(escaped: false)
         var driver = try Driver(args: ["swiftc",
           "-target", "x86_64-apple-macosx10.14",
@@ -4443,7 +4443,7 @@ final class SwiftDriverTests: XCTestCase {
 
   func testDisableClangTargetForImplicitModule() throws {
 #if os(macOS)
-    var envVars = ProcessEnv.vars
+    var envVars = ProcessEnv.block
     envVars["SWIFT_DRIVER_LD_EXEC"] = ld.nativePathString(escaped: false)
 
     let sdkRoot = try testInputsPath.appending(component: "SDKChecks").appending(component: "iPhoneOS.sdk")
@@ -4459,7 +4459,7 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testPCHasCompileInput() throws {
-    var envVars = ProcessEnv.vars
+    var envVars = ProcessEnv.block
     envVars["SWIFT_DRIVER_LD_EXEC"] = ld.nativePathString(escaped: false)
 
     var driver = try Driver(args: ["swiftc", "-target", "x86_64-apple-macosx10.14", "-enable-bridging-pch", "-import-objc-header", "TestInputHeader.h", "foo.swift"],
@@ -4690,7 +4690,7 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testProfileLinkerArgs() throws {
-    var envVars = ProcessEnv.vars
+    var envVars = ProcessEnv.block
     envVars["SWIFT_DRIVER_LD_EXEC"] = ld.nativePathString(escaped: false)
 
     do {
@@ -4803,7 +4803,7 @@ final class SwiftDriverTests: XCTestCase {
         $0.send("garbage")
       }
 
-      var env = ProcessEnv.vars
+      var env = ProcessEnv.block
       env["SWIFT_DRIVER_SWIFT_AUTOLINK_EXTRACT_EXEC"] = "//bin/swift-autolink-extract"
 
       for triple in ["wasm32-unknown-wasi", "wasm32-unknown-wasip1-threads"] {
@@ -4937,7 +4937,7 @@ final class SwiftDriverTests: XCTestCase {
 
       // Drop SWIFT_DRIVER_CLANG_EXEC from the environment so it doesn't
       // interfere with tool lookup.
-      var env = ProcessEnv.vars
+      var env = ProcessEnv.block
       env.removeValue(forKey: "SWIFT_DRIVER_CLANG_EXEC")
 
       var driver = try Driver(args: ["swiftc",
@@ -4951,7 +4951,7 @@ final class SwiftDriverTests: XCTestCase {
 
       // WASI toolchain
       do {
-        var env = ProcessEnv.vars
+        var env = ProcessEnv.block
         env["SWIFT_DRIVER_SWIFT_AUTOLINK_EXTRACT_EXEC"] = "//bin/swift-autolink-extract"
 
         try withTemporaryDirectory { resourceDir in
@@ -4996,7 +4996,7 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testDarwinSDKToolchainName() throws {
-    var envVars = ProcessEnv.vars
+    var envVars = ProcessEnv.block
     envVars["SWIFT_DRIVER_LD_EXEC"] = ld.nativePathString(escaped: false)
 
     try withTemporaryDirectory { tmpDir in
@@ -5018,7 +5018,7 @@ final class SwiftDriverTests: XCTestCase {
 
   // Test cases ported from Driver/macabi-environment.swift
   func testDarwinSDKVersioning() throws {
-    var envVars = ProcessEnv.vars
+    var envVars = ProcessEnv.block
     envVars["SWIFT_DRIVER_LD_EXEC"] = ld.nativePathString(escaped: false)
 
     try withTemporaryDirectory { tmpDir in
@@ -5096,7 +5096,7 @@ final class SwiftDriverTests: XCTestCase {
       }
 
       do {
-        var envVars = ProcessEnv.vars
+        var envVars = ProcessEnv.block
         envVars["SWIFT_DRIVER_LD_EXEC"] = ld.nativePathString(escaped: false)
 
         var driver = try Driver(args: ["swiftc",
@@ -5130,7 +5130,7 @@ final class SwiftDriverTests: XCTestCase {
       }
 
       do {
-        var envVars = ProcessEnv.vars
+        var envVars = ProcessEnv.block
         envVars["SWIFT_DRIVER_LD_EXEC"] = ld.nativePathString(escaped: false)
 
         var driver = try Driver(args: ["swiftc",
@@ -5205,7 +5205,7 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testDarwinLinkerPlatformVersion() throws {
-    var envVars = ProcessEnv.vars
+    var envVars = ProcessEnv.block
     envVars["SWIFT_DRIVER_LD_EXEC"] = ld.nativePathString(escaped: false)
 
     do {
@@ -5341,7 +5341,7 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
-      var env = ProcessEnv.vars
+      var env = ProcessEnv.block
       // As per Unix conventions, /var/empty is expected to exist and be empty.
       // This gives us a non-existent path that we can use for libtool which
       // allows us to run this this on non-Darwin platforms.
@@ -5429,7 +5429,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(tracedJobs[0].inputs.contains(.init(file: try toPath("bar.swift").intern(), type: .swift)))
     }
     do {
-      var env = ProcessEnv.vars
+      var env = ProcessEnv.block
       env["SWIFT_LOADED_MODULE_TRACE_FILE"] = "/some/path/to/the.trace.json"
       var driver = try Driver(args: ["swiftc", "-typecheck",
                                      "-emit-loaded-module-trace", "foo.swift"],
@@ -5700,13 +5700,13 @@ final class SwiftDriverTests: XCTestCase {
     let executor = try SwiftDriverExecutor(diagnosticsEngine: DiagnosticsEngine(),
                                            processSet: ProcessSet(),
                                            fileSystem: localFileSystem,
-                                           env: ProcessEnv.vars)
+                                           env: ProcessEnv.block)
     #if os(macOS)
-    toolchain = DarwinToolchain(env: ProcessEnv.vars, executor: executor)
+    toolchain = DarwinToolchain(env: ProcessEnv.block, executor: executor)
     #elseif os(Windows)
-    toolchain = WindowsToolchain(env: ProcessEnv.vars, executor: executor)
+    toolchain = WindowsToolchain(env: ProcessEnv.block, executor: executor)
     #else
-    toolchain = GenericUnixToolchain(env: ProcessEnv.vars, executor: executor)
+    toolchain = GenericUnixToolchain(env: ProcessEnv.block, executor: executor)
     #endif
 
     XCTAssertEqual(
@@ -5721,7 +5721,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertThrowsError(try driver1.toolchain.getToolPath(.dsymutil))
     }
 
-    var env = ProcessEnv.vars
+    var env = ProcessEnv.block
     env["SWIFT_DRIVER_TESTS_ENABLE_EXEC_PATH_FALLBACK"] = "1"
     let driver2 = try Driver(args: ["swift", "main.swift"], env: env)
     XCTAssertNoThrow(try driver2.toolchain.getToolPath(.dsymutil))
@@ -5822,7 +5822,7 @@ final class SwiftDriverTests: XCTestCase {
         let resolver: ArgsResolver
 
         func execute(job: Job, forceResponseFiles: Bool, recordedInputModificationDates: [TypedVirtualPath : TimePoint]) throws -> ProcessResult {
-          return ProcessResult(arguments: [], environment: [:], exitStatus: .terminated(code: 0), output: .success(Array("bad JSON".utf8)), stderrOutput: .success([]))
+          return ProcessResult(arguments: [], environmentBlock: [:], exitStatus: .terminated(code: 0), output: .success(Array("bad JSON".utf8)), stderrOutput: .success([]))
         }
         func execute(workload: DriverExecutorWorkload,
                      delegate: JobExecutionDelegate,
@@ -5831,8 +5831,11 @@ final class SwiftDriverTests: XCTestCase {
                      recordedInputModificationDates: [TypedVirtualPath : TimePoint]) throws {
           fatalError()
         }
-        func checkNonZeroExit(args: String..., environment: [String : String]) throws -> String {
+        func checkNonZeroExit(args: String..., environment: [String: String]) throws -> String {
           return try Process.checkNonZeroExit(arguments: args, environment: environment)
+        }
+        func checkNonZeroExit(args: String..., environmentBlock: ProcessEnvironmentBlock) throws -> String {
+          return try Process.checkNonZeroExit(arguments: args, environmentBlock: environmentBlock)
         }
         func description(of job: Job, forceResponseFiles: Bool) throws -> String {
           fatalError()
@@ -5840,10 +5843,10 @@ final class SwiftDriverTests: XCTestCase {
       }
 
       // Override path to libSwiftScan to force the fallback of using the executor
-      var hideSwiftScanEnv = ProcessEnv.vars
+      var hideSwiftScanEnv = ProcessEnv.block
       hideSwiftScanEnv["SWIFT_DRIVER_SWIFTSCAN_LIB"] = "/bad/path/lib_InternalSwiftScan.dylib"
       XCTAssertThrowsError(try Driver(args: ["swift", "-print-target-info"],
-                                      env: hideSwiftScanEnv,
+                                      envBlock: hideSwiftScanEnv,
                                       executor: MockExecutor(resolver: ArgsResolver(fileSystem: InMemoryFileSystem())))) {
         error in
         if case .decodingError = error as? JobExecutionError {}
@@ -5931,7 +5934,7 @@ final class SwiftDriverTests: XCTestCase {
       // Test the fallback path of computing the supported arguments using a swift-frontend
       // invocation, by pointing the driver to look for libSwiftScan in a place that does not
       // exist
-      var env = ProcessEnv.vars
+      var env = ProcessEnv.block
       env["SWIFT_DRIVER_SWIFT_SCAN_TOOLCHAIN_PATH"] = "/some/nonexistent/path"
       let driver = try Driver(args: ["swift", "-target", "arm64-apple-ios12.0",
                                      "-resource-dir", "baz"],
@@ -6021,7 +6024,7 @@ final class SwiftDriverTests: XCTestCase {
       // a separate process to capture its output here
       let result = try TSCBasic.Process.checkNonZeroExit(
         arguments: args,
-        environment: ProcessEnv.vars
+        environmentBlock: ProcessEnv.block
       )
       // Make sure the interpret job description was printed
       XCTAssertTrue(result.contains("-frontend -interpret \(input.description)"))
@@ -6144,7 +6147,7 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testLTOOutputs() throws {
-    var envVars = ProcessEnv.vars
+    var envVars = ProcessEnv.block
     envVars["SWIFT_DRIVER_LD_EXEC"] = ld.nativePathString(escaped: false)
 
     let targets = ["x86_64-unknown-linux-gnu", "x86_64-apple-macosx10.9"]
@@ -6261,7 +6264,7 @@ final class SwiftDriverTests: XCTestCase {
 
   func testVerifyEmittedInterfaceJob() throws {
     // Evolution enabled
-    var envVars = ProcessEnv.vars
+    var envVars = ProcessEnv.block
     do {
       var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-module-name",
                                      "foo", "-emit-module-interface",
@@ -6543,7 +6546,7 @@ final class SwiftDriverTests: XCTestCase {
 
   func testLoadPackageInterface() throws {
     try withTemporaryDirectory { path in
-      let envVars = ProcessEnv.vars
+      let envVars = ProcessEnv.block
       let main = path.appending(component: "main.swift")
       try localFileSystem.writeFileContents(main) {
         $0.send("import Foo;")
@@ -6870,7 +6873,7 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testEmbeddedSwiftOptions() throws {
-    var env = ProcessEnv.vars
+    var env = ProcessEnv.block
     env["SWIFT_DRIVER_SWIFT_AUTOLINK_EXTRACT_EXEC"] = "/garbage/swift-autolink-extract"
 
     do {
@@ -6968,9 +6971,9 @@ final class SwiftDriverTests: XCTestCase {
 
     // 32-bit iOS jobs under Embedded should be allowed regardless of OS version
     do {
-      try Driver(args: ["swiftc", "-c", "-target", "armv7-apple-ios8", "-enable-experimental-feature", "Embedded", "foo.swift"])
-      try Driver(args: ["swiftc", "-c", "-target", "armv7-apple-ios12.1", "-enable-experimental-feature", "Embedded", "foo.swift"])
-      try Driver(args: ["swiftc", "-c", "-target", "armv7-apple-ios16", "-enable-experimental-feature", "Embedded", "foo.swift"])
+      let _ = try Driver(args: ["swiftc", "-c", "-target", "armv7-apple-ios8", "-enable-experimental-feature", "Embedded", "foo.swift"])
+      let _ = try Driver(args: ["swiftc", "-c", "-target", "armv7-apple-ios12.1", "-enable-experimental-feature", "Embedded", "foo.swift"])
+      let _ = try Driver(args: ["swiftc", "-c", "-target", "armv7-apple-ios16", "-enable-experimental-feature", "Embedded", "foo.swift"])
     }
 
     do {
@@ -7025,7 +7028,7 @@ final class SwiftDriverTests: XCTestCase {
   func testSwiftHelpOverride() throws {
     // FIXME: On Linux, we might not have any Clang in the path. We need a
     // better override.
-    var env = ProcessEnv.vars
+    var env = ProcessEnv.block
     let swiftHelp: AbsolutePath = try AbsolutePath(validating: "/usr/bin/nonexistent-swift-help")
     env["SWIFT_DRIVER_SWIFT_HELP_EXEC"] = swiftHelp.pathString
     env["SWIFT_DRIVER_CLANG_EXEC"] = "/usr/bin/clang"
@@ -7038,7 +7041,7 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testSwiftClangOverride() throws {
-    var env = ProcessEnv.vars
+    var env = ProcessEnv.block
     let swiftClang = try AbsolutePath(validating: "/A/Path/swift-clang")
     env["SWIFT_DRIVER_CLANG_EXEC"] = swiftClang.pathString
 
@@ -7055,7 +7058,7 @@ final class SwiftDriverTests: XCTestCase {
 #if canImport(Darwin)
       throw XCTSkip("Darwin always uses `clang` to link")
 #else
-    var env = ProcessEnv.vars
+    var env = ProcessEnv.block
     let swiftClang = try AbsolutePath(validating: "/A/Path/swift-clang")
     let swiftClangxx = try AbsolutePath(validating: "/A/Path/swift-clang++")
     env["SWIFT_DRIVER_CLANG_EXEC"] = swiftClang.pathString
@@ -7209,7 +7212,7 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testPrebuiltModuleCacheFlags() throws {
-    var envVars = ProcessEnv.vars
+    var envVars = ProcessEnv.block
     envVars["SWIFT_DRIVER_LD_EXEC"] = ld.nativePathString(escaped: false)
 
     let mockSDKPath: String =
@@ -7269,7 +7272,7 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
-      let workingDirectory = AbsolutePath("/foo/bar")
+      let workingDirectory = try AbsolutePath(validating: "/foo/bar")
 
       // Inputs with relative paths with -working-directory flag should prefix all inputs
       var driver = try Driver(args: ["swiftc",
@@ -7281,9 +7284,9 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       let compileJob = plannedJobs[0]
       XCTAssertEqual(compileJob.kind, .compile)
-      try XCTAssertJobInvocationMatches(compileJob, .flag("-primary-file"), .path(.absolute(workingDirectory.appending(component: "foo.swift"))))
-      try XCTAssertJobInvocationMatches(compileJob, .flag("-resource-dir"), .path(.absolute(workingDirectory.appending(component: "relresourcepath"))))
-      try XCTAssertJobInvocationMatches(compileJob, .flag("-sdk"), .path(.absolute(workingDirectory.appending(component: "relsdkpath"))))
+      XCTAssertJobInvocationMatches(compileJob, .flag("-primary-file"), .path(.absolute(workingDirectory.appending(component: "foo.swift"))))
+      XCTAssertJobInvocationMatches(compileJob, .flag("-resource-dir"), .path(.absolute(workingDirectory.appending(component: "relresourcepath"))))
+      XCTAssertJobInvocationMatches(compileJob, .flag("-sdk"), .path(.absolute(workingDirectory.appending(component: "relsdkpath"))))
     }
 
     try withTemporaryFile { fileMapFile in
@@ -7308,7 +7311,7 @@ final class SwiftDriverTests: XCTestCase {
       let plannedJobs = try driver.planBuild()
       let compileJob = plannedJobs[0]
       XCTAssertEqual(compileJob.kind, .compile)
-      try XCTAssertJobInvocationMatches(compileJob, .flag("-o"), .path(.absolute(.init("/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.o"))))
+      try XCTAssertJobInvocationMatches(compileJob, .flag("-o"), .path(.absolute(.init(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.o"))))
     }
 
     try withTemporaryFile { fileMapFile in
@@ -7318,7 +7321,7 @@ final class SwiftDriverTests: XCTestCase {
           "diagnostics": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.dia",
           "emit-module-diagnostics": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.emit-module.dia"
         },
-        "\(AbsolutePath("/some/workingdir/foo.swift").nativePathString(escaped: true))": {
+        "\(try AbsolutePath(validating: "/some/workingdir/foo.swift").nativePathString(escaped: true))": {
           "object": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.o"
         }
       }
@@ -7329,12 +7332,12 @@ final class SwiftDriverTests: XCTestCase {
       var driver = try Driver(args: ["swiftc",
                                      "-target", "arm64-apple-ios13.1",
                                      "foo.swift",
-                                     "-working-directory", AbsolutePath("/some/workingdir").nativePathString(escaped: false),
+                                     "-working-directory", try AbsolutePath(validating: "/some/workingdir").nativePathString(escaped: false),
                                      "-output-file-map", fileMapFile.path.description])
       let plannedJobs = try driver.planBuild()
       let compileJob = plannedJobs[0]
       XCTAssertEqual(compileJob.kind, .compile)
-      try XCTAssertJobInvocationMatches(compileJob, .flag("-o"), .path(.absolute(.init("/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.o"))))
+      try XCTAssertJobInvocationMatches(compileJob, .flag("-o"), .path(.absolute(.init(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.o"))))
     }
   }
 
@@ -7342,7 +7345,7 @@ final class SwiftDriverTests: XCTestCase {
     do {
       // Reset the environment to avoid 'SDKROOT' influencing the
       // linux driver paths and taking the priority over the resource directory.
-      var env = ProcessEnv.vars
+      var env = ProcessEnv.block
       env["SDKROOT"] = nil
       var driver = try Driver(args: ["swiftc",
                                      "-target", "x86_64-unknown-linux", "-lto=llvm-thin",
@@ -7365,7 +7368,7 @@ final class SwiftDriverTests: XCTestCase {
   func testSDKDirLinuxPrioritizedOverRelativeResourceDirForLinkingSwiftRT() throws {
     do {
       let sdkRoot = try testInputsPath.appending(component: "mock-sdk.sdk")
-      var env = ProcessEnv.vars
+      var env = ProcessEnv.block
       env["SDKROOT"] = sdkRoot.pathString
       var driver = try Driver(args: ["swiftc",
                                      "-target", "x86_64-unknown-linux", "-lto=llvm-thin",
@@ -7481,7 +7484,7 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testFilelist() throws {
-    var envVars = ProcessEnv.vars
+    var envVars = ProcessEnv.block
     envVars["SWIFT_DRIVER_LD_EXEC"] = ld.nativePathString(escaped: false)
 
     do {
@@ -7723,10 +7726,10 @@ final class SwiftDriverTests: XCTestCase {
     let sdkRoot = try testInputsPath.appending(
       components: ["Platform Checks", "\(platform).platform", "Developer", "SDKs", "\(sdk).sdk"])
 
-    var env = ProcessEnv.vars
+    var env = ProcessEnv.block
     env["PLATFORM_DIR"] = "/tmp/PlatformDir/\(platform).platform"
 
-    let workingDirectory = AbsolutePath("/tmp")
+    let workingDirectory = try AbsolutePath(validating: "/tmp")
 
     var driver = try Driver(
       args: ["swiftc", "-typecheck", "foo.swift", "-sdk", VirtualPath.absolute(sdkRoot).name, "-plugin-path", "PluginA", "-external-plugin-path", "Plugin~B#Bexe", "-load-plugin-library", "PluginB2", "-plugin-path", "PluginC", "-working-directory", workingDirectory.nativePathString(escaped: false)],
@@ -7865,7 +7868,7 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
-      var env = ProcessEnv.vars
+      var env = ProcessEnv.block
       env["SDKROOT"] = SDKROOT.nativePathString(escaped: false)
 
       var driver = try Driver(args: [
@@ -7879,7 +7882,7 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
-      var env = ProcessEnv.vars
+      var env = ProcessEnv.block
       env["SDKROOT"] = SDKROOT.nativePathString(escaped: false)
 
       var driver = try Driver(args: [
@@ -7898,7 +7901,7 @@ final class SwiftDriverTests: XCTestCase {
     // toolchain relative path.
 #if false
     do {
-      var env = ProcessEnv.vars
+      var env = ProcessEnv.block
       env["SDKROOT"] = nil
 
       var driver = try Driver(args: [
@@ -7930,12 +7933,12 @@ final class SwiftDriverTests: XCTestCase {
 
   func testToolSearching() throws {
 #if os(Windows)
-    let PATH = "Path"
+    let PATH = ProcessEnvironmentKey("Path")
 #else
-    let PATH = "PATH"
+    let PATH = ProcessEnvironmentKey("PATH")
 #endif
-    let SWIFT_FRONTEND_EXEC = "SWIFT_DRIVER_SWIFT_FRONTEND_EXEC"
-    let SWIFT_SCANNER_LIB = "SWIFT_DRIVER_SWIFTSCAN_LIB"
+    let SWIFT_FRONTEND_EXEC = ProcessEnvironmentKey("SWIFT_DRIVER_SWIFT_FRONTEND_EXEC")
+    let SWIFT_SCANNER_LIB = ProcessEnvironmentKey("SWIFT_DRIVER_SWIFTSCAN_LIB")
 
 
     // Reset the environment to ensure tool resolution is exactly run against PATH.
@@ -8062,7 +8065,7 @@ final class SwiftDriverTests: XCTestCase {
 
   func testAndroidNDK() throws {
     try withTemporaryDirectory { path in
-      var env = ProcessEnv.vars
+      var env = ProcessEnv.block
       env["SWIFT_DRIVER_SWIFT_AUTOLINK_EXTRACT_EXEC"] = "/garbage/swift-autolink-extract"
 
       do {
@@ -8129,7 +8132,7 @@ final class SwiftDriverTests: XCTestCase {
       }
 
       do {
-        var env = ProcessEnv.vars
+        var env = ProcessEnv.block
         env["TAPI_SDKDB_OUTPUT_PATH"] = path.appending(component: "SDKDB").nativePathString(escaped: false)
         var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "baz.swift",
                                        "-emit-module", "-module-name", "Test"], env: env)
@@ -8142,7 +8145,7 @@ final class SwiftDriverTests: XCTestCase {
       }
 
       do {
-        var env = ProcessEnv.vars
+        var env = ProcessEnv.block
         env["LD_TRACE_FILE"] = path.appending(component: ".LD_TRACE").nativePathString(escaped: false)
         var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "baz.swift",
                                        "-emit-module", "-module-name", "Test"], env: env)
@@ -8173,7 +8176,7 @@ final class SwiftDriverTests: XCTestCase {
       }
 
       do {
-        var env = ProcessEnv.vars
+        var env = ProcessEnv.block
         env["TAPI_SDKDB_OUTPUT_PATH"] = path.appending(component: "SDKDB").nativePathString(escaped: false)
         var driver = try Driver(args: ["swiftc", "-whole-module-optimization",
                                        "-driver-filelist-threshold=0",
@@ -8187,7 +8190,7 @@ final class SwiftDriverTests: XCTestCase {
       }
 
       do {
-        var env = ProcessEnv.vars
+        var env = ProcessEnv.block
         env["LD_TRACE_FILE"] = path.appending(component: ".LD_TRACE").nativePathString(escaped: false)
         var driver = try Driver(args: ["swiftc", "-whole-module-optimization",
                                        "-driver-filelist-threshold=0",

@@ -250,14 +250,6 @@ private extension String {
     return api.swiftscan_swift_textual_detail_get_swift_source_import_module_dependencies != nil
   }
 
-  @_spi(Testing) public var supportsScannerDiagnostics : Bool {
-    return api.swiftscan_scanner_diagnostics_query != nil &&
-           api.swiftscan_scanner_diagnostics_reset != nil &&
-           api.swiftscan_diagnostic_get_message != nil &&
-           api.swiftscan_diagnostic_get_severity != nil &&
-           api.swiftscan_diagnostics_set_dispose != nil
-  }
-
   @_spi(Testing) public var supportsCaching : Bool {
 #if os(Windows)
     // Caching is currently not supported on Windows hosts.
@@ -346,21 +338,6 @@ private extension String {
                                              sourceLocation: sourceLoc))
     }
     return result
-  }
-
-  @_spi(Testing) public func queryScannerDiagnostics() throws -> [ScannerDiagnosticPayload] {
-    let diagnosticSetRefOrNull = api.swiftscan_scanner_diagnostics_query(scanner)
-    guard let diagnosticSetRef = diagnosticSetRefOrNull else {
-      // Seems heavy-handed to fail here
-      // throw DependencyScanningError.dependencyScanFailed
-      return []
-    }
-    defer { api.swiftscan_diagnostics_set_dispose(diagnosticSetRef) }
-    return try mapToDriverDiagnosticPayload(diagnosticSetRef)
-  }
-
-  @_spi(Testing) public func resetScannerDiagnostics() throws {
-    api.swiftscan_scanner_diagnostics_reset(scanner)
   }
 
   @_spi(Testing) public func canQuerySupportedArguments() -> Bool {
@@ -483,10 +460,6 @@ private extension swiftscan_functions_t {
       loadOptional("swiftscan_compiler_target_info_query_v2")
 
     // Scanner diagnostic emission query
-    self.swiftscan_scanner_diagnostics_query =
-      loadOptional("swiftscan_scanner_diagnostics_query")
-    self.swiftscan_scanner_diagnostics_reset =
-      loadOptional("swiftscan_scanner_diagnostics_reset")
     self.swiftscan_diagnostic_get_message =
       loadOptional("swiftscan_diagnostic_get_message")
     self.swiftscan_diagnostic_get_severity =
