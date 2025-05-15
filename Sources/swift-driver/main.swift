@@ -105,7 +105,7 @@ do {
     #endif
     let path: String = legacyExecutablePath.withUnsafeFileSystemRepresentation { String(cString: $0!) }
 
-    if localFileSystem.exists(AbsolutePath(path)) {
+    if try localFileSystem.exists(AbsolutePath(validating: path)) {
       let legacyDriverCommand = [path] + CommandLine.arguments[1...]
       try exec(path: path, args: legacyDriverCommand)
     } else {
