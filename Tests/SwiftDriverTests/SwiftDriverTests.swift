@@ -5899,6 +5899,20 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testFrontendSupportedFeatures() throws {
+    var driver = try Driver(args: ["swift", "-print-supported-features"])
+
+    guard driver.isFrontendArgSupported(.printSupportedFeatures) else {
+      throw XCTSkip("Skipping: compiler does not support '-print-supported-features'")
+    }
+
+    let plannedJobs = try driver.planBuild()
+    XCTAssertEqual(plannedJobs.count, 1)
+    let job = plannedJobs[0]
+    XCTAssertEqual(job.kind, .printSupportedFeatures)
+    XCTAssertJobInvocationMatches(job, .flag("-print-supported-features"))
+  }
+
   func testPrintOutputFileMap() throws {
     try withTemporaryDirectory { path in
       // Replace the error stream with one we capture here.
