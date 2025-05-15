@@ -34,18 +34,24 @@ extension IncrementalCompilationState {
     /// fileprivate in order to control concurrency.
     fileprivate let moduleDependencyGraph: ModuleDependencyGraph
 
+    /// The explicit dependency planner used for formulating compilation
+    /// commands on re-bached compile tasks.
+    fileprivate let explicitModulePlanner: ExplicitDependencyBuildPlanner?
+
     fileprivate let jobCreatingPch: Job?
     fileprivate let reporter: Reporter?
 
     init(skippedCompileJobs: [TypedVirtualPath: Job],
          _ moduleDependencyGraph: ModuleDependencyGraph,
          _ jobCreatingPch: Job?,
-         _ driver: inout Driver) {
+         _ driver: inout Driver,
+         _ explicitModulePlanner: ExplicitDependencyBuildPlanner?) {
       self.skippedCompileJobs = skippedCompileJobs
       self.moduleDependencyGraph = moduleDependencyGraph
       self.reporter = moduleDependencyGraph.info.reporter
       self.jobCreatingPch = jobCreatingPch
       self.driver = driver
+      self.explicitModulePlanner = explicitModulePlanner
     }
   }
 }
@@ -64,7 +70,10 @@ extension IncrementalCompilationState.ProtectedState {
     mutationSafetyPrecondition()
     // batch in here to protect the Driver from concurrent access
     return try collectUnbatchedJobsDiscoveredToBeNeededAfterFinishing(job: finishedJob)
-      .map {try driver.formBatchedJobs($0, showJobLifecycle: driver.showJobLifecycle, jobCreatingPch: jobCreatingPch)}
+      .map {try driver.formBatchedJobs($0,
+                                       showJobLifecycle: driver.showJobLifecycle,
+                                       jobCreatingPch: jobCreatingPch,
+                                       explicitModulePlanner: explicitModulePlanner)}
   }
 
   /// Remember a job (group) that is before a compile or a compile itself.
