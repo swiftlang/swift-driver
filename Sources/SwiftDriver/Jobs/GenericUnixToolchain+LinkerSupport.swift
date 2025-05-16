@@ -86,6 +86,12 @@ extension GenericUnixToolchain {
         }
       }
 
+      let staticStdlib = parsedOptions.hasFlag(positive: .staticStdlib,
+                                               negative: .noStaticStdlib,
+                                                   default: false)
+      let staticExecutable = parsedOptions.hasFlag(positive: .staticExecutable,
+                                                   negative: .noStaticExecutable,
+                                                  default: false)
       let clangTool: Tool = cxxCompatEnabled ? .clangxx : .clang
       var clangPath = try getToolPath(clangTool)
       if let toolsDirPath = parsedOptions.getLastArgument(.toolsDirectory) {
@@ -105,7 +111,7 @@ extension GenericUnixToolchain {
       }
 
       // Executables on Linux get -pie
-      if targetTriple.os == .linux && linkerOutputType == .executable {
+      if targetTriple.os == .linux && linkerOutputType == .executable && !staticExecutable {
         commandLine.appendFlag("-pie")
       }
 
@@ -132,12 +138,6 @@ extension GenericUnixToolchain {
         }
       }
 
-      let staticStdlib = parsedOptions.hasFlag(positive: .staticStdlib,
-                                               negative: .noStaticStdlib,
-                                                   default: false)
-      let staticExecutable = parsedOptions.hasFlag(positive: .staticExecutable,
-                                                   negative: .noStaticExecutable,
-                                                  default: false)
       let isEmbeddedEnabled = parsedOptions.isEmbeddedEnabled
 
       let toolchainStdlibRpath = parsedOptions

@@ -2057,6 +2057,45 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
+      try withTemporaryDirectory { path in
+        try localFileSystem.writeFileContents(path.appending(components: "linux", "static-executable-args.lnk")) {
+          $0.send("empty")
+        }
+        // Ensure that when building a static executable on Linux we do not pass in
+        // a redundant '-pie'
+        var driver = try Driver(args: commonArgs + ["-emit-executable", "-L", "/tmp", "-Xlinker", "--export-all",
+                                                    "-Xlinker", "-E", "-Xclang-linker", "foo",
+                                                    "-resource-dir", path.pathString,
+                                                    "-static-executable",
+                                                    "-target", "x86_64-unknown-linux"], env: env)
+        let plannedJobs = try driver.planBuild()
+        XCTAssertEqual(plannedJobs.count, 4)
+        let linkJob = plannedJobs[3]
+        let cmd = linkJob.commandLine
+        XCTAssertFalse(cmd.contains(.flag("-pie")))
+      }
+
+    }
+
+    do {
+      try withTemporaryDirectory { path in
+        try localFileSystem.writeFileContents(path.appending(components: "linux", "static-executable-args.lnk")) {
+          $0.send("empty")
+        }
+        // Ensure that when building a non-static executable on Linux, we specify '-pie'
+        var driver = try Driver(args: commonArgs + ["-emit-executable", "-L", "/tmp", "-Xlinker", "--export-all",
+                                                    "-Xlinker", "-E", "-Xclang-linker", "foo",
+                                                    "-resource-dir", path.pathString,
+                                                    "-target", "x86_64-unknown-linux"], env: env)
+        let plannedJobs = try driver.planBuild()
+        XCTAssertEqual(plannedJobs.count, 4)
+        let linkJob = plannedJobs[3]
+        let cmd = linkJob.commandLine
+        XCTAssertTrue(cmd.contains(.flag("-pie")))
+      }
+    }
+
+    do {
       // Xlinker flags
       // Ensure that Xlinker flags are passed as such to the clang linker invocation.
       var driver = try Driver(args: commonArgs + ["-emit-library", "-L", "/tmp", "-Xlinker", "-w",
