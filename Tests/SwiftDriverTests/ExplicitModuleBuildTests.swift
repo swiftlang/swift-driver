@@ -815,6 +815,10 @@ final class ExplicitModuleBuildTests: XCTestCase {
         }
         """
       )
+      // After writing out the inputs, ensure we do not immediately produce an
+      // output, as unfortunately on some platforms the time interval precision
+      // of filesystem update checks is rather coarse for this test
+      Thread.sleep(forTimeInterval: 1)
       let outputFileMap = path.appending(component: "output-file-map.json")
       try localFileSystem.writeFileContents(outputFileMap, bytes: ByteString(encodingAsUTF8: """
       {
