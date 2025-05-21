@@ -645,6 +645,55 @@ extension IncrementalCompilationTests {
       linking
     }
   }
+
+  func testExplicitIncrementalEmitModuleOnly() throws {
+    guard let sdkArgumentsForTesting = try Driver.sdkArgumentsForTesting()
+    else {
+      throw XCTSkip("Cannot perform this test on this host")
+    }
+
+    let args = [
+      "swiftc",
+      "-module-name", module,
+      "-emit-module", "-emit-module-path",
+      derivedDataPath.appending(component: module + ".swiftmodule").pathString,
+      "-incremental",
+      "-driver-show-incremental",
+      "-driver-show-job-lifecycle",
+      "-save-temps",
+      "-output-file-map", OFM.pathString,
+      "-no-color-diagnostics"
+    ] + inputPathsAndContents.map {$0.0.pathString}.sorted() + explicitBuildArgs + sdkArgumentsForTesting
+
+    // Initial build
+    _ = try doABuildWithoutExpectations(arguments: args)
+
+    // Subsequent build, ensure module does not get re-emitted since inputs have not changed
+    _ = try doABuild(
+      whenAutolinking: autolinkLifecycleExpectedDiags,
+      arguments: args
+    ) {
+      readGraph
+      explicitIncrementalScanReuseCache(serializedDepScanCachePath.pathString)
+      explicitIncrementalScanCacheSerialized(serializedDepScanCachePath.pathString)
+      queuingInitial("main", "other")
+    }
+
+    touch("main")
+    touch("other")
+    // Subsequent build, ensure module re-emitted since inputs changed
+    _ = try doABuild(
+      whenAutolinking: autolinkLifecycleExpectedDiags,
+      arguments: args
+    ) {
+      readGraph
+      explicitIncrementalScanReuseCache(serializedDepScanCachePath.pathString)
+      explicitIncrementalScanCacheSerialized(serializedDepScanCachePath.pathString)
+      queuingInitial("main", "other")
+      emittingModule(module)
+      schedulingPostCompileJobs
+    }
+  }
 }
 
 extension IncrementalCompilationTests {
@@ -1770,6 +1819,14 @@ extension IncrementalCompilationTests {
     }
   }
 
+  private func doABuild(
+    whenAutolinking autolinkExpectedDiags: [Diagnostic.Message],
+    arguments: [String],
+    @DiagsBuilder expecting expectedDiags: () -> [Diagnostic.Message]
+  ) throws -> Driver {
+    try doABuild(whenAutolinking: autolinkExpectedDiags, expecting: expectedDiags(), arguments: arguments)
+  }
+
   private func doABuildWithoutExpectations(arguments: [String]) throws -> Driver {
     // If not checking, print out the diagnostics
     let diagnosticEngine = DiagnosticsEngine(handlers: [
@@ -1858,6 +1915,16 @@ extension DiagVerifiable {
   }
   @DiagsBuilder func explicitDependencyModuleOlderThanInput(_ dependencyModuleName: String) -> [Diagnostic.Message] {
     "Dependency module \(dependencyModuleName) is older than input file"
+  }
+  @DiagsBuilder func startEmitModule(_ moduleName: String) -> [Diagnostic.Message] {
+    "Starting Emitting module for \(moduleName)"
+  }
+  @DiagsBuilder func finishEmitModule(_ moduleName: String) -> [Diagnostic.Message] {
+    "Finished Emitting module for \(moduleName)"
+  }
+  @DiagsBuilder func emittingModule(_ moduleName: String) -> [Diagnostic.Message] {
+    startEmitModule(moduleName)
+    finishEmitModule(moduleName)
   }
   @DiagsBuilder func startCompilingExplicitClangDependency(_ dependencyModuleName: String) -> [Diagnostic.Message] {
     "Starting Compiling Clang module \(dependencyModuleName)"
