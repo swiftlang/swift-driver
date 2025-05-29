@@ -666,7 +666,8 @@ extension ModuleDependencyGraph {
   /// - Minor number 2: Use `.swift` files instead of `.swiftdeps` in ``DependencySource``
   /// - Minor number 3: Use interned strings, including for fingerprints and use empty dependency source file for no DependencySource
   /// - Minor number 4: Absorb the data in the ``BuildRecord`` into the module dependency graph.
-  @_spi(Testing) public static let serializedGraphVersion = Version(1, 4, 0)
+  /// - Minor number 5: SHA256 hashes for files in externalDepNode and inputInfo blobs. 
+  @_spi(Testing) public static let serializedGraphVersion = Version(1, 5, 0)
 
   /// The IDs of the records used by the module dependency graph.
   fileprivate enum RecordID: UInt64 {
