@@ -373,6 +373,10 @@ extension IncrementalCompilationState {
     /// Enables additional handling of explicit module build artifacts:
     /// Additional reading and writing of the inter-module dependency graph.
     public static let explicitModuleBuild                    = Options(rawValue: 1 << 6)
+
+    /// Enables use of file hashes as a fallback in the case that a timestamp 
+    /// change might invalidate a node
+    public static let useFileHashesInModuleDependencyGraph  = Options(rawValue: 1 << 7)
   }
 }
 
