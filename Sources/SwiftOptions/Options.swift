@@ -866,6 +866,7 @@ extension Option {
   public static let statsOutputDir: Option = Option("-stats-output-dir", .separate, attributes: [.helpHidden, .frontend, .argumentIsPath], helpText: "Directory to write unified compilation-statistics files to")
   public static let strictConcurrency: Option = Option("-strict-concurrency=", .joined, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Specify the how strict concurrency checking will be. The value may be 'minimal' (most 'Sendable' checking is disabled), 'targeted' ('Sendable' checking is enabled in code that uses the concurrency model, or 'complete' ('Sendable' and other checking is enabled for all code in the module)")
   public static let strictImplicitModuleContext: Option = Option("-strict-implicit-module-context", .flag, attributes: [.helpHidden, .frontend], helpText: "Enable the strict forwarding of compilation context to downstream implicit module dependencies")
+  public static let strictMemorySafetyMigrate: Option = Option("-strict-memory-safety:migrate", .flag, attributes: [.frontend, .synthesizeInterface], helpText: "Enable migration to strict memory safety checking")
   public static let strictMemorySafety: Option = Option("-strict-memory-safety", .flag, attributes: [.frontend, .synthesizeInterface], helpText: "Enable strict memory safety checking")
   public static let supplementaryOutputFileMap: Option = Option("-supplementary-output-file-map", .separate, attributes: [.frontend, .noDriver, .cacheInvariant], helpText: "Specify supplementary outputs in a file rather than on the command line")
   public static let suppressRemarks: Option = Option("-suppress-remarks", .flag, attributes: [.frontend], helpText: "Suppress all remarks")
@@ -1827,6 +1828,7 @@ extension Option {
       Option.statsOutputDir,
       Option.strictConcurrency,
       Option.strictImplicitModuleContext,
+      Option.strictMemorySafetyMigrate,
       Option.strictMemorySafety,
       Option.supplementaryOutputFileMap,
       Option.suppressRemarks,
