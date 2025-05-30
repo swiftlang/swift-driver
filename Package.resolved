@@ -14,8 +14,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/swiftlang/swift-llbuild.git",
       "state" : {
-        "branch" : "main",
-        "revision" : "02db743e7fd4ba241b78207309ddb3c9c2ec5f3f"
+        "branch" : "release/6.2",
+        "revision" : "1cc35cca995f017009c4909dc3caff4c17f55105"
       }
     },
     {
@@ -32,8 +32,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/swiftlang/swift-tools-support-core.git",
       "state" : {
-        "branch" : "main",
-        "revision" : "4074f4db0971328c441fc1621c673937b9ca3b08"
+        "branch" : "release/6.2",
+        "revision" : "e765e49105c0c93254627b13852df0e3eed94b63"
       }
     }
   ],
