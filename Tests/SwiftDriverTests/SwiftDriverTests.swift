@@ -219,12 +219,23 @@ final class SwiftDriverTests: XCTestCase {
   func testRelativeOptionOrdering() throws {
     var driver = try Driver(args: ["swiftc", "foo.swift",
                                    "-F", "/path/to/frameworks",
+                                   "-I", "/path/to/modules",
                                    "-Fsystem", "/path/to/systemframeworks",
-                                   "-F", "/path/to/more/frameworks"])
+                                   "-Isystem", "/path/to/systemmodules",
+                                   "-F", "/path/to/more/frameworks",
+                                   "-I", "/path/to/more/modules"])
     let jobs = try driver.planBuild()
     XCTAssertEqual(jobs[0].kind, .compile)
     // The relative ordering of -F and -Fsystem options should be preserved.
+    // The relative ordering of -I and -Isystem, and -F and -Fsystem options should be preserved,
+    // but all -I options should come before all -F options.
     try XCTAssertJobInvocationMatches(jobs[0],
+                                     .flag("-I"),
+                                     .path(.absolute(.init(validating: "/path/to/modules"))),
+                                     .flag("-Isystem"),
+                                     .path(.absolute(.init(validating: "/path/to/systemmodules"))),
+                                     .flag("-I"),
+                                     .path(.absolute(.init(validating: "/path/to/more/modules"))),
                                      .flag("-F"),
                                      .path(.absolute(.init(validating: "/path/to/frameworks"))),
                                      .flag("-Fsystem"),
