@@ -194,6 +194,10 @@ extension Driver {
     commandLine.appendPath(VirtualPath.lookup(frontendTargetInfo.runtimeResourcePath.path))
 
     try commandLine.appendAll(.I, from: &parsedOptions)
+    for systemImport in parsedOptions.arguments(for: .Isystem) {
+      commandLine.appendFlag(.isystem)
+      commandLine.appendFlag(systemImport.argument.asSingle)
+    }
     try commandLine.appendAll(.F, from: &parsedOptions)
     for systemFramework in parsedOptions.arguments(for: .Fsystem) {
       commandLine.appendFlag(.iframework)
