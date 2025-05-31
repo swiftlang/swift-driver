@@ -247,10 +247,10 @@ fileprivate class ModuleCompileDelegate: JobExecutionDelegate {
       }
 #if os(Windows)
     case .abnormal(let exception):
-      diagnosticsEngine.emit(.remark("\(job.moduleName) exception: \(exception)"))
+      diagnosticsEngine.emit(.error(try! result.utf8stderrOutput()))
 #else
     case .signalled:
-      diagnosticsEngine.emit(.remark("\(job.moduleName) interrupted"))
+      diagnosticsEngine.emit(.error(try! result.utf8stderrOutput()))
 #endif
     }
     do {
