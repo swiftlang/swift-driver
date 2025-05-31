@@ -190,7 +190,7 @@ extension Driver {
     }
 
     // TODO: Can we drop all search paths for compile jobs for explicit module build?
-    try addAllArgumentsWithPath(.I, to: &commandLine, remap: jobNeedPathRemap)
+    try addAllArgumentsWithPath(.I, .Isystem, to: &commandLine, remap: jobNeedPathRemap)
     try addAllArgumentsWithPath(.F, .Fsystem, to: &commandLine, remap: jobNeedPathRemap)
     try addAllArgumentsWithPath(.vfsoverlay, to: &commandLine, remap: jobNeedPathRemap)
 
