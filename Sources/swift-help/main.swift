@@ -93,7 +93,8 @@ struct SwiftHelp: ParsableCommand {
   }
 
   func printIntro() {
-    let is256Color = ProcessEnv.vars["TERM"] == "xterm-256color"
+    let is256Color = ProcessEnv.block["TERM"] == "xterm-256color" ||
+      ProcessEnv.block["TERM"] == "screen-256color"
     let orangeRed = is256Color ? "\u{001b}[1;38;5;196m" : ""
     let plain = is256Color ? "\u{001b}[0m" : ""
     let plainBold = is256Color ? "\u{001b}[1m" : ""
