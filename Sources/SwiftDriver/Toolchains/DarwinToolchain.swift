@@ -21,12 +21,14 @@ import class TSCBasic.DiagnosticsEngine
 import struct TSCBasic.AbsolutePath
 import struct TSCBasic.Diagnostic
 import var TSCBasic.localFileSystem
+import typealias TSCBasic.ProcessEnvironmentBlock
+import struct TSCBasic.ProcessEnvironmentKey
 
 /// Toolchain for Darwin-based platforms, such as macOS and iOS.
 ///
 /// FIXME: This class is not thread-safe.
 public final class DarwinToolchain: Toolchain {
-  public let env: [String: String]
+  public let env: ProcessEnvironmentBlock
 
   /// Doubles as path cache and point for overriding normal lookup
   private var toolPaths = [Tool: AbsolutePath]()
@@ -45,7 +47,7 @@ public final class DarwinToolchain: Toolchain {
 
   public let dummyForTestingObjectFormat = Triple.ObjectFormat.macho
 
-  public init(env: [String: String], executor: DriverExecutor, fileSystem: FileSystem = localFileSystem,
+  public init(env: ProcessEnvironmentBlock, executor: DriverExecutor, fileSystem: FileSystem = localFileSystem,
               compilerExecutableDir: AbsolutePath? = nil, toolDirectory: AbsolutePath? = nil) {
     self.env = env
     self.executor = executor
@@ -139,7 +141,7 @@ public final class DarwinToolchain: Toolchain {
     if target?.isMacOSX == true || hostIsMacOS {
       let result = try executor.checkNonZeroExit(
         args: "xcrun", "-sdk", "macosx", "--show-sdk-path",
-        environment: env
+        environment: env.legacyVars
       ).trimmingCharacters(in: .whitespacesAndNewlines)
       return try AbsolutePath(validating: result)
     }

@@ -18,7 +18,7 @@ import TestUtilities
 @discardableResult
 func assertDriverDiagnostics<Result> (
   args: [String],
-  env: [String: String] = ProcessEnv.vars,
+  env: ProcessEnvironmentBlock = ProcessEnv.block,
   file: StaticString = #file, line: UInt = #line,
   do body: (inout Driver, DiagnosticVerifier) throws -> Result
 ) throws -> Result {
@@ -34,7 +34,7 @@ func assertDriverDiagnostics<Result> (
 /// and will emit all diagnostics so marked by the end of the block.
 func assertDriverDiagnostics(
   args: String...,
-  env: [String: String] = ProcessEnv.vars,
+  env: ProcessEnvironmentBlock = ProcessEnv.block,
   file: StaticString = #file, line: UInt = #line,
   do body: (inout Driver, DiagnosticVerifier) throws -> Void
 ) throws {
@@ -48,7 +48,7 @@ func assertDriverDiagnostics(
 /// Asserts that the `Driver` it instantiates will not emit any warnings or errors.
 func assertNoDriverDiagnostics(
   args: String...,
-  env: [String: String] = ProcessEnv.vars,
+  env: ProcessEnvironmentBlock = ProcessEnv.block,
   file: StaticString = #file, line: UInt = #line,
   do body: (inout Driver) throws -> Void = { _ in }
 ) throws {

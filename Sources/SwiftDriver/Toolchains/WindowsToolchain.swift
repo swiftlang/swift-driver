@@ -17,6 +17,7 @@ import protocol TSCBasic.DiagnosticData
 import protocol TSCBasic.FileSystem
 import struct TSCBasic.AbsolutePath
 import var TSCBasic.localFileSystem
+import typealias TSCBasic.ProcessEnvironmentBlock
 
 extension WindowsToolchain {
   public enum ToolchainValidationError: Error, DiagnosticData {
@@ -34,7 +35,7 @@ extension WindowsToolchain.ToolchainValidationError {
 }
 
 @_spi(Testing) public final class WindowsToolchain: Toolchain {
-  public let env: [String:String]
+  public let env: ProcessEnvironmentBlock
   public let executor: DriverExecutor
   public let fileSystem: FileSystem
   public let compilerExecutableDir: AbsolutePath?
@@ -46,7 +47,7 @@ extension WindowsToolchain.ToolchainValidationError {
 
   private var toolPaths: [Tool:AbsolutePath] = [:]
 
-  public init(env: [String:String], executor: DriverExecutor,
+  public init(env: ProcessEnvironmentBlock, executor: DriverExecutor,
               fileSystem: FileSystem = localFileSystem,
               compilerExecutableDir: AbsolutePath? = nil,
               toolDirectory: AbsolutePath? = nil) {

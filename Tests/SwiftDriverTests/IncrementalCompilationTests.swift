@@ -199,7 +199,7 @@ extension IncrementalCompilationTests {
   /// autolink job.
   /// Much of the code below is taking from testLinking(), but uses the output file map code here.
   func testAutolinkOutputPath() throws {
-    var env = ProcessEnv.vars
+    var env = ProcessEnv.block
     env["SWIFT_DRIVER_TESTS_ENABLE_EXEC_PATH_FALLBACK"] = "1"
     env["SWIFT_DRIVER_SWIFT_AUTOLINK_EXTRACT_EXEC"] = "//usr/bin/swift-autolink-extract"
     env["SWIFT_DRIVER_DSYMUTIL_EXEC"] = "//usr/bin/dsymutil"
