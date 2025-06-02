@@ -134,23 +134,11 @@ extension IncrementalCompilationState.FirstWaveComputer {
       jobCreatingPch: jobCreatingPch)
 
     // In the case where there are no compilation jobs to run on this build (no source-files were changed),
-    // and the emit-module task does not need to be re-run, we can skip running `beforeCompiles` jobs if we
-    // also ensure that none of the `afterCompiles` jobs have any dependencies on them.
-    let skippingAllCompileJobs = batchedCompilationJobs.isEmpty
-    let skipEmitModuleJobs = try skippingAllCompileJobs && computeCanSkipEmitModuleTasks(buildRecord)
-    let skipAllJobs = skippingAllCompileJobs && skipEmitModuleJobs && !nonVerifyAfterCompileJobsDependOnBeforeCompileJobs()
-
-    let beforeCompileJobs: [Job]
-    var skippedNonCompileJobs: [Job] = []
-    if skipAllJobs {
-      beforeCompileJobs = []
-      skippedNonCompileJobs = jobsInPhases.beforeCompiles
-    } else if skipEmitModuleJobs {
-      beforeCompileJobs = jobsInPhases.beforeCompiles.filter { $0.kind != .emitModule }
-      skippedNonCompileJobs.append(contentsOf: jobsInPhases.beforeCompiles.filter { $0.kind == .emitModule })
-    } else {
-      beforeCompileJobs = jobsInPhases.beforeCompiles
-    }
+    // we can skip running `beforeCompiles` jobs if we also ensure that none of the `afterCompiles` jobs
+    // have any dependencies on them.
+    let skipAllJobs = batchedCompilationJobs.isEmpty ? !nonVerifyAfterCompileJobsDependOnBeforeCompileJobs() : false
+    let beforeCompileJobs = skipAllJobs ? [] : jobsInPhases.beforeCompiles
+    var skippedNonCompileJobs = skipAllJobs ? jobsInPhases.beforeCompiles : []
 
     // Schedule emitModule job together with verify module interface job.
     let afterCompileJobs = jobsInPhases.afterCompiles.compactMap { job -> Job? in
@@ -182,27 +170,6 @@ extension IncrementalCompilationState.FirstWaveComputer {
     }
   }
 
-  /// Figure out if the emit-module tasks are *not* mandatory. This functionality only runs if there are not actual
-  /// compilation tasks to be run in this build, for example on an emit-module-only build.
-  private func computeCanSkipEmitModuleTasks(_ buildRecord: BuildRecord) throws -> Bool {
-    guard let emitModuleJob = jobsInPhases.beforeCompiles.first(where: { $0.kind == .emitModule }) else {
-      return false // Nothing to skip, so no special handling is required
-    }
-    // If a non-emit-module task exists in 'beforeCompiles', it may be another kind of
-    // changed dependency so we should re-run the module task as well
-    guard jobsInPhases.beforeCompiles.allSatisfy({ $0.kind == .emitModule }) else {
-      return false
-    }
-    // If any of the outputs do not exist, they must be re-computed
-    guard try emitModuleJob.outputs.allSatisfy({ try fileSystem.exists($0.file) }) else {
-      return false
-    }
-
-    // Ensure that no output is older than any of the inputs
-    let oldestOutputModTime: TimePoint = try emitModuleJob.outputs.map { try fileSystem.lastModificationTime(for: $0.file) }.min() ?? .distantPast
-    return try emitModuleJob.inputs.swiftSourceFiles.allSatisfy({ try fileSystem.lastModificationTime(for: $0.typedFile.file) < oldestOutputModTime })
-  }
-
   /// Figure out which compilation inputs are *not* mandatory at the start
   private func computeInitiallySkippedCompilationInputs(
     inputsInvalidatedByExternals: TransitivelyInvalidatedSwiftSourceFileSet,
@@ -211,7 +178,7 @@ extension IncrementalCompilationState.FirstWaveComputer {
   ) -> Set<TypedVirtualPath> {
     let allCompileJobs = jobsInPhases.compileJobs
     // Input == source file
-    let changedInputs = computeChangedInputs(buildRecord)
+    let changedInputs = computeChangedInputs(moduleDependencyGraph, buildRecord)
 
     if let reporter = reporter {
       for input in inputsInvalidatedByExternals {
@@ -307,6 +274,7 @@ extension IncrementalCompilationState.FirstWaveComputer {
 
   // Find the inputs that have changed since last compilation, or were marked as needed a build
   private func computeChangedInputs(
+    _ moduleDependencyGraph: ModuleDependencyGraph,
     _ outOfDateBuildRecord: BuildRecord
   ) -> [ChangedInput] {
     jobsInPhases.compileJobs.compactMap { job in

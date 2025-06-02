@@ -913,6 +913,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       try incrementalDriver.run(jobs: incrementalJobs)
       XCTAssertFalse(incrementalDriver.diagnosticEngine.hasErrors)
       let state = try XCTUnwrap(incrementalDriver.incrementalCompilationState)
+      XCTAssertTrue(state.mandatoryJobsInOrder.contains { $0.kind == .emitModule })
       XCTAssertTrue(state.jobsAfterCompiles.contains { $0.kind == .verifyModuleInterface })
 
       // TODO: emitModule job should run again if interface is deleted.
@@ -922,6 +923,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       var reDriver = try Driver(args: invocationArguments + ["-color-diagnostics"])
       let _ = try reDriver.planBuild()
       let reState = try XCTUnwrap(reDriver.incrementalCompilationState)
+      XCTAssertFalse(reState.mandatoryJobsInOrder.contains { $0.kind == .emitModule })
       XCTAssertFalse(reState.jobsAfterCompiles.contains { $0.kind == .verifyModuleInterface })
     }
   }
