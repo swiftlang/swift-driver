@@ -6954,7 +6954,12 @@ final class SwiftDriverTests: XCTestCase {
     do {
       for tripleEnv in ["wasi", "wasi-wasm", "wasip1", "wasip1-wasm", "wasip1-threads"] {
         var driver = try Driver(
-          args: ["swiftc", "-target", "wasm32-unknown-\(tripleEnv)", "test.o", "-enable-experimental-feature", "Embedded", "-wmo", "-o", "a.wasm"],
+          args: [
+            "swiftc", "-target", "wasm32-unknown-\(tripleEnv)",
+            "-resource-dir", "/usr/lib/swift",
+            "-enable-experimental-feature", "Embedded", "-wmo",
+            "test.o", "-o",  "a.wasm"
+          ],
           env: env
         )
         let plannedJobs = try driver.planBuild()
@@ -6964,6 +6969,9 @@ final class SwiftDriverTests: XCTestCase {
         XCTAssertFalse(linkJob.commandLine.contains(.flag("-rpath")))
         XCTAssertFalse(linkJob.commandLine.contains(.flag("-lswiftCore")))
         XCTAssertFalse(linkJob.commandLine.joinedUnresolvedArguments.contains("swiftrt.o"))
+        XCTAssertTrue(linkJob.commandLine.contains(
+          .joinedOptionAndPath("-L", try .init(path: "/usr/lib/swift/embedded/wasm32-unknown-\(tripleEnv)"))
+        ))
       }
     }
 
