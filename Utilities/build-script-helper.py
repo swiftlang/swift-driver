@@ -105,6 +105,11 @@ def get_swiftpm_options(args):
       swiftpm_args += [
         '-Xlinker', '-rpath', '-Xlinker', '$ORIGIN/../lib/swift/android',
       ]
+    elif '-freebsd' in args.build_target:
+      # Library rpath for swift, dispatch, Foundation, etc. when installing
+      swiftpm_args += [
+        '-Xlinker', '-rpath', '-Xlinker', '$ORIGIN/../lib/swift/freebsd',
+      ]
     else:
       # Library rpath for swift, dispatch, Foundation, etc. when installing
       swiftpm_args += [
