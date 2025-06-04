@@ -61,8 +61,6 @@ throws {
       XCTAssertEqual(job.description, "Compiling Clang module \(moduleId.moduleName)")
     case .swiftPrebuiltExternal(_):
       XCTFail("Unexpected prebuilt external module dependency found.")
-    case .swiftPlaceholder(_):
-      XCTFail("Placeholder dependency found.")
   }
   // Ensure the frontend was prohibited from doing implicit module builds
   XCTAssertTrue(job.commandLine.contains(.flag(String("-fno-implicit-modules"))))
@@ -181,8 +179,6 @@ private func checkCachingBuildJobDependencies(job: Job,
         try validateBinaryCommandLineDependency(dependencyId, swiftDependencyDetails)
       case .clang(let clangDependencyDetails):
         try validateClangCommandLineDependency(dependencyId, dependencyInfo, clangDependencyDetails)
-      case .swiftPlaceholder(_):
-        XCTFail("Placeholder dependency found.")
     }
 
     // Ensure all transitive dependencies got added as well.

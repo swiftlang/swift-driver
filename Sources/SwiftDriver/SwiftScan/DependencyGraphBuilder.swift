@@ -135,8 +135,6 @@ private extension SwiftScan {
                                                              moduleAliases: moduleAliases))
       case SWIFTSCAN_DEPENDENCY_INFO_SWIFT_BINARY:
         return .swiftPrebuiltExternal(try constructSwiftBinaryModuleDetails(from: moduleDetailsRef))
-      case SWIFTSCAN_DEPENDENCY_INFO_SWIFT_PLACEHOLDER:
-        return .swiftPlaceholder(try constructPlaceholderModuleDetails(from: moduleDetailsRef))
       case SWIFTSCAN_DEPENDENCY_INFO_CLANG:
         return .clang(try constructClangModuleDetails(from: moduleDetailsRef))
       default:
@@ -272,19 +270,6 @@ private extension SwiftScan {
                                               headerDependencyModuleDependencies: headerDependencyModuleDependencies,
                                               isFramework: isFramework,
                                               moduleCacheKey: moduleCacheKey)
-  }
-
-  /// Construct a `SwiftPlaceholderModuleDetails` from a `swiftscan_module_details_t` reference
-  func constructPlaceholderModuleDetails(from moduleDetailsRef: swiftscan_module_details_t)
-  throws -> SwiftPlaceholderModuleDetails {
-    let moduleDocPath =
-      try getOptionalPathDetail(from: moduleDetailsRef,
-                                using: api.swiftscan_swift_placeholder_detail_get_module_doc_path)
-    let moduleSourceInfoPath =
-      try getOptionalPathDetail(from: moduleDetailsRef,
-                                using: api.swiftscan_swift_placeholder_detail_get_module_source_info_path)
-    return SwiftPlaceholderModuleDetails(moduleDocPath: moduleDocPath,
-                                         moduleSourceInfoPath: moduleSourceInfoPath)
   }
 
   /// Construct a `ClangModuleDetails` from a `swiftscan_module_details_t` reference
@@ -437,7 +422,6 @@ private extension SwiftScan {
   /// where `module-kind` is one of:
   /// "swiftTextual"
   /// "swiftBinary"
-  /// "swiftPlaceholder"
   /// "clang""
   func decodeModuleNameAndKind(from encodedName: String,
                                moduleAliases: [String: String]?) throws -> ModuleDependencyId {
@@ -454,8 +438,6 @@ private extension SwiftScan {
           namePart = realName
         }
         return .swiftPrebuiltExternal(namePart)
-      case _ where encodedName.starts(with: "swiftPlaceholder:"):
-        return .swiftPlaceholder(String(encodedName.suffix(encodedName.count - "swiftPlaceholder:".count)))
       case _ where encodedName.starts(with: "clang:"):
         return .clang(String(encodedName.suffix(encodedName.count - "clang:".count)))
       default:
