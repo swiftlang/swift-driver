@@ -33,6 +33,7 @@ public struct ChainedBridgingHeaderFile {
   let content: String
 }
 
+// Deprecated
 public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalTargetModuleDetails]
 
 /// In Explicit Module Build mode, this planner is responsible for generating and providing
@@ -363,8 +364,6 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
                                   headerDependencies: prebuiltModuleDetails.headerDependencyPaths,
                                   isFramework: isFramework,
                                   moduleCacheKey: prebuiltModuleDetails.moduleCacheKey))
-      case .swiftPlaceholder:
-        fatalError("Unresolved placeholder dependencies at planning stage: \(dependencyId) of \(moduleId)")
     }
   }
 

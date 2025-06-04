@@ -613,12 +613,6 @@ private extension swiftscan_functions_t {
       try loadRequired("swiftscan_clang_detail_get_context_hash")
     self.swiftscan_clang_detail_get_module_map_path =
       try loadRequired("swiftscan_clang_detail_get_module_map_path")
-    self.swiftscan_swift_placeholder_detail_get_module_source_info_path =
-      try loadRequired("swiftscan_swift_placeholder_detail_get_module_source_info_path")
-    self.swiftscan_swift_placeholder_detail_get_module_doc_path =
-      try loadRequired("swiftscan_swift_placeholder_detail_get_module_doc_path")
-    self.swiftscan_swift_placeholder_detail_get_compiled_module_path =
-      try loadRequired("swiftscan_swift_placeholder_detail_get_compiled_module_path")
     self.swiftscan_swift_binary_detail_get_module_source_info_path =
       try loadRequired("swiftscan_swift_binary_detail_get_module_source_info_path")
     self.swiftscan_swift_binary_detail_get_module_doc_path =

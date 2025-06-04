@@ -59,18 +59,6 @@ extension Diagnostic.Message {
       stdoutStream.flush()
     }
 
-    if let externalTargetDetails = externalTargetModuleDetailsMap {
-      // Resolve external dependencies in the dependency graph, if any.
-      try dependencyGraph.resolveExternalDependencies(for: externalTargetDetails)
-    }
-
-    // Re-scan Clang modules at all the targets they will be built against.
-    // This is currently disabled because we are investigating it being unnecessary
-    // try resolveVersionedClangDependencies(dependencyGraph: &dependencyGraph)
-
-    // Set dependency modules' paths to be saved in the module cache.
-    // try resolveDependencyModulePaths(dependencyGraph: &dependencyGraph)
-
     if parsedOptions.hasArgument(.printExplicitDependencyGraph) {
       let outputFormat = parsedOptions.getLastArgument(.explicitDependencyGraphFormat)?.asSingle
       if outputFormat == nil || outputFormat == "json" {
@@ -116,15 +104,6 @@ public extension Driver {
                                  bridgingHeaderHandling: .parsed,
                                  moduleDependencyGraphUse: .dependencyScan)
     try addRuntimeLibraryFlags(commandLine: &commandLine)
-
-    // Pass in external target dependencies to be treated as placeholder dependencies by the scanner
-    if let externalTargetDetailsMap = externalTargetModuleDetailsMap,
-       interModuleDependencyOracle.scannerRequiresPlaceholderModules {
-      let dependencyPlaceholderMapFile =
-      try serializeExternalDependencyArtifacts(externalTargetDependencyDetails: externalTargetDetailsMap)
-      commandLine.appendFlag("-placeholder-dependency-module-map-file")
-      commandLine.appendPath(dependencyPlaceholderMapFile)
-    }
 
     if isFrontendArgSupported(.clangScannerModuleCachePath) {
       try commandLine.appendLast(.clangScannerModuleCachePath, from: &parsedOptions)
@@ -202,24 +181,6 @@ public extension Driver {
     // Pass on the input files
     commandLine.append(contentsOf: inputFiles.filter { $0.type == .swift }.map { .path($0.file) })
     return (inputs, commandLine)
-  }
-
-  /// Serialize a map of placeholder (external) dependencies for the dependency scanner.
-   private func serializeExternalDependencyArtifacts(externalTargetDependencyDetails: ExternalTargetModuleDetailsMap)
-   throws -> VirtualPath {
-     var placeholderArtifacts: [SwiftModuleArtifactInfo] = []
-     // Explicit external targets
-     for (moduleId, dependencyDetails) in externalTargetDependencyDetails {
-       let modPath = TextualVirtualPath(path: VirtualPath.absolute(dependencyDetails.path).intern())
-       placeholderArtifacts.append(
-           SwiftModuleArtifactInfo(name: moduleId.moduleName,
-                                   modulePath: modPath))
-     }
-     let encoder = JSONEncoder()
-     encoder.outputFormatting = [.prettyPrinted]
-     let contents = try encoder.encode(placeholderArtifacts)
-     return try VirtualPath.createUniqueTemporaryFileWithKnownContents(.init(validating: "\(moduleOutputInfo.name)-external-modules.json"),
-                                                                       contents)
   }
 
   static func sanitizeCommandForLibScanInvocation(_ command: inout [String]) {

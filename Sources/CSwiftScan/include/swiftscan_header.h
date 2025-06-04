@@ -35,7 +35,6 @@ typedef struct {
 typedef enum {
   SWIFTSCAN_DEPENDENCY_INFO_SWIFT_TEXTUAL = 0,
   SWIFTSCAN_DEPENDENCY_INFO_SWIFT_BINARY = 1,
-  SWIFTSCAN_DEPENDENCY_INFO_SWIFT_PLACEHOLDER = 2,
   SWIFTSCAN_DEPENDENCY_INFO_CLANG = 3
 } swiftscan_dependency_info_kind_t;
 
@@ -169,14 +168,6 @@ typedef struct {
   //=== Swift Binary Module Details deprecated APIs--------------------------===//
   swiftscan_string_set_t *
   (*swiftscan_swift_binary_detail_get_header_dependencies)(swiftscan_module_details_t);
-
-  //=== Swift Placeholder Module Details query APIs -------------------------===//
-  swiftscan_string_ref_t
-  (*swiftscan_swift_placeholder_detail_get_compiled_module_path)(swiftscan_module_details_t);
-  swiftscan_string_ref_t
-  (*swiftscan_swift_placeholder_detail_get_module_doc_path)(swiftscan_module_details_t);
-  swiftscan_string_ref_t
-  (*swiftscan_swift_placeholder_detail_get_module_source_info_path)(swiftscan_module_details_t);
 
   //=== Clang Module Details query APIs -------------------------------------===//
   swiftscan_string_ref_t

@@ -674,10 +674,8 @@ extension Driver {
     }
   }
 
-  /// Prescan the source files to produce a module dependency graph and turn it into a set
+  /// Scan the source files to produce a module dependency graph and turn it into a set
   /// of jobs required to build all dependencies.
-  /// Preprocess the graph by resolving placeholder dependencies, if any are present and
-  /// by re-scanning all Clang modules against all possible targets they will be built against.
   public mutating func generateExplicitModuleDependenciesJobs(dependencyGraph: InterModuleDependencyGraph)
   throws -> [Job] {
     // Plan build jobs for all direct and transitive module dependencies of the current target

@@ -24,8 +24,6 @@ import TSCBasic
     switch moduleId {
     case .swift(let string):
       label = "\(string)"
-    case .swiftPlaceholder(let string):
-      label = "\(string) (Placeholder)"
     case .swiftPrebuiltExternal(let string):
       label = "\(string) (Prebuilt)"
     case .clang(let string):
@@ -49,8 +47,6 @@ import TSCBasic
       switch moduleId {
       case .swift(_):
         output = "  \(nodeName) [style=bold, color=orange, style=filled, \(font)];\n"
-      case .swiftPlaceholder(_):
-        output = "  \(nodeName) [style=bold, color=gold, style=filled, \(font)];\n"
       case .swiftPrebuiltExternal(_):
         output = "  \(nodeName) [style=bold, color=darkorange3, style=filled, \(font)];\n"
       case .clang(_):
