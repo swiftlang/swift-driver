@@ -601,7 +601,6 @@ extension Option {
   public static let h: Option = Option("-h", .flag, alias: Option.help)
   public static let IEQ: Option = Option("-I=", .joined, alias: Option.I, attributes: [.frontend, .argumentIsPath])
   public static let iframework: Option = Option("-iframework", .joinedOrSeparate, attributes: [.noDriver, .argumentIsPath], helpText: "add a directory to the clang importer system framework search path")
-  public static let isystem: Option = Option("-isystem", .joinedOrSeparate, attributes: [.noDriver, .argumentIsPath], helpText: "add a directory to the clang importer system header search path")
   public static let ignoreAlwaysInline: Option = Option("-ignore-always-inline", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Ignore @inline(__always) attributes.")
   public static let ignoreModuleSourceInfo: Option = Option("-ignore-module-source-info", .flag, attributes: [.frontend, .noDriver], helpText: "Avoid getting source location from .swiftsourceinfo files")
   public static let ignoreSpiGroups: Option = Option("-ignore-spi-group", .separate, attributes: [.noDriver], helpText: "SPI group name to not diagnose about")
@@ -676,12 +675,14 @@ extension Option {
   public static let migrator: Option = Option("-migrator", .flag, attributes: [.noDriver], helpText: "Dump Json suitable for generating migration script")
   public static let migrator_: Option = Option("--migrator", .flag, alias: Option.migrator, attributes: [.noDriver], helpText: "Dump Json suitable for generating migration script")
   public static let minRuntimeVersion: Option = Option("-min-runtime-version", .separate, attributes: [.helpHidden, .frontend, .noInteractive], helpText: "Specify the minimum runtime version to build force on non-Darwin systems")
+  public static let minValidPointerValue: Option = Option("-min-valid-pointer-value=", .joined, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<value>", helpText: "Overrides the target's least valid pointer value.'")
   public static let minimumAccessLevel: Option = Option("-minimum-access-level", .separate, attributes: [.noDriver], metaVar: "<level>", helpText: "Include symbols with this access level or more")
   public static let moduleAbiName: Option = Option("-module-abi-name", .separate, attributes: [.frontend, .moduleInterface], helpText: "ABI name to use for the contents of this module")
   public static let moduleAlias: Option = Option("-module-alias", .separate, attributes: [.frontend, .moduleInterface], metaVar: "<alias_name=real_name>", helpText: "If a source file imports or references module <alias_name>, the <real_name> is used for the contents of the file")
   public static let moduleCachePath: Option = Option("-module-cache-path", .separate, attributes: [.frontend, .doesNotAffectIncrementalBuild, .synthesizeInterface, .argumentIsPath], helpText: "Specifies the module cache path")
   public static let moduleCanImportVersion: Option = Option("-module-can-import-version", .multiArg, attributes: [.frontend, .noDriver], metaVar: "<moduleName> <version> <underlyingVersion>", helpText: "Specify canImport module and versions", numArgs: 3)
   public static let moduleCanImport: Option = Option("-module-can-import", .separate, attributes: [.frontend, .noDriver], metaVar: "<moduleName>", helpText: "Specify canImport module name")
+  public static let moduleImportFromCas: Option = Option("-module-import-from-cas", .flag, attributes: [.frontend, .noDriver], helpText: "Import modules from CAS instead of file system")
   public static let moduleInterfacePreserveTypesAsWritten: Option = Option("-module-interface-preserve-types-as-written", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "When emitting a module interface, preserve types as they were written in the source")
   public static let moduleLinkNameEQ: Option = Option("-module-link-name=", .joined, alias: Option.moduleLinkName, attributes: [.frontend])
   public static let moduleLinkName: Option = Option("-module-link-name", .separate, attributes: [.frontend, .moduleInterface], helpText: "Library to link against when using this module")
@@ -1638,12 +1639,14 @@ extension Option {
       Option.migrator,
       Option.migrator_,
       Option.minRuntimeVersion,
+      Option.minValidPointerValue,
       Option.minimumAccessLevel,
       Option.moduleAbiName,
       Option.moduleAlias,
       Option.moduleCachePath,
       Option.moduleCanImportVersion,
       Option.moduleCanImport,
+      Option.moduleImportFromCas,
       Option.moduleInterfacePreserveTypesAsWritten,
       Option.moduleLinkNameEQ,
       Option.moduleLinkName,
