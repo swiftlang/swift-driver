@@ -638,10 +638,6 @@ public struct Driver {
   /// is shared across many targets; otherwise, a new instance is created by the driver itself.
   @_spi(Testing) public let interModuleDependencyOracle: InterModuleDependencyOracle
 
-  /// A dictionary of external targets that are a part of the same build, mapping to filesystem paths
-  /// of their module files
-  @_spi(Testing) public var externalTargetModuleDetailsMap: ExternalTargetModuleDetailsMap? = nil
-
   /// A collection of all the flags the selected toolchain's `swift-frontend` supports
   public let supportedFrontendFlags: Set<String>
 
@@ -768,6 +764,7 @@ public struct Driver {
   }
 
   @available(*, deprecated, renamed: "init(args:env:diagnosticsOutput:fileSystem:executor:integratedDriver:compilerExecutableDir:externalTargetModuleDetailsMap:interModuleDependencyOracle:)")
+  @_disfavoredOverload
   public init(
     args: [String],
     env: [String: String] = ProcessEnv.vars,
@@ -788,12 +785,12 @@ public struct Driver {
       integratedDriver: integratedDriver,
       compilerIntegratedTooling: false,
       compilerExecutableDir: compilerExecutableDir,
-      externalTargetModuleDetailsMap: externalTargetModuleDetailsMap,
       interModuleDependencyOracle: interModuleDependencyOracle
     )
   }
 
   @available(*, deprecated, renamed: "init(args:env:diagnosticsOutput:fileSystem:executor:integratedDriver:compilerIntegratedTooling:compilerExecutableDir:externalTargetModuleDetailsMap:interModuleDependencyOracle:)")
+  @_disfavoredOverload
   public init(
     args: [String],
     env: [String: String] = ProcessEnv.vars,
@@ -814,7 +811,33 @@ public struct Driver {
       integratedDriver: integratedDriver,
       compilerIntegratedTooling: false,
       compilerExecutableDir: compilerExecutableDir,
-      externalTargetModuleDetailsMap: externalTargetModuleDetailsMap,
+      interModuleDependencyOracle: interModuleDependencyOracle
+    )
+  }
+
+  @available(*, deprecated, renamed: "init(args:env:diagnosticsOutput:fileSystem:executor:integratedDriver:compilerExecutableDir:interModuleDependencyOracle:)")
+  @_disfavoredOverload
+  public init(
+    args: [String],
+    env: [String: String] = ProcessEnv.vars,
+    diagnosticsOutput: DiagnosticsOutput = .engine(DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler])),
+    fileSystem: FileSystem = localFileSystem,
+    executor: DriverExecutor,
+    integratedDriver: Bool = true,
+    compilerIntegratedTooling: Bool = false,
+    compilerExecutableDir: AbsolutePath? = nil,
+    externalTargetModuleDetailsMap: ExternalTargetModuleDetailsMap? = nil,
+    interModuleDependencyOracle: InterModuleDependencyOracle? = nil
+  ) throws {
+    try self.init(
+      args: args,
+      env: env,
+      diagnosticsOutput: diagnosticsOutput,
+      fileSystem: fileSystem,
+      executor: executor,
+      integratedDriver: integratedDriver,
+      compilerIntegratedTooling: false,
+      compilerExecutableDir: compilerExecutableDir,
       interModuleDependencyOracle: interModuleDependencyOracle
     )
   }
@@ -837,9 +860,6 @@ public struct Driver {
   ///   Swift compiler image which contains symbols normally queried from a libSwiftScan instance.
   /// - Parameter compilerExecutableDir: Directory that contains the compiler executable to be used.
   ///   Used when in `integratedDriver` mode as a substitute for the driver knowing its executable path.
-  /// - Parameter externalTargetModuleDetailsMap: A dictionary of external targets that are a part of
-  ///   the same build, mapping to a details value which includes a filesystem path of their
-  ///   `.swiftmodule` and a flag indicating whether the external target is a framework.
   /// - Parameter interModuleDependencyOracle: An oracle for querying inter-module dependencies,
   ///   shared across different module builds by a build system.
   public init(
@@ -851,7 +871,6 @@ public struct Driver {
     integratedDriver: Bool = true,
     compilerIntegratedTooling: Bool = false,
     compilerExecutableDir: AbsolutePath? = nil,
-    externalTargetModuleDetailsMap: ExternalTargetModuleDetailsMap? = nil,
     interModuleDependencyOracle: InterModuleDependencyOracle? = nil
   ) throws {
     self.env = env
@@ -869,7 +888,6 @@ public struct Driver {
     self.diagnosticEngine = diagnosticsEngine
 
     self.executor = executor
-    self.externalTargetModuleDetailsMap = externalTargetModuleDetailsMap
 
     if case .subcommand = try Self.invocationRunMode(forArgs: args).mode {
       throw Error.subcommandPassedToDriver
@@ -1775,8 +1793,6 @@ extension Driver {
           pathString = pathString + "[" + moduleName + "]"
         case .clang(let moduleName):
           pathString = pathString + "[" + moduleName + "](ObjC)"
-        case .swiftPlaceholder(_):
-          fatalError("Unexpected unresolved Placeholder module")
         }
         if index < path.count - 1 {
           pathString = pathString + " -> "

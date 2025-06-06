@@ -56,8 +56,6 @@ throws {
       XCTAssertEqual(job.description, "Compiling Clang module \(moduleId.moduleName)")
     case .swiftPrebuiltExternal(_):
       XCTFail("Unexpected prebuilt external module dependency found.")
-    case .swiftPlaceholder(_):
-      XCTFail("Placeholder dependency found.")
   }
   // Ensure the frontend was prohibited from doing implicit module builds
   XCTAssertJobInvocationMatches(job, .flag("-fno-implicit-modules"))
@@ -97,8 +95,6 @@ private func checkExplicitModuleBuildJobDependencies(job: Job,
         validateSwiftCommandLineDependency(dependencyId, dependencyInfo)
       case .clang(let clangDependencyDetails):
         validateClangCommandLineDependency(dependencyId, dependencyInfo, clangDependencyDetails)
-      case .swiftPlaceholder(_):
-        XCTFail("Placeholder dependency found.")
     }
 
     // Ensure all transitive dependencies got added as well.
@@ -216,56 +212,6 @@ final class ExplicitModuleBuildTests: XCTestCase {
             XCTFail("Unexpected module dependency build job output: \(job.outputs[0].file)")
         }
       }
-    }
-  }
-
-  func testModuleDependencyBuildCommandGenerationWithExternalFramework() throws {
-    do {
-      let externalDetails: ExternalTargetModuleDetailsMap =
-            [.swiftPrebuiltExternal("A"): ExternalTargetModuleDetails(path: try AbsolutePath(validating: "/tmp/A.swiftmodule"),
-                                                                      isFramework: true),
-             .swiftPrebuiltExternal("K"): ExternalTargetModuleDetails(path: try AbsolutePath(validating: "/tmp/K.swiftmodule"),
-                                                                       isFramework: true),
-             .swiftPrebuiltExternal("simpleTestModule"): ExternalTargetModuleDetails(path: try AbsolutePath(validating: "/tmp/simpleTestModule.swiftmodule"),
-                                                                                     isFramework: true)]
-      var driver = try Driver(args: ["swiftc", "-explicit-module-build",
-                                     "-module-name", "simpleTestModule",
-                                     "test.swift"])
-      var moduleDependencyGraph =
-            try JSONDecoder().decode(
-              InterModuleDependencyGraph.self,
-              from: ModuleDependenciesInputs.simpleDependencyGraphInput.data(using: .utf8)!)
-      // Key part of this test, using the external info to generate dependency pre-build jobs
-      try moduleDependencyGraph.resolveExternalDependencies(for: externalDetails)
-
-      // Ensure the main module was not overriden by an external dependency
-      XCTAssertNotNil(moduleDependencyGraph.modules[.swift("simpleTestModule")])
-
-      // Ensure the "K" module's framework status got resolved via `externalDetails`
-      guard case .swiftPrebuiltExternal(let kPrebuiltDetails) = moduleDependencyGraph.modules[.swiftPrebuiltExternal("K")]?.details else {
-        XCTFail("Expected prebuilt module details for module \"K\"")
-        return
-      }
-      XCTAssertTrue(kPrebuiltDetails.isFramework)
-      let jobsInPhases = try driver.computeJobsForPhasedStandardBuild(moduleDependencyGraph: moduleDependencyGraph)
-      let job = try XCTUnwrap(jobsInPhases.allJobs.first(where: { $0.kind == .compile }))
-      // Load the dependency JSON and verify this dependency was encoded correctly
-      XCTAssertJobInvocationMatches(job, .flag("-explicit-swift-module-map-file"))
-      let jsonDepsPathIndex = try XCTUnwrap(job.commandLine.firstIndex(of: .flag("-explicit-swift-module-map-file")))
-      let jsonDepsPathArg = job.commandLine[jsonDepsPathIndex + 1]
-      guard case .path(let jsonDepsPath) = jsonDepsPathArg else {
-        return XCTFail("No JSON dependency file path found.")
-      }
-      guard case let .temporaryWithKnownContents(_, contents) = jsonDepsPath else {
-        return XCTFail("Unexpected path type")
-      }
-      let dependencyInfoList = try JSONDecoder().decode(Array<SwiftModuleArtifactInfo>.self,
-                                                    from: contents)
-      XCTAssertEqual(dependencyInfoList.count, 2)
-      let dependencyArtifacts =
-        dependencyInfoList.first(where:{ $0.moduleName == "A" })!
-      // Ensure this is a framework, as specified by the externalDetails above.
-      XCTAssertEqual(dependencyArtifacts.isFramework, true)
     }
   }
 
