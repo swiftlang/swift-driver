@@ -97,7 +97,7 @@ import class Dispatch.DispatchQueue
     else {
       return nil
     }
-    let currentArgsHash = Self.computeArgsHash(parsedOptions)
+    let currentArgsHash = BuildRecordArguments.computeHash(parsedOptions)
     let compilationInputModificationDates =
       recordedInputModificationDates.filter { input, _ in
         input.type.isPartOfSwiftCompilation
@@ -112,16 +112,6 @@ import class Dispatch.DispatchQueue
       diagnosticEngine: diagnosticEngine,
       compilationInputModificationDates: compilationInputModificationDates)
    }
-
-  private static func computeArgsHash(_ parsedOptionsArg: ParsedOptions
-  ) -> String {
-    var parsedOptions = parsedOptionsArg
-    let hashInput = parsedOptions
-      .filter { $0.option.affectsIncrementalBuild && $0.option.kind != .input}
-      .map { $0.description } // The description includes the spelling of the option itself and, if present, its argument(s).
-      .joined()
-    return SHA256().hash(hashInput).hexadecimalRepresentation
-  }
 
   /// Determine the input and output path for the build record
   private static func computeBuildRecordPath(
@@ -207,5 +197,17 @@ import class Dispatch.DispatchQueue
   /// Directory to emit dot files into
   var dotFileDirectory: VirtualPath {
     buildRecordPath.parentDirectory
+  }
+}
+
+public struct BuildRecordArguments {
+  /// Compute a hash of the parsed options that affect incremental builds.
+  public static func computeHash(_ parsedOptionsArg: ParsedOptions) -> String {
+    var parsedOptions = parsedOptionsArg
+    let hashInput = parsedOptions
+      .filter { $0.option.affectsIncrementalBuild && $0.option.kind != .input}
+      .map { $0.description } // The description includes the spelling of the option itself and, if present, its argument(s).
+      .joined()
+    return SHA256().hash(hashInput).hexadecimalRepresentation
   }
 }
