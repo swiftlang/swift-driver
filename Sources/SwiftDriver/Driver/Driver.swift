@@ -23,6 +23,7 @@ import struct TSCBasic.AbsolutePath
 import struct TSCBasic.ByteString
 import struct TSCBasic.Diagnostic
 import struct TSCBasic.FileInfo
+import struct TSCBasic.ProcessResult
 import struct TSCBasic.RelativePath
 import struct TSCBasic.SHA256
 import var TSCBasic.localFileSystem
@@ -69,6 +70,7 @@ public struct Driver {
     case conditionalCompilationFlagIsNotValidIdentifier(String)
     case baselineGenerationRequiresTopLevelModule(String)
     case optionRequiresAnother(String, String)
+    case unableToCreateReproducer
     // Explicit Module Build Failures
     case malformedModuleDependency(String, String)
     case missingModuleDependency(String)
@@ -140,6 +142,8 @@ public struct Driver {
         return "generating a baseline with '\(arg)' is only supported with '-emit-module' or '-emit-module-path'"
       case .optionRequiresAnother(let first, let second):
         return "'\(first)' cannot be specified if '\(second)' is not present"
+      case .unableToCreateReproducer:
+        return "failed to create reproducer"
       }
     }
   }
@@ -955,7 +959,7 @@ public struct Driver {
                                                       negative: .disableIncrementalFileHashing,
                                                       default: false)
     self.recordedInputMetadata = .init(uniqueKeysWithValues:
-      Set(inputFiles).compactMap { inputFile -> (TypedVirtualPath, FileMetadata)? in 
+      Set(inputFiles).compactMap { inputFile -> (TypedVirtualPath, FileMetadata)? in
         guard let modTime = try? fileSystem.lastModificationTime(for: inputFile.file) else { return nil }
         if incrementalFileHashes {
             guard let data = try? fileSystem.readFileContents(inputFile.file)  else { return nil }
@@ -1950,7 +1954,8 @@ extension Driver {
       buildRecordInfo: buildRecordInfo,
       showJobLifecycle: showJobLifecycle,
       argsResolver: executor.resolver,
-      diagnosticEngine: diagnosticEngine)
+      diagnosticEngine: diagnosticEngine,
+      reproducerCallback: self.generateReproducer)
   }
 
   private mutating func performTheBuild(
@@ -4010,5 +4015,38 @@ extension Driver {
       mapping[key] = value
     }
     return mapping
+  }
+}
+
+// Generate reproducer.
+extension Driver {
+  func generateReproducer(_ job: Job, _ status: ProcessResult.ExitStatus) throws {
+    // If process is not terminated with certain error code, no need to create reproducer.
+#if os(Windows)
+    guard case .abnormal = status else {
+      return;
+    }
+#else
+    guard case .signalled = status else {
+      return;
+    }
+#endif
+    guard isFrontendArgSupported(.genReproducer) else {
+      return
+    }
+    // TODO: check flag is supported.
+    try withTemporaryDirectory(dir: fileSystem.tempDirectory, prefix: "swift-reproducer", removeTreeOnDeinit: false) { tempDir in
+      var reproJob = job
+      reproJob.commandLine.appendFlag(.genReproducer)
+      reproJob.commandLine.appendFlag(.genReproducerDir)
+      reproJob.commandLine.appendPath(tempDir)
+      reproJob.outputs.removeAll()
+      reproJob.outputCacheKeys.removeAll()
+      let result = try executor.execute(job: reproJob, forceResponseFiles: false, recordedInputModificationDates: [:])
+      guard case .terminated(let code) = result.exitStatus, code == 0 else {
+        throw Error.unableToCreateReproducer
+      }
+      diagnosticEngine.emit(.note_reproducer_created(tempDir.pathString))
+    }
   }
 }

@@ -30,6 +30,7 @@ import struct TSCBasic.Diagnostic
 import struct TSCBasic.ProcessResult
 import var TSCBasic.stderrStream
 import var TSCBasic.stdoutStream
+import class TSCBasic.Process
 
 /// Delegate for printing execution information on the command-line.
 @_spi(Testing) public final class ToolExecutionDelegate: JobExecutionDelegate {
@@ -49,6 +50,8 @@ import var TSCBasic.stdoutStream
     case silent
   }
 
+  public typealias ReproducerCallback = (Job, ProcessResult.ExitStatus) throws -> Void
+
   public let mode: Mode
   public let buildRecordInfo: BuildRecordInfo?
   public let showJobLifecycle: Bool
@@ -58,18 +61,21 @@ import var TSCBasic.stdoutStream
   private var nextBatchQuasiPID: Int
   private let argsResolver: ArgsResolver
   private var batchJobInputQuasiPIDMap = TwoLevelMap<Job, TypedVirtualPath, Int>()
+  private let reproducerCallback: ReproducerCallback?
 
   @_spi(Testing) public init(mode: ToolExecutionDelegate.Mode,
                              buildRecordInfo: BuildRecordInfo?,
                              showJobLifecycle: Bool,
                              argsResolver: ArgsResolver,
-                             diagnosticEngine: DiagnosticsEngine) {
+                             diagnosticEngine: DiagnosticsEngine,
+                             reproducerCallback: ReproducerCallback? = nil) {
     self.mode = mode
     self.buildRecordInfo = buildRecordInfo
     self.showJobLifecycle = showJobLifecycle
     self.diagnosticEngine = diagnosticEngine
     self.argsResolver = argsResolver
     self.nextBatchQuasiPID = ToolExecutionDelegate.QUASI_PID_START
+    self.reproducerCallback = reproducerCallback
   }
 
   public func jobStarted(job: Job, arguments: [String], pid: Int) {
@@ -106,6 +112,14 @@ import var TSCBasic.stdoutStream
       anyJobHadAbnormalExit = true
     }
 #endif
+
+    if let reproducerCallback = reproducerCallback {
+      do {
+        try reproducerCallback(job, result.exitStatus)
+      } catch {
+        diagnosticEngine.emit(.error_failed_to_create_reproducer)
+      }
+    }
 
     switch mode {
     case .silent:
