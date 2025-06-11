@@ -147,6 +147,13 @@ public class InterModuleDependencyOracle {
     return swiftScan.supportsLinkLibraries
   }
 
+  @_spi(Testing) public func supportsImportInfos() throws -> Bool {
+    guard let swiftScan = swiftScanLibInstance else {
+      fatalError("Attempting to query supported scanner API with no scanner instance.")
+    }
+    return swiftScan.supportsImportInfos
+  }
+
   @_spi(Testing) public func supportsSeparateImportOnlyDependencise() throws -> Bool {
     guard let swiftScan = swiftScanLibInstance else {
       fatalError("Attempting to query supported scanner API with no scanner instance.")
