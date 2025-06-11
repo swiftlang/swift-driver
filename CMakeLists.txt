@@ -56,7 +56,7 @@ if(NOT ArgumentParser_FOUND)
   message("-- Vending swift-argument-parser")
   FetchContent_Declare(ArgumentParser
     GIT_REPOSITORY https://github.com/apple/swift-argument-parser
-    GIT_TAG 1.2.3)
+    GIT_TAG 1.5.1)
   list(APPEND VendoredDependencies ArgumentParser)
 endif()
 
