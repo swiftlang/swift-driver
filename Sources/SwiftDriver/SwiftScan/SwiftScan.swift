@@ -72,13 +72,21 @@ public enum DependencyScanningError: LocalizedError, DiagnosticData, Equatable {
   }
 }
 
-public struct ScannerDiagnosticSourceLocation : DiagnosticLocation {
+public struct ScannerDiagnosticSourceLocation : DiagnosticLocation, Codable, Hashable {
   public var description: String {
     return "\(bufferIdentifier):\(lineNumber):\(columnNumber)"
   }
   public let bufferIdentifier: String
   public let lineNumber: Int
   public let columnNumber: Int
+
+  @_spi(Testing) public init(bufferIdentifier: String,
+                             lineNumber: Int,
+                             columnNumber: Int) {
+    self.bufferIdentifier = bufferIdentifier
+    self.lineNumber = lineNumber
+    self.columnNumber = columnNumber
+  }
 }
 
 public struct ScannerDiagnosticPayload {
@@ -316,6 +324,13 @@ private extension String {
            api.swiftscan_link_library_info_get_link_name != nil &&
            api.swiftscan_link_library_info_get_is_framework != nil &&
            api.swiftscan_link_library_info_get_should_force_load != nil
+  }
+
+  @_spi(Testing) public var supportsImportInfos : Bool {
+    return api.swiftscan_module_info_get_imports != nil &&
+           api.swiftscan_import_info_get_source_locations != nil &&
+           api.swiftscan_import_info_get_identifier != nil &&
+           api.swiftscan_import_info_get_access_level != nil
   }
 
   internal func mapToDriverDiagnosticPayload(_ diagnosticSetRef: UnsafeMutablePointer<swiftscan_diagnostic_set_t>) throws -> [ScannerDiagnosticPayload] {
@@ -572,6 +587,11 @@ private extension swiftscan_functions_t {
     self.swiftscan_link_library_info_get_link_name = loadOptional("swiftscan_link_library_info_get_link_name")
     self.swiftscan_link_library_info_get_is_framework = loadOptional("swiftscan_link_library_info_get_is_framework")
     self.swiftscan_link_library_info_get_should_force_load = loadOptional("swiftscan_link_library_info_get_should_force_load")
+
+    self.swiftscan_module_info_get_imports = loadOptional("swiftscan_module_info_get_imports")
+    self.swiftscan_import_info_get_source_locations = loadOptional("swiftscan_import_info_get_source_locations")
+    self.swiftscan_import_info_get_identifier = loadOptional("swiftscan_import_info_get_identifier")
+    self.swiftscan_import_info_get_access_level = loadOptional("swiftscan_import_info_get_access_level")
 
     // Swift Overlay Dependencies
     self.swiftscan_swift_textual_detail_get_swift_overlay_dependencies =
