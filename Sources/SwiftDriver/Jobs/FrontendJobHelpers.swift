@@ -190,7 +190,17 @@ extension Driver {
     }
 
     // TODO: Can we drop all search paths for compile jobs for explicit module build?
-    try addAllArgumentsWithPath(.I, .Isystem, to: &commandLine, remap: jobNeedPathRemap)
+    if isFrontendArgSupported(.Isystem) {
+      try addAllArgumentsWithPath(.I, .Isystem, to: &commandLine, remap: jobNeedPathRemap)
+    } else {
+      for matching in parsedOptions.arguments(for: .I, .Isystem) {
+        var parsedOption = matching
+        if parsedOption.option == .Isystem {
+          parsedOption = ParsedOption(option: .I, argument: parsedOption.argument, index: parsedOption.index)
+        }
+        try addPathOption(parsedOption, to: &commandLine, remap: jobNeedPathRemap)
+      }
+    }
     try addAllArgumentsWithPath(.F, .Fsystem, to: &commandLine, remap: jobNeedPathRemap)
     try addAllArgumentsWithPath(.vfsoverlay, to: &commandLine, remap: jobNeedPathRemap)
 

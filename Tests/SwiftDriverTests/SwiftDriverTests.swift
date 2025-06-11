@@ -229,10 +229,11 @@ final class SwiftDriverTests: XCTestCase {
     // The relative ordering of -F and -Fsystem options should be preserved.
     // The relative ordering of -I and -Isystem, and -F and -Fsystem options should be preserved,
     // but all -I options should come before all -F options.
+    let IsystemFlag = driver.isFrontendArgSupported(.Isystem) ? "-Isystem" : "-I"
     try XCTAssertJobInvocationMatches(jobs[0],
                                      .flag("-I"),
                                      .path(.absolute(.init(validating: "/path/to/modules"))),
-                                     .flag("-Isystem"),
+                                     .flag(IsystemFlag),
                                      .path(.absolute(.init(validating: "/path/to/systemmodules"))),
                                      .flag("-I"),
                                      .path(.absolute(.init(validating: "/path/to/more/modules"))),
