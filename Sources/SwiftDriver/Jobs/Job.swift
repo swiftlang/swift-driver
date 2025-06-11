@@ -25,6 +25,7 @@ public struct Job: Codable, Equatable, Hashable {
     case emitModule = "emit-module"
     case generatePCH = "generate-pch"
     case moduleWrap = "module-wrap"
+    case reproducer = "gen-reproducer"
 
     /// Generate a compiled Clang module.
     case generatePCM = "generate-pcm"
@@ -255,6 +256,9 @@ extension Job : CustomStringConvertible {
 
     case .printSupportedFeatures:
       return "Print supported upcoming and experimental features"
+
+    case .reproducer:
+      return "Generate reproducer for the crash"
     }
   }
 
@@ -273,7 +277,7 @@ extension Job.Kind {
   public var isSwiftFrontend: Bool {
     switch self {
     case .backend, .compile, .mergeModule, .emitModule, .compileModuleFromInterface, .generatePCH,
-        .generatePCM, .dumpPCM, .interpret, .repl, .printTargetInfo,
+        .generatePCM, .dumpPCM, .interpret, .repl, .printTargetInfo, .reproducer,
         .versionRequest, .emitSupportedFeatures, .scanDependencies, .verifyModuleInterface, .printSupportedFeatures:
         return true
 
@@ -294,7 +298,7 @@ extension Job.Kind {
          .help, .link, .verifyDebugInfo, .scanDependencies,
          .emitSupportedFeatures, .moduleWrap, .verifyModuleInterface,
          .generateAPIBaseline, .generateABIBaseline, .compareAPIBaseline,
-         .compareABIBaseline, .printSupportedFeatures:
+         .compareABIBaseline, .printSupportedFeatures, .reproducer:
       return false
     }
   }
@@ -309,7 +313,7 @@ extension Job.Kind {
          .versionRequest, .autolinkExtract, .generateDSYM, .help, .link,
          .verifyDebugInfo, .scanDependencies, .emitSupportedFeatures, .moduleWrap,
          .generateAPIBaseline, .generateABIBaseline, .compareAPIBaseline,
-         .compareABIBaseline, .printSupportedFeatures:
+         .compareABIBaseline, .printSupportedFeatures, .reproducer:
       return false
     }
   }
