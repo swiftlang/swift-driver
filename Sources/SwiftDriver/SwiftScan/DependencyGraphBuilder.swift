@@ -104,6 +104,22 @@ private extension SwiftScan {
       }
     }
 
+    var importInfos: [ImportInfo] = []
+    if supportsImportInfos {
+      let importInfoSetRefOrNull = api.swiftscan_module_info_get_imports(moduleInfoRef)
+      guard let importInfoSetRef = importInfoSetRefOrNull else {
+        throw DependencyScanningError.missingField("dependency_graph.imports")
+      }
+      let importInfoRefArray = Array(UnsafeBufferPointer(start: importInfoSetRef.pointee.imports,
+                                                         count: Int(importInfoSetRef.pointee.count)))
+      for importInfoRefOrNull in importInfoRefArray {
+        guard let importInfoRef = importInfoRefOrNull else {
+          throw DependencyScanningError.missingField("dependency_set_t.imports[_]")
+        }
+        importInfos.append(try constructImportInfo(from: importInfoRef))
+      }
+    }
+
     guard let moduleDetailsRef = api.swiftscan_module_info_get_details(moduleInfoRef) else {
       throw DependencyScanningError.missingField("modules[\(moduleId)].details")
     }
@@ -113,6 +129,7 @@ private extension SwiftScan {
     return (moduleId, ModuleInfo(modulePath: modulePath, sourceFiles: sourceFiles,
                                  directDependencies: directDependencies,
                                  linkLibraries: linkLibraries,
+                                 importInfos: importInfos,
                                  details: details))
   }
 
@@ -120,6 +137,41 @@ private extension SwiftScan {
     return LinkLibraryInfo(linkName: try toSwiftString(api.swiftscan_link_library_info_get_link_name(linkLibraryInfoRef)),
                              isFramework: api.swiftscan_link_library_info_get_is_framework(linkLibraryInfoRef),
                              shouldForceLoad: api.swiftscan_link_library_info_get_should_force_load(linkLibraryInfoRef))
+  }
+
+  func constructImportInfo(from importInfoRef: swiftscan_import_info_t) throws -> ImportInfo {
+    var sourceLocations : [ScannerDiagnosticSourceLocation] = []
+
+    let sourceLocationsRefOrNull = api.swiftscan_import_info_get_source_locations(importInfoRef)
+    guard let sourceLocationsRef = sourceLocationsRefOrNull else {
+      throw DependencyScanningError.missingField("import_info.source_locations")
+    }
+    let sourceLocationsRefArray = Array(UnsafeBufferPointer(start: sourceLocationsRef.pointee.source_locations,
+                                                            count: Int(sourceLocationsRef.pointee.count)))
+    for sourceLocationRefOrNull in sourceLocationsRefArray {
+      guard let sourceLocationRef = sourceLocationRefOrNull else {
+        throw DependencyScanningError.missingField("import_info.source_locations[_]")
+      }
+      sourceLocations.append(try constructSourceLocation(from: sourceLocationRef))
+    }
+
+    let accessLevel = switch api.swiftscan_import_info_get_access_level(importInfoRef) {
+      case SWIFTSCAN_ACCESS_LEVEL_PRIVATE: ImportInfo.ImportAccessLevel.Private
+      case SWIFTSCAN_ACCESS_LEVEL_FILEPRIVATE: ImportInfo.ImportAccessLevel.FilePrivate
+      case SWIFTSCAN_ACCESS_LEVEL_INTERNAL: ImportInfo.ImportAccessLevel.Internal
+      case SWIFTSCAN_ACCESS_LEVEL_PACKAGE: ImportInfo.ImportAccessLevel.Package
+      case SWIFTSCAN_ACCESS_LEVEL_PUBLIC: ImportInfo.ImportAccessLevel.Public
+      default: ImportInfo.ImportAccessLevel.Public
+    }
+
+    return ImportInfo(importIdentifier: try toSwiftString(api.swiftscan_import_info_get_identifier(importInfoRef)),
+                      accessLevel: accessLevel, sourceLocations: sourceLocations)
+  }
+
+  func constructSourceLocation(from sourceLocationRef: swiftscan_source_location_t) throws -> ScannerDiagnosticSourceLocation {
+    return ScannerDiagnosticSourceLocation(bufferIdentifier: try toSwiftString(api.swiftscan_source_location_get_buffer_identifier(sourceLocationRef)),
+                                           lineNumber: Int(api.swiftscan_source_location_get_line_number(sourceLocationRef)),
+                                           columnNumber: Int(api.swiftscan_source_location_get_column_number(sourceLocationRef)))
   }
 
   /// From a reference to a binary-format module info details object info returned by libSwiftScan,

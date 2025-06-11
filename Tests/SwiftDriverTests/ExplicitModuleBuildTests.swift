@@ -500,6 +500,74 @@ final class ExplicitModuleBuildTests: XCTestCase {
     }
   }
 
+  func testExplicitImportDetails() throws {
+    try withTemporaryDirectory { path in
+      let (_, _, toolchain, _) = try getDriverArtifactsForScanning()
+
+      let main = path.appending(component: "testExplicitLinkLibraries.swift")
+      try localFileSystem.writeFileContents(main, bytes:
+        """
+        public import C;
+        internal import E;
+        private import G;
+        internal import C;
+        """
+      )
+
+      let cHeadersPath: AbsolutePath =
+      try testInputsPath.appending(component: "ExplicitModuleBuilds")
+        .appending(component: "CHeaders")
+      let swiftModuleInterfacesPath: AbsolutePath =
+      try testInputsPath.appending(component: "ExplicitModuleBuilds")
+        .appending(component: "Swift")
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+
+      let dependencyOracle = InterModuleDependencyOracle()
+      let scanLibPath = try XCTUnwrap(toolchain.lookupSwiftScanLib())
+      try dependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
+      guard try dependencyOracle.supportsImportInfos() else {
+        throw XCTSkip("libSwiftScan does not support import details reporting.")
+      }
+
+      let args = ["swiftc",
+                  "-I", cHeadersPath.nativePathString(escaped: true),
+                  "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                  "-explicit-module-build",
+                  "-disable-implicit-concurrency-module-import",
+                  "-disable-implicit-string-processing-module-import",
+                  main.nativePathString(escaped: true)] + sdkArgumentsForTesting
+      var driver = try Driver(args: args)
+      let _ = try driver.planBuild()
+      let dependencyGraph = try XCTUnwrap(driver.explicitDependencyBuildPlanner?.dependencyGraph)
+      let mainModuleImports = try XCTUnwrap(dependencyGraph.mainModule.importInfos)
+      XCTAssertEqual(mainModuleImports.count, 5)
+      XCTAssertTrue(mainModuleImports.contains(ImportInfo(importIdentifier: "Swift",
+                                                          accessLevel: ImportInfo.ImportAccessLevel.Public,
+                                                          sourceLocations: [])))
+      XCTAssertTrue(mainModuleImports.contains(ImportInfo(importIdentifier: "SwiftOnoneSupport",
+                                                          accessLevel: ImportInfo.ImportAccessLevel.Public,
+                                                          sourceLocations: [])))
+      XCTAssertTrue(mainModuleImports.contains(ImportInfo(importIdentifier: "C",
+                                                          accessLevel: ImportInfo.ImportAccessLevel.Public,
+                                                          sourceLocations: [ScannerDiagnosticSourceLocation(bufferIdentifier: main.nativePathString(escaped: true),
+                                                                                                            lineNumber: 1,
+                                                                                                            columnNumber: 8),
+                                                                            ScannerDiagnosticSourceLocation(bufferIdentifier: main.nativePathString(escaped: true),
+                                                                                                            lineNumber: 4,
+                                                                                                            columnNumber: 8)])))
+      XCTAssertTrue(mainModuleImports.contains(ImportInfo(importIdentifier: "E",
+                                                          accessLevel: ImportInfo.ImportAccessLevel.Internal,
+                                                          sourceLocations: [ScannerDiagnosticSourceLocation(bufferIdentifier: main.nativePathString(escaped: true),
+                                                                                                            lineNumber: 2,
+                                                                                                            columnNumber: 8)])))
+      XCTAssertTrue(mainModuleImports.contains(ImportInfo(importIdentifier: "G",
+                                                          accessLevel: ImportInfo.ImportAccessLevel.Private,
+                                                          sourceLocations: [ScannerDiagnosticSourceLocation(bufferIdentifier: main.nativePathString(escaped: true),
+                                                                                                            lineNumber: 3,
+                                                                                                            columnNumber: 8)])))
+    }
+  }
+
   func testExplicitLinkLibraries() throws {
     try withTemporaryDirectory { path in
       let (_, _, toolchain, _) = try getDriverArtifactsForScanning()
@@ -521,7 +589,6 @@ final class ExplicitModuleBuildTests: XCTestCase {
         .appending(component: "Swift")
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
 
-      // 2. Run a dependency scan to find the just-built module
       let dependencyOracle = InterModuleDependencyOracle()
       let scanLibPath = try XCTUnwrap(toolchain.lookupSwiftScanLib())
       try dependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
