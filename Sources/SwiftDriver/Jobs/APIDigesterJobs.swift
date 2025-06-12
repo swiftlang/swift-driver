@@ -195,7 +195,7 @@ extension Driver {
 
     try commandLine.appendAll(.I, from: &parsedOptions)
     for systemImport in parsedOptions.arguments(for: .Isystem) {
-      commandLine.appendFlag(.isystem)
+      commandLine.appendFlag("-isystem")
       commandLine.appendFlag(systemImport.argument.asSingle)
     }
     try commandLine.appendAll(.F, from: &parsedOptions)
