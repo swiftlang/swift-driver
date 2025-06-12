@@ -26,9 +26,9 @@ import struct TSCBasic.SHA256
   /// The last known modification time of this input.
   /*@_spi(Testing)*/ public let previousModTime: TimePoint
 
-  /*@_spi(Testing)*/ public let hash: String
+  /*@_spi(Testing)*/ public let hash: String?
 
-  /*@_spi(Testing)*/ public init(status: Status, previousModTime: TimePoint, hash: String) {
+  /*@_spi(Testing)*/ public init(status: Status, previousModTime: TimePoint, hash: String?) {
     self.status = status
     self.previousModTime = previousModTime
     self.hash = hash

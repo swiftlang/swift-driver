@@ -1214,7 +1214,7 @@ extension ModuleDependencyGraph {
           $0.append(inputInfo.previousModTime)
           $0.append(inputInfo.status.code)
           $0.append(pathID)
-        }, blob: inputInfo.hash)
+        }, blob: inputInfo.hash ?? "")
       }
     }
 
