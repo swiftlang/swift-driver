@@ -14,6 +14,7 @@ import SwiftOptions
 
 import protocol TSCBasic.FileSystem
 import struct TSCBasic.ByteString
+import struct TSCBasic.SHA256
 import class Dispatch.DispatchQueue
 import struct Foundation.TimeInterval
 
@@ -63,11 +64,12 @@ import struct Foundation.TimeInterval
     _ phase: Phase,
     _ internedStringTable: InternedStringTable,
     _ nodeFinder: NodeFinder,
-    _ fingerprintedExternalDependencies: Set<FingerprintedExternalDependency>
+    _ fingerprintedExternalDependencies: Set<FingerprintedExternalDependency>,
+    _ externalDependencyFileHashes: Dictionary<ExternalDependency, String>
   ) {
     self.buildRecord = buildRecord
     self.currencyCache = ExternalDependencyCurrencyCache(
-      info.fileSystem, buildStartTime: buildRecord.buildStartTime)
+      info.fileSystem, buildStartTime: buildRecord.buildStartTime, externalDependencyFileHashes: externalDependencyFileHashes, useFileHashes: info.useFileHashesInModuleDependencyGraph)
     self.info = info
     self.dotFileWriter = info.emitDependencyDotFileAfterEveryImport
       ? DependencyGraphDotFileWriter(info)
@@ -88,7 +90,7 @@ import struct Foundation.TimeInterval
            "If updating from prior, should be supplying more ingredients")
     self.init(buildRecord, info, phase, InternedStringTable(info.incrementalCompilationQueue),
               NodeFinder(),
-              Set())
+              Set(), Dictionary())
   }
 
   public static func createFromPrior(
@@ -96,14 +98,16 @@ import struct Foundation.TimeInterval
     _ info: IncrementalCompilationState.IncrementalDependencyAndInputSetup,
     _ internedStringTable: InternedStringTable,
     _ nodeFinder: NodeFinder,
-    _ fingerprintedExternalDependencies: Set<FingerprintedExternalDependency>
+    _ fingerprintedExternalDependencies: Set<FingerprintedExternalDependency>,
+    _ externalDependencyFileHashes: Dictionary<ExternalDependency, String>
   ) -> Self {
     self.init(buildRecord,
               info,
               .updatingFromAPrior,
               internedStringTable,
               nodeFinder,
-              fingerprintedExternalDependencies)
+              fingerprintedExternalDependencies,
+              externalDependencyFileHashes)
   }
 
   public static func createForBuildingFromSwiftDeps(
@@ -567,10 +571,24 @@ extension ModuleDependencyGraph {
     private let fileSystem: FileSystem
     private let buildStartTime: TimePoint
     private var currencyCache = [ExternalDependency: Bool]()
+    public internal(set) var externalDependencyFileHashes: [ExternalDependency: String]
+    private let useFileHashes: Bool
 
-    init(_ fileSystem: FileSystem, buildStartTime: TimePoint) {
+    init(_ fileSystem: FileSystem, buildStartTime: TimePoint, externalDependencyFileHashes: Dictionary<ExternalDependency, String>, useFileHashes: Bool) {
       self.fileSystem = fileSystem
       self.buildStartTime = buildStartTime
+      self.externalDependencyFileHashes = externalDependencyFileHashes
+      self.useFileHashes = useFileHashes
+    }
+
+    mutating func updateHash(_ externalDependency: ExternalDependency) {
+        guard useFileHashes else {
+          return
+        }
+        if let depFile = externalDependency.path, 
+        let data = try? fileSystem.readFileContents(depFile) {
+            externalDependencyFileHashes[externalDependency] = SHA256().hash(data).hexadecimalRepresentation
+        }
     }
 
     mutating func beCurrent(_ externalDependency: ExternalDependency) {
@@ -581,9 +599,29 @@ extension ModuleDependencyGraph {
       if let cachedResult = self.currencyCache[externalDependency] {
         return cachedResult
       }
-      let uncachedResult = isCurrentWRTFileSystem(externalDependency)
+      var uncachedResult = isCurrentWRTFileSystem(externalDependency)
+      if useFileHashes && !uncachedResult {
+          uncachedResult = isCurrentWRTFileHash(externalDependency)
+      }
       self.currencyCache[externalDependency] = uncachedResult
+      if !uncachedResult {
+          self.updateHash(externalDependency)
+      }
       return uncachedResult
+    }
+
+    mutating func ensureHash(_ externalDependency: ExternalDependency) {
+        if (self.externalDependencyFileHashes[externalDependency] ?? "").isEmpty {
+            self.updateHash(externalDependency)
+        }
+    }
+
+    private func isCurrentWRTFileHash(_ externalDependency: ExternalDependency) -> Bool {
+      if let depFile = externalDependency.path, 
+        let data = try? fileSystem.readFileContents(depFile) {
+            return self.externalDependencyFileHashes[externalDependency] == SHA256().hash(data).hexadecimalRepresentation
+        }
+      return false
     }
 
     private func isCurrentWRTFileSystem(_ externalDependency: ExternalDependency) -> Bool {
@@ -628,7 +666,8 @@ extension ModuleDependencyGraph {
   /// - Minor number 2: Use `.swift` files instead of `.swiftdeps` in ``DependencySource``
   /// - Minor number 3: Use interned strings, including for fingerprints and use empty dependency source file for no DependencySource
   /// - Minor number 4: Absorb the data in the ``BuildRecord`` into the module dependency graph.
-  @_spi(Testing) public static let serializedGraphVersion = Version(1, 4, 0)
+  /// - Minor number 5: SHA256 hashes for files in externalDepNode and inputInfo blobs. 
+  @_spi(Testing) public static let serializedGraphVersion = Version(1, 5, 0)
 
   /// The IDs of the records used by the module dependency graph.
   fileprivate enum RecordID: UInt64 {
@@ -753,6 +792,7 @@ extension ModuleDependencyGraph {
       private var currentDefKey: DependencyKey? = nil
       private var nodeUses: [(DependencyKey, Int)] = []
       private var fingerprintedExternalDependencies = Set<FingerprintedExternalDependency>()
+      private var externalDependencyFileHashes = Dictionary<ExternalDependency, String>()
 
       /// Deserialized nodes, in order appearing in the priors file. If `nil`, the node is for a removed source file.
       ///
@@ -789,7 +829,8 @@ extension ModuleDependencyGraph {
                                                           info,
                                                           internedStringTable,
                                                           nodeFinder,
-                                                          fingerprintedExternalDependencies)
+                                                          fingerprintedExternalDependencies,
+                                                          externalDependencyFileHashes)
         for (dependencyKey, useID) in self.nodeUses {
           guard let use = self.potentiallyUsedNodes[useID] else {
             // Don't record uses of defs of removed files.
@@ -923,6 +964,7 @@ extension ModuleDependencyGraph {
         case .inputInfo:
           guard
             record.fields.count == 5,
+            case .blob(let hashBlob) = record.payload,
             let path = try nonemptyInternedString(field: 4)
           else {
             throw malformedError
@@ -931,12 +973,14 @@ extension ModuleDependencyGraph {
             lower: UInt32(record.fields[0]),
             upper: UInt32(record.fields[1]),
             nanoseconds: UInt32(record.fields[2]))
+          
           let status = try InputInfo.Status(code: UInt32(record.fields[3]))
           let pathString = path.lookup(in: internedStringTable)
           let pathHandle = try VirtualPath.intern(path: pathString)
+          let hash = String(decoding: hashBlob, as: UTF8.self)
           self.inputInfos[VirtualPath.lookup(pathHandle)] = InputInfo(
             status: status,
-            previousModTime: modTime)
+            previousModTime: modTime, hash: hash)
         case .moduleDepGraphNode:
           guard record.fields.count == 6 else {
             throw malformedError
@@ -979,16 +1023,19 @@ extension ModuleDependencyGraph {
           }
           self.nodeUses.append( (key, Int(record.fields[0])) )
         case .externalDepNode:
-          guard record.fields.count == 2
+          guard record.fields.count == 2,
+          case .blob(let hashBlob) = record.payload
           else {
             throw malformedError
           }
           let path = try internedString(field: 0)
           let fingerprint = try nonemptyInternedString(field: 1)
+          let hash = String(decoding: hashBlob, as: UTF8.self)
+          let externalDependency = ExternalDependency(fileName: path, internedStringTable)
+          
           fingerprintedExternalDependencies.insert(
-            FingerprintedExternalDependency(
-              ExternalDependency(fileName: path, internedStringTable),
-              fingerprint))
+            FingerprintedExternalDependency(externalDependency, fingerprint))
+          externalDependencyFileHashes[externalDependency] = hash
         case .identifierNode:
           guard record.fields.count == 0,
                 case .blob(let identifierBlob) = record.payload
@@ -1162,12 +1209,12 @@ extension ModuleDependencyGraph {
         let inputID = input.name.intern(in: self.internedStringTable)
         let pathID = self.lookupIdentifierCode(for: inputID)
 
-        self.stream.writeRecord(self.abbreviations[.inputInfo]!) {
+        self.stream.writeRecord(self.abbreviations[.inputInfo]!, {
           $0.append(RecordID.inputInfo)
           $0.append(inputInfo.previousModTime)
           $0.append(inputInfo.status.code)
           $0.append(pathID)
-        }
+        }, blob: inputInfo.hash ?? "")
       }
     }
 
@@ -1254,6 +1301,8 @@ extension ModuleDependencyGraph {
         .fixed(bitWidth: 3),
         // path ID
         .vbr(chunkBitWidth: 13),
+        // file hash
+        .blob,
       ])
       self.abbreviate(.moduleDepGraphNode,
         [Bitstream.Abbreviation.Operand.literal(RecordID.moduleDepGraphNode.rawValue)] +
@@ -1277,6 +1326,8 @@ extension ModuleDependencyGraph {
         .vbr(chunkBitWidth: 13),
         // fingerprint ID
         .vbr(chunkBitWidth: 13),
+        // file hash
+        .blob,
       ])
       self.abbreviate(.identifierNode, [
         .literal(RecordID.identifierNode.rawValue),
@@ -1351,13 +1402,15 @@ extension ModuleDependencyGraph {
           }
         }
         for fingerprintedExternalDependency in graph.fingerprintedExternalDependencies {
-          serializer.stream.writeRecord(serializer.abbreviations[.externalDepNode]!) {
+          graph.currencyCache.ensureHash(fingerprintedExternalDependency.externalDependency)
+          serializer.stream.writeRecord(serializer.abbreviations[.externalDepNode]!, {
             $0.append(RecordID.externalDepNode)
             $0.append(serializer.lookupIdentifierCode(
               for: fingerprintedExternalDependency.externalDependency.fileName))
             $0.append( serializer.lookupIdentifierCode(
               for: fingerprintedExternalDependency.fingerprint))
-          }
+          }, 
+          blob: graph.currencyCache.externalDependencyFileHashes[fingerprintedExternalDependency.externalDependency] ?? "")
         }
       }
       return ByteString(serializer.stream.data)

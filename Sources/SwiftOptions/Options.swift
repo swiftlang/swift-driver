@@ -213,6 +213,7 @@ extension Option {
   public static let disableImplicitStringProcessingModuleImport: Option = Option("-disable-implicit-string-processing-module-import", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable the implicit import of the _StringProcessing module.")
   public static let disableImplicitSwiftModules: Option = Option("-disable-implicit-swift-modules", .flag, attributes: [.frontend, .noDriver], helpText: "Disable building Swift modules implicitly by the compiler")
   public static let disableImportPtrauthFieldFunctionPointers: Option = Option("-disable-import-ptrauth-field-function-pointers", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable import of custom ptrauth qualified field function pointers")
+  public static let disableIncrementalFileHashing: Option = Option("-disable-incremental-file-hashing", .flag, helpText: "Disable hashing of input and dependency file data that can prevent unnecessary invalidation")
   public static let disableIncrementalImports: Option = Option("-disable-incremental-imports", .flag, attributes: [.frontend], helpText: "Disable cross-module incremental build metadata and driver scheduling for Swift modules")
   public static let disableIncrementalLlvmCodegeneration: Option = Option("-disable-incremental-llvm-codegen", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable incremental llvm code generation.")
   public static let disableInferPublicConcurrentValue: Option = Option("-disable-infer-public-sendable", .flag, attributes: [.frontend, .noDriver], helpText: "Disable inference of Sendable conformances for public structs and enums")
@@ -468,6 +469,7 @@ extension Option {
   public static let enableFragileResilientProtocolWitnesses: Option = Option("-enable-fragile-relative-protocol-tables", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable relative protocol witness tables")
   public static let enableImplicitDynamic: Option = Option("-enable-implicit-dynamic", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Add 'dynamic' to all declarations")
   public static let enableImportPtrauthFieldFunctionPointers: Option = Option("-enable-import-ptrauth-field-function-pointers", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable import of custom ptrauth qualified field function pointers. This is on by default.")
+  public static let enableIncrementalFileHashing: Option = Option("-enable-incremental-file-hashing", .flag, helpText: "Enable hashing of input and dependency file data that can prevent unnecessary invalidation")
   public static let enableIncrementalImports: Option = Option("-enable-incremental-imports", .flag, attributes: [.frontend], helpText: "Enable cross-module incremental build metadata and driver scheduling for Swift modules")
   public static let enableInvalidEphemeralnessAsError: Option = Option("-enable-invalid-ephemeralness-as-error", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Diagnose invalid ephemeral to non-ephemeral conversions as errors")
   public static let enableLargeLoadableTypesReg2mem: Option = Option("-enable-large-loadable-types-reg2mem", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable large loadable types register to memory pass")
@@ -1177,6 +1179,7 @@ extension Option {
       Option.disableImplicitStringProcessingModuleImport,
       Option.disableImplicitSwiftModules,
       Option.disableImportPtrauthFieldFunctionPointers,
+      Option.disableIncrementalFileHashing,
       Option.disableIncrementalImports,
       Option.disableIncrementalLlvmCodegeneration,
       Option.disableInferPublicConcurrentValue,
@@ -1432,6 +1435,7 @@ extension Option {
       Option.enableFragileResilientProtocolWitnesses,
       Option.enableImplicitDynamic,
       Option.enableImportPtrauthFieldFunctionPointers,
+      Option.enableIncrementalFileHashing,
       Option.enableIncrementalImports,
       Option.enableInvalidEphemeralnessAsError,
       Option.enableLargeLoadableTypesReg2mem,

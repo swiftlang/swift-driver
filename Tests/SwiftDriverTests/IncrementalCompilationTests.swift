@@ -345,6 +345,44 @@ extension IncrementalCompilationTests {
     try checkReactionToTouchingAll(checkDiagnostics: true, explicitModuleBuild: true)
   }
 
+  // Source file and external deps timestamps updated but contents are the same, and file-hashing is enabled
+  func testExplicitIncrementalBuildWithHashing() throws {
+    replace(contentsOf: "other", with: "import E;let bar = foo")
+    try buildInitialState(extraArguments: ["-enable-incremental-file-hashing"], explicitModuleBuild: true)
+    touch("main")
+    touch("other")
+    touch(try AbsolutePath(validating: explicitSwiftDependenciesPath.appending(component: "E.swiftinterface").pathString))
+    let driver = try checkNullBuild(extraArguments: ["-enable-incremental-file-hashing"], explicitModuleBuild: true)
+    let mandatoryJobs = try XCTUnwrap(driver.incrementalCompilationState?.mandatoryJobsInOrder)
+    let mandatoryJobInputs = mandatoryJobs.flatMap { $0.inputs } .map { $0.file.basename }
+    XCTAssertFalse(mandatoryJobInputs.contains("main.swift"))
+    XCTAssertFalse(mandatoryJobInputs.contains("other.swift"))
+  }
+
+  // External deps timestamp updated but contents are the same, and file-hashing is explicitly disabled 
+  func testExplicitIncrementalBuildExternalDepsWithoutHashing() throws {
+    replace(contentsOf: "other", with: "import E;let bar = foo")
+    try buildInitialState(extraArguments: ["-disable-incremental-file-hashing"], explicitModuleBuild: true)
+    touch(try AbsolutePath(validating: explicitSwiftDependenciesPath.appending(component: "E.swiftinterface").pathString))
+    let driver = try checkNullBuild(extraArguments: ["-disable-incremental-file-hashing"], explicitModuleBuild: true)
+    let mandatoryJobs = try XCTUnwrap(driver.incrementalCompilationState?.mandatoryJobsInOrder)
+    let mandatoryJobInputs = mandatoryJobs.flatMap { $0.inputs } .map { $0.file.basename }
+    XCTAssertTrue(mandatoryJobInputs.contains("other.swift"))
+    XCTAssertTrue(mandatoryJobInputs.contains("main.swift"))
+  }
+
+  // Source file timestamps updated but contents are the same, and file-hashing is explicitly disabled 
+  func testExplicitIncrementalBuildSourceFilesWithoutHashing() throws {
+    try buildInitialState(extraArguments: ["-disable-incremental-file-hashing"], explicitModuleBuild: true)
+    touch("main")
+    touch("other")
+    let driver = try checkNullBuild(extraArguments: ["-disable-incremental-file-hashing"], explicitModuleBuild: true)
+    let mandatoryJobs = try XCTUnwrap(driver.incrementalCompilationState?.mandatoryJobsInOrder)
+    let mandatoryJobInputs = mandatoryJobs.flatMap { $0.inputs } .map { $0.file.basename }
+    XCTAssertTrue(mandatoryJobInputs.contains("other.swift"))
+    XCTAssertTrue(mandatoryJobInputs.contains("main.swift"))
+  }
+
   // Adding an import invalidates prior inter-module dependency graph.
   func testExplicitIncrementalBuildNewImport() throws {
     try buildInitialState(checkDiagnostics: false, explicitModuleBuild: true)
