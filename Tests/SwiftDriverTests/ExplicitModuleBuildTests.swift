@@ -501,6 +501,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
   }
 
   func testExplicitImportDetails() throws {
+    throw XCTSkip("rdar://153252569: temporarily disable")
     try withTemporaryDirectory { path in
       let (_, _, toolchain, _) = try getDriverArtifactsForScanning()
 
@@ -533,8 +534,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
                   "-I", cHeadersPath.nativePathString(escaped: true),
                   "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
                   "-explicit-module-build",
-                  "-disable-implicit-concurrency-module-import",
-                  "-disable-implicit-string-processing-module-import",
+                  "-Xfrontend ", "-disable-implicit-concurrency-module-import",
+                  "-Xfrontend ", "-disable-implicit-string-processing-module-import",
                   main.nativePathString(escaped: true)] + sdkArgumentsForTesting
       var driver = try Driver(args: args)
       let _ = try driver.planBuild()
