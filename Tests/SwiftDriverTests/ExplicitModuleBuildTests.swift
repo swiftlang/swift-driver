@@ -533,8 +533,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
                   "-I", cHeadersPath.nativePathString(escaped: true),
                   "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
                   "-explicit-module-build",
-                  "-disable-implicit-concurrency-module-import",
-                  "-disable-implicit-string-processing-module-import",
+                  "-Xfrontend", "-disable-implicit-concurrency-module-import",
+                  "-Xfrontend", "-disable-implicit-string-processing-module-import",
                   main.nativePathString(escaped: true)] + sdkArgumentsForTesting
       var driver = try Driver(args: args)
       let _ = try driver.planBuild()
@@ -551,20 +551,20 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                                           accessLevel: ImportInfo.ImportAccessLevel.Public,
                                                           sourceLocations: [ScannerDiagnosticSourceLocation(bufferIdentifier: main.nativePathString(escaped: true),
                                                                                                             lineNumber: 1,
-                                                                                                            columnNumber: 8),
+                                                                                                            columnNumber: 15),
                                                                             ScannerDiagnosticSourceLocation(bufferIdentifier: main.nativePathString(escaped: true),
                                                                                                             lineNumber: 4,
-                                                                                                            columnNumber: 8)])))
+                                                                                                            columnNumber: 17)])))
       XCTAssertTrue(mainModuleImports.contains(ImportInfo(importIdentifier: "E",
                                                           accessLevel: ImportInfo.ImportAccessLevel.Internal,
                                                           sourceLocations: [ScannerDiagnosticSourceLocation(bufferIdentifier: main.nativePathString(escaped: true),
                                                                                                             lineNumber: 2,
-                                                                                                            columnNumber: 8)])))
+                                                                                                            columnNumber: 17)])))
       XCTAssertTrue(mainModuleImports.contains(ImportInfo(importIdentifier: "G",
                                                           accessLevel: ImportInfo.ImportAccessLevel.Private,
                                                           sourceLocations: [ScannerDiagnosticSourceLocation(bufferIdentifier: main.nativePathString(escaped: true),
                                                                                                             lineNumber: 3,
-                                                                                                            columnNumber: 8)])))
+                                                                                                            columnNumber: 16)])))
     }
   }
 
