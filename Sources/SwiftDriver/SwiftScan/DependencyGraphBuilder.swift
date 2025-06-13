@@ -27,7 +27,7 @@ internal extension SwiftScan {
       throw DependencyScanningError.missingField("dependency_graph.dependencies")
     }
 
-    var resultGraph = InterModuleDependencyGraph(mainModuleName: mainModuleName)
+    var moduleInfoMap: ModuleInfoMap = [:]
     // Turn the `swiftscan_dependency_set_t` into an array of `swiftscan_dependency_info_t`
     // references we can iterate through in order to construct `ModuleInfo` objects.
     let moduleRefArray = Array(UnsafeBufferPointer(start: dependencySetRef.pointee.modules,
@@ -37,10 +37,10 @@ internal extension SwiftScan {
         throw DependencyScanningError.missingField("dependency_set_t.modules[_]")
       }
       let (moduleId, moduleInfo) = try constructModuleInfo(from: moduleRef, moduleAliases: moduleAliases)
-      resultGraph.modules[moduleId] = moduleInfo
+      moduleInfoMap[moduleId] = moduleInfo
     }
 
-    return resultGraph
+    return InterModuleDependencyGraph(mainModuleName: mainModuleName, modules: moduleInfoMap)
   }
 
   /// From a reference to a binary-format set of module imports return by libSwiftScan pre-scan query,

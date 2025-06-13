@@ -59,6 +59,7 @@ public struct Driver {
     case cannotSpecify_OForMultipleOutputs
     case conflictingOptions(Option, Option)
     case unableToLoadOutputFileMap(String, String)
+    case malformedChainedBridgingHeader(String)
     case unableToDecodeFrontendTargetInfo(String?, [String], String)
     case failedToRetrieveFrontendTargetInfo
     case failedToRunFrontendToRetrieveTargetInfo(Int, String?)
@@ -111,6 +112,8 @@ public struct Driver {
         return "failed to retrieve frontend target info"
       case .unableToReadFrontendTargetInfo:
         return "could not read frontend target info"
+      case .malformedChainedBridgingHeader(let content):
+        return "could not convert bridging header content to utf-8: \(content)"
       case let .failedToRunFrontendToRetrieveTargetInfo(returnCode, stderr):
         return "frontend job retrieving target info failed with code \(returnCode)"
           + (stderr.map {": \($0)"} ?? "")
@@ -330,7 +333,7 @@ public struct Driver {
     case .relative(let path):
       let cwd = workingDirectory ?? fileSystem.currentWorkingDirectory
       return cwd.map { AbsolutePath($0, path) }
-    case .standardInput, .standardOutput, .temporary, .temporaryWithKnownContents, .fileList:
+    case .standardInput, .standardOutput, .temporary, .temporaryWithKnownContents, .fileList, .buildArtifactWithKnownContents:
       fatalError("Frontend target information will never include a path of this type.")
     }
   }
@@ -341,36 +344,13 @@ public struct Driver {
   /// Original ObjC Header passed from command-line
   let originalObjCHeaderFile: VirtualPath.Handle?
 
-
   /// Enable bridging header chaining.
   let bridgingHeaderChaining: Bool
-
-  /// The path to the imported Objective-C header.
-  lazy var importedObjCHeader: VirtualPath.Handle? = {
-    assert(explicitDependencyBuildPlanner != nil ||
-           !parsedOptions.hasArgument(.driverExplicitModuleBuild) ||
-           !inputFiles.contains { $0.type == .swift },
-           "should not be queried before scanning")
-    let chainedBridgingHeader = try? explicitDependencyBuildPlanner?.getChainedBridgingHeaderFile()
-    return try? computeImportedObjCHeader(&parsedOptions, compilerMode: compilerMode,
-                                          chainedBridgingHeader: chainedBridgingHeader) ?? originalObjCHeaderFile
-  }()
 
   /// The directory to emit PCH file.
   lazy var bridgingPrecompiledHeaderOutputDir: VirtualPath? = {
     return try? computePrecompiledBridgingHeaderDir(&parsedOptions,
                                                     compilerMode: compilerMode)
-  }()
-
-  /// The path to the pch for the imported Objective-C header.
-  lazy var bridgingPrecompiledHeader: VirtualPath.Handle? = {
-    let contextHash = try? explicitDependencyBuildPlanner?.getMainModuleContextHash()
-    return computeBridgingPrecompiledHeader(&parsedOptions,
-                                            compilerMode: compilerMode,
-                                            importedObjCHeader: importedObjCHeader,
-                                            outputFileMap: outputFileMap,
-                                            outputDirectory: bridgingPrecompiledHeaderOutputDir,
-                                            contextHash: contextHash)
   }()
 
   /// Path to the dependencies file.
@@ -620,14 +600,6 @@ public struct Driver {
 
   /// The mode the API digester should run in.
   let digesterMode: DigesterMode
-
-  // FIXME: We should soon be able to remove this from being in the Driver's state.
-  // Its only remaining use outside of actual dependency build planning is in
-  // command-line input option generation for the explicit main module compile job.
-  /// Planner for constructing module build jobs using Explicit Module Builds.
-  /// Constructed during the planning phase only when all module dependencies will be prebuilt and treated
-  /// as explicit inputs by the various compilation jobs.
-  @_spi(Testing) public var explicitDependencyBuildPlanner: ExplicitDependencyBuildPlanner? = nil
 
   /// A reference to the instance of libSwiftScan which is shared with the driver's
   /// `InterModuleDependencyOracle`, but also used for non-scanning tasks, such as target info
@@ -1383,9 +1355,9 @@ public struct Driver {
   }
 
   public mutating func planBuild() throws -> [Job] {
-    let (jobs, incrementalCompilationState, intermoduleDependencyGraph) = try planPossiblyIncrementalBuild()
+    let (jobs, incrementalCompilationState, explicitModulePlanner) = try planPossiblyIncrementalBuild()
     self.incrementalCompilationState = incrementalCompilationState
-    self.intermoduleDependencyGraph = intermoduleDependencyGraph
+    self.intermoduleDependencyGraph = explicitModulePlanner?.dependencyGraph
     return jobs
   }
 }
@@ -1774,11 +1746,9 @@ extension Diagnostic.Message {
 }
 
 extension Driver {
-  func explainModuleDependency(_ explainModuleName: String, allPaths: Bool) throws {
-    guard let dependencyPlanner = explicitDependencyBuildPlanner else {
-      fatalError("Cannot explain dependency without Explicit Build Planner")
-    }
-    guard let dependencyPaths = try dependencyPlanner.explainDependency(explainModuleName, allPaths: allPaths) else {
+  func explainModuleDependency(_ explainModuleName: String, allPaths: Bool,
+                               moduleDependencyGraph: InterModuleDependencyGraph) throws {
+    guard let dependencyPaths = try moduleDependencyGraph.explainDependency(explainModuleName, allPaths: allPaths) else {
       diagnosticEngine.emit(.remark("No such module dependency found: '\(explainModuleName)'"))
       return
     }
@@ -1846,13 +1816,6 @@ extension Driver {
         print(try executor.description(of: job, forceResponseFiles: forceResponseFiles))
       }
       return
-    }
-
-    // If we're only supposed to explain a dependency on a given module, do so now.
-    if let explainModuleName = parsedOptions.getLastArgument(.explainModuleDependencyDetailed) {
-      try explainModuleDependency(explainModuleName.asSingle, allPaths: true)
-    } else if let explainModuleNameDetailed = parsedOptions.getLastArgument(.explainModuleDependency) {
-      try explainModuleDependency(explainModuleNameDetailed.asSingle, allPaths: false)
     }
 
     if parsedOptions.contains(.driverPrintOutputFileMap) {
@@ -2047,7 +2010,7 @@ extension Driver {
 
     // Put bridging header as first input if we have it
     let allInputs: [TypedVirtualPath]
-    if let objcHeader = importedObjCHeader, bridgingPrecompiledHeader != nil {
+    if let objcHeader = originalObjCHeaderFile {
       allInputs = [TypedVirtualPath(file: objcHeader, type: .objcHeader)] + inputFiles
     } else {
       allInputs = inputFiles
@@ -2072,10 +2035,7 @@ extension Driver {
       // All input action IDs for this action.
       var inputIds = [UInt]()
 
-      var jobInputs = job.primaryInputs.isEmpty ? job.inputs : job.primaryInputs
-      if let pchPath = bridgingPrecompiledHeader, job.kind == .compile {
-        jobInputs.append(TypedVirtualPath(file: pchPath, type: .pch))
-      }
+      let jobInputs = job.primaryInputs.isEmpty ? job.inputs : job.primaryInputs
       // Collect input job IDs.
       for input in jobInputs {
         if let id = inputIdMap[input] {
@@ -3146,15 +3106,14 @@ extension Driver {
     chainedBridgingHeader: ChainedBridgingHeaderFile?) throws -> VirtualPath.Handle? {
     // handle chained bridging header.
     if let chainedHeader = chainedBridgingHeader, !chainedHeader.path.isEmpty {
-      let path = try VirtualPath(path: chainedHeader.path)
-      let dirExists = try fileSystem.exists(path.parentDirectory)
-      if !dirExists, let dirToCreate = path.parentDirectory.absolutePath {
-        try fileSystem.createDirectory(dirToCreate, recursive: true)
+      let path = try AbsolutePath(validating: chainedHeader.path)
+      if !fileSystem.exists(path.parentDirectory) {
+        try fileSystem.createDirectory(path.parentDirectory, recursive: true)
       }
-      try fileSystem.writeFileContents(path,
-                                       bytes: ByteString(encodingAsUTF8: chainedHeader.content),
-                                       atomically: true)
-      return path.intern()
+      guard let headerData = chainedHeader.content.data(using: .utf8) else {
+        throw Driver.Error.malformedChainedBridgingHeader(chainedHeader.content)
+      }
+      return try VirtualPath.createBuildProductFileWithKnownContents(path, headerData).intern()
     }
     return originalObjCHeaderFile
   }

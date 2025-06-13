@@ -85,7 +85,6 @@ add_library(SwiftDriver
   Jobs/InterpretJob.swift
   Jobs/Job.swift
   Jobs/LinkJob.swift
-  Jobs/MergeModuleJob.swift
   Jobs/ModuleWrapJob.swift
   Jobs/Planning.swift
   Jobs/PrintSupportedFeaturesJob.swift

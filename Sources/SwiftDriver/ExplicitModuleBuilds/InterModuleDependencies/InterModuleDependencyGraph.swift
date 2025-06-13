@@ -335,10 +335,10 @@ public extension ModuleInfo {
 /// all of the Swift and C modules and source files it depends on.
 public struct InterModuleDependencyGraph: Codable {
   /// The name of the main module.
-  public var mainModuleName: String
+  public let mainModuleName: String
 
   /// The complete set of modules discovered
-  public var modules: ModuleInfoMap = [:]
+  public let modules: ModuleInfoMap
 
   /// Information about the main module.
   public var mainModule: ModuleInfo { modules[.swift(mainModuleName)]! }

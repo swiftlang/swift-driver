@@ -232,7 +232,8 @@ extension Driver {
                            addJobOutputs: ([TypedVirtualPath]) -> Void,
                            pchCompileJob: Job?,
                            emitModuleTrace: Bool,
-                           produceCacheKey: Bool)
+                           produceCacheKey: Bool,
+                           explicitModulePlanner: ExplicitDependencyBuildPlanner?)
   throws -> Job {
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
     var inputs: [TypedVirtualPath] = []
@@ -292,7 +293,8 @@ extension Driver {
       commandLine.appendFlag(.disableObjcAttrRequiresFoundationModule)
     }
 
-    try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs, kind: .compile)
+    try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs, kind: .compile,
+                                 explicitModulePlanner: explicitModulePlanner)
     try addRuntimeLibraryFlags(commandLine: &commandLine)
 
     if Driver.canDoCrossModuleOptimization(parsedOptions: &parsedOptions) &&
@@ -389,7 +391,8 @@ extension Driver {
     addJobOutputs(outputs)
 
     // Bridging header is needed for compiling these .swift sources.
-    if let pchPath = bridgingPrecompiledHeader {
+    let (_, precompiledObjCHeader) = try computeCanonicalObjCHeader(explicitModulePlanner: explicitModulePlanner)
+    if let pchPath = precompiledObjCHeader {
       let pchInput = TypedVirtualPath(file: pchPath, type: .pch)
       inputs.append(pchInput)
     }
