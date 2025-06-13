@@ -131,9 +131,9 @@ func getStdlibShimsPaths(_ driver: Driver) throws -> (AbsolutePath, AbsolutePath
     let executor = try SwiftDriverExecutor(diagnosticsEngine: DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler]),
                                            processSet: ProcessSet(),
                                            fileSystem: localFileSystem,
-                                           env: ProcessEnv.vars)
+                                           env: ProcessEnv.block)
     let sdkPath = try executor.checkNonZeroExit(
-      args: "xcrun", "-sdk", "macosx", "--show-sdk-path").spm_chomp()
+      args: "xcrun", "-sdk", "macosx", "--show-sdk-path", environmentBlock: ProcessEnv.block).spm_chomp()
     let stdLibPath = try AbsolutePath(validating: sdkPath).appending(component: "usr")
       .appending(component: "lib")
       .appending(component: "swift")
@@ -1839,8 +1839,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
     let dependencyOracle = InterModuleDependencyOracle()
     let scanLibPath = try XCTUnwrap(toolchain.lookupSwiftScanLib())
     try dependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
-    guard try dependencyOracle.supportsScannerDiagnostics() else {
-      throw XCTSkip("libSwiftScan does not support diagnostics query.")
+    guard try dependencyOracle.supportsPerScanDiagnostics() else {
+      throw XCTSkip("libSwiftScan does not support diagnostics queries.")
     }
 
     // Missing Swift Interface dependency
@@ -1874,16 +1874,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
           try dependencyOracle.getDependencies(workingDirectory: path,
                                                commandLine: scannerCommand,
                                                diagnostics: &scanDiagnostics)
-      let potentialDiags: [ScannerDiagnosticPayload]?
-      if try dependencyOracle.supportsPerScanDiagnostics() {
-        potentialDiags = scanDiagnostics
-        print("Using Per-Scan diagnostics")
-      } else {
-        potentialDiags = try dependencyOracle.getScannerDiagnostics()
-        print("Using Scanner-Global diagnostics")
-      }
-      XCTAssertEqual(potentialDiags?.count, 5)
-      let diags = try XCTUnwrap(potentialDiags)
+      XCTAssertEqual(scanDiagnostics.count, 5)
+      let diags = try XCTUnwrap(scanDiagnostics)
       let error = diags[0]
       XCTAssertEqual(error.severity, .error)
       if try dependencyOracle.supportsDiagnosticSourceLocations() {
@@ -1946,16 +1938,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
           try dependencyOracle.getDependencies(workingDirectory: path,
                                                commandLine: scannerCommand,
                                                diagnostics: &scanDiagnostics)
-      let potentialDiags: [ScannerDiagnosticPayload]?
-      if try dependencyOracle.supportsPerScanDiagnostics() {
-        potentialDiags = scanDiagnostics
-        print("Using Per-Scan diagnostics")
-      } else {
-        potentialDiags = try dependencyOracle.getScannerDiagnostics()
-        print("Using Scanner-Global diagnostics")
-      }
-      XCTAssertEqual(potentialDiags?.count, 2)
-      let diags = try XCTUnwrap(potentialDiags)
+      XCTAssertEqual(scanDiagnostics.count, 2)
+      let diags = try XCTUnwrap(scanDiagnostics)
       let error = diags[0]
       XCTAssertEqual(error.severity, .error)
       if try dependencyOracle.supportsDiagnosticSourceLocations() {
@@ -2123,7 +2107,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let dummyBrokenDylib = path.appending(component: "lib_InternalSwiftScan.dylib")
       try localFileSystem.writeFileContents(dummyBrokenDylib, bytes: "n/a")
 
-      var environment = ProcessEnv.vars
+      var environment = ProcessEnv.block
       environment["SWIFT_DRIVER_SWIFTSCAN_LIB"] = dummyBrokenDylib.nativePathString(escaped: true)
 
       let cHeadersPath: AbsolutePath =
@@ -2231,41 +2215,33 @@ final class ExplicitModuleBuildTests: XCTestCase {
         }
       }
       // Examine the results
-      if try dependencyOracle.supportsPerScanDiagnostics() {
-        for scanIndex in 0..<numFiles {
-          let diagnostics = scanDiagnostics[scanIndex]
-          XCTAssertEqual(diagnostics.count, 2)
-          // Diagnostic source locations came after per-scan diagnostics, only meaningful
-          // on this test code-path
-          if try dependencyOracle.supportsDiagnosticSourceLocations() {
-              let sourceLoc = try XCTUnwrap(diagnostics[0].sourceLocation)
-              XCTAssertEqual(sourceLoc.lineNumber, 1)
-              XCTAssertEqual(sourceLoc.columnNumber, 8)
-              XCTAssertEqual(diagnostics[0].message,
+      for scanIndex in 0..<numFiles {
+        let diagnostics = scanDiagnostics[scanIndex]
+        XCTAssertEqual(diagnostics.count, 2)
+        // Diagnostic source locations came after per-scan diagnostics, only meaningful
+        // on this test code-path
+        if try dependencyOracle.supportsDiagnosticSourceLocations() {
+          let sourceLoc = try XCTUnwrap(diagnostics[0].sourceLocation)
+          XCTAssertEqual(sourceLoc.lineNumber, 1)
+          XCTAssertEqual(sourceLoc.columnNumber, 8)
+          XCTAssertEqual(diagnostics[0].message,
               """
               Unable to find module dependency: 'UnknownModule\(scanIndex)'
               import UnknownModule\(scanIndex);
                      ^
               """)
-              let noteSourceLoc = try XCTUnwrap(diagnostics[1].sourceLocation)
-              XCTAssertEqual(noteSourceLoc.lineNumber, 1)
-              XCTAssertEqual(noteSourceLoc.columnNumber, 8)
-              XCTAssertEqual(diagnostics[1].message,
+          let noteSourceLoc = try XCTUnwrap(diagnostics[1].sourceLocation)
+          XCTAssertEqual(noteSourceLoc.lineNumber, 1)
+          XCTAssertEqual(noteSourceLoc.columnNumber, 8)
+          XCTAssertEqual(diagnostics[1].message,
               """
               a dependency of main module 'testParallelDependencyScanningDiagnostics\(scanIndex)'
               import UnknownModule\(scanIndex);
                      ^
               """)
-          } else {
-              XCTAssertEqual(diagnostics[0].message, "Unable to find module dependency: 'UnknownModule\(scanIndex)'")
-              XCTAssertEqual(diagnostics[1].message, "a dependency of main module 'testParallelDependencyScanningDiagnostics\(scanIndex)'")
-          }
-        }
-      } else {
-        let globalDiagnostics = try dependencyOracle.getScannerDiagnostics()
-        for scanIndex in 0..<numFiles {
-          XCTAssertTrue(globalDiagnostics?.contains(where: {$0.message == "Unable to find module dependency: 'UnknownModule\(scanIndex)'"}))
-          XCTAssertTrue(globalDiagnostics?.contains(where: {$0.message == "a dependency of main module 'testParallelDependencyScanningDiagnostics\(scanIndex)'"}))
+        } else {
+          XCTAssertEqual(diagnostics[0].message, "Unable to find module dependency: 'UnknownModule\(scanIndex)'")
+          XCTAssertEqual(diagnostics[1].message, "a dependency of main module 'testParallelDependencyScanningDiagnostics\(scanIndex)'")
         }
       }
     }
