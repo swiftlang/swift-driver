@@ -41,12 +41,12 @@ public final class SwiftDriverExecutor: DriverExecutor {
 
   public func execute(job: Job,
                       forceResponseFiles: Bool = false,
-                      recordedInputModificationDates: [TypedVirtualPath: TimePoint] = [:]) throws -> ProcessResult {
+                      recordedInputMetadata: [TypedVirtualPath: FileMetadata] = [:]) throws -> ProcessResult {
     let useResponseFiles : ResponseFileHandling = forceResponseFiles ? .forced : .heuristic
     let arguments: [String] = try resolver.resolveArgumentList(for: job,
                                                                useResponseFiles: useResponseFiles)
 
-    try job.verifyInputsNotModified(since: recordedInputModificationDates,
+    try job.verifyInputsNotModified(since: recordedInputMetadata.mapValues{metadata in metadata.mTime},
                                     fileSystem: fileSystem)
 
     if job.requiresInPlaceExecution {
@@ -70,11 +70,17 @@ public final class SwiftDriverExecutor: DriverExecutor {
     }
   }
 
+  public func execute(job: Job,
+                      forceResponseFiles: Bool,
+                      recordedInputModificationDates: [TypedVirtualPath : TimePoint]) throws -> ProcessResult {
+    fatalError("Unsuppored legacy operation on current executor")
+  }
+
   public func execute(workload: DriverExecutorWorkload,
                       delegate: JobExecutionDelegate,
                       numParallelJobs: Int = 1,
                       forceResponseFiles: Bool = false,
-                      recordedInputModificationDates: [TypedVirtualPath: TimePoint] = [:]
+                      recordedInputMetadata: [TypedVirtualPath: FileMetadata] = [:]
   ) throws {
     let llbuildExecutor = MultiJobExecutor(
       workload: workload,
@@ -84,8 +90,16 @@ public final class SwiftDriverExecutor: DriverExecutor {
       numParallelJobs: numParallelJobs,
       processSet: processSet,
       forceResponseFiles: forceResponseFiles,
-      recordedInputModificationDates: recordedInputModificationDates)
+      recordedInputMetadata: recordedInputMetadata)
     try llbuildExecutor.execute(env: env, fileSystem: fileSystem)
+  }
+
+  public func execute(workload: DriverExecutorWorkload,
+                      delegate: JobExecutionDelegate,
+                      numParallelJobs: Int = 1,
+                      forceResponseFiles: Bool = false,
+                      recordedInputModificationDates: [TypedVirtualPath: TimePoint]) throws {
+    fatalError("Unsuppored legacy operation on current executor")
   }
 
   @discardableResult

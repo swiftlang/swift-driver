@@ -85,7 +85,7 @@ extension Driver {
       job: frontendFeaturesJob,
       capturingJSONOutputAs: SupportedCompilerFeatures.self,
       forceResponseFiles: false,
-      recordedInputModificationDates: [:]).SupportedArguments
+      recordedInputMetadata: [:]).SupportedArguments
     return Set(decodedSupportedFlagList)
   }
 

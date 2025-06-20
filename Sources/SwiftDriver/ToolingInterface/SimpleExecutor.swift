@@ -32,8 +32,8 @@ import class TSCBasic.Process
   }
 
   public func execute(job: Job,
-                      forceResponseFiles: Bool,
-                      recordedInputModificationDates: [TypedVirtualPath : TimePoint]) throws -> ProcessResult {
+               forceResponseFiles: Bool,
+               recordedInputMetadata: [TypedVirtualPath : FileMetadata]) throws -> ProcessResult {
     let arguments: [String] = try resolver.resolveArgumentList(for: job,
                                                                useResponseFiles: .heuristic)
     var childEnv = env
@@ -43,10 +43,46 @@ import class TSCBasic.Process
   }
 
   public func execute(workload: DriverExecutorWorkload, delegate: JobExecutionDelegate,
-                      numParallelJobs: Int, forceResponseFiles: Bool,
-                      recordedInputModificationDates: [TypedVirtualPath : TimePoint]) throws {
-    fatalError("Unsupported operation on current executor")
+               numParallelJobs: Int, forceResponseFiles: Bool,
+               recordedInputMetadata: [TypedVirtualPath : FileMetadata]) throws {
+      fatalError("Unsupported operation on current executor")
   }
+
+  public func execute(job: Job,
+               forceResponseFiles: Bool,
+               recordedInputModificationDates: [TypedVirtualPath : TimePoint]) throws -> ProcessResult {
+      fatalError("Unsupported legacy operation on current executor")
+  }
+
+  public func execute(workload: DriverExecutorWorkload, delegate: JobExecutionDelegate,
+                       numParallelJobs: Int, forceResponseFiles: Bool,
+                      recordedInputModificationDates: [TypedVirtualPath : TimePoint]) throws {
+      fatalError("Unsupported operation on current executor")
+  }
+
+  public func execute(jobs: [Job],
+                      delegate: JobExecutionDelegate,
+                      numParallelJobs: Int,
+                      forceResponseFiles: Bool,
+                      recordedInputModificationDates: [TypedVirtualPath: TimePoint]) throws {
+      fatalError("Unsupported legacy operation on current executor")
+  }
+
+  public func execute(
+    jobs: [Job],
+    delegate: JobExecutionDelegate,
+    numParallelJobs: Int,
+    forceResponseFiles: Bool,
+    recordedInputMetadata: [TypedVirtualPath: FileMetadata]
+  ) throws {
+    try execute(
+      workload: .all(jobs),
+      delegate: delegate,
+      numParallelJobs: numParallelJobs,
+      forceResponseFiles: forceResponseFiles,
+      recordedInputMetadata: recordedInputMetadata)
+  }
+
 
   public func checkNonZeroExit(args: String..., environment: [String : String]) throws -> String {
     try Process.checkNonZeroExit(arguments: args, environment: environment)

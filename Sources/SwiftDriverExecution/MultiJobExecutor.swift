@@ -85,7 +85,7 @@ public final class MultiJobExecutor {
     let forceResponseFiles: Bool
 
     /// The last time each input file was modified, recorded at the start of the build.
-    public let recordedInputModificationDates: [TypedVirtualPath: TimePoint]
+    public let recordedInputMetadata: [TypedVirtualPath: FileMetadata]
 
     /// The diagnostics engine to use when reporting errors.
     let diagnosticsEngine: DiagnosticsEngine
@@ -112,7 +112,7 @@ public final class MultiJobExecutor {
       jobQueue: OperationQueue,
       processSet: ProcessSet?,
       forceResponseFiles: Bool,
-      recordedInputModificationDates: [TypedVirtualPath: TimePoint],
+      recordedInputMetadata: [TypedVirtualPath: FileMetadata],
       diagnosticsEngine: DiagnosticsEngine,
       processType: ProcessProtocol.Type = Process.self,
       inputHandleOverride: FileHandle? = nil
@@ -133,7 +133,7 @@ public final class MultiJobExecutor {
       self.jobQueue = jobQueue
       self.processSet = processSet
       self.forceResponseFiles = forceResponseFiles
-      self.recordedInputModificationDates = recordedInputModificationDates
+      self.recordedInputMetadata = recordedInputMetadata
       self.diagnosticsEngine = diagnosticsEngine
       self.processType = processType
       self.testInputHandle = inputHandleOverride
@@ -260,7 +260,7 @@ public final class MultiJobExecutor {
   private let forceResponseFiles: Bool
 
   /// The last time each input file was modified, recorded at the start of the build.
-  private let recordedInputModificationDates: [TypedVirtualPath: TimePoint]
+  private let recordedInputMetadata: [TypedVirtualPath: FileMetadata]
 
   /// The diagnostics engine to use when reporting errors.
   private let diagnosticsEngine: DiagnosticsEngine
@@ -279,7 +279,7 @@ public final class MultiJobExecutor {
     numParallelJobs: Int? = nil,
     processSet: ProcessSet? = nil,
     forceResponseFiles: Bool = false,
-    recordedInputModificationDates: [TypedVirtualPath: TimePoint] = [:],
+    recordedInputMetadata: [TypedVirtualPath: FileMetadata] = [:],
     processType: ProcessProtocol.Type = Process.self,
     inputHandleOverride: FileHandle? = nil
   ) {
@@ -290,7 +290,7 @@ public final class MultiJobExecutor {
     self.numParallelJobs = numParallelJobs ?? 1
     self.processSet = processSet
     self.forceResponseFiles = forceResponseFiles
-    self.recordedInputModificationDates = recordedInputModificationDates
+    self.recordedInputMetadata = recordedInputMetadata
     self.processType = processType
     self.testInputHandle = inputHandleOverride
   }
@@ -308,8 +308,8 @@ public final class MultiJobExecutor {
 
     // Check for any inputs that were modified during the build. Report these
     // as errors so we don't e.g. reuse corrupted incremental build state.
-    for (input, recordedModTime) in context.recordedInputModificationDates {
-      guard try fileSystem.lastModificationTime(for: input.file) == recordedModTime else {
+    for (input, metadata) in context.recordedInputMetadata {
+      guard try fileSystem.lastModificationTime(for: input.file) == metadata.mTime else {
         let err = Job.InputError.inputUnexpectedlyModified(input)
         context.diagnosticsEngine.emit(err)
         throw err
@@ -337,7 +337,7 @@ public final class MultiJobExecutor {
       jobQueue: jobQueue,
       processSet: processSet,
       forceResponseFiles: forceResponseFiles,
-      recordedInputModificationDates: recordedInputModificationDates,
+      recordedInputMetadata: recordedInputMetadata,
       diagnosticsEngine: diagnosticsEngine,
       processType: processType,
       inputHandleOverride: testInputHandle

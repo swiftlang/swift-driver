@@ -89,6 +89,12 @@ extension IncrementalCompilationState {
     if driver.parsedOptions.contains(.driverExplicitModuleBuild) {
       options.formUnion(.explicitModuleBuild)
     }
+    if driver.parsedOptions.hasFlag(positive: .enableIncrementalFileHashing,
+                                    negative: .disableIncrementalFileHashing,
+                                    default: false) {
+      options.formUnion(.useFileHashesInModuleDependencyGraph)
+    }
+
     return options
   }
 }
@@ -127,6 +133,9 @@ extension IncrementalCompilationState {
     }
     @_spi(Testing) public var emitDependencyDotFileAfterEveryImport: Bool {
       options.contains(.emitDependencyDotFileAfterEveryImport)
+    }
+    @_spi(Testing) public var useFileHashesInModuleDependencyGraph: Bool {
+      options.contains(.useFileHashesInModuleDependencyGraph)
     }
 
     @_spi(Testing) public init(
