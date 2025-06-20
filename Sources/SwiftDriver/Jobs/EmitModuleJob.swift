@@ -17,8 +17,7 @@ extension Driver {
   mutating func addCommonModuleOptions(
       commandLine: inout [Job.ArgTemplate],
       outputs: inout [TypedVirtualPath],
-      moduleOutputPaths: SupplementalModuleTargetOutputPaths,
-      isMergeModule: Bool
+      moduleOutputPaths: SupplementalModuleTargetOutputPaths
   ) throws {
     // Add supplemental outputs.
     func addSupplementalOutput(path: VirtualPath.Handle?, flag: String, type: FileType) {
@@ -39,13 +38,7 @@ extension Driver {
     addSupplementalOutput(path: objcGeneratedHeaderPath, flag: "-emit-objc-header-path", type: .objcHeader)
     addSupplementalOutput(path: tbdPath, flag: "-emit-tbd-path", type: .tbd)
     addSupplementalOutput(path: moduleOutputPaths.apiDescriptorFilePath, flag: "-emit-api-descriptor-path", type: .jsonAPIDescriptor)
-
-    if isMergeModule {
-      return
-    }
-
     addSupplementalOutput(path: emitModuleSerializedDiagnosticsFilePath, flag: "-serialize-diagnostics-path", type: .emitModuleDiagnostics)
-
     addSupplementalOutput(path: emitModuleDependenciesFilePath, flag: "-emit-dependencies-path", type: .emitModuleDependencies)
 
     // Skip files created by other jobs when emitting a module and building at the same time
@@ -79,13 +72,15 @@ extension Driver {
   }
 
   /// Form a job that emits a single module
-  @_spi(Testing) public mutating func emitModuleJob(pchCompileJob: Job?, isVariantJob: Bool = false) throws -> Job {
-    precondition(!isVariantJob || (isVariantJob &&
+  @_spi(Testing) public mutating func emitModuleJob(pchCompileJob: Job?,
+                                                    explicitModulePlanner: ExplicitDependencyBuildPlanner?,
+                                                    forVariantModule: Bool = false) throws -> Job {
+    precondition(!forVariantModule || (forVariantModule &&
       variantModuleOutputInfo != nil && variantModuleOutputPaths != nil),
       "target variant module requested without a target variant")
 
-    let moduleOutputPath = isVariantJob ? variantModuleOutputInfo!.output!.outputPath : moduleOutputInfo.output!.outputPath
-    let moduleOutputPaths = isVariantJob ? variantModuleOutputPaths! : moduleOutputPaths
+    let moduleOutputPath = forVariantModule ? variantModuleOutputInfo!.output!.outputPath : moduleOutputInfo.output!.outputPath
+    let moduleOutputPaths = forVariantModule ? variantModuleOutputPaths! : moduleOutputPaths
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
     var inputs: [TypedVirtualPath] = []
     var outputs: [TypedVirtualPath] = [
@@ -100,19 +95,21 @@ extension Driver {
       inputs.append(input)
     }
 
-    if let pchPath = bridgingPrecompiledHeader {
+    let (_, precompiledObjCHeader) = try computeCanonicalObjCHeader(explicitModulePlanner: explicitModulePlanner)
+    if let pchPath = precompiledObjCHeader {
       inputs.append(TypedVirtualPath(file: pchPath, type: .pch))
     }
     try addBridgingHeaderPCHCacheKeyArguments(commandLine: &commandLine, pchCompileJob: pchCompileJob)
 
-    try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs, kind: .emitModule)
+    try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs, kind: .emitModule,
+                                 explicitModulePlanner: explicitModulePlanner,
+                                 forVariantEmitModule: forVariantModule)
     // FIXME: Add MSVC runtime library flags
 
     try addCommonModuleOptions(
       commandLine: &commandLine,
       outputs: &outputs,
-      moduleOutputPaths: moduleOutputPaths,
-      isMergeModule: false)
+      moduleOutputPaths: moduleOutputPaths)
 
     try addCommonSymbolGraphOptions(commandLine: &commandLine)
 

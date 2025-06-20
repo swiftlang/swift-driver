@@ -25,7 +25,7 @@ extension IncrementalCompilationState {
     let fileSystem: FileSystem
     let showJobLifecycle: Bool
     let alwaysRebuildDependents: Bool
-    let interModuleDependencyGraph: InterModuleDependencyGraph?
+    let explicitModulePlanner: ExplicitDependencyBuildPlanner?
     /// If non-null outputs information for `-driver-show-incremental` for input path
     private let reporter: Reporter?
 
@@ -33,7 +33,7 @@ extension IncrementalCompilationState {
       initialState: IncrementalCompilationState.InitialStateForPlanning,
       jobsInPhases: JobsInPhases,
       driver: Driver,
-      interModuleDependencyGraph: InterModuleDependencyGraph?,
+      explicitModulePlanner: ExplicitDependencyBuildPlanner?,
       reporter: Reporter?
     ) {
       self.moduleDependencyGraph = initialState.graph
@@ -45,7 +45,7 @@ extension IncrementalCompilationState {
       self.showJobLifecycle = driver.showJobLifecycle
       self.alwaysRebuildDependents = initialState.incrementalOptions.contains(
         .alwaysRebuildDependents)
-      self.interModuleDependencyGraph = interModuleDependencyGraph
+      self.explicitModulePlanner = explicitModulePlanner
       self.reporter = reporter
     }
 
@@ -102,7 +102,8 @@ extension IncrementalCompilationState.FirstWaveComputer {
       batchJobFormer.formBatchedJobs(
         mandatoryCompileJobsInOrder,
         showJobLifecycle: showJobLifecycle,
-        jobCreatingPch: jobCreatingPch)
+        jobCreatingPch: jobCreatingPch,
+        explicitModulePlanner: explicitModulePlanner)
 
       moduleDependencyGraph.setPhase(to: .buildingAfterEachCompilation)
       return (initiallySkippedCompileJobs: [:],
@@ -131,7 +132,8 @@ extension IncrementalCompilationState.FirstWaveComputer {
     let batchedCompilationJobs = try batchJobFormer.formBatchedJobs(
       mandatoryCompileJobsInOrder,
       showJobLifecycle: showJobLifecycle,
-      jobCreatingPch: jobCreatingPch)
+      jobCreatingPch: jobCreatingPch,
+      explicitModulePlanner: explicitModulePlanner)
 
     // In the case where there are no compilation jobs to run on this build (no source-files were changed),
     // and the emit-module task does not need to be re-run, we can skip running `beforeCompiles` jobs if we

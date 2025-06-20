@@ -18,7 +18,6 @@ public struct Job: Codable, Equatable, Hashable {
   public enum Kind: String, Codable {
     case compile
     case backend
-    case mergeModule = "merge-module"
     case link
     case generateDSYM = "generate-dSYM"
     case autolinkExtract = "autolink-extract"
@@ -181,9 +180,6 @@ extension Job : CustomStringConvertible {
     case .compile:
         return join("Compiling \(moduleName)", displayInputs.first?.file.basename)
 
-    case .mergeModule:
-        return "Merging module \(moduleName)"
-
     case .link:
         return "Linking \(moduleName)"
 
@@ -272,7 +268,7 @@ extension Job.Kind {
   /// Whether this job kind uses the Swift frontend.
   public var isSwiftFrontend: Bool {
     switch self {
-    case .backend, .compile, .mergeModule, .emitModule, .compileModuleFromInterface, .generatePCH,
+    case .backend, .compile, .emitModule, .compileModuleFromInterface, .generatePCH,
         .generatePCM, .dumpPCM, .interpret, .repl, .printTargetInfo,
         .versionRequest, .emitSupportedFeatures, .scanDependencies, .verifyModuleInterface, .printSupportedFeatures:
         return true
@@ -288,7 +284,7 @@ extension Job.Kind {
     switch self {
     case .compile:
       return true
-    case .backend, .mergeModule, .emitModule, .generatePCH, .compileModuleFromInterface,
+    case .backend, .emitModule, .generatePCH, .compileModuleFromInterface,
          .generatePCM, .dumpPCM, .interpret, .repl, .printTargetInfo,
          .versionRequest, .autolinkExtract, .generateDSYM,
          .help, .link, .verifyDebugInfo, .scanDependencies,
@@ -305,7 +301,7 @@ extension Job.Kind {
     case .compile, .emitModule, .generatePCH, .compileModuleFromInterface,
          .generatePCM, .verifyModuleInterface:
       return true
-    case .backend, .mergeModule, .dumpPCM, .interpret, .repl, .printTargetInfo,
+    case .backend, .dumpPCM, .interpret, .repl, .printTargetInfo,
          .versionRequest, .autolinkExtract, .generateDSYM, .help, .link,
          .verifyDebugInfo, .scanDependencies, .emitSupportedFeatures, .moduleWrap,
          .generateAPIBaseline, .generateABIBaseline, .compareAPIBaseline,
