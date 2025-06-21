@@ -182,4 +182,12 @@ extension Diagnostic.Message {
   static var error_no_objc_interop_embedded: Diagnostic.Message {
     .error("Objective-C interop cannot be enabled with embedded Swift.")
   }
+
+  static var error_failed_to_create_reproducer: Diagnostic.Message {
+    .error("failed to create crash reproducer")
+  }
+
+  static func note_reproducer_created(_ path: String) -> Diagnostic.Message {
+    .note("crash reproducer is created at: \(path)")
+  }
 }

@@ -104,7 +104,7 @@ extension Driver {
            .help, .link, .verifyDebugInfo, .scanDependencies,
            .emitSupportedFeatures, .moduleWrap,
            .generateAPIBaseline, .generateABIBaseline, .compareAPIBaseline,
-           .compareABIBaseline, .printSupportedFeatures:
+           .compareABIBaseline, .printSupportedFeatures, .reproducer:
         jobNeedPathRemap = false
       }
     } else {
