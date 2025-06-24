@@ -536,7 +536,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
                   main.nativePathString(escaped: true)] + sdkArgumentsForTesting
       var driver = try Driver(args: args)
       let _ = try driver.planBuild()
-      let dependencyGraph = try XCTUnwrap(driver.explicitDependencyBuildPlanner?.dependencyGraph)
+      let dependencyGraph = try XCTUnwrap(driver.intermoduleDependencyGraph)
       let mainModuleImports = try XCTUnwrap(dependencyGraph.mainModule.importInfos)
       XCTAssertEqual(mainModuleImports.count, 5)
       XCTAssertTrue(mainModuleImports.contains(ImportInfo(importIdentifier: "Swift",
