@@ -15,6 +15,7 @@ import class Foundation.NSLock
 import func TSCBasic.withTemporaryDirectory
 import protocol TSCBasic.FileSystem
 import struct TSCBasic.AbsolutePath
+import struct TSCBasic.ByteString
 import struct TSCBasic.SHA256
 
 /// How the resolver is to handle usage of response files
@@ -184,9 +185,8 @@ public final class ArgsResolver {
 
       // FIXME: Need a way to support this for distributed build systems...
       if let absPath = responseFilePath.absolutePath {
-        try fileSystem.writeFileContents(absPath) {
-          $0.send(resolvedArguments[2...].map { $0.spm_shellEscaped() }.joined(separator: "\n"))
-        }
+        let argumentBytes = ByteString(resolvedArguments[2...].map { $0.spm_shellEscaped() }.joined(separator: "\n").utf8)
+        try fileSystem.writeFileContents(absPath, bytes: argumentBytes, atomically: true)
         resolvedArguments = [resolvedArguments[0], resolvedArguments[1], "@\(absPath.pathString)"]
       }
 
