@@ -195,6 +195,8 @@ internal extension InterModuleDependencyGraph {
         reporter?.report("Unable to 'stat' \(inputPath.description)")
         return false
       }
+      // SHA256 hashes for these files from the previous build are not
+      // currently stored, so we can only check timestamps
       if inputModTime > outputModTime {
         reporter?.reportExplicitDependencyOutOfDate(moduleName,
                                                     inputPath: inputPath.description)

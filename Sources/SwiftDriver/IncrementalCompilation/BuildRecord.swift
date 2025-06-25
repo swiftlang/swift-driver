@@ -46,7 +46,7 @@ extension BuildRecord {
   init(jobs: [Job],
        finishedJobResults: [BuildRecordInfo.JobResult],
        skippedInputs: Set<TypedVirtualPath>?,
-       compilationInputModificationDates: [TypedVirtualPath: TimePoint],
+       compilationInputModificationDates: [TypedVirtualPath: FileMetadata],
        actualSwiftVersion: String,
        argsHash: String,
        timeBeforeFirstJob: TimePoint,
@@ -57,10 +57,10 @@ extension BuildRecord {
         entry.job.inputsGeneratingCode.map { ($0, entry.result) }
     })
     let inputInfosArray = compilationInputModificationDates
-      .map { input, modDate -> (VirtualPath, InputInfo) in
+      .map { input, metadata -> (VirtualPath, InputInfo) in
         let status = InputInfo.Status(  wasSkipped: skippedInputs?.contains(input),
                                         jobResult: jobResultsByInput[input])
-        return (input.file, InputInfo(status: status, previousModTime: modDate))
+        return (input.file, InputInfo(status: status, previousModTime: metadata.mTime, hash: metadata.hash))
       }
 
     self.init(

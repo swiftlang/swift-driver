@@ -367,7 +367,7 @@ final class SwiftDriverTests: XCTestCase {
       let driver = try Driver(args: [
         "swiftc", main.pathString, utilRelative.pathString,
       ])
-      XCTAssertEqual(driver.recordedInputModificationDates, [
+      XCTAssertEqual(driver.recordedInputMetadata.mapValues{$0.mTime}, [
         .init(file: VirtualPath.absolute(main).intern(), type: .swift) : mainMDate,
         .init(file: VirtualPath.relative(utilRelative).intern(), type: .swift) : utilMDate,
       ])
@@ -5724,14 +5724,14 @@ final class SwiftDriverTests: XCTestCase {
       struct MockExecutor: DriverExecutor {
         let resolver: ArgsResolver
 
-        func execute(job: Job, forceResponseFiles: Bool, recordedInputModificationDates: [TypedVirtualPath : TimePoint]) throws -> ProcessResult {
+        func execute(job: Job, forceResponseFiles: Bool, recordedInputMetadata: [TypedVirtualPath : FileMetadata]) throws -> ProcessResult {
           return ProcessResult(arguments: [], environment: [:], exitStatus: .terminated(code: 0), output: .success(Array("bad JSON".utf8)), stderrOutput: .success([]))
         }
         func execute(workload: DriverExecutorWorkload,
                      delegate: JobExecutionDelegate,
                      numParallelJobs: Int,
                      forceResponseFiles: Bool,
-                     recordedInputModificationDates: [TypedVirtualPath : TimePoint]) throws {
+                     recordedInputMetadata: [TypedVirtualPath : FileMetadata]) throws {
           fatalError()
         }
         func checkNonZeroExit(args: String..., environment: [String : String]) throws -> String {
@@ -5740,7 +5740,29 @@ final class SwiftDriverTests: XCTestCase {
         func description(of job: Job, forceResponseFiles: Bool) throws -> String {
           fatalError()
         }
-      }
+
+        public func execute(job: Job,
+                             forceResponseFiles: Bool,
+                             recordedInputModificationDates: [TypedVirtualPath : TimePoint]) throws -> ProcessResult {
+          fatalError("This DriverExecutor protocol method is only for backwards compatibility and should not be called directly")
+        }
+
+        public func execute(workload: DriverExecutorWorkload,
+                            delegate: JobExecutionDelegate,
+                            numParallelJobs: Int,
+                            forceResponseFiles: Bool,
+                            recordedInputModificationDates: [TypedVirtualPath : TimePoint]) throws {
+          fatalError("This DriverExecutor protocol method is only for backwards compatibility and should not be called directly")
+        }
+
+        public func execute(jobs: [Job],
+                            delegate: JobExecutionDelegate,
+                            numParallelJobs: Int,
+                            forceResponseFiles: Bool,
+                            recordedInputModificationDates: [TypedVirtualPath: TimePoint]) throws {
+          fatalError("This DriverExecutor protocol method is only for backwards compatibility and should not be called directly")
+        }
+    }
 
       // Override path to libSwiftScan to force the fallback of using the executor
       var hideSwiftScanEnv = ProcessEnv.vars

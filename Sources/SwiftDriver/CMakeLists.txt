@@ -113,6 +113,7 @@ add_library(SwiftDriver
   Utilities/DateAdditions.swift
   Utilities/Diagnostics.swift
   Utilities/FileList.swift
+  Utilities/FileMetadata.swift
   Utilities/FileType.swift
   Utilities/PredictableRandomNumberGenerator.swift
   Utilities/RelativePathAdditions.swift

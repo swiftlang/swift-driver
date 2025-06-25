@@ -365,7 +365,7 @@ final class JobExecutorTests: XCTestCase {
       try localFileSystem.writeFileContents(main, bytes: "let foo = 1")
       // Ensure that the file modification since the start of the build planning process
       // results in a corresponding error.
-      XCTAssertThrowsError(try soleJob.verifyInputsNotModified(since: driver.recordedInputModificationDates, fileSystem: localFileSystem)) {
+      XCTAssertThrowsError(try soleJob.verifyInputsNotModified(since: driver.recordedInputMetadata.mapValues{$0.mTime}, fileSystem: localFileSystem)) {
         XCTAssertEqual($0 as? Job.InputError,
                        .inputUnexpectedlyModified(TypedVirtualPath(file: VirtualPath.absolute(main).intern(), type: .swift)))
       }

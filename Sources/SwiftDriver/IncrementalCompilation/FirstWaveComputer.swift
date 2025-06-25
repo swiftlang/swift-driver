@@ -26,6 +26,7 @@ extension IncrementalCompilationState {
     let showJobLifecycle: Bool
     let alwaysRebuildDependents: Bool
     let explicitModulePlanner: ExplicitDependencyBuildPlanner?
+    let useHashes: Bool
     /// If non-null outputs information for `-driver-show-incremental` for input path
     private let reporter: Reporter?
 
@@ -46,6 +47,7 @@ extension IncrementalCompilationState {
       self.alwaysRebuildDependents = initialState.incrementalOptions.contains(
         .alwaysRebuildDependents)
       self.explicitModulePlanner = explicitModulePlanner
+      self.useHashes = initialState.incrementalOptions.contains(.useFileHashesInModuleDependencyGraph)
       self.reporter = reporter
     }
 
@@ -303,8 +305,9 @@ extension IncrementalCompilationState.FirstWaveComputer {
     /// The status of the input file.
     let status: InputInfo.Status
     /// If `true`, the modification time of this input matches the modification
-    /// time recorded from the prior build in the build record.
-    let datesMatch: Bool
+    /// time recorded from the prior build in the build record, or the hash of
+    /// its contents match.
+    let metadataMatch: Bool
   }
 
   // Find the inputs that have changed since last compilation, or were marked as needed a build
@@ -313,16 +316,21 @@ extension IncrementalCompilationState.FirstWaveComputer {
   ) -> [ChangedInput] {
     jobsInPhases.compileJobs.compactMap { job in
       let input = job.primaryInputs[0]
-      let modDate = buildRecordInfo.compilationInputModificationDates[input] ?? .distantFuture
+      let metadata = buildRecordInfo.compilationInputModificationDates[input] ?? FileMetadata(mTime: .distantFuture)
       let inputInfo = outOfDateBuildRecord.inputInfos[input.file]
       let previousCompilationStatus = inputInfo?.status ?? .newlyAdded
       let previousModTime = inputInfo?.previousModTime
+      let previousHash = inputInfo?.hash 
+
+      assert(metadata.hash != nil || !useHashes)
 
       switch previousCompilationStatus {
-      case .upToDate where modDate == previousModTime:
+      case .upToDate where metadata.mTime == previousModTime:
         reporter?.report("May skip current input:", input)
         return nil
-
+      case .upToDate where useHashes && (metadata.hash == previousHash):
+        reporter?.report("May skip current input (identical hash):", input)
+        return nil
       case .upToDate:
         reporter?.report("Scheduling changed input", input)
       case .newlyAdded:
@@ -332,9 +340,10 @@ extension IncrementalCompilationState.FirstWaveComputer {
       case .needsNonCascadingBuild:
         reporter?.report("Scheduling noncascading build", input)
       }
+      let metadataMatch = metadata.mTime == previousModTime || (useHashes && metadata.hash == previousHash)
       return ChangedInput(typedFile: input,
                           status: previousCompilationStatus,
-                          datesMatch: modDate == previousModTime)
+                          metadataMatch: metadataMatch )
     }
   }
 
@@ -383,7 +392,7 @@ extension IncrementalCompilationState.FirstWaveComputer {
   ) -> [TypedVirtualPath] {
     changedInputs.compactMap { changedInput in
       let inputIsUpToDate =
-        changedInput.datesMatch && !inputsMissingOutputs.contains(changedInput.typedFile)
+        changedInput.metadataMatch && !inputsMissingOutputs.contains(changedInput.typedFile)
       let basename = changedInput.typedFile.file.basename
 
       // If we're asked to always rebuild dependents, all we need to do is

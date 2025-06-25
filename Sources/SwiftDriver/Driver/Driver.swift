@@ -24,6 +24,7 @@ import struct TSCBasic.ByteString
 import struct TSCBasic.Diagnostic
 import struct TSCBasic.FileInfo
 import struct TSCBasic.RelativePath
+import struct TSCBasic.SHA256
 import var TSCBasic.localFileSystem
 import var TSCBasic.stderrStream
 import var TSCBasic.stdoutStream
@@ -43,7 +44,6 @@ extension Driver.ErrorDiagnostics: CustomStringConvertible {
     }
   }
 }
-
 
 /// The Swift driver.
 public struct Driver {
@@ -212,8 +212,8 @@ public struct Driver {
   /// The set of input files
   @_spi(Testing) public let inputFiles: [TypedVirtualPath]
 
-  /// The last time each input file was modified, recorded at the start of the build.
-  @_spi(Testing) public let recordedInputModificationDates: [TypedVirtualPath: TimePoint]
+  /// The last time each input file was modified, and the file's SHA256 hash, recorded at the start of the build.
+  @_spi(Testing) public let recordedInputMetadata: [TypedVirtualPath: FileMetadata]
 
   /// The mapping from input files to output files for each kind.
   let outputFileMap: OutputFileMap?
@@ -950,11 +950,20 @@ public struct Driver {
     // Classify and collect all of the input files.
     let inputFiles = try Self.collectInputFiles(&self.parsedOptions, diagnosticsEngine: diagnosticsEngine, fileSystem: self.fileSystem)
     self.inputFiles = inputFiles
-    self.recordedInputModificationDates = .init(uniqueKeysWithValues:
-      Set(inputFiles).compactMap {
-        guard let modTime = try? fileSystem
-          .lastModificationTime(for: $0.file) else { return nil }
-        return ($0, modTime)
+
+    let incrementalFileHashes = parsedOptions.hasFlag(positive: .enableIncrementalFileHashing,
+                                                      negative: .disableIncrementalFileHashing,
+                                                      default: false)
+    self.recordedInputMetadata = .init(uniqueKeysWithValues:
+      Set(inputFiles).compactMap { inputFile -> (TypedVirtualPath, FileMetadata)? in 
+        guard let modTime = try? fileSystem.lastModificationTime(for: inputFile.file) else { return nil }
+        if incrementalFileHashes {
+            guard let data = try? fileSystem.readFileContents(inputFile.file)  else { return nil }
+            let hash = SHA256().hash(data).hexadecimalRepresentation
+            return (inputFile, FileMetadata(mTime: modTime, hash: hash))
+        } else {
+            return (inputFile, FileMetadata(mTime: modTime))
+        }
     })
 
     do {
@@ -1073,7 +1082,7 @@ public struct Driver {
       outputFileMap: outputFileMap,
       incremental: self.shouldAttemptIncrementalCompilation,
       parsedOptions: parsedOptions,
-      recordedInputModificationDates: recordedInputModificationDates)
+      recordedInputMetadata: recordedInputMetadata)
 
     self.supportedFrontendFlags =
       try Self.computeSupportedCompilerArgs(of: self.toolchain,
@@ -1912,7 +1921,7 @@ extension Driver {
       }
       try executor.execute(job: inPlaceJob,
                            forceResponseFiles: forceResponseFiles,
-                           recordedInputModificationDates: recordedInputModificationDates)
+                           recordedInputMetadata: recordedInputMetadata)
     }
 
     // If requested, warn for options that weren't used by the driver after the build is finished.
@@ -1957,7 +1966,7 @@ extension Driver {
       delegate: jobExecutionDelegate,
       numParallelJobs: numParallelJobs ?? 1,
       forceResponseFiles: forceResponseFiles,
-      recordedInputModificationDates: recordedInputModificationDates)
+      recordedInputMetadata: recordedInputMetadata)
   }
 
   public func writeIncrementalBuildInformation(_ jobs: [Job]) {
