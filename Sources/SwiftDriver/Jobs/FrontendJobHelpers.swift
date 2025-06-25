@@ -81,7 +81,7 @@ extension Driver {
       break
     }
 
-    let isPlanJobForExplicitModule = parsedOptions.contains(.driverExplicitModuleBuild)
+    let isPlanJobForExplicitModule = parsedOptions.contains(.driverExplicitModuleBuild) && explicitModulePlanner != nil
     let jobNeedPathRemap: Bool
     // If in ExplicitModuleBuild mode and the dependency graph has been computed, add module
     // dependencies.
