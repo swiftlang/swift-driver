@@ -1987,6 +1987,52 @@ final class ExplicitModuleBuildTests: XCTestCase {
   }
 
   /// Test the libSwiftScan dependency scanning.
+  func testDependencyScanningPluginFlagPropagation() throws {
+    let (stdlibPath, shimsPath, toolchain, hostTriple) = try getDriverArtifactsForScanning()
+
+    // The dependency oracle wraps an instance of libSwiftScan and ensures thread safety across
+    // queries.
+    let dependencyOracle = InterModuleDependencyOracle()
+    let scanLibPath = try XCTUnwrap(toolchain.lookupSwiftScanLib())
+    try dependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
+
+    // Create a simple test case.
+    try withTemporaryDirectory { path in
+      let main = path.appending(component: "testDependencyScanning.swift")
+      try localFileSystem.writeFileContents(main, bytes:
+        """
+        import C;\
+        import E;\
+        import G;
+        """
+      )
+
+      let cHeadersPath: AbsolutePath =
+      try testInputsPath.appending(component: "ExplicitModuleBuilds")
+        .appending(component: "CHeaders")
+      let swiftModuleInterfacesPath: AbsolutePath =
+      try testInputsPath.appending(component: "ExplicitModuleBuilds")
+        .appending(component: "Swift")
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+      var driver = try Driver(args: ["swiftc",
+                                     "-I", cHeadersPath.nativePathString(escaped: true),
+                                     "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                     "-I", stdlibPath.nativePathString(escaped: true),
+                                     "-I", shimsPath.nativePathString(escaped: true),
+                                     "/tmp/Foo.o",
+                                     "-plugin-path", "PluginA", "-external-plugin-path", "Plugin~B#Bexe",
+                                     "-explicit-module-build",
+                                     "-working-directory", path.nativePathString(escaped: true),
+                                     "-disable-clang-target",
+                                     main.nativePathString(escaped: true)] + sdkArgumentsForTesting)
+      let resolver = try ArgsResolver(fileSystem: localFileSystem)
+      var scannerCommand = try driver.dependencyScannerInvocationCommand().1.map { try resolver.resolve($0) }
+      XCTAssertTrue(scannerCommand.contains("-plugin-path"))
+      XCTAssertTrue(scannerCommand.contains("-external-plugin-path"))
+    }
+  }
+
+  /// Test the libSwiftScan dependency scanning.
   func testDependencyScanning() throws {
     let (stdlibPath, shimsPath, toolchain, hostTriple) = try getDriverArtifactsForScanning()
 
