@@ -535,6 +535,7 @@ extension Option {
   public static let experimentalCForeignReferenceTypes: Option = Option("-experimental-c-foreign-reference-types", .flag, attributes: [.helpHidden, .frontend, .moduleInterface], helpText: "Enable experimental C foreign references types (with reference counting).")
   public static let experimentalClangImporterDirectCc1Scan: Option = Option("-experimental-clang-importer-direct-cc1-scan", .flag, attributes: [.helpHidden, .frontend], helpText: "Enables swift driver to construct swift-frontend invocations using -direct-clang-cc1-module-build")
   public static let emitModuleSeparately: Option = Option("-experimental-emit-module-separately", .flag, attributes: [.helpHidden], helpText: "Emit module files as a distinct job")
+  public static let experimentalEmitVariantModule: Option = Option("-experimental-emit-variant-module", .flag, attributes: [], helpText: "When a target variant triple is specified, the same driver invocation will emit two Swift modules, one for the primary target and one for the variant.")
   public static let driverExperimentalExplicitModuleBuild: Option = Option("-experimental-explicit-module-build", .flag, alias: Option.driverExplicitModuleBuild, attributes: [.helpHidden], helpText: "Prebuild module dependencies to make them explicit")
   public static let forceWorkaroundBrokenModules: Option = Option("-experimental-force-workaround-broken-modules", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Attempt unsafe recovery for imported modules with broken modularization")
   public static let experimentalHermeticSealAtLink: Option = Option("-experimental-hermetic-seal-at-link", .flag, attributes: [.helpHidden, .frontend], helpText: "Library code can assume that all clients are visible at linktime, and aggressively strip unused code")
@@ -742,7 +743,6 @@ extension Option {
   public static let pcMacro: Option = Option("-pc-macro", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Apply the 'program counter simulation' macro")
   public static let pchDisableValidation: Option = Option("-pch-disable-validation", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable validating the persistent PCH")
   public static let pchOutputDir: Option = Option("-pch-output-dir", .separate, attributes: [.helpHidden, .frontend, .argumentIsPath], helpText: "Directory to persist automatically created precompiled bridging headers")
-  public static let placeholderDependencyModuleMap: Option = Option("-placeholder-dependency-module-map-file", .separate, attributes: [.frontend, .noDriver], metaVar: "<path>", helpText: "Specify a JSON file containing information of external Swift module dependencies")
   public static let platformAvailabilityInheritanceMapPath: Option = Option("-platform-availability-inheritance-map-path", .separate, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<path>", helpText: "Path of the platform inheritance platform map")
   public static let playgroundHighPerformance: Option = Option("-playground-high-performance", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Omit instrumentation that has a high runtime performance impact")
   public static let playgroundOption: Option = Option("-playground-option", .separate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Provide an option to the playground transform (if enabled)")
@@ -798,9 +798,11 @@ extension Option {
   public static let requireExplicitAvailability: Option = Option("-require-explicit-availability", .flag, attributes: [.frontend, .noInteractive], helpText: "Warn on public declarations without an availability attribute")
   public static let requireExplicitSendable: Option = Option("-require-explicit-sendable", .flag, attributes: [.frontend, .noInteractive], helpText: "Require explicit Sendable annotations on public declarations")
   public static let requirementMachineMaxConcreteNesting: Option = Option("-requirement-machine-max-concrete-nesting=", .joined, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Set the maximum concrete type nesting depth before giving up")
+  public static let requirementMachineMaxConcreteSize: Option = Option("-requirement-machine-max-concrete-size=", .joined, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Set the maximum concrete type total size before giving up")
   public static let requirementMachineMaxRuleCount: Option = Option("-requirement-machine-max-rule-count=", .joined, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Set the maximum number of rules before giving up")
   public static let requirementMachineMaxRuleLength: Option = Option("-requirement-machine-max-rule-length=", .joined, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Set the maximum rule length before giving up")
   public static let requirementMachineMaxSplitConcreteEquivClassAttempts: Option = Option("-requirement-machine-max-split-concrete-equiv-class-attempts=", .joined, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Set the maximum concrete number of attempts at splitting concrete equivalence classes before giving up. There should never be a reason to change this")
+  public static let requirementMachineMaxTypeDifferences: Option = Option("-requirement-machine-max-type-differences=", .joined, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Set the maximum number of type difference structures allocated before giving up")
   public static let resolveImports: Option = Option("-resolve-imports", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Parse and resolve imports in input file(s)", group: .modes)
   public static let resolvedPluginVerification: Option = Option("-resolved-plugin-verification", .flag, attributes: [.frontend, .noDriver], helpText: "verify resolved plugins")
   public static let resourceDir: Option = Option("-resource-dir", .separate, attributes: [.helpHidden, .frontend, .synthesizeInterface, .argumentIsPath], metaVar: "</usr/lib/swift>", helpText: "The directory that holds the compiler resource files")
@@ -856,7 +858,6 @@ extension Option {
   public static let skipInheritedDocs: Option = Option("-skip-inherited-docs", .flag, attributes: [.helpHidden, .frontend, .noInteractive, .supplementaryOutput], helpText: "Skip emitting doc comments for members inherited through classes or default implementations")
   public static let skipProtocolImplementations: Option = Option("-skip-protocol-implementations", .flag, attributes: [.helpHidden, .frontend, .noInteractive, .supplementaryOutput], helpText: "Skip emitting symbols that are implementations of protocol requirements or inherited from protocol extensions")
   public static let skipSynthesizedMembers: Option = Option("-skip-synthesized-members", .flag, attributes: [.noDriver], helpText: "Skip members inherited through classes or default implementations")
-  public static let solverDisableShrink: Option = Option("-solver-disable-shrink", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable the shrink phase of expression type checking")
   public static let solverDisableSplitter: Option = Option("-solver-disable-splitter", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable the component splitter phase of expression type checking")
   public static let solverExpressionTimeThresholdEQ: Option = Option("-solver-expression-time-threshold=", .joined, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Expression type checking timeout, in seconds")
   public static let solverMemoryThreshold: Option = Option("-solver-memory-threshold", .separate, attributes: [.helpHidden, .frontend, .doesNotAffectIncrementalBuild], helpText: "Set the upper bound for memory consumption, in bytes, by the constraint solver")
@@ -1501,6 +1502,7 @@ extension Option {
       Option.experimentalCForeignReferenceTypes,
       Option.experimentalClangImporterDirectCc1Scan,
       Option.emitModuleSeparately,
+      Option.experimentalEmitVariantModule,
       Option.driverExperimentalExplicitModuleBuild,
       Option.forceWorkaroundBrokenModules,
       Option.experimentalHermeticSealAtLink,
@@ -1708,7 +1710,6 @@ extension Option {
       Option.pcMacro,
       Option.pchDisableValidation,
       Option.pchOutputDir,
-      Option.placeholderDependencyModuleMap,
       Option.platformAvailabilityInheritanceMapPath,
       Option.playgroundHighPerformance,
       Option.playgroundOption,
@@ -1764,9 +1765,11 @@ extension Option {
       Option.requireExplicitAvailability,
       Option.requireExplicitSendable,
       Option.requirementMachineMaxConcreteNesting,
+      Option.requirementMachineMaxConcreteSize,
       Option.requirementMachineMaxRuleCount,
       Option.requirementMachineMaxRuleLength,
       Option.requirementMachineMaxSplitConcreteEquivClassAttempts,
+      Option.requirementMachineMaxTypeDifferences,
       Option.resolveImports,
       Option.resolvedPluginVerification,
       Option.resourceDir,
@@ -1822,7 +1825,6 @@ extension Option {
       Option.skipInheritedDocs,
       Option.skipProtocolImplementations,
       Option.skipSynthesizedMembers,
-      Option.solverDisableShrink,
       Option.solverDisableSplitter,
       Option.solverExpressionTimeThresholdEQ,
       Option.solverMemoryThreshold,
