@@ -16,6 +16,7 @@ import struct TSCBasic.RelativePath
 import struct TSCBasic.Diagnostic
 import var TSCBasic.localFileSystem
 import var TSCBasic.stdoutStream
+import typealias TSCBasic.ProcessEnvironmentBlock
 
 import SwiftOptions
 import struct Foundation.Data
@@ -223,11 +224,7 @@ public extension Driver {
                                                              moduleAliases: moduleOutputInfo.aliases,
                                                              commandLine: command,
                                                              diagnostics: &scanDiagnostics)
-      } catch let DependencyScanningError.dependencyScanFailed(reason) {
-        try emitGlobalScannerDiagnostics()
-        throw DependencyScanningError.dependencyScanFailed(reason)
       }
-      try emitGlobalScannerDiagnostics()
     } else {
       // Fallback to legacy invocation of the dependency scanner with
       // `swift-frontend -scan-dependencies -import-prescan`
@@ -262,17 +259,6 @@ public extension Driver {
       }
   }
 
-  mutating internal func emitGlobalScannerDiagnostics() throws {
-    // We only emit global scanner-collected diagnostics as a legacy flow
-    // when the scanner does not support per-scan diagnostic output
-    guard try !interModuleDependencyOracle.supportsPerScanDiagnostics() else {
-      return
-    }
-    if let diags = try interModuleDependencyOracle.getScannerDiagnostics() {
-      try emitScannerDiagnostics(diags)
-    }
-  }
-
   mutating func performDependencyScan(forVariantModule: Bool = false) throws -> InterModuleDependencyGraph {
     let scannerJob = try dependencyScanningJob(forVariantModule: forVariantModule)
     let forceResponseFiles = parsedOptions.hasArgument(.driverForceResponseFiles)
@@ -300,11 +286,7 @@ public extension Driver {
                                                                           commandLine: command,
                                                                           diagnostics: &scanDiagnostics)
         try emitScannerDiagnostics(scanDiagnostics)
-      } catch let DependencyScanningError.dependencyScanFailed(reason) {
-        try emitGlobalScannerDiagnostics()
-        throw DependencyScanningError.dependencyScanFailed(reason)
       }
-      try emitGlobalScannerDiagnostics()
     } else {
       // Fallback to legacy invocation of the dependency scanner with
       // `swift-frontend -scan-dependencies`
@@ -353,7 +335,7 @@ public extension Driver {
                                             useResponseFiles: useResponseFiles).0.map { $0.spm_shellEscaped() }
   }
 
-  static func getRootPath(of toolchain: Toolchain, env: [String: String])
+  static func getRootPath(of toolchain: Toolchain, env: ProcessEnvironmentBlock)
   throws -> AbsolutePath {
     return try toolchain.getToolPath(.swiftCompiler)
       .parentDirectory // bin

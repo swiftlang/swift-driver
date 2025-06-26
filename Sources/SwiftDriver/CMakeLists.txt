@@ -33,6 +33,7 @@ add_library(SwiftDriver
   Execution/DriverExecutor.swift
   Execution/ParsableOutput.swift
   Execution/ProcessProtocol.swift
+  Execution/ProcessSet.swift
 
   "IncrementalCompilation/Bitcode/Bitcode.swift"
   "IncrementalCompilation/Bitcode/BitcodeElement.swift"

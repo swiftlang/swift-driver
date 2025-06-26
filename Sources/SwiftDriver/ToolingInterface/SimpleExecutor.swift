@@ -13,6 +13,8 @@
 import protocol TSCBasic.FileSystem
 import struct TSCBasic.ProcessResult
 import class TSCBasic.Process
+import enum TSCBasic.ProcessEnv
+import typealias TSCBasic.ProcessEnvironmentBlock
 
 /// A simple executor sufficient for managing processes required during
 /// build planning: e.g. querying frontend target info.
@@ -23,9 +25,9 @@ import class TSCBasic.Process
 @_spi(Testing) public class SimpleExecutor: DriverExecutor {
   public let resolver: ArgsResolver
   let fileSystem: FileSystem
-  let env: [String: String]
+  let env: ProcessEnvironmentBlock
 
-  public init(resolver: ArgsResolver, fileSystem: FileSystem, env: [String: String]) {
+  public init(resolver: ArgsResolver, fileSystem: FileSystem, env: ProcessEnvironmentBlock) {
     self.resolver = resolver
     self.fileSystem = fileSystem
     self.env = env
@@ -37,7 +39,7 @@ import class TSCBasic.Process
     let arguments: [String] = try resolver.resolveArgumentList(for: job,
                                                                useResponseFiles: .heuristic)
     var childEnv = env
-    childEnv.merge(job.extraEnvironment, uniquingKeysWith: { (_, new) in new })
+    childEnv.merge(job.extraEnvironmentBlock, uniquingKeysWith: { (_, new) in new })
     let process = try Process.launchProcess(arguments: arguments, env: childEnv)
     return try process.waitUntilExit()
   }
@@ -83,9 +85,12 @@ import class TSCBasic.Process
       recordedInputMetadata: recordedInputMetadata)
   }
 
+  public func checkNonZeroExit(args: String..., environment: [String: String]) throws -> String {
+    try Process.checkNonZeroExit(arguments: args, environmentBlock: ProcessEnvironmentBlock(environment))
+  }
 
-  public func checkNonZeroExit(args: String..., environment: [String : String]) throws -> String {
-    try Process.checkNonZeroExit(arguments: args, environment: environment)
+  public func checkNonZeroExit(args: String..., environmentBlock: ProcessEnvironmentBlock = ProcessEnv.block) throws -> String {
+    try Process.checkNonZeroExit(arguments: args, environmentBlock: environmentBlock)
   }
 
   public func description(of job: Job, forceResponseFiles: Bool) throws -> String {
