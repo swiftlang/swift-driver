@@ -1884,12 +1884,19 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let error = diags[0]
       XCTAssertEqual(error.severity, .error)
       if try dependencyOracle.supportsDiagnosticSourceLocations() {
-        XCTAssertEqual(error.message,
-        """
-        Unable to find module dependency: 'unknown_module'
-        import unknown_module
-               ^
-        """)
+        let errorVariant1 =
+          """
+          Unable to find module dependency: 'unknown_module'
+          import unknown_module
+                 ^
+          """
+        let errorVariant2 =
+          """
+          unable to resolve module dependency: 'unknown_module'
+          import unknown_module
+                 ^
+          """
+        XCTAssertTrue(error.message == errorVariant1 || error.message == errorVariant2)
         let sourceLoc = try XCTUnwrap(error.sourceLocation)
         XCTAssertTrue(sourceLoc.bufferIdentifier.hasSuffix("I.swiftinterface"))
         XCTAssertEqual(sourceLoc.lineNumber, 3)
@@ -1956,13 +1963,19 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let error = diags[0]
       XCTAssertEqual(error.severity, .error)
       if try dependencyOracle.supportsDiagnosticSourceLocations() {
-        XCTAssertEqual(error.message,
-        """
-        Unable to find module dependency: 'FooBar'
-        import FooBar
-               ^
-        """)
-
+        let errorVariant1 =
+          """
+          Unable to find module dependency: 'FooBar'
+          import FooBar
+                 ^
+          """
+        let errorVariant2 =
+          """
+          unable to resolve module dependency: 'FooBar'
+          import FooBar
+                 ^
+          """
+        XCTAssertTrue(error.message == errorVariant1 || error.message == errorVariant2)
         let sourceLoc = try XCTUnwrap(error.sourceLocation)
         XCTAssertTrue(sourceLoc.bufferIdentifier.hasSuffix("testDependencyScanning.swift"))
         XCTAssertEqual(sourceLoc.lineNumber, 1)
@@ -2284,12 +2297,19 @@ final class ExplicitModuleBuildTests: XCTestCase {
               let sourceLoc = try XCTUnwrap(diagnostics[0].sourceLocation)
               XCTAssertEqual(sourceLoc.lineNumber, 1)
               XCTAssertEqual(sourceLoc.columnNumber, 8)
-              XCTAssertEqual(diagnostics[0].message,
-              """
-              Unable to find module dependency: 'UnknownModule\(scanIndex)'
-              import UnknownModule\(scanIndex);
-                     ^
-              """)
+              let errorVariant1 =
+                """
+                Unable to find module dependency: 'UnknownModule\(scanIndex)'
+                import UnknownModule\(scanIndex);
+                       ^
+                """
+              let errorVariant2 =
+                """
+                unable to resolve module dependency: 'UnknownModule\(scanIndex)'
+                import UnknownModule\(scanIndex);
+                       ^
+                """
+              XCTAssertTrue(diagnostics[0].message == errorVariant1 || diagnostics[0].message == errorVariant2)
               let noteSourceLoc = try XCTUnwrap(diagnostics[1].sourceLocation)
               XCTAssertEqual(noteSourceLoc.lineNumber, 1)
               XCTAssertEqual(noteSourceLoc.columnNumber, 8)
