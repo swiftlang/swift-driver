@@ -9,6 +9,7 @@
 // See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
+import Foundation
 import SwiftOptions
 
 import class Dispatch.DispatchQueue
@@ -955,7 +956,7 @@ public struct Driver {
                                                       negative: .disableIncrementalFileHashing,
                                                       default: false)
     self.recordedInputMetadata = .init(uniqueKeysWithValues:
-      Set(inputFiles).compactMap { inputFile -> (TypedVirtualPath, FileMetadata)? in 
+      Set(inputFiles).compactMap { inputFile -> (TypedVirtualPath, FileMetadata)? in
         guard let modTime = try? fileSystem.lastModificationTime(for: inputFile.file) else { return nil }
         if incrementalFileHashes {
             guard let data = try? fileSystem.readFileContents(inputFile.file)  else { return nil }
@@ -1425,6 +1426,9 @@ extension Driver {
     if firstArg == "repl" {
         updatedArgs.remove(at: 1)
         updatedArgs.append("-repl")
+        #if os(Windows)
+        checkIfMatchingPythonArch()
+        #endif
         return (.normal(isRepl: true), updatedArgs)
     }
 
@@ -1433,6 +1437,49 @@ extension Driver {
     updatedArgs.replaceSubrange(0...1, with: [subcommand])
 
     return (.subcommand(subcommand), updatedArgs)
+  }
+
+  /// Ensure that the architecture of the toolchain matches the architecture
+  /// of the Python installation.
+  ///
+  /// When installing the x86 toolchain on ARM64 Windows, if the user does not
+  /// install an x86 version of Python, they will get acryptic error message
+  /// when running lldb (`0xC000007B`). Calling this function before invoking
+  /// lldb gives them a warning to help troublshoot the issue.
+  private static func checkIfMatchingPythonArch() {
+    #if arch(arm64)
+    let arch = "arm64"
+    #elseif arch(x86_64)
+    let arch = "amd64"
+    #elseif arch(x86)
+    let arch = "x86"
+    #else
+    return;
+    #endif
+    let process = Process()
+    process.executableURL = URL(fileURLWithPath: "C:\\Windows\\System32\\cmd.exe")
+    process.arguments = ["/c", "python.exe", "-c", "import platform; print(platform.machine())"]
+
+    let pipe = Pipe()
+    process.standardOutput = pipe
+    do {
+        try process.run()
+        process.waitUntilExit()
+
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        guard let output = String(data: data, encoding: .utf8) else {
+          return;
+        }
+        if !output.lowercased().contains(arch) {
+          stderrStream.send("There is an architecture mismatch between the installed toolchain and the resolved Python's architecture:\n")
+          stderrStream.send("Toolchain: \(arch)\n")
+          stderrStream.send("Python: \(output)\n")
+        }
+    } catch {
+      stderrStream.flush()
+      return
+    }
+    stderrStream.flush()
   }
 }
 
