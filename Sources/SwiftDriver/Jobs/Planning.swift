@@ -184,6 +184,9 @@ extension Driver {
 
   private mutating func addVariantModuleJobs(addJobBeforeCompiles: (Job) -> Void,
                                              addJobAfterCompiles: (Job) -> Void) throws {
+    guard parsedOptions.contains(.experimentalEmitVariantModule) else {
+      return
+    }
     guard variantModuleOutputInfo != nil else {
       return
     }
