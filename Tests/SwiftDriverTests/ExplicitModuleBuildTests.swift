@@ -2816,6 +2816,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
           """
         )
         var driver = try Driver(args: ["swiftc",
+                                       "-experimental-emit-variant-module",
                                        "-target", "x86_64-apple-macosx10.14",
                                        "-target-variant", "x86_64-apple-ios13.1-macabi",
                                        "-clang-target", "x86_64-apple-macosx12.14",
@@ -2920,6 +2921,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
           $0.send("struct Profiler { void* ptr; };")
         }
         var driver = try Driver(args: ["swiftc",
+                                       "-experimental-emit-variant-module",
                                        "-target", "x86_64-apple-macosx10.14",
                                        "-target-variant", "x86_64-apple-ios13.1-macabi",
                                        "-clang-target", "x86_64-apple-macosx12.14",
