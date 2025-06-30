@@ -35,6 +35,7 @@ import protocol TSCBasic.FileSystem
                                  sourceFiles: [],
                                  directDependencies: currentInfo.directDependencies,
                                  linkLibraries: currentInfo.linkLibraries,
+                                 importInfos: nil,
                                  details: .swiftPrebuiltExternal(newExternalModuleDetails))
         Self.replaceModule(originalId: swiftModuleId, replacementId: prebuiltModuleId,
                            replacementInfo: newInfo, in: &modules)
@@ -48,6 +49,7 @@ import protocol TSCBasic.FileSystem
                                  sourceFiles: [],
                                  directDependencies: currentPrebuiltInfo.directDependencies,
                                  linkLibraries: currentPrebuiltInfo.linkLibraries,
+                                 importInfos: nil,
                                  details: .swiftPrebuiltExternal(newExternalModuleDetails))
         Self.replaceModule(originalId: prebuiltModuleId, replacementId: prebuiltModuleId,
                            replacementInfo: newInfo, in: &modules)
