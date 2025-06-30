@@ -104,7 +104,7 @@ private extension SwiftScan {
       }
     }
 
-    var importInfos: [ImportInfo] = []
+    var importInfos: [ImportInfo]? = nil
     if supportsImportInfos {
       let importInfoSetRefOrNull = api.swiftscan_module_info_get_imports(moduleInfoRef)
       guard let importInfoSetRef = importInfoSetRefOrNull else {
@@ -112,11 +112,11 @@ private extension SwiftScan {
       }
       let importInfoRefArray = Array(UnsafeBufferPointer(start: importInfoSetRef.pointee.imports,
                                                          count: Int(importInfoSetRef.pointee.count)))
-      for importInfoRefOrNull in importInfoRefArray {
+      importInfos = try importInfoRefArray.map { importInfoRefOrNull in
         guard let importInfoRef = importInfoRefOrNull else {
           throw DependencyScanningError.missingField("dependency_set_t.imports[_]")
         }
-        importInfos.append(try constructImportInfo(from: importInfoRef))
+        return try constructImportInfo(from: importInfoRef)
       }
     }
 
