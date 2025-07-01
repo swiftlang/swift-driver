@@ -875,9 +875,18 @@ public struct Driver {
 
     self.executor = executor
 
-    if case .subcommand = try Self.invocationRunMode(forArgs: args).mode {
+    let invocationMode = try Self.invocationRunMode(forArgs: args).mode
+    if case .subcommand = invocationMode {
       throw Error.subcommandPassedToDriver
     }
+
+    #if os(Windows)
+      if case .normal(isRepl: true) = invocationMode {
+        checkIfMatchingPythonArch(
+          cwd: ProcessEnv.cwd, envBlock: envBlock, diagnosticsEngine: diagnosticsEngine)
+      }
+    #endif
+
     var args = args
     if let additional = env["ADDITIONAL_SWIFT_DRIVER_FLAGS"] {
       args.append(contentsOf: additional.components(separatedBy: " "))
