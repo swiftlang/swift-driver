@@ -2042,6 +2042,14 @@ final class ExplicitModuleBuildTests: XCTestCase {
       var scannerCommand = try driver.dependencyScannerInvocationCommand().1.map { try resolver.resolve($0) }
       XCTAssertTrue(scannerCommand.contains("-plugin-path"))
       XCTAssertTrue(scannerCommand.contains("-external-plugin-path"))
+      let jobs = try driver.planBuild()
+      for job in jobs {
+        if job.kind != .compile {
+          continue
+        }
+        let command = try job.commandLine.map { try resolver.resolve($0) }
+        XCTAssertTrue(command.contains { $0 == "-in-process-plugin-server-path" })
+      }
     }
   }
 
