@@ -1031,10 +1031,11 @@ extension Driver {
   }
 
   public mutating func addCacheReplayMapping(to commandLine: inout [Job.ArgTemplate]) {
-    if isCachingEnabled && isFrontendArgSupported(.scannerPrefixMap) {
+    if isCachingEnabled && isFrontendArgSupported(.scannerPrefixMapPaths) {
       for (key, value) in prefixMapping {
         commandLine.appendFlag("-cache-replay-prefix-map")
-        commandLine.appendFlag(value.pathString + "=" + key.pathString)
+        commandLine.appendFlag(value.pathString)
+        commandLine.appendFlag(key.pathString)
       }
     }
   }
