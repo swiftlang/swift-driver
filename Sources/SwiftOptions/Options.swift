@@ -70,7 +70,7 @@ extension Option {
   public static let bypassResilience: Option = Option("-bypass-resilience-checks", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Ignore all checks for module resilience.")
   public static let cacheCompileJob: Option = Option("-cache-compile-job", .flag, attributes: [.frontend], helpText: "Enable compiler caching")
   public static let cacheDisableReplay: Option = Option("-cache-disable-replay", .flag, attributes: [.frontend, .cacheInvariant], helpText: "Skip loading the compilation result from cache")
-  public static let cacheReplayPrefixMap: Option = Option("-cache-replay-prefix-map", .separate, attributes: [.frontend, .noDriver, .cacheInvariant], metaVar: "<prefix=replacement>", helpText: "Remap paths when replaying outputs from cache")
+  public static let cacheReplayPrefixMap: Option = Option("-cache-replay-prefix-map", .multiArg, attributes: [.frontend, .noDriver, .cacheInvariant], metaVar: "<prefix> <replacement>", helpText: "Remap paths when replaying outputs from cache", numArgs: 2)
   public static let candidateModuleFile: Option = Option("-candidate-module-file", .separate, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<path>", helpText: "Specify Swift module may be ready to use for an interface")
   public static let casBackendMode: Option = Option("-cas-backend-mode=", .joined, attributes: [.frontend, .noDriver], metaVar: "native|casid|verify", helpText: "CASBackendMode for output kind")
   public static let casBackend: Option = Option("-cas-backend", .flag, attributes: [.frontend, .noDriver], helpText: "Enable using CASBackend for object file output")
@@ -833,7 +833,8 @@ extension Option {
   public static let scannerOutputDir: Option = Option("-scanner-output-dir", .separate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Directory for generated files from swift dependency scanner")
   public static let scannerPrefixMapSdk: Option = Option("-scanner-prefix-map-sdk", .separate, attributes: [], metaVar: "<path>", helpText: "Remap paths within SDK reported by dependency scanner")
   public static let scannerPrefixMapToolchain: Option = Option("-scanner-prefix-map-toolchain", .separate, attributes: [], metaVar: "<path>", helpText: "Remap paths within toolchain directory reported by dependency scanner")
-  public static let scannerPrefixMap: Option = Option("-scanner-prefix-map", .separate, attributes: [.frontend], metaVar: "<prefix=replacement>", helpText: "Remap paths reported by dependency scanner")
+  public static let scannerPrefixMap: Option = Option("-scanner-prefix-map", .separate, attributes: [], metaVar: "<prefix=replacement>", helpText: "Remap paths reported by dependency scanner")
+  public static let scannerPrefixMapPaths: Option = Option("-scanner-prefix-map-paths", .multiArg, attributes: [.frontend], metaVar: "<prefix> <replacement>", helpText: "Remap paths reported by dependency scanner", numArgs: 2)
   public static let sdkModuleCachePath: Option = Option("-sdk-module-cache-path", .separate, attributes: [.frontend, .doesNotAffectIncrementalBuild, .argumentIsPath], helpText: "Specifies the module cache path for explicitly-built SDK modules")
   public static let sdk: Option = Option("-sdk", .separate, attributes: [.frontend, .synthesizeInterface, .argumentIsPath], metaVar: "<sdk>", helpText: "Compile against <sdk>")
   public static let serializeBreakingChangesPath: Option = Option("-serialize-breaking-changes-path", .separate, attributes: [.noInteractive, .argumentIsPath], metaVar: "<path>", helpText: "Serialize breaking changes found by the API digester to <path>")
@@ -1801,6 +1802,7 @@ extension Option {
       Option.scannerPrefixMapSdk,
       Option.scannerPrefixMapToolchain,
       Option.scannerPrefixMap,
+      Option.scannerPrefixMapPaths,
       Option.sdkModuleCachePath,
       Option.sdk,
       Option.serializeBreakingChangesPath,

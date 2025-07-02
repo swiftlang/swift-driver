@@ -125,8 +125,14 @@ public extension Driver {
       commandLine.appendFlag(.scannerModuleValidation)
     }
 
-    if isFrontendArgSupported(.scannerPrefixMap) {
-      // construct `-scanner-prefix-mapper` for scanner.
+    if isFrontendArgSupported(.scannerPrefixMapPaths) {
+      // construct `-scanner-prefix-map-paths` for scanner.
+      for (key, value) in prefixMapping {
+        commandLine.appendFlag(.scannerPrefixMapPaths)
+        commandLine.appendFlag(key.pathString)
+        commandLine.appendFlag(value.pathString)
+      }
+    } else if isFrontendArgSupported(.scannerPrefixMap) {
       for (key, value) in prefixMapping {
         commandLine.appendFlag(.scannerPrefixMap)
         commandLine.appendFlag(key.pathString + "=" + value.pathString)

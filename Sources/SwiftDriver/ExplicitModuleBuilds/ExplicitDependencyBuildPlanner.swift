@@ -62,6 +62,9 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
   /// Does this compile support `.explicitInterfaceModuleBuild`
   private let supportsExplicitInterfaceBuild: Bool
 
+  /// status of the scanner prefix mapping option supported by the frontend
+  private let supportsScannerPrefixMapPaths: Bool
+
   /// Cached command-line additions for all main module compile jobs
   private struct ResolvedModuleDependenciesCommandLineComponents {
     let inputs: [TypedVirtualPath]
@@ -88,7 +91,8 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
               supportsExplicitInterfaceBuild: Bool = false,
               cas: SwiftScanCAS? = nil,
               prefixMap:  [(AbsolutePath, AbsolutePath)] = [],
-              supportsBridgingHeaderPCHCommand: Bool = false) throws {
+              supportsBridgingHeaderPCHCommand: Bool = false,
+              supportsScannerPrefixMapPaths: Bool = false) throws {
     self.dependencyGraph = dependencyGraph
     self.toolchain = toolchain
     self.integratedDriver = integratedDriver
@@ -96,6 +100,7 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
     self.reachabilityMap = try dependencyGraph.computeTransitiveClosure()
     self.supportsExplicitInterfaceBuild = supportsExplicitInterfaceBuild
     self.supportsBridgingHeaderPCHCommand = supportsBridgingHeaderPCHCommand
+    self.supportsScannerPrefixMapPaths = supportsScannerPrefixMapPaths
     self.cas = cas
     self.prefixMap = prefixMap
     let mainModuleId: ModuleDependencyId = .swift(dependencyGraph.mainModuleName)
@@ -216,7 +221,12 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
       // Add prefix mapping. The option is cache invariant so it can be added without affecting cache key.
       for (key, value) in prefixMap {
         commandLine.appendFlag("-cache-replay-prefix-map")
-        commandLine.appendFlag(value.pathString + "=" + key.pathString)
+        if supportsScannerPrefixMapPaths {
+          commandLine.appendFlag(value.pathString)
+          commandLine.appendFlag(key.pathString)
+        } else {
+          commandLine.appendFlag(value.pathString + "=" + key.pathString)
+        }
       }
 
       jobs.append(Job(
@@ -277,7 +287,12 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
       // Add prefix mapping. The option is cache invariant so it can be added without affecting cache key.
       for (key, value) in prefixMap {
         commandLine.appendFlag("-cache-replay-prefix-map")
-        commandLine.appendFlag(value.pathString + "=" + key.pathString)
+        if supportsScannerPrefixMapPaths {
+          commandLine.appendFlag(value.pathString)
+          commandLine.appendFlag(key.pathString)
+        } else {
+          commandLine.appendFlag(value.pathString + "=" + key.pathString)
+        }
       }
 
       jobs.append(Job(
