@@ -193,16 +193,8 @@ extension Driver {
     commandLine.appendFlag(.resourceDir)
     commandLine.appendPath(VirtualPath.lookup(frontendTargetInfo.runtimeResourcePath.path))
 
-    try commandLine.appendAll(.I, from: &parsedOptions)
-    for systemImport in parsedOptions.arguments(for: .Isystem) {
-      commandLine.appendFlag(.I)
-      commandLine.appendFlag(systemImport.argument.asSingle)
-    }
-    try commandLine.appendAll(.F, from: &parsedOptions)
-    for systemFramework in parsedOptions.arguments(for: .Fsystem) {
-      commandLine.appendFlag(.iframework)
-      commandLine.appendFlag(systemFramework.argument.asSingle)
-    }
+    try commandLine.appendAll(.I, .Isystem, from: &parsedOptions)
+    try commandLine.appendAll(.F, .Fsystem, from: &parsedOptions)
 
     try commandLine.appendLast(.swiftVersion, from: &parsedOptions)
   }
