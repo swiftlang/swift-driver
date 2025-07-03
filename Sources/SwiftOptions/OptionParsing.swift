@@ -182,10 +182,8 @@ extension OptionTable {
           throw OptionParseError.missingArgument(
             index: index - 1, argument: argument)
         }
-        parsedOptions.addOption(option, argument: .multiple(Array()))
-        arguments[index..<endIdx].map { String($0) }.forEach { parsedOptions.addInput($0) }
+        parsedOptions.addOption(option, argument: .multiple(arguments[index..<endIdx].map { String($0) }))
         index = endIdx
-
       }
     }
     parsedOptions.buildIndex()

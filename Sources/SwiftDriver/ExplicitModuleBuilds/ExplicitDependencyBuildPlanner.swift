@@ -216,7 +216,8 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
       // Add prefix mapping. The option is cache invariant so it can be added without affecting cache key.
       for (key, value) in prefixMap {
         commandLine.appendFlag("-cache-replay-prefix-map")
-        commandLine.appendFlag(value.pathString + "=" + key.pathString)
+        commandLine.appendFlag(value.pathString)
+        commandLine.appendFlag(key.pathString)
       }
 
       jobs.append(Job(
@@ -277,7 +278,8 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
       // Add prefix mapping. The option is cache invariant so it can be added without affecting cache key.
       for (key, value) in prefixMap {
         commandLine.appendFlag("-cache-replay-prefix-map")
-        commandLine.appendFlag(value.pathString + "=" + key.pathString)
+        commandLine.appendFlag(value.pathString)
+        commandLine.appendFlag(key.pathString)
       }
 
       jobs.append(Job(
