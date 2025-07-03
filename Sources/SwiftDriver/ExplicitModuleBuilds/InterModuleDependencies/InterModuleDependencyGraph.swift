@@ -101,6 +101,29 @@ public struct LinkLibraryInfo: Codable, Hashable {
   public var shouldForceLoad: Bool
 }
 
+/// Source 'import'
+public struct ImportInfo : Codable, Hashable {
+  public enum ImportAccessLevel : Codable, Hashable {
+    case Private
+    case FilePrivate
+    case Internal
+    case Package
+    case Public
+  }
+
+  public var importIdentifier: String
+  public var accessLevel: ImportAccessLevel
+  public var sourceLocations: [ScannerDiagnosticSourceLocation]
+
+  @_spi(Testing) public init(importIdentifier: String,
+                             accessLevel: ImportAccessLevel,
+                             sourceLocations: [ScannerDiagnosticSourceLocation]) {
+    self.importIdentifier = importIdentifier
+    self.accessLevel = accessLevel
+    self.sourceLocations = sourceLocations
+  }
+}
+
 /// Details specific to Swift modules.
 public struct SwiftModuleDetails: Codable, Hashable {
   /// The module interface from which this module was built, if any.
@@ -212,6 +235,9 @@ public struct ModuleInfo: Codable, Hashable {
   /// The set of libraries that need to be linked
   public var linkLibraries: [LinkLibraryInfo]?
 
+  /// The set of import details of this module
+  public var importInfos: [ImportInfo]?
+
   /// Specific details of a particular kind of module.
   public var details: Details
 
@@ -236,11 +262,13 @@ public struct ModuleInfo: Codable, Hashable {
               sourceFiles: [String]?,
               directDependencies: [ModuleDependencyId]?,
               linkLibraries: [LinkLibraryInfo]?,
+              importInfos: [ImportInfo]?,
               details: Details) {
     self.modulePath = modulePath
     self.sourceFiles = sourceFiles
     self.directDependencies = directDependencies
     self.linkLibraries = linkLibraries
+    self.importInfos = importInfos
     self.details = details
   }
 }
