@@ -566,23 +566,23 @@ extension Driver {
       .appending(components: frontendTargetInfo.target.triple.platformName() ?? "", "Swift.swiftmodule")
     let hasToolchainStdlib = try fileSystem.exists(toolchainStdlibPath)
 
-    let skipMacroOptions = isPlanJobForExplicitModule && isFrontendArgSupported(.loadResolvedPlugin)
+    let skipMacroSearchPath = isPlanJobForExplicitModule && isFrontendArgSupported(.loadResolvedPlugin)
     // If the resource directory has the standard library, prefer the toolchain's plugins
     // to the platform SDK plugins.
     // For explicit module build, the resolved plugins are provided by scanner.
-    if hasToolchainStdlib, !skipMacroOptions {
-      try addPluginPathArguments(commandLine: &commandLine)
+    if hasToolchainStdlib {
+      try addPluginPathArguments(commandLine: &commandLine, skipMacroSearchPath: skipMacroSearchPath)
     }
 
     try toolchain.addPlatformSpecificCommonFrontendOptions(commandLine: &commandLine,
                                                            inputs: &inputs,
                                                            frontendTargetInfo: frontendTargetInfo,
                                                            driver: &self,
-                                                           skipMacroOptions: skipMacroOptions)
+                                                           skipMacroOptions: skipMacroSearchPath)
 
     // Otherwise, prefer the platform's plugins.
-    if !hasToolchainStdlib, !skipMacroOptions {
-      try addPluginPathArguments(commandLine: &commandLine)
+    if !hasToolchainStdlib {
+      try addPluginPathArguments(commandLine: &commandLine, skipMacroSearchPath: skipMacroSearchPath)
     }
 
     if let passPluginPath = parsedOptions.getLastArgument(.loadPassPluginEQ),
@@ -923,7 +923,7 @@ extension Driver {
     entries[inputEntry, default: [:]][output.type] = output.fileHandle
   }
 
-  mutating func addPluginPathArguments(commandLine: inout [Job.ArgTemplate]) throws {
+  mutating func addPluginPathArguments(commandLine: inout [Job.ArgTemplate], skipMacroSearchPath: Bool) throws {
     guard isFrontendArgSupported(.pluginPath) else {
       return
     }
@@ -936,6 +936,10 @@ extension Driver {
 #else
       commandLine.appendPath(pluginPathRoot.appending(components: "lib", "swift", "host", sharedLibraryName("libSwiftInProcPluginServer")))
 #endif
+    }
+
+    guard !skipMacroSearchPath else {
+      return
     }
 
     // Default paths for compiler plugins found within the toolchain

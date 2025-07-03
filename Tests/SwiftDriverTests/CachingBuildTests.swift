@@ -924,6 +924,9 @@ final class CachingBuildTests: XCTestCase {
         })
         /// command-line that compiles swift should contains -cache-replay-prefix-map
         XCTAssertTrue(command.contains { $0 == "-cache-replay-prefix-map" })
+        if job.kind == .compile {
+          XCTAssertTrue(command.contains { $0 == "-in-process-plugin-server-path" })
+        }
         XCTAssertFalse(command.contains { $0 == "-plugin-path" || $0 == "-external-plugin-path" ||
                                           $0 == "-load-plugin-library" || $0 == "-load-plugin-executable" })
       }
