@@ -80,8 +80,11 @@ public struct Driver {
 
     public var description: String {
       switch self {
-      case .unknownOrMissingSubcommand(let subcommand):
-        return "unknown or missing subcommand '\(subcommand)'"
+      case .unknownOrMissingSubcommand(let executableName):
+        return """
+          unknown or missing subcommand '\(executableName)'
+          The executable `\(executableName)` could not be found adjacent to this executable or in the program search path.
+          """
       case .invalidDriverName(let driverName):
         return "invalid driver name: \(driverName)"
       case .invalidInput(let input):

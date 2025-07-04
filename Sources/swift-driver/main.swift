@@ -113,21 +113,28 @@ do {
   }
 
   let (mode, arguments) = try Driver.invocationRunMode(forArgs: CommandLine.arguments)
-  if case .subcommand(let subcommand) = mode {
+  if case .subcommand(let executableName) = mode {
     // We are running as a subcommand, try to find the subcommand adjacent to the executable we are running as.
     // If we didn't find the tool there, let the OS search for it.
     let subcommandPath: AbsolutePath?
-    if let executablePath = Process.findExecutable(CommandLine.arguments[0]) {
-      // Attempt to resolve the executable symlink in order to be able to
-      // resolve compiler-adjacent library locations.
-      subcommandPath = try TSCBasic.resolveSymlinks(executablePath).parentDirectory.appending(component: subcommand)
+
+    // Before falling back to a standard executable search, check if there's a correctly named file adjacent to
+    // this executable. This is given priority to make sure builtin subcommands have the expected behavior:
+    // `/path/to/swift/install/swift-build` should be given higher priority than whatever program the user has
+    // installed that's called `swift-build`.
+    if let thisExecutablePath = Process.findExecutable(CommandLine.arguments[0]),
+      let adjacentPath = try? TSCBasic.resolveSymlinks(thisExecutablePath)
+        .parentDirectory.appending(component: executableName),
+      localFileSystem.isExecutableFile(adjacentPath)
+    {
+      subcommandPath = adjacentPath
     } else {
-      subcommandPath = Process.findExecutable(subcommand)
+      subcommandPath = Process.findExecutable(executableName)
     }
 
     guard let subcommandPath = subcommandPath,
           localFileSystem.exists(subcommandPath) else {
-      throw Driver.Error.unknownOrMissingSubcommand(subcommand)
+      throw Driver.Error.unknownOrMissingSubcommand(executableName)
     }
 
     // Pass the full path to subcommand executable.
