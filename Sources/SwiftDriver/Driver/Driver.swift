@@ -871,6 +871,14 @@ public struct Driver {
     if case .subcommand = try Self.invocationRunMode(forArgs: args).mode {
       throw Error.subcommandPassedToDriver
     }
+
+    #if os(Windows)
+      if args[1] == "-repl" {  // a `-` gets automatically added to `swift repl`.
+        try checkIfMatchingPythonArch(
+          cwd: ProcessEnv.cwd, env: env, diagnosticsEngine: diagnosticsEngine)
+      }
+    #endif
+
     var args = args
     if let additional = env["ADDITIONAL_SWIFT_DRIVER_FLAGS"] {
       args.append(contentsOf: additional.components(separatedBy: " "))
@@ -962,7 +970,7 @@ public struct Driver {
                                                       negative: .disableIncrementalFileHashing,
                                                       default: false)
     self.recordedInputMetadata = .init(uniqueKeysWithValues:
-      Set(inputFiles).compactMap { inputFile -> (TypedVirtualPath, FileMetadata)? in 
+      Set(inputFiles).compactMap { inputFile -> (TypedVirtualPath, FileMetadata)? in
         guard let modTime = try? fileSystem.lastModificationTime(for: inputFile.file) else { return nil }
         if incrementalFileHashes {
             guard let data = try? fileSystem.readFileContents(inputFile.file)  else { return nil }
