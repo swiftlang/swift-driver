@@ -73,7 +73,7 @@ public final class SwiftDriverExecutor: DriverExecutor {
   public func execute(job: Job,
                       forceResponseFiles: Bool,
                       recordedInputModificationDates: [TypedVirtualPath : TimePoint]) throws -> ProcessResult {
-    fatalError("Unsuppored legacy operation on current executor")
+    fatalError("Unsupported legacy operation on current executor")
   }
 
   public func execute(workload: DriverExecutorWorkload,
