@@ -586,6 +586,8 @@ extension Option {
   public static let F: Option = Option("-F", .joinedOrSeparate, attributes: [.frontend, .synthesizeInterface, .argumentIsPath], helpText: "Add directory to framework search path")
   public static let gccToolchain: Option = Option("-gcc-toolchain", .separate, attributes: [.helpHidden, .argumentIsPath], metaVar: "<path>", helpText: "Specify a directory where the clang importer and clang linker can find headers and libraries")
   public static let gdwarfTypes: Option = Option("-gdwarf-types", .flag, attributes: [.frontend], helpText: "Emit full DWARF type info.", group: .g)
+  public static let genReproducerDir: Option = Option("-gen-reproducer-dir", .separate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Path to directory where reproducers write to.")
+  public static let genReproducer: Option = Option("-gen-reproducer", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Generate a reproducer for current compilation.")
   public static let generateEmptyBaseline: Option = Option("-generate-empty-baseline", .flag, attributes: [.noDriver], helpText: "Generate an empty baseline")
   public static let generateEmptyBaseline_: Option = Option("--generate-empty-baseline", .flag, alias: Option.generateEmptyBaseline, attributes: [.noDriver], helpText: "Generate an empty baseline")
   public static let generateMigrationScript: Option = Option("-generate-migration-script", .flag, attributes: [.noDriver], helpText: "Compare SDK content in JSON file and generate migration script")
@@ -1553,6 +1555,8 @@ extension Option {
       Option.F,
       Option.gccToolchain,
       Option.gdwarfTypes,
+      Option.genReproducerDir,
+      Option.genReproducer,
       Option.generateEmptyBaseline,
       Option.generateEmptyBaseline_,
       Option.generateMigrationScript,
