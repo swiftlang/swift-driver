@@ -66,7 +66,7 @@ if(NOT LLBuild_FOUND)
     find_package(LLBuild REQUIRED)
   else()
     message("-- Vending swift-llbuild")
-    set(LLBUILD_SUPPORT_BINDINGS Swift)
+    set(LLBUILD_SUPPORT_BINDINGS Swift CACHE STRING "")
     FetchContent_Declare(LLBuild
       GIT_REPOSITORY https://github.com/apple/swift-llbuild
       GIT_TAG main)

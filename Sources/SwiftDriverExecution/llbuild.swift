@@ -22,10 +22,8 @@ import protocol TSCBasic.FileSystem
 // We either import the llbuildSwift shared library or the llbuild framework.
 #if canImport(llbuildSwift)
 @_implementationOnly import llbuildSwift
-@_implementationOnly import llbuild
-#else
-@_implementationOnly import llbuild
 #endif
+@_implementationOnly import llbuild
 
 /// An llbuild value.
 protocol LLBuildValue: Codable {
