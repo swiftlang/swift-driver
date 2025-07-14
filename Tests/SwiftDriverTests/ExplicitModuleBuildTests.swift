@@ -174,7 +174,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
               from: ModuleDependenciesInputs.fastDependencyScannerOutput.data(using: .utf8)!)
       var explicitDependencyBuildPlanner =
         try ExplicitDependencyBuildPlanner(dependencyGraph: moduleDependencyGraph,
-                                           toolchain: driver.toolchain)
+                                           toolchain: driver.toolchain,
+                                           supportsScannerPrefixMapPaths: driver.isFrontendArgSupported(.scannerPrefixMapPaths))
       let modulePrebuildJobs =
         try explicitDependencyBuildPlanner.generateExplicitModuleDependenciesBuildJobs()
       XCTAssertEqual(modulePrebuildJobs.count, 4)

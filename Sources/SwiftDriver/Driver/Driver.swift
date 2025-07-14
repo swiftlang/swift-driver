@@ -296,7 +296,7 @@ public struct Driver {
       return ($0.key, $0.value)
     }
     do {
-      guard isFrontendArgSupported(.scannerPrefixMap) else {
+      guard isFrontendArgSupported(.cacheReplayPrefixMap) else {
         return []
       }
       if let sdkMapping = scannerPrefixMapSDK,
@@ -4007,14 +4007,20 @@ extension Driver {
 
   static func computeScanningPrefixMapper(_ parsedOptions: inout ParsedOptions) throws -> [AbsolutePath: AbsolutePath] {
     var mapping: [AbsolutePath: AbsolutePath] = [:]
-    for opt in parsedOptions.arguments(for: .scannerPrefixMap) {
-      let pluginArg = opt.argument.asSingle.split(separator: "=", maxSplits: 1)
-      if pluginArg.count != 2 {
-        throw Error.invalidArgumentValue(Option.scannerPrefixMap.spelling, opt.argument.asSingle)
+    for opt in parsedOptions.arguments(for: .scannerPrefixMapPaths, .scannerPrefixMap) {
+      if opt.option == .scannerPrefixMapPaths {
+        let key = try AbsolutePath(validating: opt.argument.asMultiple[0])
+        let value = try AbsolutePath(validating: opt.argument.asMultiple[1])
+        mapping[key] = value
+      } else {
+        let pluginArg = opt.argument.asSingle.split(separator: "=", maxSplits: 1)
+        if pluginArg.count != 2 {
+          throw Error.invalidArgumentValue(Option.scannerPrefixMap.spelling, opt.argument.asSingle)
+        }
+        let key = try AbsolutePath(validating: String(pluginArg[0]))
+        let value = try AbsolutePath(validating: String(pluginArg[1]))
+        mapping[key] = value
       }
-      let key = try AbsolutePath(validating: String(pluginArg[0]))
-      let value = try AbsolutePath(validating: String(pluginArg[1]))
-      mapping[key] = value
     }
     return mapping
   }
