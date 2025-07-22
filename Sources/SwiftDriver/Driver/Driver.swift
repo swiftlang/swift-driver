@@ -873,12 +873,10 @@ public struct Driver {
       throw Error.subcommandPassedToDriver
     }
 
-    #if os(Windows)
-      if case .normal(isRepl: true) = invocationMode {
-        checkIfMatchingPythonArch(
-          cwd: ProcessEnv.cwd, envBlock: envBlock, diagnosticsEngine: diagnosticsEngine)
-      }
-    #endif
+    if case .normal(isRepl: true) = invocationMode {
+      checkIfMatchingPythonArch(
+        cwd: ProcessEnv.cwd, envBlock: envBlock, diagnosticsEngine: diagnosticsEngine)
+    }
 
     var args = args
     if let additional = env["ADDITIONAL_SWIFT_DRIVER_FLAGS"] {
