@@ -40,7 +40,8 @@ public func getSingleFrontendInvocationFromDriverArgumentsV2(driverPath: UnsafeP
   return getSingleFrontendInvocationFromDriverArgumentsV3(driverPath: driverPath, argListCount: argListCount,
                                                           argList: argList, action: action,
                                                           diagnosticCallback: diagnosticCallback,
-                                                          compilerIntegratedTooling: true)
+                                                          compilerIntegratedTooling: true,
+                                                          forceNoOutputs: forceNoOutputs)
 }
 
 @_cdecl("swift_getSingleFrontendInvocationFromDriverArgumentsV3")
