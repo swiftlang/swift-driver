@@ -56,7 +56,7 @@ public func getSingleFrontendInvocationFromDriverArgumentsV3(driverPath: UnsafeP
 
   // Bridge the argv equivalent
   let argListBufferPtr = UnsafeBufferPointer<UnsafePointer<CChar>?>(start: argList, count: Int(argListCount))
-  let bridgedArgList = [bridgedDriverPath] + argListBufferPtr.map { String(cString: $0!) }
+  let bridgedArgList = argListBufferPtr.map { String(cString: $0!) }
 
   // Bridge the action callback
   let bridgedAction: ([String]) -> Bool = { args in
