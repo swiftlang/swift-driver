@@ -875,17 +875,22 @@ public struct Driver {
 
     self.executor = executor
 
-    let invocationMode = try Self.invocationRunMode(forArgs: args).mode
-    if case .subcommand = invocationMode {
-      throw Error.subcommandPassedToDriver
+    if args.count > 1 && args[1] == "-repl" {
+      #if arch(arm64)
+        checkIfMatchingPythonArch(
+          cwd: ProcessEnv.cwd, envBlock: envBlock, toolchainArchitecture: .arm64, diagnosticsEngine: diagnosticsEngine)
+      #elseif arch(x86_64)
+        checkIfMatchingPythonArch(
+          cwd: ProcessEnv.cwd, envBlock: envBlock, toolchainArchitecture: .x64, diagnosticsEngine: diagnosticsEngine)
+      #elseif arch(x86)
+        checkIfMatchingPythonArch(
+          cwd: ProcessEnv.cwd, envBlock: envBlock, toolchainArchitecture: .x86, diagnosticsEngine: diagnosticsEngine)
+      #endif
     }
 
-    #if os(Windows)
-      if case .normal(isRepl: true) = invocationMode {
-        checkIfMatchingPythonArch(
-          cwd: ProcessEnv.cwd, envBlock: envBlock, diagnosticsEngine: diagnosticsEngine)
-      }
-    #endif
+    if case .subcommand = try Self.invocationRunMode(forArgs: args).mode {
+      throw Error.subcommandPassedToDriver
+    }
 
     var args = args
     if let additional = env["ADDITIONAL_SWIFT_DRIVER_FLAGS"] {
