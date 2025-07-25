@@ -206,6 +206,9 @@ public protocol JobExecutionDelegate {
 
   /// Called when a job is skipped.
   func jobSkipped(job: Job)
+
+  /// Create a new job that constructs a reproducer for the providing job.
+  func getReproducerJob(job: Job, output: VirtualPath) -> Job?
 }
 
 @_spi(Testing) public extension ProcessEnvironmentBlock {

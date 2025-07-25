@@ -23,6 +23,7 @@ import struct TSCBasic.AbsolutePath
 import struct TSCBasic.ByteString
 import struct TSCBasic.Diagnostic
 import struct TSCBasic.FileInfo
+import struct TSCBasic.ProcessResult
 import struct TSCBasic.RelativePath
 import struct TSCBasic.SHA256
 import var TSCBasic.localFileSystem
@@ -71,6 +72,7 @@ public struct Driver {
     case conditionalCompilationFlagIsNotValidIdentifier(String)
     case baselineGenerationRequiresTopLevelModule(String)
     case optionRequiresAnother(String, String)
+    case unableToCreateReproducer
     // Explicit Module Build Failures
     case malformedModuleDependency(String, String)
     case missingModuleDependency(String)
@@ -142,6 +144,8 @@ public struct Driver {
         return "generating a baseline with '\(arg)' is only supported with '-emit-module' or '-emit-module-path'"
       case .optionRequiresAnother(let first, let second):
         return "'\(first)' cannot be specified if '\(second)' is not present"
+      case .unableToCreateReproducer:
+        return "failed to create reproducer"
       }
     }
   }
@@ -962,7 +966,7 @@ public struct Driver {
                                                       negative: .disableIncrementalFileHashing,
                                                       default: false)
     self.recordedInputMetadata = .init(uniqueKeysWithValues:
-      Set(inputFiles).compactMap { inputFile -> (TypedVirtualPath, FileMetadata)? in 
+      Set(inputFiles).compactMap { inputFile -> (TypedVirtualPath, FileMetadata)? in
         guard let modTime = try? fileSystem.lastModificationTime(for: inputFile.file) else { return nil }
         if incrementalFileHashes {
             guard let data = try? fileSystem.readFileContents(inputFile.file)  else { return nil }
@@ -1957,7 +1961,8 @@ extension Driver {
       buildRecordInfo: buildRecordInfo,
       showJobLifecycle: showJobLifecycle,
       argsResolver: executor.resolver,
-      diagnosticEngine: diagnosticEngine)
+      diagnosticEngine: diagnosticEngine,
+      reproducerCallback: supportsReproducer ? Driver.generateReproducer : nil)
   }
 
   private mutating func performTheBuild(

@@ -1071,6 +1071,23 @@ extension Driver {
   }
 }
 
+// Generate reproducer.
+extension Driver {
+  var supportsReproducer: Bool {
+    isFrontendArgSupported(.genReproducer) && enableCaching
+  }
+
+  static func generateReproducer(_ job: Job, _ output: VirtualPath) -> Job {
+    var reproJob = job
+    reproJob.commandLine.appendFlag(.genReproducer)
+    reproJob.commandLine.appendFlag(.genReproducerDir)
+    reproJob.commandLine.appendPath(output)
+    reproJob.outputs.removeAll()
+    reproJob.outputCacheKeys.removeAll()
+    return reproJob
+  }
+}
+
 extension ParsedOptions {
   /// Checks whether experimental embedded mode is enabled.
   var isEmbeddedEnabled: Bool {

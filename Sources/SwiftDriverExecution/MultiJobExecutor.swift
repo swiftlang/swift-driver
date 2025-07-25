@@ -25,6 +25,7 @@ import protocol TSCBasic.DiagnosticData
 import protocol TSCBasic.FileSystem
 import struct TSCBasic.Diagnostic
 import struct TSCBasic.ProcessResult
+import func TSCBasic.withTemporaryDirectory
 import typealias TSCBasic.ProcessEnvironmentBlock
 import enum TSCUtility.Diagnostics
 
@@ -632,12 +633,14 @@ class ExecuteJobRule: LLBuildRule {
 #if os(Windows)
         case let .abnormal(exception):
           context.diagnosticsEngine.emit(.error_command_exception(kind: job.kind, exception: exception))
+          try handleSignalledJob(for: job)
 #else
         case let .signalled(signal):
           // An interrupt of an individual compiler job means it was deliberately cancelled,
           // most likely by the driver itself. This does not constitute an error.
           if signal != SIGINT {
             context.diagnosticsEngine.emit(.error_command_signalled(kind: job.kind, signal: signal))
+            try handleSignalledJob(for: job)
           }
 #endif
         }
@@ -673,6 +676,23 @@ class ExecuteJobRule: LLBuildRule {
 
     engine.taskIsComplete(value)
   }
+
+  private func handleSignalledJob(for job: Job) throws {
+    try withTemporaryDirectory(dir: fileSystem.tempDirectory, prefix: "swift-reproducer", removeTreeOnDeinit: false) { tempDir in
+      guard let reproJob = context.executorDelegate.getReproducerJob(job: job, output: VirtualPath.absolute(tempDir)) else {
+        return
+      }
+      let arguments: [String] = try context.argsResolver.resolveArgumentList(for: reproJob,
+                                                                             useResponseFiles: .heuristic)
+      let process = try context.processType.launchProcess(arguments: arguments, env: context.env)
+      let reproResult = try process.waitUntilExit()
+      if case .terminated(let code) = reproResult.exitStatus, code == 0 {
+        context.diagnosticsEngine.emit(.note_reproducer_created(tempDir.pathString))
+      } else {
+        context.diagnosticsEngine.emit(.error_failed_to_create_reproducer)
+      }
+    }
+  }
 }
 
 fileprivate extension Job {
@@ -699,5 +719,13 @@ private extension TSCBasic.Diagnostic.Message {
 
   static func error_command_exception(kind: Job.Kind, exception: UInt32) -> TSCBasic.Diagnostic.Message {
     .error("\(kind.rawValue) command failed due to exception \(exception) (use -v to see invocation)")
+  }
+
+  static var error_failed_to_create_reproducer: Diagnostic.Message {
+    .error("failed to create crash reproducer")
+  }
+
+  static func note_reproducer_created(_ path: String) -> Diagnostic.Message {
+    .note("crash reproducer is created at: \(path)")
   }
 }

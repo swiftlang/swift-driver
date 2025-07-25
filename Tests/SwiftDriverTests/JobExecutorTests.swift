@@ -58,6 +58,10 @@ class JobCollectingDelegate: JobExecutionDelegate {
   }
 
   func jobSkipped(job: Job) {}
+
+  func getReproducerJob(job: Job, output: VirtualPath) -> Job? {
+    nil
+  }
 }
 
 extension DarwinToolchain {
