@@ -902,7 +902,7 @@ final class CachingBuildTests: XCTestCase {
                                      main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
                               env: env,
                               interModuleDependencyOracle: dependencyOracle)
-      guard driver.isFrontendArgSupported(.scannerPrefixMap) else {
+      guard driver.isFrontendArgSupported(.scannerPrefixMapPaths) else {
         throw XCTSkip("frontend doesn't support prefix map")
       }
       let scanLibPath = try XCTUnwrap(driver.getSwiftScanLibPath())
@@ -910,8 +910,9 @@ final class CachingBuildTests: XCTestCase {
       let resolver = try ArgsResolver(fileSystem: localFileSystem)
       let scannerCommand = try driver.dependencyScannerInvocationCommand().1.map { try resolver.resolve($0) }
 
-      XCTAssertTrue(scannerCommand.contains("-scanner-prefix-map"))
-      XCTAssertTrue(scannerCommand.contains(try testInputsPath.description + "=/^src"))
+      XCTAssertTrue(scannerCommand.contains("-scanner-prefix-map-paths"))
+      XCTAssertTrue(scannerCommand.contains(try testInputsPath.description))
+      XCTAssertTrue(scannerCommand.contains("/^src"))
 
       let jobs = try driver.planBuild()
       for job in jobs {
