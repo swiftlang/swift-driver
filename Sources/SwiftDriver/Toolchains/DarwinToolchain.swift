@@ -232,7 +232,7 @@ public final class DarwinToolchain: Toolchain {
     if (targetTriple.isMacOSX && targetTriple.version(for: .macOS) < Triple.Version(10, 11, 0)) ||
         (targetTriple.isiOS && targetTriple.version(
             for: .iOS(targetTriple._isSimulatorEnvironment ? .simulator : .device)) < Triple.Version(9, 0, 0)) {
-      return 2;
+      return 2
     }
     if (targetTriple.isMacOSX && targetTriple.version(for: .macOS) < Triple.Version(15, 0, 0)) ||
         (targetTriple.isiOS && targetTriple.version(
