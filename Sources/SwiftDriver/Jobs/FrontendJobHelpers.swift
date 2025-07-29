@@ -1082,6 +1082,12 @@ extension Driver {
     reproJob.commandLine.appendFlag(.genReproducer)
     reproJob.commandLine.appendFlag(.genReproducerDir)
     reproJob.commandLine.appendPath(output)
+    reproJob.commandLine.removeAll {
+      guard case let .flag(opt) = $0 else {
+        return false
+      }
+      return opt == Option.frontendParseableOutput.spelling
+    }
     reproJob.outputs.removeAll()
     reproJob.outputCacheKeys.removeAll()
     return reproJob
