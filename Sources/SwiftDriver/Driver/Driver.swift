@@ -51,7 +51,7 @@ extension Driver.ErrorDiagnostics: CustomStringConvertible {
 /// The Swift driver.
 public struct Driver {
   public enum Error: Swift.Error, Equatable, DiagnosticData {
-    case unknownOrMissingSubcommand(String)
+    case unknownOrMissingSubcommand(String, String?)
     case invalidDriverName(String)
     case invalidInput(String)
     case noInputFiles
@@ -82,7 +82,10 @@ public struct Driver {
 
     public var description: String {
       switch self {
-      case .unknownOrMissingSubcommand(let subcommand):
+      case .unknownOrMissingSubcommand(let subcommand, let directory):
+        if let directory {
+          return "unknown or missing subcommand '\(subcommand)' in '\(directory)'"
+        }
         return "unknown or missing subcommand '\(subcommand)'"
       case .invalidDriverName(let driverName):
         return "invalid driver name: \(driverName)"
