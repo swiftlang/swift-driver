@@ -902,7 +902,7 @@ final class CachingBuildTests: XCTestCase {
                                      main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
                               env: env,
                               interModuleDependencyOracle: dependencyOracle)
-      guard driver.isFrontendArgSupported(.scannerPrefixMap) else {
+      guard driver.isFrontendArgSupported(.scannerPrefixMapPaths) else {
         throw XCTSkip("frontend doesn't support prefix map")
       }
       let scanLibPath = try XCTUnwrap(driver.getSwiftScanLibPath())
@@ -910,8 +910,9 @@ final class CachingBuildTests: XCTestCase {
       let resolver = try ArgsResolver(fileSystem: localFileSystem)
       let scannerCommand = try driver.dependencyScannerInvocationCommand().1.map { try resolver.resolve($0) }
 
-      XCTAssertTrue(scannerCommand.contains("-scanner-prefix-map"))
-      XCTAssertTrue(scannerCommand.contains(try testInputsPath.description + "=/^src"))
+      XCTAssertTrue(scannerCommand.contains("-scanner-prefix-map-paths"))
+      XCTAssertTrue(scannerCommand.contains(try testInputsPath.description))
+      XCTAssertTrue(scannerCommand.contains("/^src"))
 
       let jobs = try driver.planBuild()
       for job in jobs {
@@ -919,16 +920,15 @@ final class CachingBuildTests: XCTestCase {
           continue
         }
         let command = try job.commandLine.map { try resolver.resolve($0) }
-        // Check all the arguments that are in the temporary directory are remapped.
-        // The only one that is not remapped should be the `-cas-path` that points to
-        // `casPath`.
-        XCTAssertFalse(command.contains {
-          $0.starts(with: path.description) && $0 != casPath.description
-        })
-        /// All source location path should be remapped as well.
-        XCTAssertFalse(try command.contains {
-          $0.starts(with: try testInputsPath.description)
-        })
+        for i in 0..<command.count {
+          if i >= 2 && command[i - 2] == "-cache-replay-prefix-map" { continue }
+          // Check all the arguments that are in the temporary directory are remapped.
+          // The only one that is not remapped should be the `-cas-path` that points to
+          // `casPath`.
+          XCTAssertFalse(command[i] != casPath.description && command[i].starts(with: path.description))
+          /// All source location path should be remapped as well.
+          XCTAssertFalse(command[i].starts(with: try testInputsPath.description))
+        }
         /// command-line that compiles swift should contains -cache-replay-prefix-map
         XCTAssertTrue(command.contains { $0 == "-cache-replay-prefix-map" })
         if job.kind == .compile {

@@ -122,7 +122,9 @@ extension Driver {
                                                 cas: cas,
                                                 prefixMap: prefixMapping,
                                                 supportsBridgingHeaderPCHCommand:
-                                                  interModuleDependencyOracle.supportsBridgingHeaderPCHCommand)
+                                                  interModuleDependencyOracle.supportsBridgingHeaderPCHCommand,
+                                                supportsScannerPrefixMapPaths:
+                                                  isFrontendArgSupported(.scannerPrefixMapPaths))
     } else {
       return nil
     }
