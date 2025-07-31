@@ -108,7 +108,11 @@ do {
       let legacyDriverCommand = [path] + CommandLine.arguments[1...]
       try exec(path: path, args: legacyDriverCommand)
     } else {
-      throw Driver.Error.unknownOrMissingSubcommand(legacyExecutablePath.lastPathComponent)
+      throw Driver.Error.unknownOrMissingSubcommand(
+        legacyExecutablePath.lastPathComponent,
+        legacyExecutablePath
+          .deletingLastPathComponent()
+          .withUnsafeFileSystemRepresentation { String(cString: $0!) })
     }
   }
 
@@ -127,7 +131,7 @@ do {
 
     guard let subcommandPath = subcommandPath,
           localFileSystem.exists(subcommandPath) else {
-      throw Driver.Error.unknownOrMissingSubcommand(subcommand)
+      throw Driver.Error.unknownOrMissingSubcommand(subcommand, nil)
     }
 
     // Pass the full path to subcommand executable.
