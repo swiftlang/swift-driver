@@ -1800,6 +1800,29 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(contents.hasPrefix("-interpret\n\(source.nativePathString(escaped: false))"))
     }
 
+    // Forced response file in a non-existing temporary directory
+    do {
+      try withTemporaryDirectory { tempPath in
+        let resolverTempDirPath = tempPath.appending(components: "resolverStuff")
+        let source = try AbsolutePath(validating: "/foo.swift")
+        var driver = try Driver(args: ["swift"] + [source.nativePathString(escaped: false)])
+        let jobs = try driver.planBuild()
+        XCTAssertEqual(jobs.count, 1)
+        XCTAssertEqual(jobs[0].kind, .interpret)
+        let interpretJob = jobs[0]
+        let resolver = try ArgsResolver(fileSystem: localFileSystem,
+                                        temporaryDirectory: .absolute(resolverTempDirPath))
+        let resolvedArgs: [String] = try resolver.resolveArgumentList(for: interpretJob, useResponseFiles: .forced)
+        XCTAssertEqual(resolvedArgs.count, 3)
+        XCTAssertEqual(resolvedArgs[1], "-frontend")
+        XCTAssertEqual(resolvedArgs[2].first, "@")
+        let responseFilePath = try AbsolutePath(validating: String(resolvedArgs[2].dropFirst()))
+        XCTAssertEqual(responseFilePath.parentDirectory.basename, "resolverStuff")
+        let contents = try localFileSystem.readFileContents(responseFilePath).description
+        XCTAssertTrue(contents.hasPrefix("-interpret\n\(source.nativePathString(escaped: false))"))
+      }
+    }
+
     // No response file
     do {
       var driver = try Driver(args: ["swift"] + ["foo.swift"])
