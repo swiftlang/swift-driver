@@ -45,6 +45,10 @@ public final class ArgsResolver {
 
     if let temporaryDirectory = temporaryDirectory {
       self.temporaryDirectory = temporaryDirectory
+      let temporaryDirExists = try fileSystem.exists(self.temporaryDirectory)
+      if !temporaryDirExists, let temporaryDirAbsPath = self.temporaryDirectory.absolutePath {
+        try fileSystem.createDirectory(temporaryDirAbsPath, recursive: true)
+      }
     } else {
       // FIXME: withTemporaryDirectory uses FileManager.default, need to create a FileSystem.temporaryDirectory api.
       let tmpDir: AbsolutePath = try withTemporaryDirectory(removeTreeOnDeinit: false) { path in
