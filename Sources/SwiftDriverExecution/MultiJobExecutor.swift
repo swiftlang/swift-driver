@@ -23,6 +23,7 @@ import class TSCBasic.DiagnosticsEngine
 import class TSCBasic.Process
 import protocol TSCBasic.DiagnosticData
 import protocol TSCBasic.FileSystem
+import struct TSCBasic.AbsolutePath
 import struct TSCBasic.Diagnostic
 import struct TSCBasic.ProcessResult
 import func TSCBasic.withTemporaryDirectory
@@ -678,7 +679,13 @@ class ExecuteJobRule: LLBuildRule {
   }
 
   private func handleSignalledJob(for job: Job) throws {
-    try withTemporaryDirectory(dir: fileSystem.tempDirectory, prefix: "swift-reproducer", removeTreeOnDeinit: false) { tempDir in
+    let reproDir: AbsolutePath
+    if let pathFromEnv = context.env["SWIFT_CRASH_DIAGNOSTICS_DIR"] {
+      reproDir = try AbsolutePath(validating: pathFromEnv)
+    } else {
+      reproDir = try fileSystem.tempDirectory
+    }
+    try withTemporaryDirectory(dir: reproDir, prefix: "swift-crash-reproducer", removeTreeOnDeinit: false) { tempDir in
       guard let reproJob = context.executorDelegate.getReproducerJob(job: job, output: VirtualPath.absolute(tempDir)) else {
         return
       }

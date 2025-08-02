@@ -1053,6 +1053,52 @@ final class CachingBuildTests: XCTestCase {
     }
   }
 
+  func testCrashReproducer() throws {
+    try withTemporaryDirectory { path in
+      try localFileSystem.changeCurrentWorkingDirectory(to: path)
+      let moduleCachePath = path.appending(component: "ModuleCache")
+      let casPath = path.appending(component: "cas")
+      try localFileSystem.createDirectory(moduleCachePath)
+      let main = path.appending(component: "testCachingBuild.swift")
+      let mainFileContent = "import C;"
+      try localFileSystem.writeFileContents(main) {
+        $0.send(mainFileContent)
+      }
+      let cHeadersPath: AbsolutePath =
+          try testInputsPath.appending(component: "ExplicitModuleBuilds")
+                            .appending(component: "CHeaders")
+      let swiftModuleInterfacesPath: AbsolutePath =
+          try testInputsPath.appending(component: "ExplicitModuleBuilds")
+                            .appending(component: "Swift")
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+      var env = ProcessEnv.block
+      env["SWIFT_CRASH_DIAGNOSTICS_DIR"] = path.nativePathString(escaped: true)
+      var driver = try Driver(args: ["swiftc",
+                                     "-I", cHeadersPath.nativePathString(escaped: true),
+                                     "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                     "-explicit-module-build", "-enable-deterministic-check",
+                                     "-module-cache-path", moduleCachePath.nativePathString(escaped: true),
+                                     "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: true),
+                                     "-working-directory", path.nativePathString(escaped: true),
+                                     "-Xfrontend", "-debug-crash-after-parse",
+                                     main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
+                              env: env)
+      guard driver.isFrontendArgSupported(.genReproducer) else {
+        throw XCTSkip("crash reproducer not supported")
+      }
+      let jobs = try driver.planBuild()
+      do {
+        try driver.run(jobs: jobs)
+        XCTFail("Build should fail")
+      } catch {
+        XCTAssertTrue(driver.diagnosticEngine.hasErrors)
+        XCTAssertTrue(driver.diagnosticEngine.diagnostics.contains {
+          $0.message.behavior == .note && $0.message.data.description.starts(with: "crash reproducer")
+          })
+      }
+    }
+  }
+
   func testDeterministicCheck() throws {
     try withTemporaryDirectory { path in
       try localFileSystem.changeCurrentWorkingDirectory(to: path)
