@@ -1473,19 +1473,16 @@ extension Triple.OS {
     self == .aix
   }
 
-  /// isMacOSX - Is this a Mac OS X triple. For legacy reasons, we support both
-  /// "darwin" and "osx" as OS X triples.
+  /// Is this an Apple macOS triple.
+  /// - note: For legacy reasons, we support both "darwin" and "macosx" as macOS triples.
   public var isMacOSX: Bool {
     self == .darwin || self == .macosx
   }
 
-  /// Is this an iOS triple.
-  /// Note: This identifies tvOS as a variant of iOS. If that ever
-  /// changes, i.e., if the two operating systems diverge or their version
-  /// numbers get out of sync, that will need to be changed.
-  /// watchOS has completely different version numbers so it is not included.
+  /// Is this an Apple iOS triple.
+  /// - note: Contrary to historical behavior with regard to LLVM's Triple type, this does NOT match tvOS in order to avoid confusion moving forward.
   public var isiOS: Bool {
-    self == .ios || isTvOS
+    self == .ios
   }
 
   /// Is this an Apple tvOS triple.
@@ -1498,14 +1495,15 @@ extension Triple.OS {
     self == .watchos
   }
 
+  /// Is this an Apple visionOS triple.
   public var isVisionOS: Bool {
     self == .visionos
   }
 
 
-  /// isOSDarwin - Is this a "Darwin" OS (OS X, iOS, or watchOS).
+  /// isOSDarwin - Is this a "Darwin" OS (macOS, iOS, tvOS, watchOS, or visionOS).
   public var isDarwin: Bool {
-    isMacOSX || isiOS || isWatchOS || isVisionOS
+    isMacOSX || isiOS || isTvOS || isWatchOS || isVisionOS
   }
 }
 
@@ -1640,15 +1638,44 @@ extension Triple {
       // toolchain that wants to know the iOS version number even when targeting
       // OS X.
       return Version(5, 0, 0)
-    case .ios, .tvos:
+    case .ios:
       var version = self.osVersion
       // Default to 5.0 (or 7.0 for arm64).
       if version.major == 0 {
         version.major = arch == .aarch64 ? 7 : 5
       }
       return version
+    case .tvos:
+      return osVersion
     case .visionos:
       return Version(15, 0, 0)
+    case .watchos:
+      fatalError("conflicting triple info")
+    default:
+      fatalError("unexpected OS for Darwin triple")
+    }
+  }
+
+  /// Parse the version number as with getOSVersion.  This should
+  /// only be called with tvOS or generic triples.
+  ///
+  /// This accessor is semi-private; it's typically better to use `version(for:)` or
+  /// `Triple.FeatureAvailability`.
+  public var _tvOSVersion: Version {
+    switch os {
+    case .darwin, .macosx:
+      // Ignore the version from the triple.  This is only handled because the
+      // the clang driver combines OS X and iOS support into a common Darwin
+      // toolchain that wants to know the iOS version number even when targeting
+      // OS X.
+      return Version(9, 0, 0)
+    case .ios, .tvos:
+      var version = self.osVersion
+      // Default to 9.0, which was the first version of tvOS.
+      if version.major == 0 {
+        version.major = 9
+      }
+      return version
     case .watchos:
       fatalError("conflicting triple info")
     default:
@@ -1671,11 +1698,12 @@ extension Triple {
       return Version(2, 0, 0)
     case .watchos:
       var version = self.osVersion
+      // Default to 2.0, which was the first version of watchOS.
       if version.major == 0 {
         version.major = 2
       }
       return version
-    case .ios:
+    case .ios, .tvos, .visionos:
       fatalError("conflicting triple info")
     default:
       fatalError("unexpected OS for Darwin triple")
@@ -1705,7 +1733,7 @@ extension Triple {
 
 extension Triple {
   @_spi(Testing) public var isMacCatalyst: Bool {
-    return self.isiOS && !self.isTvOS && environment == .macabi
+    return self.isiOS && environment == .macabi
   }
 
   func isValidForZipperingWithTriple(_ variant: Triple) -> Bool {
