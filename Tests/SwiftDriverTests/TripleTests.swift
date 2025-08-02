@@ -1054,7 +1054,18 @@ final class TripleTests: XCTestCase {
 
     T = Triple("x86_64-apple-ios12.0")
     XCTAssertTrue(T.os?.isiOS)
+    XCTAssertFalse(T.os?.isTvOS)
     V = T._iOSVersion
+    XCTAssertEqual(V?.major, 12)
+    XCTAssertEqual(V?.minor, 0)
+    XCTAssertEqual(V?.micro, 0)
+    XCTAssertFalse(T._isSimulatorEnvironment)
+    XCTAssertFalse(T.isMacCatalyst)
+
+    T = Triple("x86_64-apple-tvos12.0")
+    XCTAssertTrue(T.os?.isTvOS)
+    XCTAssertFalse(T.os?.isiOS)
+    V = T._tvOSVersion
     XCTAssertEqual(V?.major, 12)
     XCTAssertEqual(V?.minor, 0)
     XCTAssertEqual(V?.micro, 0)
@@ -1143,6 +1154,7 @@ final class TripleTests: XCTestCase {
     environment: T,
     macOSVersion: Triple.Version?,
     iOSVersion: Triple.Version?,
+    tvOSVersion: Triple.Version?,
     watchOSVersion: Triple.Version?,
     shouldHaveJetPacks: Bool,
     file: StaticString = #file, line: UInt = #line
@@ -1170,9 +1182,11 @@ final class TripleTests: XCTestCase {
                      "iOS device version", file: file, line: line)
       XCTAssertEqual(triple.version(for: .iOS(.simulator)), iOSVersion,
                      "iOS simulator version", file: file, line: line)
-      XCTAssertEqual(triple.version(for: .tvOS(.device)), iOSVersion,
+    }
+    if let tvOSVersion = tvOSVersion {
+      XCTAssertEqual(triple.version(for: .tvOS(.device)), tvOSVersion,
                      "tvOS device version", file: file, line: line)
-      XCTAssertEqual(triple.version(for: .tvOS(.simulator)), iOSVersion,
+      XCTAssertEqual(triple.version(for: .tvOS(.simulator)), tvOSVersion,
                      "tvOS simulator version", file: file, line: line)
     }
     if let watchOSVersion = watchOSVersion {
@@ -1214,6 +1228,7 @@ final class TripleTests: XCTestCase {
                                 environment: .device,
                                 macOSVersion: .init(10, 12, 0),
                                 iOSVersion: .init(5, 0, 0),
+                                tvOSVersion: .init(9, 0, 0),
                                 watchOSVersion: .init(2, 0, 0),
                                 shouldHaveJetPacks: false)
     assertDarwinPlatformCorrect(macOS2,
@@ -1221,6 +1236,7 @@ final class TripleTests: XCTestCase {
                                 environment: .device,
                                 macOSVersion: .init(10, 50, 0),
                                 iOSVersion: .init(5, 0, 0),
+                                tvOSVersion: .init(9, 0, 0),
                                 watchOSVersion: .init(2, 0, 0),
                                 shouldHaveJetPacks: true)
     assertDarwinPlatformCorrect(macOS3,
@@ -1228,6 +1244,7 @@ final class TripleTests: XCTestCase {
                                 environment: .device,
                                 macOSVersion: .init(10, 60, 9),
                                 iOSVersion: .init(5, 0, 0),
+                                tvOSVersion: .init(9, 0, 0),
                                 watchOSVersion: .init(2, 0, 0),
                                 shouldHaveJetPacks: true)
     assertDarwinPlatformCorrect(macOS4,
@@ -1235,6 +1252,7 @@ final class TripleTests: XCTestCase {
                                 environment: .device,
                                 macOSVersion: .init(10, 15, 0),
                                 iOSVersion: .init(5, 0, 0),
+                                tvOSVersion: .init(9, 0, 0),
                                 watchOSVersion: .init(2, 0, 0),
                                 shouldHaveJetPacks: false)
 
@@ -1247,6 +1265,7 @@ final class TripleTests: XCTestCase {
                                 environment: .simulator,
                                 macOSVersion: .init(10, 4, 0),
                                 iOSVersion: .init(13, 0, 0),
+                                tvOSVersion: nil,
                                 watchOSVersion: nil,
                                 shouldHaveJetPacks: false)
     assertDarwinPlatformCorrect(iOS2,
@@ -1254,6 +1273,7 @@ final class TripleTests: XCTestCase {
                                 environment: .device,
                                 macOSVersion: .init(10, 4, 0),
                                 iOSVersion: .init(50, 0, 0),
+                                tvOSVersion: nil,
                                 watchOSVersion: nil,
                                 shouldHaveJetPacks: true)
     assertDarwinPlatformCorrect(iOS3,
@@ -1261,6 +1281,7 @@ final class TripleTests: XCTestCase {
                                 environment: .catalyst,
                                 macOSVersion: .init(10, 4, 0),
                                 iOSVersion: .init(60, 0, 0),
+                                tvOSVersion: nil,
                                 watchOSVersion: nil,
                                 shouldHaveJetPacks: true)
 
@@ -1273,6 +1294,7 @@ final class TripleTests: XCTestCase {
                                 environment: .simulator,
                                 macOSVersion: .init(10, 4, 0),
                                 iOSVersion: .init(13, 0, 0),
+                                tvOSVersion: .init(13, 0, 0),
                                 watchOSVersion: nil,
                                 shouldHaveJetPacks: false)
     assertDarwinPlatformCorrect(tvOS2,
@@ -1280,6 +1302,7 @@ final class TripleTests: XCTestCase {
                                 environment: .device,
                                 macOSVersion: .init(10, 4, 0),
                                 iOSVersion: .init(50, 0, 0),
+                                tvOSVersion: .init(50, 0, 0),
                                 watchOSVersion: nil,
                                 shouldHaveJetPacks: true)
     assertDarwinPlatformCorrect(tvOS3,
@@ -1287,6 +1310,7 @@ final class TripleTests: XCTestCase {
                                 environment: .simulator,
                                 macOSVersion: .init(10, 4, 0),
                                 iOSVersion: .init(60, 0, 0),
+                                tvOSVersion: .init(60, 0, 0),
                                 watchOSVersion: nil,
                                 shouldHaveJetPacks: true)
 
@@ -1299,6 +1323,7 @@ final class TripleTests: XCTestCase {
                                 environment: .simulator,
                                 macOSVersion: .init(10, 4, 0),
                                 iOSVersion: nil,
+                                tvOSVersion: nil,
                                 watchOSVersion: .init(6, 0, 0),
                                 shouldHaveJetPacks: false)
     assertDarwinPlatformCorrect(watchOS2,
@@ -1306,6 +1331,7 @@ final class TripleTests: XCTestCase {
                                 environment: .device,
                                 macOSVersion: .init(10, 4, 0),
                                 iOSVersion: nil,
+                                tvOSVersion: nil,
                                 watchOSVersion: .init(50, 0, 0),
                                 shouldHaveJetPacks: true)
     assertDarwinPlatformCorrect(watchOS3,
@@ -1313,6 +1339,7 @@ final class TripleTests: XCTestCase {
                                 environment: .simulator,
                                 macOSVersion: .init(10, 4, 0),
                                 iOSVersion: nil,
+                                tvOSVersion: nil,
                                 watchOSVersion: .init(60, 0, 0),
                                 shouldHaveJetPacks: true)
   }
