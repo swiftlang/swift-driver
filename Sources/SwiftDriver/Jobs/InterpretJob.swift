@@ -11,7 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 extension Driver {
-  mutating func interpretJob(inputs allInputs: [TypedVirtualPath]) throws -> Job {
+  mutating func interpretJob(inputs allInputs: [TypedVirtualPath],
+                             explicitModulePlanner: ExplicitDependencyBuildPlanner?) throws -> Job {
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
     var inputs: [TypedVirtualPath] = []
 
@@ -27,7 +28,8 @@ extension Driver {
       commandLine.appendFlag(.disableObjcAttrRequiresFoundationModule)
     }
 
-    try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs, kind: .interpret)
+    try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs, kind: .interpret,
+                                 explicitModulePlanner: explicitModulePlanner)
     try addRuntimeLibraryFlags(commandLine: &commandLine)
 
     try commandLine.appendLast(.parseSil, from: &parsedOptions)

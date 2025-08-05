@@ -303,7 +303,28 @@ extension Triple {
     }
   }
 
-  /// The platform name, i.e. the name clang uses to identify this target in its
+
+  /// The "os" component of the Clang compiler resource library directory (`<ResourceDir>/lib/<OSName>`).
+  /// Must be kept in sync with Clang driver:
+  /// https://github.com/llvm/llvm-project/blob/llvmorg-20.1.4/clang/lib/Driver/ToolChain.cpp#L690
+  @_spi(Testing) public var clangOSLibName: String {
+    guard let os else {
+      return osName
+    }
+    if os.isDarwin {
+      return "darwin"
+    }
+
+    switch os {
+    case .freeBSD: return "freebsd"
+    case .netbsd: return "netbsd"
+    case .openbsd: return "openbsd"
+    case .aix: return "aix"
+    default: return osName
+    }
+  }
+
+  /// The platform name, i.e. the name Swift uses to identify this target in its
   /// resource directory.
   ///
   /// - Parameter conflatingDarwin: If true, all Darwin platforms will be

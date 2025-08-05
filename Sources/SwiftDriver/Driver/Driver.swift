@@ -23,10 +23,14 @@ import struct TSCBasic.AbsolutePath
 import struct TSCBasic.ByteString
 import struct TSCBasic.Diagnostic
 import struct TSCBasic.FileInfo
+import struct TSCBasic.ProcessResult
 import struct TSCBasic.RelativePath
+import struct TSCBasic.SHA256
 import var TSCBasic.localFileSystem
 import var TSCBasic.stderrStream
 import var TSCBasic.stdoutStream
+import typealias TSCBasic.ProcessEnvironmentBlock
+import struct TSCBasic.ProcessEnvironmentKey
 
 extension Driver {
   /// Stub Error for terminating the process.
@@ -44,11 +48,10 @@ extension Driver.ErrorDiagnostics: CustomStringConvertible {
   }
 }
 
-
 /// The Swift driver.
 public struct Driver {
   public enum Error: Swift.Error, Equatable, DiagnosticData {
-    case unknownOrMissingSubcommand(String)
+    case unknownOrMissingSubcommand(String, String?)
     case invalidDriverName(String)
     case invalidInput(String)
     case noInputFiles
@@ -59,6 +62,7 @@ public struct Driver {
     case cannotSpecify_OForMultipleOutputs
     case conflictingOptions(Option, Option)
     case unableToLoadOutputFileMap(String, String)
+    case malformedChainedBridgingHeader(String)
     case unableToDecodeFrontendTargetInfo(String?, [String], String)
     case failedToRetrieveFrontendTargetInfo
     case failedToRunFrontendToRetrieveTargetInfo(Int, String?)
@@ -68,6 +72,7 @@ public struct Driver {
     case conditionalCompilationFlagIsNotValidIdentifier(String)
     case baselineGenerationRequiresTopLevelModule(String)
     case optionRequiresAnother(String, String)
+    case unableToCreateReproducer
     // Explicit Module Build Failures
     case malformedModuleDependency(String, String)
     case missingModuleDependency(String)
@@ -77,7 +82,10 @@ public struct Driver {
 
     public var description: String {
       switch self {
-      case .unknownOrMissingSubcommand(let subcommand):
+      case .unknownOrMissingSubcommand(let subcommand, let directory):
+        if let directory {
+          return "unknown or missing subcommand '\(subcommand)' in '\(directory)'"
+        }
         return "unknown or missing subcommand '\(subcommand)'"
       case .invalidDriverName(let driverName):
         return "invalid driver name: \(driverName)"
@@ -111,6 +119,8 @@ public struct Driver {
         return "failed to retrieve frontend target info"
       case .unableToReadFrontendTargetInfo:
         return "could not read frontend target info"
+      case .malformedChainedBridgingHeader(let content):
+        return "could not convert bridging header content to utf-8: \(content)"
       case let .failedToRunFrontendToRetrieveTargetInfo(returnCode, stderr):
         return "frontend job retrieving target info failed with code \(returnCode)"
           + (stderr.map {": \($0)"} ?? "")
@@ -137,6 +147,8 @@ public struct Driver {
         return "generating a baseline with '\(arg)' is only supported with '-emit-module' or '-emit-module-path'"
       case .optionRequiresAnother(let first, let second):
         return "'\(first)' cannot be specified if '\(second)' is not present"
+      case .unableToCreateReproducer:
+        return "failed to create reproducer"
       }
     }
   }
@@ -150,7 +162,7 @@ public struct Driver {
   /// The set of environment variables that are visible to the driver and
   /// processes it launches. This is a hook for testing; in actual use
   /// it should be identical to the real environment.
-  public let env: [String: String]
+  public let env: ProcessEnvironmentBlock
 
   /// Whether we are using the driver as the integrated driver via libSwiftDriver
   public let integratedDriver: Bool
@@ -209,8 +221,8 @@ public struct Driver {
   /// The set of input files
   @_spi(Testing) public let inputFiles: [TypedVirtualPath]
 
-  /// The last time each input file was modified, recorded at the start of the build.
-  @_spi(Testing) public let recordedInputModificationDates: [TypedVirtualPath: TimePoint]
+  /// The last time each input file was modified, and the file's SHA256 hash, recorded at the start of the build.
+  @_spi(Testing) public let recordedInputMetadata: [TypedVirtualPath: FileMetadata]
 
   /// The mapping from input files to output files for each kind.
   let outputFileMap: OutputFileMap?
@@ -291,7 +303,7 @@ public struct Driver {
       return ($0.key, $0.value)
     }
     do {
-      guard isFrontendArgSupported(.scannerPrefixMap) else {
+      guard isFrontendArgSupported(.cacheReplayPrefixMap) else {
         return []
       }
       if let sdkMapping = scannerPrefixMapSDK,
@@ -330,7 +342,7 @@ public struct Driver {
     case .relative(let path):
       let cwd = workingDirectory ?? fileSystem.currentWorkingDirectory
       return cwd.map { AbsolutePath($0, path) }
-    case .standardInput, .standardOutput, .temporary, .temporaryWithKnownContents, .fileList:
+    case .standardInput, .standardOutput, .temporary, .temporaryWithKnownContents, .fileList, .buildArtifactWithKnownContents:
       fatalError("Frontend target information will never include a path of this type.")
     }
   }
@@ -341,36 +353,13 @@ public struct Driver {
   /// Original ObjC Header passed from command-line
   let originalObjCHeaderFile: VirtualPath.Handle?
 
-
   /// Enable bridging header chaining.
   let bridgingHeaderChaining: Bool
-
-  /// The path to the imported Objective-C header.
-  lazy var importedObjCHeader: VirtualPath.Handle? = {
-    assert(explicitDependencyBuildPlanner != nil ||
-           !parsedOptions.hasArgument(.driverExplicitModuleBuild) ||
-           !inputFiles.contains { $0.type == .swift },
-           "should not be queried before scanning")
-    let chainedBridgingHeader = try? explicitDependencyBuildPlanner?.getChainedBridgingHeaderFile()
-    return try? computeImportedObjCHeader(&parsedOptions, compilerMode: compilerMode,
-                                          chainedBridgingHeader: chainedBridgingHeader) ?? originalObjCHeaderFile
-  }()
 
   /// The directory to emit PCH file.
   lazy var bridgingPrecompiledHeaderOutputDir: VirtualPath? = {
     return try? computePrecompiledBridgingHeaderDir(&parsedOptions,
                                                     compilerMode: compilerMode)
-  }()
-
-  /// The path to the pch for the imported Objective-C header.
-  lazy var bridgingPrecompiledHeader: VirtualPath.Handle? = {
-    let contextHash = try? explicitDependencyBuildPlanner?.getMainModuleContextHash()
-    return computeBridgingPrecompiledHeader(&parsedOptions,
-                                            compilerMode: compilerMode,
-                                            importedObjCHeader: importedObjCHeader,
-                                            outputFileMap: outputFileMap,
-                                            outputDirectory: bridgingPrecompiledHeaderOutputDir,
-                                            contextHash: contextHash)
   }()
 
   /// Path to the dependencies file.
@@ -621,14 +610,6 @@ public struct Driver {
   /// The mode the API digester should run in.
   let digesterMode: DigesterMode
 
-  // FIXME: We should soon be able to remove this from being in the Driver's state.
-  // Its only remaining use outside of actual dependency build planning is in
-  // command-line input option generation for the explicit main module compile job.
-  /// Planner for constructing module build jobs using Explicit Module Builds.
-  /// Constructed during the planning phase only when all module dependencies will be prebuilt and treated
-  /// as explicit inputs by the various compilation jobs.
-  @_spi(Testing) public var explicitDependencyBuildPlanner: ExplicitDependencyBuildPlanner? = nil
-
   /// A reference to the instance of libSwiftScan which is shared with the driver's
   /// `InterModuleDependencyOracle`, but also used for non-scanning tasks, such as target info
   /// and supported compiler feature queries
@@ -637,10 +618,6 @@ public struct Driver {
   /// Can either be an argument to the driver in many-module contexts where dependency information
   /// is shared across many targets; otherwise, a new instance is created by the driver itself.
   @_spi(Testing) public let interModuleDependencyOracle: InterModuleDependencyOracle
-
-  /// A dictionary of external targets that are a part of the same build, mapping to filesystem paths
-  /// of their module files
-  @_spi(Testing) public var externalTargetModuleDetailsMap: ExternalTargetModuleDetailsMap? = nil
 
   /// A collection of all the flags the selected toolchain's `swift-frontend` supports
   public let supportedFrontendFlags: Set<String>
@@ -768,6 +745,7 @@ public struct Driver {
   }
 
   @available(*, deprecated, renamed: "init(args:env:diagnosticsOutput:fileSystem:executor:integratedDriver:compilerExecutableDir:externalTargetModuleDetailsMap:interModuleDependencyOracle:)")
+  @_disfavoredOverload
   public init(
     args: [String],
     env: [String: String] = ProcessEnv.vars,
@@ -788,12 +766,12 @@ public struct Driver {
       integratedDriver: integratedDriver,
       compilerIntegratedTooling: false,
       compilerExecutableDir: compilerExecutableDir,
-      externalTargetModuleDetailsMap: externalTargetModuleDetailsMap,
       interModuleDependencyOracle: interModuleDependencyOracle
     )
   }
 
   @available(*, deprecated, renamed: "init(args:env:diagnosticsOutput:fileSystem:executor:integratedDriver:compilerIntegratedTooling:compilerExecutableDir:externalTargetModuleDetailsMap:interModuleDependencyOracle:)")
+  @_disfavoredOverload
   public init(
     args: [String],
     env: [String: String] = ProcessEnv.vars,
@@ -814,7 +792,38 @@ public struct Driver {
       integratedDriver: integratedDriver,
       compilerIntegratedTooling: false,
       compilerExecutableDir: compilerExecutableDir,
-      externalTargetModuleDetailsMap: externalTargetModuleDetailsMap,
+      interModuleDependencyOracle: interModuleDependencyOracle
+    )
+  }
+
+  @available(*, deprecated, renamed: "init(args:envBlock:diagnosticsOutput:fileSystem:executor:integratedDriver:compilerIntegratedTooling:compilerExecutableDir:externalTargetModuleDetailsMap:interModuleDependencyOracle:)")
+  @_disfavoredOverload
+  public init(
+    args: [String],
+    env: [String: String] = ProcessEnv.vars,
+    diagnosticsOutput: DiagnosticsOutput = .engine(DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler])),
+    fileSystem: FileSystem = localFileSystem,
+    executor: DriverExecutor,
+    integratedDriver: Bool = true,
+    compilerIntegratedTooling: Bool = false,
+    compilerExecutableDir: AbsolutePath? = nil,
+    externalTargetModuleDetailsMap: ExternalTargetModuleDetailsMap? = nil,
+    interModuleDependencyOracle: InterModuleDependencyOracle? = nil
+  ) throws {
+    let envBlock = env.reduce([:]) { (partialResult: ProcessEnvironmentBlock, tuple: (key: String, value: String)) in
+      var result = partialResult
+      result[ProcessEnvironmentKey(tuple.key)] = tuple.value
+      return result
+    }
+    try self.init(
+      args: args,
+      envBlock: envBlock,
+      diagnosticsOutput: diagnosticsOutput,
+      fileSystem: fileSystem,
+      executor: executor,
+      integratedDriver: integratedDriver,
+      compilerIntegratedTooling: false,
+      compilerExecutableDir: compilerExecutableDir,
       interModuleDependencyOracle: interModuleDependencyOracle
     )
   }
@@ -823,7 +832,7 @@ public struct Driver {
   ///
   /// - Parameter args: The command-line arguments, including the "swift" or "swiftc"
   ///   at the beginning.
-  /// - Parameter env: The environment variables to use. This is a hook for testing;
+  /// - Parameter envBlock: The environment variables to use. This is a hook for testing;
   ///   in production, you should use the default argument, which copies the current environment.
   /// - Parameter diagnosticsOutput: The diagnostics output implementation used by the driver to emit errors
   ///   and warnings.
@@ -837,24 +846,20 @@ public struct Driver {
   ///   Swift compiler image which contains symbols normally queried from a libSwiftScan instance.
   /// - Parameter compilerExecutableDir: Directory that contains the compiler executable to be used.
   ///   Used when in `integratedDriver` mode as a substitute for the driver knowing its executable path.
-  /// - Parameter externalTargetModuleDetailsMap: A dictionary of external targets that are a part of
-  ///   the same build, mapping to a details value which includes a filesystem path of their
-  ///   `.swiftmodule` and a flag indicating whether the external target is a framework.
   /// - Parameter interModuleDependencyOracle: An oracle for querying inter-module dependencies,
   ///   shared across different module builds by a build system.
   public init(
     args: [String],
-    env: [String: String] = ProcessEnv.vars,
+    envBlock: ProcessEnvironmentBlock = ProcessEnv.block,
     diagnosticsOutput: DiagnosticsOutput = .engine(DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler])),
     fileSystem: FileSystem = localFileSystem,
     executor: DriverExecutor,
     integratedDriver: Bool = true,
     compilerIntegratedTooling: Bool = false,
     compilerExecutableDir: AbsolutePath? = nil,
-    externalTargetModuleDetailsMap: ExternalTargetModuleDetailsMap? = nil,
     interModuleDependencyOracle: InterModuleDependencyOracle? = nil
   ) throws {
-    self.env = env
+    self.env = envBlock
     self.fileSystem = fileSystem
     self.integratedDriver = integratedDriver
     self.compilerIntegratedTooling = compilerIntegratedTooling
@@ -869,7 +874,6 @@ public struct Driver {
     self.diagnosticEngine = diagnosticsEngine
 
     self.executor = executor
-    self.externalTargetModuleDetailsMap = externalTargetModuleDetailsMap
 
     if case .subcommand = try Self.invocationRunMode(forArgs: args).mode {
       throw Error.subcommandPassedToDriver
@@ -960,11 +964,20 @@ public struct Driver {
     // Classify and collect all of the input files.
     let inputFiles = try Self.collectInputFiles(&self.parsedOptions, diagnosticsEngine: diagnosticsEngine, fileSystem: self.fileSystem)
     self.inputFiles = inputFiles
-    self.recordedInputModificationDates = .init(uniqueKeysWithValues:
-      Set(inputFiles).compactMap {
-        guard let modTime = try? fileSystem
-          .lastModificationTime(for: $0.file) else { return nil }
-        return ($0, modTime)
+
+    let incrementalFileHashes = parsedOptions.hasFlag(positive: .enableIncrementalFileHashing,
+                                                      negative: .disableIncrementalFileHashing,
+                                                      default: false)
+    self.recordedInputMetadata = .init(uniqueKeysWithValues:
+      Set(inputFiles).compactMap { inputFile -> (TypedVirtualPath, FileMetadata)? in
+        guard let modTime = try? fileSystem.lastModificationTime(for: inputFile.file) else { return nil }
+        if incrementalFileHashes {
+            guard let data = try? fileSystem.readFileContents(inputFile.file)  else { return nil }
+            let hash = SHA256().hash(data).hexadecimalRepresentation
+            return (inputFile, FileMetadata(mTime: modTime, hash: hash))
+        } else {
+            return (inputFile, FileMetadata(mTime: modTime))
+        }
     })
 
     do {
@@ -1083,7 +1096,7 @@ public struct Driver {
       outputFileMap: outputFileMap,
       incremental: self.shouldAttemptIncrementalCompilation,
       parsedOptions: parsedOptions,
-      recordedInputModificationDates: recordedInputModificationDates)
+      recordedInputMetadata: recordedInputMetadata)
 
     self.supportedFrontendFlags =
       try Self.computeSupportedCompilerArgs(of: self.toolchain,
@@ -1365,9 +1378,9 @@ public struct Driver {
   }
 
   public mutating func planBuild() throws -> [Job] {
-    let (jobs, incrementalCompilationState, intermoduleDependencyGraph) = try planPossiblyIncrementalBuild()
+    let (jobs, incrementalCompilationState, explicitModulePlanner) = try planPossiblyIncrementalBuild()
     self.incrementalCompilationState = incrementalCompilationState
-    self.intermoduleDependencyGraph = intermoduleDependencyGraph
+    self.intermoduleDependencyGraph = explicitModulePlanner?.dependencyGraph
     return jobs
   }
 }
@@ -1756,11 +1769,9 @@ extension Diagnostic.Message {
 }
 
 extension Driver {
-  func explainModuleDependency(_ explainModuleName: String, allPaths: Bool) throws {
-    guard let dependencyPlanner = explicitDependencyBuildPlanner else {
-      fatalError("Cannot explain dependency without Explicit Build Planner")
-    }
-    guard let dependencyPaths = try dependencyPlanner.explainDependency(explainModuleName, allPaths: allPaths) else {
+  func explainModuleDependency(_ explainModuleName: String, allPaths: Bool,
+                               moduleDependencyGraph: InterModuleDependencyGraph) throws {
+    guard let dependencyPaths = try moduleDependencyGraph.explainDependency(explainModuleName, allPaths: allPaths) else {
       diagnosticEngine.emit(.remark("No such module dependency found: '\(explainModuleName)'"))
       return
     }
@@ -1775,8 +1786,6 @@ extension Driver {
           pathString = pathString + "[" + moduleName + "]"
         case .clang(let moduleName):
           pathString = pathString + "[" + moduleName + "](ObjC)"
-        case .swiftPlaceholder(_):
-          fatalError("Unexpected unresolved Placeholder module")
         }
         if index < path.count - 1 {
           pathString = pathString + " -> "
@@ -1830,13 +1839,6 @@ extension Driver {
         print(try executor.description(of: job, forceResponseFiles: forceResponseFiles))
       }
       return
-    }
-
-    // If we're only supposed to explain a dependency on a given module, do so now.
-    if let explainModuleName = parsedOptions.getLastArgument(.explainModuleDependencyDetailed) {
-      try explainModuleDependency(explainModuleName.asSingle, allPaths: true)
-    } else if let explainModuleNameDetailed = parsedOptions.getLastArgument(.explainModuleDependency) {
-      try explainModuleDependency(explainModuleNameDetailed.asSingle, allPaths: false)
     }
 
     if parsedOptions.contains(.driverPrintOutputFileMap) {
@@ -1933,7 +1935,7 @@ extension Driver {
       }
       try executor.execute(job: inPlaceJob,
                            forceResponseFiles: forceResponseFiles,
-                           recordedInputModificationDates: recordedInputModificationDates)
+                           recordedInputMetadata: recordedInputMetadata)
     }
 
     // If requested, warn for options that weren't used by the driver after the build is finished.
@@ -1962,7 +1964,8 @@ extension Driver {
       buildRecordInfo: buildRecordInfo,
       showJobLifecycle: showJobLifecycle,
       argsResolver: executor.resolver,
-      diagnosticEngine: diagnosticEngine)
+      diagnosticEngine: diagnosticEngine,
+      reproducerCallback: supportsReproducer ? Driver.generateReproducer : nil)
   }
 
   private mutating func performTheBuild(
@@ -1978,7 +1981,7 @@ extension Driver {
       delegate: jobExecutionDelegate,
       numParallelJobs: numParallelJobs ?? 1,
       forceResponseFiles: forceResponseFiles,
-      recordedInputModificationDates: recordedInputModificationDates)
+      recordedInputMetadata: recordedInputMetadata)
   }
 
   public func writeIncrementalBuildInformation(_ jobs: [Job]) {
@@ -2031,7 +2034,7 @@ extension Driver {
 
     // Put bridging header as first input if we have it
     let allInputs: [TypedVirtualPath]
-    if let objcHeader = importedObjCHeader, bridgingPrecompiledHeader != nil {
+    if let objcHeader = originalObjCHeaderFile {
       allInputs = [TypedVirtualPath(file: objcHeader, type: .objcHeader)] + inputFiles
     } else {
       allInputs = inputFiles
@@ -2056,10 +2059,7 @@ extension Driver {
       // All input action IDs for this action.
       var inputIds = [UInt]()
 
-      var jobInputs = job.primaryInputs.isEmpty ? job.inputs : job.primaryInputs
-      if let pchPath = bridgingPrecompiledHeader, job.kind == .compile {
-        jobInputs.append(TypedVirtualPath(file: pchPath, type: .pch))
-      }
+      let jobInputs = job.primaryInputs.isEmpty ? job.inputs : job.primaryInputs
       // Collect input job IDs.
       for input in jobInputs {
         if let id = inputIdMap[input] {
@@ -2550,7 +2550,7 @@ extension Driver {
   static func determineNumParallelJobs(
     _ parsedOptions: inout ParsedOptions,
     diagnosticsEngine: DiagnosticsEngine,
-    env: [String: String]
+    env: ProcessEnvironmentBlock
   ) -> Int? {
     guard let numJobs = parseIntOption(&parsedOptions, option: .j, diagnosticsEngine: diagnosticsEngine) else {
       return nil
@@ -2751,7 +2751,7 @@ extension Driver {
     }
 
     // Check that we're one of the known supported targets for sanitizers.
-    if !(targetTriple.isWindows || targetTriple.isDarwin || targetTriple.os == .linux) {
+    if !(targetTriple.isWindows || targetTriple.isDarwin || targetTriple.os == .linux || targetTriple.os == .wasi) {
       diagnosticEngine.emit(
         .error_unsupported_opt_for_target(
           arg: "-sanitize=",
@@ -3043,7 +3043,7 @@ extension Driver {
     targetTriple: Triple?,
     fileSystem: FileSystem,
     diagnosticsEngine: DiagnosticsEngine,
-    env: [String: String]
+    env: ProcessEnvironmentBlock
   ) -> VirtualPath? {
     var sdkPath: String?
 
@@ -3130,15 +3130,14 @@ extension Driver {
     chainedBridgingHeader: ChainedBridgingHeaderFile?) throws -> VirtualPath.Handle? {
     // handle chained bridging header.
     if let chainedHeader = chainedBridgingHeader, !chainedHeader.path.isEmpty {
-      let path = try VirtualPath(path: chainedHeader.path)
-      let dirExists = try fileSystem.exists(path.parentDirectory)
-      if !dirExists, let dirToCreate = path.parentDirectory.absolutePath {
-        try fileSystem.createDirectory(dirToCreate, recursive: true)
+      let path = try AbsolutePath(validating: chainedHeader.path)
+      if !fileSystem.exists(path.parentDirectory) {
+        try fileSystem.createDirectory(path.parentDirectory, recursive: true)
       }
-      try fileSystem.writeFileContents(path,
-                                       bytes: ByteString(encodingAsUTF8: chainedHeader.content),
-                                       atomically: true)
-      return path.intern()
+      guard let headerData = chainedHeader.content.data(using: .utf8) else {
+        throw Driver.Error.malformedChainedBridgingHeader(chainedHeader.content)
+      }
+      return try VirtualPath.createBuildProductFileWithKnownContents(path, headerData).intern()
     }
     return originalObjCHeaderFile
   }
@@ -3574,7 +3573,7 @@ extension Driver {
     _ parsedOptions: inout ParsedOptions,
     diagnosticsEngine: DiagnosticsEngine,
     compilerMode: CompilerMode,
-    env: [String: String],
+    env: ProcessEnvironmentBlock,
     executor: DriverExecutor,
     fileSystem: FileSystem,
     useStaticResourceDir: Bool,
@@ -3605,7 +3604,7 @@ extension Driver {
   static func computeTargetInfo(_ parsedOptions: inout ParsedOptions,
                                 diagnosticsEngine: DiagnosticsEngine,
                                 compilerMode: CompilerMode,
-                                env: [String: String],
+                                env: ProcessEnvironmentBlock,
                                 executor: DriverExecutor,
                                 libSwiftScan: SwiftScan?,
                                 toolchain: Toolchain,
@@ -4016,14 +4015,20 @@ extension Driver {
 
   static func computeScanningPrefixMapper(_ parsedOptions: inout ParsedOptions) throws -> [AbsolutePath: AbsolutePath] {
     var mapping: [AbsolutePath: AbsolutePath] = [:]
-    for opt in parsedOptions.arguments(for: .scannerPrefixMap) {
-      let pluginArg = opt.argument.asSingle.split(separator: "=", maxSplits: 1)
-      if pluginArg.count != 2 {
-        throw Error.invalidArgumentValue(Option.scannerPrefixMap.spelling, opt.argument.asSingle)
+    for opt in parsedOptions.arguments(for: .scannerPrefixMapPaths, .scannerPrefixMap) {
+      if opt.option == .scannerPrefixMapPaths {
+        let key = try AbsolutePath(validating: opt.argument.asMultiple[0])
+        let value = try AbsolutePath(validating: opt.argument.asMultiple[1])
+        mapping[key] = value
+      } else {
+        let pluginArg = opt.argument.asSingle.split(separator: "=", maxSplits: 1)
+        if pluginArg.count != 2 {
+          throw Error.invalidArgumentValue(Option.scannerPrefixMap.spelling, opt.argument.asSingle)
+        }
+        let key = try AbsolutePath(validating: String(pluginArg[0]))
+        let value = try AbsolutePath(validating: String(pluginArg[1]))
+        mapping[key] = value
       }
-      let key = try AbsolutePath(validating: String(pluginArg[0]))
-      let value = try AbsolutePath(validating: String(pluginArg[1]))
-      mapping[key] = value
     }
     return mapping
   }

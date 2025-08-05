@@ -42,15 +42,6 @@ extension Driver {
     /// Use the precompiled bridging header.
     case precompiled
   }
-  /// Whether the driver has already constructed a module dependency graph or is in the process
-  /// of doing so
-  enum ModuleDependencyGraphUse {
-    /// Even though the driver may be in ExplicitModuleBuild mode, the dependency graph has not yet
-    /// been constructed, omit processing module dependencies
-    case dependencyScan
-    /// If the driver is in Explicit Module Build mode, the dependency graph has been computed
-    case computed
-  }
 
   /// If the given option is specified but the frontend doesn't support it, throw an error.
   func verifyFrontendSupportsOptionIfNecessary(_ option: Option) throws {
@@ -66,14 +57,20 @@ extension Driver {
     inputs: inout [TypedVirtualPath],
     kind: Job.Kind,
     bridgingHeaderHandling: BridgingHeaderHandling = .precompiled,
-    moduleDependencyGraphUse: ModuleDependencyGraphUse = .computed
+    explicitModulePlanner: ExplicitDependencyBuildPlanner? = nil,
+    forVariantEmitModule: Bool = false
   ) throws {
     // Only pass -target to the REPL or immediate modes if it was explicitly
     // specified on the command line.
     switch compilerMode {
     case .standardCompile, .singleCompile, .batchCompile, .compilePCM, .dumpPCM:
       commandLine.appendFlag(.target)
-      commandLine.appendFlag(targetTriple.triple)
+      if forVariantEmitModule,
+         let variant = parsedOptions.getLastArgument(.targetVariant)?.asSingle {
+        commandLine.appendFlag(Triple(variant, normalizing: true).triple)
+      } else {
+        commandLine.appendFlag(targetTriple.triple)
+      }
 
     case .repl, .immediate:
       if parsedOptions.hasArgument(.target) {
@@ -84,27 +81,27 @@ extension Driver {
       break
     }
 
-    let isPlanJobForExplicitModule = parsedOptions.contains(.driverExplicitModuleBuild) &&
-                                     moduleDependencyGraphUse == .computed
+    let isPlanJobForExplicitModule = parsedOptions.contains(.driverExplicitModuleBuild) && explicitModulePlanner != nil
     let jobNeedPathRemap: Bool
     // If in ExplicitModuleBuild mode and the dependency graph has been computed, add module
     // dependencies.
     // May also be used for generation of the dependency graph itself in ExplicitModuleBuild mode.
-    if isPlanJobForExplicitModule {
+    if isPlanJobForExplicitModule,
+       let explicitModulePlanner = explicitModulePlanner {
       switch kind {
       case .generatePCH:
-        try addExplicitPCHBuildArguments(inputs: &inputs, commandLine: &commandLine)
+        explicitModulePlanner.resolveBridgingHeaderDependencies(inputs: &inputs, commandLine: &commandLine)
         jobNeedPathRemap = true
       case .compile, .emitModule, .interpret, .verifyModuleInterface:
-        try addExplicitModuleBuildArguments(inputs: &inputs, commandLine: &commandLine)
+        explicitModulePlanner.resolveMainModuleDependencies(inputs: &inputs, commandLine: &commandLine)
         jobNeedPathRemap = true
-      case .backend, .mergeModule, .compileModuleFromInterface,
+      case .backend, .compileModuleFromInterface,
            .generatePCM, .dumpPCM, .repl, .printTargetInfo,
            .versionRequest, .autolinkExtract, .generateDSYM,
            .help, .link, .verifyDebugInfo, .scanDependencies,
            .emitSupportedFeatures, .moduleWrap,
            .generateAPIBaseline, .generateABIBaseline, .compareAPIBaseline,
-           .compareABIBaseline:
+           .compareABIBaseline, .printSupportedFeatures:
         jobNeedPathRemap = false
       }
     } else {
@@ -122,7 +119,8 @@ extension Driver {
       commandLine.appendFlag(flag)
     }
 
-    if let variant = parsedOptions.getLastArgument(.targetVariant)?.asSingle {
+    if !forVariantEmitModule,
+       let variant = parsedOptions.getLastArgument(.targetVariant)?.asSingle {
       commandLine.appendFlag(.targetVariant)
       commandLine.appendFlag(Triple(variant, normalizing: true).triple)
     }
@@ -190,7 +188,7 @@ extension Driver {
     }
 
     // TODO: Can we drop all search paths for compile jobs for explicit module build?
-    try addAllArgumentsWithPath(.I, to: &commandLine, remap: jobNeedPathRemap)
+    try addAllArgumentsWithPath(.I, .Isystem, to: &commandLine, remap: jobNeedPathRemap)
     try addAllArgumentsWithPath(.F, .Fsystem, to: &commandLine, remap: jobNeedPathRemap)
     try addAllArgumentsWithPath(.vfsoverlay, to: &commandLine, remap: jobNeedPathRemap)
 
@@ -306,7 +304,7 @@ extension Driver {
                               .enableUpcomingFeature,
                               .disableUpcomingFeature,
                               from: &parsedOptions)
-    try commandLine.appendLast(.strictMemorySafety, from: &parsedOptions)
+    try commandLine.appendLast(.strictMemorySafety, .strictMemorySafetyMigrate, from: &parsedOptions)
     try commandLine.appendAll(.moduleAlias, from: &parsedOptions)
     if isFrontendArgSupported(.enableBareSlashRegex) {
       try commandLine.appendLast(.enableBareSlashRegex, from: &parsedOptions)
@@ -473,9 +471,11 @@ extension Driver {
       try commandLine.appendAll(.Xcc, from: &parsedOptions)
     }
 
+    let (importedObjCHeader, precompiledObjCHeader) =
+              try computeCanonicalObjCHeader(explicitModulePlanner: explicitModulePlanner)
     let objcHeaderFile = (kind == .scanDependencies) ? originalObjCHeaderFile : importedObjCHeader
     if let importedObjCHeader = objcHeaderFile, bridgingHeaderHandling != .ignored {
-      if bridgingHeaderHandling == .precompiled, let pch = bridgingPrecompiledHeader {
+      if bridgingHeaderHandling == .precompiled, let pch = precompiledObjCHeader {
         // For explicit module build, we directly pass the compiled pch to
         // swift-frontend, rather than rely on swift-frontend to locate
         // the pch in the pchOutputDir and can start an implicit build in case
@@ -566,23 +566,23 @@ extension Driver {
       .appending(components: frontendTargetInfo.target.triple.platformName() ?? "", "Swift.swiftmodule")
     let hasToolchainStdlib = try fileSystem.exists(toolchainStdlibPath)
 
-    let skipMacroOptions = isPlanJobForExplicitModule && isFrontendArgSupported(.loadResolvedPlugin)
+    let skipMacroSearchPath = isPlanJobForExplicitModule && isFrontendArgSupported(.loadResolvedPlugin)
     // If the resource directory has the standard library, prefer the toolchain's plugins
     // to the platform SDK plugins.
     // For explicit module build, the resolved plugins are provided by scanner.
-    if hasToolchainStdlib, !skipMacroOptions {
-      try addPluginPathArguments(commandLine: &commandLine)
+    if hasToolchainStdlib {
+      try addPluginPathArguments(commandLine: &commandLine, skipMacroSearchPath: skipMacroSearchPath)
     }
 
     try toolchain.addPlatformSpecificCommonFrontendOptions(commandLine: &commandLine,
                                                            inputs: &inputs,
                                                            frontendTargetInfo: frontendTargetInfo,
                                                            driver: &self,
-                                                           skipMacroOptions: skipMacroOptions)
+                                                           skipMacroOptions: skipMacroSearchPath)
 
     // Otherwise, prefer the platform's plugins.
-    if !hasToolchainStdlib, !skipMacroOptions {
-      try addPluginPathArguments(commandLine: &commandLine)
+    if !hasToolchainStdlib {
+      try addPluginPathArguments(commandLine: &commandLine, skipMacroSearchPath: skipMacroSearchPath)
     }
 
     if let passPluginPath = parsedOptions.getLastArgument(.loadPassPluginEQ),
@@ -923,21 +923,7 @@ extension Driver {
     entries[inputEntry, default: [:]][output.type] = output.fileHandle
   }
 
-  /// Adds all dependencies required for an explicit module build
-  /// to inputs and command line arguments of a compile job.
-  mutating func addExplicitModuleBuildArguments(inputs: inout [TypedVirtualPath],
-                                                commandLine: inout [Job.ArgTemplate]) throws {
-    try explicitDependencyBuildPlanner?.resolveMainModuleDependencies(inputs: &inputs, commandLine: &commandLine)
-  }
-
-  /// Adds all dependencies required for an explicit module build of the bridging header
-  /// to inputs and command line arguments of a compile job.
-  mutating func addExplicitPCHBuildArguments(inputs: inout [TypedVirtualPath],
-                                             commandLine: inout [Job.ArgTemplate]) throws {
-    try explicitDependencyBuildPlanner?.resolveBridgingHeaderDependencies(inputs: &inputs, commandLine: &commandLine)
-  }
-
-  mutating func addPluginPathArguments(commandLine: inout [Job.ArgTemplate]) throws {
+  mutating func addPluginPathArguments(commandLine: inout [Job.ArgTemplate], skipMacroSearchPath: Bool) throws {
     guard isFrontendArgSupported(.pluginPath) else {
       return
     }
@@ -952,6 +938,10 @@ extension Driver {
 #endif
     }
 
+    guard !skipMacroSearchPath else {
+      return
+    }
+
     // Default paths for compiler plugins found within the toolchain
     // (loaded as shared libraries).
     commandLine.appendFlag(.pluginPath)
@@ -959,12 +949,6 @@ extension Driver {
 
     commandLine.appendFlag(.pluginPath)
     commandLine.appendPath(pluginPathRoot.localPluginPath)
-  }
-
-
-  /// If explicit dependency planner supports creating bridging header pch command.
-  public var supportsBridgingHeaderPCHCommand: Bool {
-    return explicitDependencyBuildPlanner?.supportsBridgingHeaderPCHCommand ?? false
   }
 
   /// In Explicit Module Build mode, distinguish between main module jobs and intermediate dependency build jobs,
@@ -1051,10 +1035,15 @@ extension Driver {
   }
 
   public mutating func addCacheReplayMapping(to commandLine: inout [Job.ArgTemplate]) {
-    if isCachingEnabled && isFrontendArgSupported(.scannerPrefixMap) {
+    if isCachingEnabled && isFrontendArgSupported(.cacheReplayPrefixMap) {
       for (key, value) in prefixMapping {
         commandLine.appendFlag("-cache-replay-prefix-map")
-        commandLine.appendFlag(value.pathString + "=" + key.pathString)
+        if isFrontendArgSupported(.scannerPrefixMapPaths) {
+          commandLine.appendFlag(value.pathString)
+          commandLine.appendFlag(key.pathString)
+        } else {
+          commandLine.appendFlag(value.pathString + "=" + key.pathString)
+        }
       }
     }
   }
@@ -1084,6 +1073,29 @@ extension Driver {
     // Resolve command-line first.
     let arguments: [String] = try executor.resolver.resolveArgumentList(for: commandLine)
     return try cas.computeCacheKey(commandLine: arguments, index: index)
+  }
+}
+
+// Generate reproducer.
+extension Driver {
+  var supportsReproducer: Bool {
+    isFrontendArgSupported(.genReproducer) && enableCaching
+  }
+
+  static func generateReproducer(_ job: Job, _ output: VirtualPath) -> Job {
+    var reproJob = job
+    reproJob.commandLine.appendFlag(.genReproducer)
+    reproJob.commandLine.appendFlag(.genReproducerDir)
+    reproJob.commandLine.appendPath(output)
+    reproJob.commandLine.removeAll {
+      guard case let .flag(opt) = $0 else {
+        return false
+      }
+      return opt == Option.frontendParseableOutput.spelling
+    }
+    reproJob.outputs.removeAll()
+    reproJob.outputCacheKeys.removeAll()
+    return reproJob
   }
 }
 

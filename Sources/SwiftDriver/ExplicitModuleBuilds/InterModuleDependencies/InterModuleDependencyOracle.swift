@@ -17,32 +17,22 @@ import var TSCBasic.localFileSystem
 
 import Dispatch
 
-// An inter-module dependency oracle, responsible for responding to queries about
-// dependencies of a given module, caching already-discovered dependencies along the way.
+// An inter-module dependency oracle, responsible for responding to queries of
+// dependencies of a given Swift source module.
 //
-// The oracle is currently implemented as a simple store of ModuleInfo nodes.
-// It is the responsibility of the Driver to populate and update
-// the store. It does so by invoking individual -scan-dependencies jobs and
-// accumulating resulting dependency graphs into the oracle's store.
+// The oracle is implemented as a simple wrapper over a 'SwiftScan' instance.
+// An oracle instance may be created by 'SwiftDriver' to be used for a given
+// build's queries (such as on a standalone 'swiftc' invocation), or provided
+// to the driver by a build system (e.g. swift-build) client when the oracle
+// is shared across multiple driver invocations.
 //
-// The design of the oracle's public API is meant to abstract that away,
-// allowing us to replace the underlying implementation in the future, with
-// a persistent-across-targets dependency scanning library.
+// The design of the oracle's public API is meant to abstract away the
+// underlying implementation of the interface with the libSwiftScan shared
+// library, allowing us to replace the underlying implementation in the future.
 //
-/// An abstraction of a cache and query-engine of inter-module dependencies
 public class InterModuleDependencyOracle {
   /// Allow external clients to instantiate the oracle
-  /// - Parameter scannerRequiresPlaceholderModules: Configures this driver's/oracle's scanner invocations to
-  /// specify external module dependencies to be treated as placeholders. This is required in contexts
-  /// where the dependency scanning action is invoked for a module which depends on another module
-  /// that is part of the same build but has not yet been built. Treating it as a placeholder
-  /// will allow the scanning action to not fail when it fails to detect this dependency on
-  /// the filesystem. For example, SwiftPM plans all targets belonging to a package before *any* of them
-  /// are built. So this setting is meant to be used there. In contexts where planning a module
-  /// necessarily means all of its dependencies have already been built this is not necessary.
-  public init(scannerRequiresPlaceholderModules: Bool = false) {
-    self.scannerRequiresPlaceholderModules = scannerRequiresPlaceholderModules
-  }
+  public init() {}
 
   @_spi(Testing) public func getDependencies(workingDirectory: AbsolutePath,
                                              moduleAliases: [String: String]? = nil,
@@ -66,12 +56,6 @@ public class InterModuleDependencyOracle {
                                                     moduleAliases: moduleAliases,
                                                     invocationCommand: commandLine,
                                                     diagnostics: &diagnostics)
-  }
-
-  @available(*, deprecated, message: "use verifyOrCreateScannerInstance(swiftScanLibPath:)")
-  public func verifyOrCreateScannerInstance(fileSystem: FileSystem,
-                                            swiftScanLibPath: AbsolutePath) throws {
-    return try verifyOrCreateScannerInstance(swiftScanLibPath: swiftScanLibPath)
   }
 
   /// Given a specified toolchain path, locate and instantiate an instance of the SwiftScan library
@@ -102,13 +86,6 @@ public class InterModuleDependencyOracle {
       fatalError("Attempting to query supported scanner API with no scanner instance.")
     }
     return swiftScan.hasBinarySwiftModuleHeaderModuleDependencies
-  }
-
-  @_spi(Testing) public func supportsScannerDiagnostics() throws -> Bool {
-    guard let swiftScan = swiftScanLibInstance else {
-      fatalError("Attempting to query supported scanner API with no scanner instance.")
-    }
-    return swiftScan.supportsScannerDiagnostics
   }
 
   @_spi(Testing) public func supportsBinaryModuleHeaderDependencies() throws -> Bool {
@@ -147,16 +124,18 @@ public class InterModuleDependencyOracle {
     return swiftScan.supportsLinkLibraries
   }
 
-  @_spi(Testing) public func getScannerDiagnostics() throws -> [ScannerDiagnosticPayload]? {
+  @_spi(Testing) public func supportsImportInfos() throws -> Bool {
     guard let swiftScan = swiftScanLibInstance else {
-      fatalError("Attempting to reset scanner cache with no scanner instance.")
+      fatalError("Attempting to query supported scanner API with no scanner instance.")
     }
-    guard swiftScan.supportsScannerDiagnostics else {
-      return nil
+    return swiftScan.supportsImportInfos
+  }
+
+  @_spi(Testing) public func supportsSeparateImportOnlyDependencise() throws -> Bool {
+    guard let swiftScan = swiftScanLibInstance else {
+      fatalError("Attempting to query supported scanner API with no scanner instance.")
     }
-    let diags = try swiftScan.queryScannerDiagnostics()
-    try swiftScan.resetScannerDiagnostics()
-    return diags.isEmpty ? nil : diags
+    return swiftScan.supportsSeparateImportOnlyDependencise
   }
 
   public func getOrCreateCAS(pluginPath: AbsolutePath?, onDiskPath: AbsolutePath?, pluginOptions: [(String, String)]) throws -> SwiftScanCAS {
@@ -192,8 +171,6 @@ public class InterModuleDependencyOracle {
 
   /// A reference to an instance of the compiler's libSwiftScan shared library
   private var swiftScanLibInstance: SwiftScan? = nil
-
-  internal let scannerRequiresPlaceholderModules: Bool
 
   internal struct CASConfig: Hashable, Equatable {
     static func == (lhs: InterModuleDependencyOracle.CASConfig, rhs: InterModuleDependencyOracle.CASConfig) -> Bool {

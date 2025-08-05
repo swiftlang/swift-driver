@@ -25,7 +25,8 @@ extension IncrementalCompilationState {
     let fileSystem: FileSystem
     let showJobLifecycle: Bool
     let alwaysRebuildDependents: Bool
-    let interModuleDependencyGraph: InterModuleDependencyGraph?
+    let explicitModulePlanner: ExplicitDependencyBuildPlanner?
+    let useHashes: Bool
     /// If non-null outputs information for `-driver-show-incremental` for input path
     private let reporter: Reporter?
 
@@ -33,7 +34,7 @@ extension IncrementalCompilationState {
       initialState: IncrementalCompilationState.InitialStateForPlanning,
       jobsInPhases: JobsInPhases,
       driver: Driver,
-      interModuleDependencyGraph: InterModuleDependencyGraph?,
+      explicitModulePlanner: ExplicitDependencyBuildPlanner?,
       reporter: Reporter?
     ) {
       self.moduleDependencyGraph = initialState.graph
@@ -45,7 +46,8 @@ extension IncrementalCompilationState {
       self.showJobLifecycle = driver.showJobLifecycle
       self.alwaysRebuildDependents = initialState.incrementalOptions.contains(
         .alwaysRebuildDependents)
-      self.interModuleDependencyGraph = interModuleDependencyGraph
+      self.explicitModulePlanner = explicitModulePlanner
+      self.useHashes = initialState.incrementalOptions.contains(.useFileHashesInModuleDependencyGraph)
       self.reporter = reporter
     }
 
@@ -102,7 +104,8 @@ extension IncrementalCompilationState.FirstWaveComputer {
       batchJobFormer.formBatchedJobs(
         mandatoryCompileJobsInOrder,
         showJobLifecycle: showJobLifecycle,
-        jobCreatingPch: jobCreatingPch)
+        jobCreatingPch: jobCreatingPch,
+        explicitModulePlanner: explicitModulePlanner)
 
       moduleDependencyGraph.setPhase(to: .buildingAfterEachCompilation)
       return (initiallySkippedCompileJobs: [:],
@@ -131,14 +134,27 @@ extension IncrementalCompilationState.FirstWaveComputer {
     let batchedCompilationJobs = try batchJobFormer.formBatchedJobs(
       mandatoryCompileJobsInOrder,
       showJobLifecycle: showJobLifecycle,
-      jobCreatingPch: jobCreatingPch)
+      jobCreatingPch: jobCreatingPch,
+      explicitModulePlanner: explicitModulePlanner)
 
     // In the case where there are no compilation jobs to run on this build (no source-files were changed),
-    // we can skip running `beforeCompiles` jobs if we also ensure that none of the `afterCompiles` jobs
-    // have any dependencies on them.
-    let skipAllJobs = batchedCompilationJobs.isEmpty ? !nonVerifyAfterCompileJobsDependOnBeforeCompileJobs() : false
-    let beforeCompileJobs = skipAllJobs ? [] : jobsInPhases.beforeCompiles
-    var skippedNonCompileJobs = skipAllJobs ? jobsInPhases.beforeCompiles : []
+    // and the emit-module task does not need to be re-run, we can skip running `beforeCompiles` jobs if we
+    // also ensure that none of the `afterCompiles` jobs have any dependencies on them.
+    let skippingAllCompileJobs = batchedCompilationJobs.isEmpty
+    let skipEmitModuleJobs = try skippingAllCompileJobs && computeCanSkipEmitModuleTasks(buildRecord)
+    let skipAllJobs = skippingAllCompileJobs && skipEmitModuleJobs && !nonVerifyAfterCompileJobsDependOnBeforeCompileJobs()
+
+    let beforeCompileJobs: [Job]
+    var skippedNonCompileJobs: [Job] = []
+    if skipAllJobs {
+      beforeCompileJobs = []
+      skippedNonCompileJobs = jobsInPhases.beforeCompiles
+    } else if skipEmitModuleJobs {
+      beforeCompileJobs = jobsInPhases.beforeCompiles.filter { $0.kind != .emitModule }
+      skippedNonCompileJobs.append(contentsOf: jobsInPhases.beforeCompiles.filter { $0.kind == .emitModule })
+    } else {
+      beforeCompileJobs = jobsInPhases.beforeCompiles
+    }
 
     // Schedule emitModule job together with verify module interface job.
     let afterCompileJobs = jobsInPhases.afterCompiles.compactMap { job -> Job? in
@@ -170,6 +186,27 @@ extension IncrementalCompilationState.FirstWaveComputer {
     }
   }
 
+  /// Figure out if the emit-module tasks are *not* mandatory. This functionality only runs if there are not actual
+  /// compilation tasks to be run in this build, for example on an emit-module-only build.
+  private func computeCanSkipEmitModuleTasks(_ buildRecord: BuildRecord) throws -> Bool {
+    guard let emitModuleJob = jobsInPhases.beforeCompiles.first(where: { $0.kind == .emitModule }) else {
+      return false // Nothing to skip, so no special handling is required
+    }
+    // If a non-emit-module task exists in 'beforeCompiles', it may be another kind of
+    // changed dependency so we should re-run the module task as well
+    guard jobsInPhases.beforeCompiles.allSatisfy({ $0.kind == .emitModule }) else {
+      return false
+    }
+    // If any of the outputs do not exist, they must be re-computed
+    guard try emitModuleJob.outputs.allSatisfy({ try fileSystem.exists($0.file) }) else {
+      return false
+    }
+
+    // Ensure that no output is older than any of the inputs
+    let oldestOutputModTime: TimePoint = try emitModuleJob.outputs.map { try fileSystem.lastModificationTime(for: $0.file) }.min() ?? .distantPast
+    return try emitModuleJob.inputs.swiftSourceFiles.allSatisfy({ try fileSystem.lastModificationTime(for: $0.typedFile.file) < oldestOutputModTime })
+  }
+
   /// Figure out which compilation inputs are *not* mandatory at the start
   private func computeInitiallySkippedCompilationInputs(
     inputsInvalidatedByExternals: TransitivelyInvalidatedSwiftSourceFileSet,
@@ -178,7 +215,7 @@ extension IncrementalCompilationState.FirstWaveComputer {
   ) -> Set<TypedVirtualPath> {
     let allCompileJobs = jobsInPhases.compileJobs
     // Input == source file
-    let changedInputs = computeChangedInputs(moduleDependencyGraph, buildRecord)
+    let changedInputs = computeChangedInputs(buildRecord)
 
     if let reporter = reporter {
       for input in inputsInvalidatedByExternals {
@@ -268,27 +305,32 @@ extension IncrementalCompilationState.FirstWaveComputer {
     /// The status of the input file.
     let status: InputInfo.Status
     /// If `true`, the modification time of this input matches the modification
-    /// time recorded from the prior build in the build record.
-    let datesMatch: Bool
+    /// time recorded from the prior build in the build record, or the hash of
+    /// its contents match.
+    let metadataMatch: Bool
   }
 
   // Find the inputs that have changed since last compilation, or were marked as needed a build
   private func computeChangedInputs(
-    _ moduleDependencyGraph: ModuleDependencyGraph,
     _ outOfDateBuildRecord: BuildRecord
   ) -> [ChangedInput] {
     jobsInPhases.compileJobs.compactMap { job in
       let input = job.primaryInputs[0]
-      let modDate = buildRecordInfo.compilationInputModificationDates[input] ?? .distantFuture
+      let metadata = buildRecordInfo.compilationInputModificationDates[input] ?? FileMetadata(mTime: .distantFuture)
       let inputInfo = outOfDateBuildRecord.inputInfos[input.file]
       let previousCompilationStatus = inputInfo?.status ?? .newlyAdded
       let previousModTime = inputInfo?.previousModTime
+      let previousHash = inputInfo?.hash 
+
+      assert(metadata.hash != nil || !useHashes)
 
       switch previousCompilationStatus {
-      case .upToDate where modDate == previousModTime:
+      case .upToDate where metadata.mTime == previousModTime:
         reporter?.report("May skip current input:", input)
         return nil
-
+      case .upToDate where useHashes && (metadata.hash == previousHash):
+        reporter?.report("May skip current input (identical hash):", input)
+        return nil
       case .upToDate:
         reporter?.report("Scheduling changed input", input)
       case .newlyAdded:
@@ -298,9 +340,10 @@ extension IncrementalCompilationState.FirstWaveComputer {
       case .needsNonCascadingBuild:
         reporter?.report("Scheduling noncascading build", input)
       }
+      let metadataMatch = metadata.mTime == previousModTime || (useHashes && metadata.hash == previousHash)
       return ChangedInput(typedFile: input,
                           status: previousCompilationStatus,
-                          datesMatch: modDate == previousModTime)
+                          metadataMatch: metadataMatch )
     }
   }
 
@@ -349,7 +392,7 @@ extension IncrementalCompilationState.FirstWaveComputer {
   ) -> [TypedVirtualPath] {
     changedInputs.compactMap { changedInput in
       let inputIsUpToDate =
-        changedInput.datesMatch && !inputsMissingOutputs.contains(changedInput.typedFile)
+        changedInput.metadataMatch && !inputsMissingOutputs.contains(changedInput.typedFile)
       let basename = changedInput.typedFile.file.basename
 
       // If we're asked to always rebuild dependents, all we need to do is

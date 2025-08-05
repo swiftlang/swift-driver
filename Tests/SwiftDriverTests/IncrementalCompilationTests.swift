@@ -199,7 +199,7 @@ extension IncrementalCompilationTests {
   /// autolink job.
   /// Much of the code below is taking from testLinking(), but uses the output file map code here.
   func testAutolinkOutputPath() throws {
-    var env = ProcessEnv.vars
+    var env = ProcessEnv.block
     env["SWIFT_DRIVER_TESTS_ENABLE_EXEC_PATH_FALLBACK"] = "1"
     env["SWIFT_DRIVER_SWIFT_AUTOLINK_EXTRACT_EXEC"] = "//usr/bin/swift-autolink-extract"
     env["SWIFT_DRIVER_DSYMUTIL_EXEC"] = "//usr/bin/dsymutil"
@@ -343,6 +343,44 @@ extension IncrementalCompilationTests {
   func testExplicitIncrementalBuildCheckGraphReuseOnChange() throws {
     try buildInitialState(checkDiagnostics: false, explicitModuleBuild: true)
     try checkReactionToTouchingAll(checkDiagnostics: true, explicitModuleBuild: true)
+  }
+
+  // Source file and external deps timestamps updated but contents are the same, and file-hashing is enabled
+  func testExplicitIncrementalBuildWithHashing() throws {
+    replace(contentsOf: "other", with: "import E;let bar = foo")
+    try buildInitialState(extraArguments: ["-enable-incremental-file-hashing"], explicitModuleBuild: true)
+    touch("main")
+    touch("other")
+    touch(try AbsolutePath(validating: explicitSwiftDependenciesPath.appending(component: "E.swiftinterface").pathString))
+    let driver = try checkNullBuild(extraArguments: ["-enable-incremental-file-hashing"], explicitModuleBuild: true)
+    let mandatoryJobs = try XCTUnwrap(driver.incrementalCompilationState?.mandatoryJobsInOrder)
+    let mandatoryJobInputs = mandatoryJobs.flatMap { $0.inputs } .map { $0.file.basename }
+    XCTAssertFalse(mandatoryJobInputs.contains("main.swift"))
+    XCTAssertFalse(mandatoryJobInputs.contains("other.swift"))
+  }
+
+  // External deps timestamp updated but contents are the same, and file-hashing is explicitly disabled 
+  func testExplicitIncrementalBuildExternalDepsWithoutHashing() throws {
+    replace(contentsOf: "other", with: "import E;let bar = foo")
+    try buildInitialState(extraArguments: ["-disable-incremental-file-hashing"], explicitModuleBuild: true)
+    touch(try AbsolutePath(validating: explicitSwiftDependenciesPath.appending(component: "E.swiftinterface").pathString))
+    let driver = try checkNullBuild(extraArguments: ["-disable-incremental-file-hashing"], explicitModuleBuild: true)
+    let mandatoryJobs = try XCTUnwrap(driver.incrementalCompilationState?.mandatoryJobsInOrder)
+    let mandatoryJobInputs = mandatoryJobs.flatMap { $0.inputs } .map { $0.file.basename }
+    XCTAssertTrue(mandatoryJobInputs.contains("other.swift"))
+    XCTAssertTrue(mandatoryJobInputs.contains("main.swift"))
+  }
+
+  // Source file timestamps updated but contents are the same, and file-hashing is explicitly disabled 
+  func testExplicitIncrementalBuildSourceFilesWithoutHashing() throws {
+    try buildInitialState(extraArguments: ["-disable-incremental-file-hashing"], explicitModuleBuild: true)
+    touch("main")
+    touch("other")
+    let driver = try checkNullBuild(extraArguments: ["-disable-incremental-file-hashing"], explicitModuleBuild: true)
+    let mandatoryJobs = try XCTUnwrap(driver.incrementalCompilationState?.mandatoryJobsInOrder)
+    let mandatoryJobInputs = mandatoryJobs.flatMap { $0.inputs } .map { $0.file.basename }
+    XCTAssertTrue(mandatoryJobInputs.contains("other.swift"))
+    XCTAssertTrue(mandatoryJobInputs.contains("main.swift"))
   }
 
   // Adding an import invalidates prior inter-module dependency graph.
@@ -643,6 +681,55 @@ extension IncrementalCompilationTests {
       reading(deps: "other")
       schedulingPostCompileJobs
       linking
+    }
+  }
+
+  func testExplicitIncrementalEmitModuleOnly() throws {
+    guard let sdkArgumentsForTesting = try Driver.sdkArgumentsForTesting()
+    else {
+      throw XCTSkip("Cannot perform this test on this host")
+    }
+
+    let args = [
+      "swiftc",
+      "-module-name", module,
+      "-emit-module", "-emit-module-path",
+      derivedDataPath.appending(component: module + ".swiftmodule").pathString,
+      "-incremental",
+      "-driver-show-incremental",
+      "-driver-show-job-lifecycle",
+      "-save-temps",
+      "-output-file-map", OFM.pathString,
+      "-no-color-diagnostics"
+    ] + inputPathsAndContents.map {$0.0.pathString}.sorted() + explicitBuildArgs + sdkArgumentsForTesting
+
+    // Initial build
+    _ = try doABuildWithoutExpectations(arguments: args)
+
+    // Subsequent build, ensure module does not get re-emitted since inputs have not changed
+    _ = try doABuild(
+      whenAutolinking: autolinkLifecycleExpectedDiags,
+      arguments: args
+    ) {
+      readGraph
+      explicitIncrementalScanReuseCache(serializedDepScanCachePath.pathString)
+      explicitIncrementalScanCacheSerialized(serializedDepScanCachePath.pathString)
+      queuingInitial("main", "other")
+    }
+
+    touch("main")
+    touch("other")
+    // Subsequent build, ensure module re-emitted since inputs changed
+    _ = try doABuild(
+      whenAutolinking: autolinkLifecycleExpectedDiags,
+      arguments: args
+    ) {
+      readGraph
+      explicitIncrementalScanReuseCache(serializedDepScanCachePath.pathString)
+      explicitIncrementalScanCacheSerialized(serializedDepScanCachePath.pathString)
+      queuingInitial("main", "other")
+      emittingModule(module)
+      schedulingPostCompileJobs
     }
   }
 }
@@ -1770,6 +1857,14 @@ extension IncrementalCompilationTests {
     }
   }
 
+  private func doABuild(
+    whenAutolinking autolinkExpectedDiags: [Diagnostic.Message],
+    arguments: [String],
+    @DiagsBuilder expecting expectedDiags: () -> [Diagnostic.Message]
+  ) throws -> Driver {
+    try doABuild(whenAutolinking: autolinkExpectedDiags, expecting: expectedDiags(), arguments: arguments)
+  }
+
   private func doABuildWithoutExpectations(arguments: [String]) throws -> Driver {
     // If not checking, print out the diagnostics
     let diagnosticEngine = DiagnosticsEngine(handlers: [
@@ -1858,6 +1953,16 @@ extension DiagVerifiable {
   }
   @DiagsBuilder func explicitDependencyModuleOlderThanInput(_ dependencyModuleName: String) -> [Diagnostic.Message] {
     "Dependency module \(dependencyModuleName) is older than input file"
+  }
+  @DiagsBuilder func startEmitModule(_ moduleName: String) -> [Diagnostic.Message] {
+    "Starting Emitting module for \(moduleName)"
+  }
+  @DiagsBuilder func finishEmitModule(_ moduleName: String) -> [Diagnostic.Message] {
+    "Finished Emitting module for \(moduleName)"
+  }
+  @DiagsBuilder func emittingModule(_ moduleName: String) -> [Diagnostic.Message] {
+    startEmitModule(moduleName)
+    finishEmitModule(moduleName)
   }
   @DiagsBuilder func startCompilingExplicitClangDependency(_ dependencyModuleName: String) -> [Diagnostic.Message] {
     "Starting Compiling Clang module \(dependencyModuleName)"

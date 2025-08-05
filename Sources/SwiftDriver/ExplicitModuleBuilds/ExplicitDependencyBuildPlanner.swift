@@ -12,7 +12,7 @@
 
 import struct TSCBasic.SHA256
 import struct TSCBasic.AbsolutePath
-
+import protocol TSCBasic.FileSystem
 import struct Foundation.Data
 import class Foundation.JSONEncoder
 
@@ -33,6 +33,7 @@ public struct ChainedBridgingHeaderFile {
   let content: String
 }
 
+// Deprecated
 public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalTargetModuleDetails]
 
 /// In Explicit Module Build mode, this planner is responsible for generating and providing
@@ -52,7 +53,6 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
   private let integratedDriver: Bool
   private let mainModuleName: String?
   private let cas: SwiftScanCAS?
-  private let swiftScanOracle: InterModuleDependencyOracle
   private let prefixMap: [(AbsolutePath, AbsolutePath)]
 
   /// Clang PCM names contain a hash of the command-line arguments that were used to build them.
@@ -60,36 +60,63 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
   private var hashedModuleNameCache: [String: String] = [:]
 
   /// Does this compile support `.explicitInterfaceModuleBuild`
-  private var supportsExplicitInterfaceBuild: Bool
+  private let supportsExplicitInterfaceBuild: Bool
+
+  /// status of the scanner prefix mapping option supported by the frontend
+  private let supportsScannerPrefixMapPaths: Bool
 
   /// Cached command-line additions for all main module compile jobs
   private struct ResolvedModuleDependenciesCommandLineComponents {
     let inputs: [TypedVirtualPath]
     let commandLine: [Job.ArgTemplate]
   }
-  private var resolvedMainModuleDependenciesArgs: ResolvedModuleDependenciesCommandLineComponents? = nil
+
+  /// Resolved additions to all main source module compile commands
+  /// specifying explicit module dependency module paths
+  private let resolvedMainModuleDependenciesArgs: ResolvedModuleDependenciesCommandLineComponents
+
+  /// Resolved additions to the main source module PCH compile command
+  /// specifying explicit module dependency module paths
+  private let resolvedPCHModuleDependenciesArgs: ResolvedModuleDependenciesCommandLineComponents
+
+  /// The computed path to a chained bridging header
+  let chainedBridgingHeaderFile: ChainedBridgingHeaderFile?
+
+  /// Does this compile support resolving bridging header pch command from swiftScan.
+  let supportsBridgingHeaderPCHCommand: Bool
 
   public init(dependencyGraph: InterModuleDependencyGraph,
               toolchain: Toolchain,
-              dependencyOracle: InterModuleDependencyOracle,
               integratedDriver: Bool = true,
               supportsExplicitInterfaceBuild: Bool = false,
               cas: SwiftScanCAS? = nil,
-              prefixMap:  [(AbsolutePath, AbsolutePath)] = []) throws {
+              prefixMap:  [(AbsolutePath, AbsolutePath)] = [],
+              supportsBridgingHeaderPCHCommand: Bool = false,
+              supportsScannerPrefixMapPaths: Bool = false) throws {
     self.dependencyGraph = dependencyGraph
     self.toolchain = toolchain
-    self.swiftScanOracle = dependencyOracle
     self.integratedDriver = integratedDriver
     self.mainModuleName = dependencyGraph.mainModuleName
     self.reachabilityMap = try dependencyGraph.computeTransitiveClosure()
     self.supportsExplicitInterfaceBuild = supportsExplicitInterfaceBuild
+    self.supportsBridgingHeaderPCHCommand = supportsBridgingHeaderPCHCommand
+    self.supportsScannerPrefixMapPaths = supportsScannerPrefixMapPaths
     self.cas = cas
     self.prefixMap = prefixMap
-  }
-
-  /// Supports resolving bridging header pch command from swiftScan.
-  public var supportsBridgingHeaderPCHCommand: Bool {
-    return swiftScanOracle.supportsBridgingHeaderPCHCommand
+    let mainModuleId: ModuleDependencyId = .swift(dependencyGraph.mainModuleName)
+    let mainModuleDetails = try dependencyGraph.swiftModuleDetails(of: mainModuleId)
+    if let path = mainModuleDetails.chainedBridgingHeaderPath,
+          let content = mainModuleDetails.chainedBridgingHeaderContent {
+      self.chainedBridgingHeaderFile = ChainedBridgingHeaderFile(path: path, content: content)
+    } else {
+      self.chainedBridgingHeaderFile = nil
+    }
+    self.resolvedMainModuleDependenciesArgs = try Self.resolveMainModuleDependencies(in: dependencyGraph,
+                                                                                     reachabilityMap: reachabilityMap,
+                                                                                     cas: cas)
+    self.resolvedPCHModuleDependenciesArgs = try Self.resolveBridgingHeaderDependencies(in: dependencyGraph,
+                                                                                        reachabilityMap: reachabilityMap,
+                                                                                        cas: cas)
   }
 
   /// Generate build jobs for all dependencies of the main module.
@@ -158,9 +185,12 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
       moduleDetails.commandLine?.forEach { commandLine.appendFlags($0) }
 
       // Resolve all dependency module inputs for this Swift module
-      try resolveExplicitModuleDependencies(moduleId: moduleId,
-                                            inputs: &inputs,
-                                            commandLine: &commandLine)
+      try Self.resolveExplicitModuleDependencies(moduleId: moduleId,
+                                                 in: dependencyGraph,
+                                                 reachabilityMap: reachabilityMap,
+                                                 cas: cas,
+                                                 inputs: &inputs,
+                                                 commandLine: &commandLine)
 
       // Build the .swiftinterfaces file using a list of command line options specified in the
       // `details` field.
@@ -191,7 +221,12 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
       // Add prefix mapping. The option is cache invariant so it can be added without affecting cache key.
       for (key, value) in prefixMap {
         commandLine.appendFlag("-cache-replay-prefix-map")
-        commandLine.appendFlag(value.pathString + "=" + key.pathString)
+        if supportsScannerPrefixMapPaths {
+          commandLine.appendFlag(value.pathString)
+          commandLine.appendFlag(key.pathString)
+        } else {
+          commandLine.appendFlag(value.pathString + "=" + key.pathString)
+        }
       }
 
       jobs.append(Job(
@@ -230,8 +265,10 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
       moduleDetails.commandLine.forEach { commandLine.appendFlags($0) }
 
       // Resolve all dependency module inputs for this Clang module
-      try resolveExplicitModuleDependencies(moduleId: moduleId, inputs: &inputs,
-                                            commandLine: &commandLine)
+      try Self.resolveExplicitModuleDependencies(moduleId: moduleId, in: dependencyGraph,
+                                                 reachabilityMap: reachabilityMap,
+                                                 cas: cas, inputs: &inputs,
+                                                 commandLine: &commandLine)
 
       let moduleMapPath = TypedVirtualPath(file: moduleDetails.moduleMapPath.path, type: .clangModuleMap)
       let modulePCMPath = TypedVirtualPath(file: moduleInfo.modulePath.path, type: .pcm)
@@ -250,7 +287,12 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
       // Add prefix mapping. The option is cache invariant so it can be added without affecting cache key.
       for (key, value) in prefixMap {
         commandLine.appendFlag("-cache-replay-prefix-map")
-        commandLine.appendFlag(value.pathString + "=" + key.pathString)
+        if supportsScannerPrefixMapPaths {
+          commandLine.appendFlag(value.pathString)
+          commandLine.appendFlag(key.pathString)
+        } else {
+          commandLine.appendFlag(value.pathString + "=" + key.pathString)
+        }
       }
 
       jobs.append(Job(
@@ -269,13 +311,18 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
 
   /// For the specified module, update the given command line flags and inputs
   /// to use explicitly-built module dependencies.
-  private mutating func resolveExplicitModuleDependencies(moduleId: ModuleDependencyId,
-                                                          inputs: inout [TypedVirtualPath],
-                                                          commandLine: inout [Job.ArgTemplate]) throws {
+  private static func resolveExplicitModuleDependencies(moduleId: ModuleDependencyId,
+                                                        in dependencyGraph: InterModuleDependencyGraph,
+                                                        reachabilityMap: [ModuleDependencyId : Set<ModuleDependencyId>],
+                                                        cas: SwiftScanCAS?,
+                                                        inputs: inout [TypedVirtualPath],
+                                                        commandLine: inout [Job.ArgTemplate]) throws {
     // Prohibit the frontend from implicitly building textual modules into binary modules.
     var swiftDependencyArtifacts: Set<SwiftModuleArtifactInfo> = []
     var clangDependencyArtifacts: Set<ClangModuleArtifactInfo> = []
-    try addModuleDependencies(of: moduleId,
+    try Self.addModuleDependencies(of: moduleId,
+                                   in: dependencyGraph,
+                                   reachabilityMap: reachabilityMap,
                               clangDependencyArtifacts: &clangDependencyArtifacts,
                               swiftDependencyArtifacts: &swiftDependencyArtifacts)
 
@@ -296,10 +343,10 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
     // SwiftModuleArtifactInfo
     guard moduleId == .swift(dependencyGraph.mainModuleName) else { return }
     let dependencyFileContent =
-      try serializeModuleDependencies(for: moduleId,
-                                      swiftDependencyArtifacts: swiftDependencyArtifacts,
-                                      clangDependencyArtifacts: clangDependencyArtifacts)
-    if let cas = self.cas {
+      try Self.serializeModuleDependencies(for: moduleId,
+                                           swiftDependencyArtifacts: swiftDependencyArtifacts,
+                                           clangDependencyArtifacts: clangDependencyArtifacts)
+    if let cas = cas {
       // When using a CAS, write JSON into CAS and pass the ID on command-line.
       let casID = try cas.store(data: dependencyFileContent)
       commandLine.appendFlag("-explicit-swift-module-map-file")
@@ -316,11 +363,12 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
     }
   }
 
-  private mutating func addModuleDependency(of moduleId: ModuleDependencyId,
-                                            dependencyId: ModuleDependencyId,
-                                            clangDependencyArtifacts: inout Set<ClangModuleArtifactInfo>,
-                                            swiftDependencyArtifacts: inout Set<SwiftModuleArtifactInfo>,
-                                            bridgingHeaderDeps: Set<ModuleDependencyId>? = nil
+  private static func addModuleDependency(of moduleId: ModuleDependencyId,
+                                          in dependencyGraph: InterModuleDependencyGraph,
+                                          dependencyId: ModuleDependencyId,
+                                          clangDependencyArtifacts: inout Set<ClangModuleArtifactInfo>,
+                                          swiftDependencyArtifacts: inout Set<SwiftModuleArtifactInfo>,
+                                          bridgingHeaderDeps: Set<ModuleDependencyId>? = nil
   ) throws {
     switch dependencyId {
       case .swift:
@@ -363,15 +411,16 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
                                   headerDependencies: prebuiltModuleDetails.headerDependencyPaths,
                                   isFramework: isFramework,
                                   moduleCacheKey: prebuiltModuleDetails.moduleCacheKey))
-      case .swiftPlaceholder:
-        fatalError("Unresolved placeholder dependencies at planning stage: \(dependencyId) of \(moduleId)")
     }
   }
 
   /// Collect the Set of all Clang module dependencies which are dependencies of either
   /// the `moduleId` bridging header or dependencies of bridging headers
   /// of any prebuilt binary Swift modules in the dependency graph.
-  private func collectHeaderModuleDeps(of moduleId: ModuleDependencyId) throws -> Set<ModuleDependencyId>?  {
+  private static func collectHeaderModuleDeps(of moduleId: ModuleDependencyId,
+                                              in dependencyGraph: InterModuleDependencyGraph,
+                                              reachabilityMap: [ModuleDependencyId : Set<ModuleDependencyId>]
+  ) throws -> Set<ModuleDependencyId>?  {
     var bridgingHeaderDeps: Set<ModuleDependencyId>? = nil
     guard let moduleDependencies = reachabilityMap[moduleId] else {
       fatalError("Expected reachability information for the module: \(moduleId.moduleName).")
@@ -396,18 +445,22 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
 
   /// Add a specific module dependency as an input and a corresponding command
   /// line flag.
-  private mutating func addModuleDependencies(of moduleId: ModuleDependencyId,
-                                              clangDependencyArtifacts: inout Set<ClangModuleArtifactInfo>,
-                                              swiftDependencyArtifacts: inout Set<SwiftModuleArtifactInfo>
+  private static func addModuleDependencies(of moduleId: ModuleDependencyId,
+                                            in dependencyGraph: InterModuleDependencyGraph,
+                                            reachabilityMap: [ModuleDependencyId : Set<ModuleDependencyId>],
+                                            clangDependencyArtifacts: inout Set<ClangModuleArtifactInfo>,
+                                            swiftDependencyArtifacts: inout Set<SwiftModuleArtifactInfo>
   ) throws {
     guard let moduleDependencies = reachabilityMap[moduleId] else {
       fatalError("Expected reachability information for the module: \(moduleId.moduleName).")
     }
     for dependencyId in moduleDependencies {
-      try addModuleDependency(of: moduleId, dependencyId: dependencyId,
-                              clangDependencyArtifacts: &clangDependencyArtifacts,
-                              swiftDependencyArtifacts: &swiftDependencyArtifacts,
-                              bridgingHeaderDeps: try collectHeaderModuleDeps(of: moduleId))
+      try Self.addModuleDependency(of: moduleId, in: dependencyGraph, dependencyId: dependencyId,
+                                   clangDependencyArtifacts: &clangDependencyArtifacts,
+                                   swiftDependencyArtifacts: &swiftDependencyArtifacts,
+                                   bridgingHeaderDeps: try collectHeaderModuleDeps(of: moduleId,
+                                                                                   in: dependencyGraph,
+                                                                                   reachabilityMap: reachabilityMap))
     }
   }
 
@@ -421,48 +474,40 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
         allLinkLibraries.append(linkLibrary)
       }
     }
+    toolchain.addAutoLinkFlags(for: allLinkLibraries, to: &commandLine)
+  }
 
-    for linkLibrary in allLinkLibraries {
-      if !linkLibrary.isFramework {
-        commandLine.appendFlag("-l\(linkLibrary.linkName)")
-      } else {
-        commandLine.appendFlag(.Xlinker)
-        commandLine.appendFlag("-framework")
-        commandLine.appendFlag(.Xlinker)
-        commandLine.appendFlag(linkLibrary.linkName)
-      }
+  private static func resolveMainModuleDependencies(in dependencyGraph: InterModuleDependencyGraph,
+                                                    reachabilityMap: [ModuleDependencyId : Set<ModuleDependencyId>],
+                                                    cas: SwiftScanCAS?) throws -> ResolvedModuleDependenciesCommandLineComponents {
+    var inputAdditions: [TypedVirtualPath] = []
+    var commandLineAdditions: [Job.ArgTemplate] = []
+    let mainModuleId: ModuleDependencyId = .swift(dependencyGraph.mainModuleName)
+    let mainModuleDetails = try dependencyGraph.swiftModuleDetails(of: mainModuleId)
+    if let additionalArgs = mainModuleDetails.commandLine {
+      additionalArgs.forEach { commandLineAdditions.appendFlag($0) }
     }
+    commandLineAdditions.appendFlags("-disable-implicit-swift-modules",
+                                     "-Xcc", "-fno-implicit-modules",
+                                     "-Xcc", "-fno-implicit-module-maps")
+    try Self.resolveExplicitModuleDependencies(moduleId: mainModuleId,
+                                               in: dependencyGraph,
+                                               reachabilityMap: reachabilityMap,
+                                               cas: cas,
+                                               inputs: &inputAdditions,
+                                               commandLine: &commandLineAdditions)
+    return ResolvedModuleDependenciesCommandLineComponents(
+      inputs: inputAdditions,
+      commandLine: commandLineAdditions
+    )
   }
 
   /// Resolve all module dependencies of the main module and add them to the lists of
   /// inputs and command line flags.
-  public mutating func resolveMainModuleDependencies(inputs: inout [TypedVirtualPath],
-                                                     commandLine: inout [Job.ArgTemplate]) throws {
-    // If not previously computed, gather all dependency input files and command-line arguments
-    if resolvedMainModuleDependenciesArgs == nil {
-      var inputAdditions: [TypedVirtualPath] = []
-      var commandLineAdditions: [Job.ArgTemplate] = []
-      let mainModuleId: ModuleDependencyId = .swift(dependencyGraph.mainModuleName)
-      let mainModuleDetails = try dependencyGraph.swiftModuleDetails(of: mainModuleId)
-      if let additionalArgs = mainModuleDetails.commandLine {
-        additionalArgs.forEach { commandLineAdditions.appendFlag($0) }
-      }
-      commandLineAdditions.appendFlags("-disable-implicit-swift-modules",
-                                       "-Xcc", "-fno-implicit-modules",
-                                       "-Xcc", "-fno-implicit-module-maps")
-      try resolveExplicitModuleDependencies(moduleId: mainModuleId,
-                                            inputs: &inputAdditions,
-                                            commandLine: &commandLineAdditions)
-      resolvedMainModuleDependenciesArgs = ResolvedModuleDependenciesCommandLineComponents(
-        inputs: inputAdditions,
-        commandLine: commandLineAdditions
-      )
-    }
-    guard let mainModuleDependenciesArgs = resolvedMainModuleDependenciesArgs else {
-      fatalError("Failed to compute resolved explicit dependency arguments.")
-    }
-    inputs.append(contentsOf: mainModuleDependenciesArgs.inputs)
-    commandLine.append(contentsOf: mainModuleDependenciesArgs.commandLine)
+  public func resolveMainModuleDependencies(inputs: inout [TypedVirtualPath],
+                                            commandLine: inout [Job.ArgTemplate]) {
+    inputs.append(contentsOf: resolvedMainModuleDependenciesArgs.inputs)
+    commandLine.append(contentsOf: resolvedMainModuleDependenciesArgs.commandLine)
   }
 
   /// Get the context hash for the main module.
@@ -472,21 +517,14 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
     return mainModuleDetails.contextHash
   }
 
-  /// Get the chained bridging header info
-  public func getChainedBridgingHeaderFile() throws -> ChainedBridgingHeaderFile? {
-    let mainModuleId: ModuleDependencyId = .swift(dependencyGraph.mainModuleName)
-    let mainModuleDetails = try dependencyGraph.swiftModuleDetails(of: mainModuleId)
-    guard let path = mainModuleDetails.chainedBridgingHeaderPath,
-          let content = mainModuleDetails.chainedBridgingHeaderContent else{
-      return nil
-    }
-    return ChainedBridgingHeaderFile(path: path, content: content)
-  }
-
   /// Resolve all module dependencies of the main module and add them to the lists of
   /// inputs and command line flags.
-  public mutating func resolveBridgingHeaderDependencies(inputs: inout [TypedVirtualPath],
-                                                         commandLine: inout [Job.ArgTemplate]) throws {
+  private static func resolveBridgingHeaderDependencies(in dependencyGraph: InterModuleDependencyGraph,
+                                                        reachabilityMap: [ModuleDependencyId : Set<ModuleDependencyId>],
+                                                        cas: SwiftScanCAS?) throws -> ResolvedModuleDependenciesCommandLineComponents {
+    var inputAdditions: [TypedVirtualPath] = []
+    var commandLineAdditions: [Job.ArgTemplate] = []
+
     let mainModuleId: ModuleDependencyId = .swift(dependencyGraph.mainModuleName)
     var swiftDependencyArtifacts: Set<SwiftModuleArtifactInfo> = []
     var clangDependencyArtifacts: Set<ClangModuleArtifactInfo> = []
@@ -503,12 +541,14 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
         continue
       }
       addedDependencies.insert(bridgingHeaderDepID)
-      try addModuleDependency(of: mainModuleId, dependencyId: bridgingHeaderDepID,
-                              clangDependencyArtifacts: &clangDependencyArtifacts,
-                              swiftDependencyArtifacts: &swiftDependencyArtifacts)
-      try addModuleDependencies(of: bridgingHeaderDepID,
-                                clangDependencyArtifacts: &clangDependencyArtifacts,
-                                swiftDependencyArtifacts: &swiftDependencyArtifacts)
+      try Self.addModuleDependency(of: mainModuleId, in: dependencyGraph,
+                                   dependencyId: bridgingHeaderDepID,
+                                   clangDependencyArtifacts: &clangDependencyArtifacts,
+                                   swiftDependencyArtifacts: &swiftDependencyArtifacts)
+      try Self.addModuleDependencies(of: bridgingHeaderDepID, in: dependencyGraph,
+                                     reachabilityMap: reachabilityMap,
+                                     clangDependencyArtifacts: &clangDependencyArtifacts,
+                                     swiftDependencyArtifacts: &swiftDependencyArtifacts)
       let depInfo = try dependencyGraph.moduleInfo(of: bridgingHeaderDepID)
       dependenciesWorklist.append(contentsOf: depInfo.allDependencies)
     }
@@ -518,39 +558,55 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
       let clangModulePath =
         TypedVirtualPath(file: moduleArtifactInfo.clangModulePath.path,
                          type: .pcm)
-      inputs.append(clangModulePath)
+      inputAdditions.append(clangModulePath)
     }
 
     // Return if depscanner provided build commands.
     if let scannerPCHArgs = mainModuleDetails.bridgingPchCommandLine {
-      scannerPCHArgs.forEach { commandLine.appendFlag($0) }
-      return
+      scannerPCHArgs.forEach { commandLineAdditions.appendFlag($0) }
+      return ResolvedModuleDependenciesCommandLineComponents(
+        inputs: inputAdditions,
+        commandLine: commandLineAdditions
+      )
     }
 
     assert(cas == nil, "Caching build should always return command-line from scanner")
     // Prohibit the frontend from implicitly building textual modules into binary modules.
-    commandLine.appendFlags("-disable-implicit-swift-modules",
-                            "-Xcc", "-fno-implicit-modules",
-                            "-Xcc", "-fno-implicit-module-maps")
+    commandLineAdditions.appendFlags("-disable-implicit-swift-modules",
+                                     "-Xcc", "-fno-implicit-modules",
+                                     "-Xcc", "-fno-implicit-module-maps")
 
     let dependencyFileContent =
-      try serializeModuleDependencies(for: mainModuleId,
-                                      swiftDependencyArtifacts: swiftDependencyArtifacts,
-                                      clangDependencyArtifacts: clangDependencyArtifacts)
+      try Self.serializeModuleDependencies(for: mainModuleId,
+                                           swiftDependencyArtifacts: swiftDependencyArtifacts,
+                                           clangDependencyArtifacts: clangDependencyArtifacts)
 
     let dependencyFile =
       try VirtualPath.createUniqueTemporaryFileWithKnownContents(.init(validating: "\(mainModuleId.moduleName)-dependencies.json"),
                                                                  dependencyFileContent)
-    commandLine.appendFlag("-explicit-swift-module-map-file")
-    commandLine.appendPath(dependencyFile)
-    inputs.append(TypedVirtualPath(file: dependencyFile.intern(),
+    commandLineAdditions.appendFlag("-explicit-swift-module-map-file")
+    commandLineAdditions.appendPath(dependencyFile)
+    inputAdditions.append(TypedVirtualPath(file: dependencyFile.intern(),
                                    type: .jsonSwiftArtifacts))
+
+    return ResolvedModuleDependenciesCommandLineComponents(
+      inputs: inputAdditions,
+      commandLine: commandLineAdditions
+    )
+  }
+
+  /// Resolve all module dependencies of the main module and add them to the lists of
+  /// inputs and command line flags.
+  public func resolveBridgingHeaderDependencies(inputs: inout [TypedVirtualPath],
+                                                commandLine: inout [Job.ArgTemplate]) {
+    inputs.append(contentsOf: resolvedPCHModuleDependenciesArgs.inputs)
+    commandLine.append(contentsOf: resolvedPCHModuleDependenciesArgs.commandLine)
   }
 
   /// Serialize the output file artifacts for a given module in JSON format.
-  private func serializeModuleDependencies(for moduleId: ModuleDependencyId,
-                                           swiftDependencyArtifacts: Set<SwiftModuleArtifactInfo>,
-                                           clangDependencyArtifacts: Set<ClangModuleArtifactInfo>
+  private static func serializeModuleDependencies(for moduleId: ModuleDependencyId,
+                                                  swiftDependencyArtifacts: Set<SwiftModuleArtifactInfo>,
+                                                  clangDependencyArtifacts: Set<ClangModuleArtifactInfo>
   ) throws -> Data {
     // The module dependency map in CAS needs to be stable.
     // Sort the dependencies by name.
@@ -600,10 +656,6 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
 }
 
 internal extension ExplicitDependencyBuildPlanner {
-  func explainDependency(_ dependencyModuleName: String, allPaths: Bool) throws -> [[ModuleDependencyId]]? {
-    return try dependencyGraph.explainDependency(dependencyModuleName: dependencyModuleName, allPaths: allPaths)
-  }
-
   func findPath(from source: ModuleDependencyId, to destination: ModuleDependencyId) throws -> [ModuleDependencyId]? {
     guard dependencyGraph.modules.contains(where: { $0.key == destination }) else { return nil }
     var result: [ModuleDependencyId]? = nil
@@ -613,6 +665,15 @@ internal extension ExplicitDependencyBuildPlanner {
                                   visited: &visited,
                                   result: &result) { $0 == destination }
     return result
+  }
+}
+
+internal extension ExplicitDependencyBuildPlanner {
+  func filterMandatoryModuleDependencyCompileJobs(_ allJobs: [Job],
+                                                  fileSystem: FileSystem,
+                                                  cas: SwiftScanCAS?,
+                                                  reporter: IncrementalCompilationState.Reporter? = nil) throws -> [Job] {
+    return try dependencyGraph.filterMandatoryModuleDependencyCompileJobs(allJobs, fileSystem: fileSystem, cas: cas, reporter: reporter)
   }
 }
 

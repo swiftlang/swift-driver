@@ -21,12 +21,14 @@ import class TSCBasic.DiagnosticsEngine
 import struct TSCBasic.AbsolutePath
 import struct TSCBasic.Diagnostic
 import var TSCBasic.localFileSystem
+import typealias TSCBasic.ProcessEnvironmentBlock
+import struct TSCBasic.ProcessEnvironmentKey
 
 /// Toolchain for Darwin-based platforms, such as macOS and iOS.
 ///
 /// FIXME: This class is not thread-safe.
 public final class DarwinToolchain: Toolchain {
-  public let env: [String: String]
+  public let env: ProcessEnvironmentBlock
 
   /// Doubles as path cache and point for overriding normal lookup
   private var toolPaths = [Tool: AbsolutePath]()
@@ -45,7 +47,7 @@ public final class DarwinToolchain: Toolchain {
 
   public let dummyForTestingObjectFormat = Triple.ObjectFormat.macho
 
-  public init(env: [String: String], executor: DriverExecutor, fileSystem: FileSystem = localFileSystem,
+  public init(env: ProcessEnvironmentBlock, executor: DriverExecutor, fileSystem: FileSystem = localFileSystem,
               compilerExecutableDir: AbsolutePath? = nil, toolDirectory: AbsolutePath? = nil) {
     self.env = env
     self.executor = executor
@@ -114,6 +116,20 @@ public final class DarwinToolchain: Toolchain {
     }
   }
 
+  public func addAutoLinkFlags(for linkLibraries: [LinkLibraryInfo], to commandLine: inout [Job.ArgTemplate]) {
+    for linkLibrary in linkLibraries {
+      if !linkLibrary.isFramework {
+        commandLine.appendFlag(.Xlinker)
+        commandLine.appendFlag("-possible-l\(linkLibrary.linkName)")
+      } else {
+        commandLine.appendFlag(.Xlinker)
+        commandLine.appendFlag("-possible_framework")
+        commandLine.appendFlag(.Xlinker)
+        commandLine.appendFlag(linkLibrary.linkName)
+      }
+    }
+  }
+
   public func defaultSDKPath(_ target: Triple?) throws -> AbsolutePath? {
     let hostIsMacOS: Bool
     #if os(macOS)
@@ -125,7 +141,7 @@ public final class DarwinToolchain: Toolchain {
     if target?.isMacOSX == true || hostIsMacOS {
       let result = try executor.checkNonZeroExit(
         args: "xcrun", "-sdk", "macosx", "--show-sdk-path",
-        environment: env
+        environment: env.legacyVars
       ).trimmingCharacters(in: .whitespacesAndNewlines)
       return try AbsolutePath(validating: result)
     }
@@ -395,8 +411,57 @@ public final class DarwinToolchain: Toolchain {
     driver: inout Driver,
     skipMacroOptions: Bool
   ) throws {
-    guard let sdkPath = frontendTargetInfo.sdkPath?.path,
-          let sdkInfo = getTargetSDKInfo(sdkPath: sdkPath) else { return }
+    let sdkPath = frontendTargetInfo.sdkPath?.path
+    let sdkInfo: DarwinSDKInfo? = sdkPath != nil ? getTargetSDKInfo(sdkPath: sdkPath!) : nil
+
+    // Pass down -clang-target.
+    // If not specified otherwise, we should use the same triple as -target
+    if !driver.parsedOptions.hasArgument(.disableClangTarget) &&
+        driver.isFrontendArgSupported(.clangTarget) &&
+        driver.parsedOptions.contains(.driverExplicitModuleBuild) {
+      // The common target triple for all Clang dependencies of this compilation,
+      // both direct and transitive is computed as:
+      // 1. An explicitly-specified `-clang-target` argument to this driver invocation
+      // 2. (On Darwin) The target triple of the selected SDK
+      var clangTargetTriple: String? = nil
+      if let explicitClangTripleArg = driver.parsedOptions.getLastArgument(.clangTarget)?.asSingle {
+        clangTargetTriple = explicitClangTripleArg
+      } else if let sdkInfo = sdkInfo {
+        let currentTriple = frontendTargetInfo.target.triple
+        let sdkVersionedOSString = currentTriple.osNameUnversioned + sdkInfo.sdkVersion(for: currentTriple).sdkVersionString
+        clangTargetTriple = currentTriple.triple.replacingOccurrences(of: currentTriple.osName, with: sdkVersionedOSString)
+      }
+
+      if let clangTargetTriple {
+        commandLine.appendFlag(.clangTarget)
+        commandLine.appendFlag(clangTargetTriple)
+      }
+
+      // Repeat the above for the '-target-variant' flag
+      if driver.parsedOptions.contains(.targetVariant),
+        driver.isFrontendArgSupported(.clangTargetVariant),
+        let targetVariantTripleStr = frontendTargetInfo.targetVariant?.triple
+      {
+        var clangTargetVariantTriple: String? = nil
+        if let explicitClangTargetVariantArg = driver.parsedOptions.getLastArgument(.clangTargetVariant)?.asSingle {
+          clangTargetVariantTriple = explicitClangTargetVariantArg
+        } else if let sdkInfo {
+          let currentVariantTriple = targetVariantTripleStr
+          let sdkVersionedOSSString =
+            currentVariantTriple.osNameUnversioned
+            + sdkInfo.sdkVersion(for: currentVariantTriple).sdkVersionString
+          clangTargetVariantTriple = currentVariantTriple.triple.replacingOccurrences(
+            of: currentVariantTriple.osName, with: sdkVersionedOSSString)
+        }
+
+        if let clangTargetVariantTriple {
+          commandLine.appendFlag(.clangTargetVariant)
+          commandLine.appendFlag(clangTargetVariantTriple)
+        }
+      }
+    }
+
+    guard let sdkPath, let sdkInfo else { return }
 
     commandLine.append(.flag("-target-sdk-version"))
     commandLine.append(.flag(sdkInfo.sdkVersion(for: frontendTargetInfo.target.triple).sdkVersionString))
@@ -437,45 +502,6 @@ public final class DarwinToolchain: Toolchain {
 
       commandLine.appendFlag(.prebuiltModuleCachePath)
       commandLine.appendPath(prebuiltModulesPath)
-    }
-
-    // Pass down -clang-target.
-    // If not specified otherwise, we should use the same triple as -target
-    if !driver.parsedOptions.hasArgument(.disableClangTarget) &&
-        driver.isFrontendArgSupported(.clangTarget) &&
-        driver.parsedOptions.contains(.driverExplicitModuleBuild) {
-      // The common target triple for all Clang dependencies of this compilation,
-      // both direct and transitive is computed as:
-      // 1. An explicitly-specified `-clang-target` argument to this driver invocation
-      // 2. (On Darwin) The target triple of the selected SDK
-      let clangTargetTriple: String
-      if let explicitClangTripleArg = driver.parsedOptions.getLastArgument(.clangTarget)?.asSingle {
-        clangTargetTriple = explicitClangTripleArg
-      } else {
-        let currentTriple = frontendTargetInfo.target.triple
-        let sdkVersionedOSString = currentTriple.osNameUnversioned + sdkInfo.sdkVersion(for: currentTriple).sdkVersionString
-        clangTargetTriple = currentTriple.triple.replacingOccurrences(of: currentTriple.osName, with: sdkVersionedOSString)
-      }
-
-      commandLine.appendFlag(.clangTarget)
-      commandLine.appendFlag(clangTargetTriple)
-
-      // Repeat the above for the '-target-variant' flag
-      if driver.parsedOptions.contains(.targetVariant),
-         driver.isFrontendArgSupported(.clangTargetVariant),
-         let targetVariantTripleStr = frontendTargetInfo.targetVariant?.triple {
-        let clangTargetVariantTriple: String
-        if let explicitClangTargetVariantArg = driver.parsedOptions.getLastArgument(.clangTargetVariant)?.asSingle {
-          clangTargetVariantTriple = explicitClangTargetVariantArg
-        } else {
-          let currentVariantTriple = targetVariantTripleStr
-          let sdkVersionedOSSString = currentVariantTriple.osNameUnversioned + sdkInfo.sdkVersion(for: currentVariantTriple).sdkVersionString
-          clangTargetVariantTriple = currentVariantTriple.triple.replacingOccurrences(of: currentVariantTriple.osName, with: sdkVersionedOSSString)
-        }
-
-        commandLine.appendFlag(.clangTargetVariant)
-        commandLine.appendFlag(clangTargetVariantTriple)
-      }
     }
 
     if driver.isFrontendArgSupported(.externalPluginPath) && !skipMacroOptions {

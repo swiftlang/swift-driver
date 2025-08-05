@@ -72,13 +72,21 @@ public enum DependencyScanningError: LocalizedError, DiagnosticData, Equatable {
   }
 }
 
-public struct ScannerDiagnosticSourceLocation : DiagnosticLocation {
+public struct ScannerDiagnosticSourceLocation : DiagnosticLocation, Codable, Hashable {
   public var description: String {
     return "\(bufferIdentifier):\(lineNumber):\(columnNumber)"
   }
   public let bufferIdentifier: String
   public let lineNumber: Int
   public let columnNumber: Int
+
+  @_spi(Testing) public init(bufferIdentifier: String,
+                             lineNumber: Int,
+                             columnNumber: Int) {
+    self.bufferIdentifier = bufferIdentifier
+    self.lineNumber = lineNumber
+    self.columnNumber = columnNumber
+  }
 }
 
 public struct ScannerDiagnosticPayload {
@@ -246,12 +254,8 @@ private extension String {
     return api.swiftscan_swift_textual_detail_get_swift_overlay_dependencies != nil
   }
 
-  @_spi(Testing) public var supportsScannerDiagnostics : Bool {
-    return api.swiftscan_scanner_diagnostics_query != nil &&
-           api.swiftscan_scanner_diagnostics_reset != nil &&
-           api.swiftscan_diagnostic_get_message != nil &&
-           api.swiftscan_diagnostic_get_severity != nil &&
-           api.swiftscan_diagnostics_set_dispose != nil
+  @_spi(Testing) public var supportsSeparateImportOnlyDependencise: Bool {
+    return api.swiftscan_swift_textual_detail_get_swift_source_import_module_dependencies != nil
   }
 
   @_spi(Testing) public var supportsCaching : Bool {
@@ -314,6 +318,13 @@ private extension String {
            api.swiftscan_link_library_info_get_should_force_load != nil
   }
 
+  @_spi(Testing) public var supportsImportInfos : Bool {
+    return api.swiftscan_module_info_get_imports != nil &&
+           api.swiftscan_import_info_get_source_locations != nil &&
+           api.swiftscan_import_info_get_identifier != nil &&
+           api.swiftscan_import_info_get_access_level != nil
+  }
+
   internal func mapToDriverDiagnosticPayload(_ diagnosticSetRef: UnsafeMutablePointer<swiftscan_diagnostic_set_t>) throws -> [ScannerDiagnosticPayload] {
     var result: [ScannerDiagnosticPayload] = []
     let diagnosticRefArray = Array(UnsafeBufferPointer(start: diagnosticSetRef.pointee.diagnostics,
@@ -342,21 +353,6 @@ private extension String {
                                              sourceLocation: sourceLoc))
     }
     return result
-  }
-
-  @_spi(Testing) public func queryScannerDiagnostics() throws -> [ScannerDiagnosticPayload] {
-    let diagnosticSetRefOrNull = api.swiftscan_scanner_diagnostics_query(scanner)
-    guard let diagnosticSetRef = diagnosticSetRefOrNull else {
-      // Seems heavy-handed to fail here
-      // throw DependencyScanningError.dependencyScanFailed
-      return []
-    }
-    defer { api.swiftscan_diagnostics_set_dispose(diagnosticSetRef) }
-    return try mapToDriverDiagnosticPayload(diagnosticSetRef)
-  }
-
-  @_spi(Testing) public func resetScannerDiagnostics() throws {
-    api.swiftscan_scanner_diagnostics_reset(scanner)
   }
 
   @_spi(Testing) public func canQuerySupportedArguments() -> Bool {
@@ -479,10 +475,6 @@ private extension swiftscan_functions_t {
       loadOptional("swiftscan_compiler_target_info_query_v2")
 
     // Scanner diagnostic emission query
-    self.swiftscan_scanner_diagnostics_query =
-      loadOptional("swiftscan_scanner_diagnostics_query")
-    self.swiftscan_scanner_diagnostics_reset =
-      loadOptional("swiftscan_scanner_diagnostics_reset")
     self.swiftscan_diagnostic_get_message =
       loadOptional("swiftscan_diagnostic_get_message")
     self.swiftscan_diagnostic_get_severity =
@@ -569,9 +561,18 @@ private extension swiftscan_functions_t {
     self.swiftscan_link_library_info_get_is_framework = loadOptional("swiftscan_link_library_info_get_is_framework")
     self.swiftscan_link_library_info_get_should_force_load = loadOptional("swiftscan_link_library_info_get_should_force_load")
 
+    self.swiftscan_module_info_get_imports = loadOptional("swiftscan_module_info_get_imports")
+    self.swiftscan_import_info_get_source_locations = loadOptional("swiftscan_import_info_get_source_locations")
+    self.swiftscan_import_info_get_identifier = loadOptional("swiftscan_import_info_get_identifier")
+    self.swiftscan_import_info_get_access_level = loadOptional("swiftscan_import_info_get_access_level")
+
     // Swift Overlay Dependencies
     self.swiftscan_swift_textual_detail_get_swift_overlay_dependencies =
       loadOptional("swiftscan_swift_textual_detail_get_swift_overlay_dependencies")
+
+    // Directly-imported source dependencies
+    self.swiftscan_swift_textual_detail_get_swift_source_import_module_dependencies =
+      loadOptional("swiftscan_swift_textual_detail_get_swift_source_import_module_dependencies")
 
     // Header dependencies of binary modules
     self.swiftscan_swift_binary_detail_get_header_dependencies =
@@ -613,12 +614,6 @@ private extension swiftscan_functions_t {
       try loadRequired("swiftscan_clang_detail_get_context_hash")
     self.swiftscan_clang_detail_get_module_map_path =
       try loadRequired("swiftscan_clang_detail_get_module_map_path")
-    self.swiftscan_swift_placeholder_detail_get_module_source_info_path =
-      try loadRequired("swiftscan_swift_placeholder_detail_get_module_source_info_path")
-    self.swiftscan_swift_placeholder_detail_get_module_doc_path =
-      try loadRequired("swiftscan_swift_placeholder_detail_get_module_doc_path")
-    self.swiftscan_swift_placeholder_detail_get_compiled_module_path =
-      try loadRequired("swiftscan_swift_placeholder_detail_get_compiled_module_path")
     self.swiftscan_swift_binary_detail_get_module_source_info_path =
       try loadRequired("swiftscan_swift_binary_detail_get_module_source_info_path")
     self.swiftscan_swift_binary_detail_get_module_doc_path =

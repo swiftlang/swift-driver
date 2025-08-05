@@ -13,6 +13,8 @@
 import protocol TSCBasic.FileSystem
 import struct TSCBasic.ProcessResult
 import class TSCBasic.Process
+import enum TSCBasic.ProcessEnv
+import typealias TSCBasic.ProcessEnvironmentBlock
 
 /// A simple executor sufficient for managing processes required during
 /// build planning: e.g. querying frontend target info.
@@ -23,33 +25,72 @@ import class TSCBasic.Process
 @_spi(Testing) public class SimpleExecutor: DriverExecutor {
   public let resolver: ArgsResolver
   let fileSystem: FileSystem
-  let env: [String: String]
+  let env: ProcessEnvironmentBlock
 
-  public init(resolver: ArgsResolver, fileSystem: FileSystem, env: [String: String]) {
+  public init(resolver: ArgsResolver, fileSystem: FileSystem, env: ProcessEnvironmentBlock) {
     self.resolver = resolver
     self.fileSystem = fileSystem
     self.env = env
   }
 
   public func execute(job: Job,
-                      forceResponseFiles: Bool,
-                      recordedInputModificationDates: [TypedVirtualPath : TimePoint]) throws -> ProcessResult {
+               forceResponseFiles: Bool,
+               recordedInputMetadata: [TypedVirtualPath : FileMetadata]) throws -> ProcessResult {
     let arguments: [String] = try resolver.resolveArgumentList(for: job,
                                                                useResponseFiles: .heuristic)
     var childEnv = env
-    childEnv.merge(job.extraEnvironment, uniquingKeysWith: { (_, new) in new })
+    childEnv.merge(job.extraEnvironmentBlock, uniquingKeysWith: { (_, new) in new })
     let process = try Process.launchProcess(arguments: arguments, env: childEnv)
     return try process.waitUntilExit()
   }
 
   public func execute(workload: DriverExecutorWorkload, delegate: JobExecutionDelegate,
-                      numParallelJobs: Int, forceResponseFiles: Bool,
-                      recordedInputModificationDates: [TypedVirtualPath : TimePoint]) throws {
-    fatalError("Unsupported operation on current executor")
+               numParallelJobs: Int, forceResponseFiles: Bool,
+               recordedInputMetadata: [TypedVirtualPath : FileMetadata]) throws {
+      fatalError("Unsupported operation on current executor")
   }
 
-  public func checkNonZeroExit(args: String..., environment: [String : String]) throws -> String {
-    try Process.checkNonZeroExit(arguments: args, environment: environment)
+  public func execute(job: Job,
+               forceResponseFiles: Bool,
+               recordedInputModificationDates: [TypedVirtualPath : TimePoint]) throws -> ProcessResult {
+      fatalError("Unsupported legacy operation on current executor")
+  }
+
+  public func execute(workload: DriverExecutorWorkload, delegate: JobExecutionDelegate,
+                       numParallelJobs: Int, forceResponseFiles: Bool,
+                      recordedInputModificationDates: [TypedVirtualPath : TimePoint]) throws {
+      fatalError("Unsupported operation on current executor")
+  }
+
+  public func execute(jobs: [Job],
+                      delegate: JobExecutionDelegate,
+                      numParallelJobs: Int,
+                      forceResponseFiles: Bool,
+                      recordedInputModificationDates: [TypedVirtualPath: TimePoint]) throws {
+      fatalError("Unsupported legacy operation on current executor")
+  }
+
+  public func execute(
+    jobs: [Job],
+    delegate: JobExecutionDelegate,
+    numParallelJobs: Int,
+    forceResponseFiles: Bool,
+    recordedInputMetadata: [TypedVirtualPath: FileMetadata]
+  ) throws {
+    try execute(
+      workload: .all(jobs),
+      delegate: delegate,
+      numParallelJobs: numParallelJobs,
+      forceResponseFiles: forceResponseFiles,
+      recordedInputMetadata: recordedInputMetadata)
+  }
+
+  public func checkNonZeroExit(args: String..., environment: [String: String]) throws -> String {
+    try Process.checkNonZeroExit(arguments: args, environmentBlock: ProcessEnvironmentBlock(environment))
+  }
+
+  public func checkNonZeroExit(args: String..., environmentBlock: ProcessEnvironmentBlock = ProcessEnv.block) throws -> String {
+    try Process.checkNonZeroExit(arguments: args, environmentBlock: environmentBlock)
   }
 
   public func description(of job: Job, forceResponseFiles: Bool) throws -> String {

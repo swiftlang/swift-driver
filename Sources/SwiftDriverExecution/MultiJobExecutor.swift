@@ -21,11 +21,13 @@ import var Foundation.SIGINT
 
 import class TSCBasic.DiagnosticsEngine
 import class TSCBasic.Process
-import class TSCBasic.ProcessSet
 import protocol TSCBasic.DiagnosticData
 import protocol TSCBasic.FileSystem
+import struct TSCBasic.AbsolutePath
 import struct TSCBasic.Diagnostic
 import struct TSCBasic.ProcessResult
+import func TSCBasic.withTemporaryDirectory
+import typealias TSCBasic.ProcessEnvironmentBlock
 import enum TSCUtility.Diagnostics
 
 // We either import the llbuildSwift shared library or the llbuild framework.
@@ -64,7 +66,7 @@ public final class MultiJobExecutor {
     let argsResolver: ArgsResolver
 
     /// The environment variables.
-    let env: [String: String]
+    let env: ProcessEnvironmentBlock
 
     /// The file system.
     let fileSystem: TSCBasic.FileSystem
@@ -85,7 +87,7 @@ public final class MultiJobExecutor {
     let forceResponseFiles: Bool
 
     /// The last time each input file was modified, recorded at the start of the build.
-    public let recordedInputModificationDates: [TypedVirtualPath: TimePoint]
+    public let recordedInputMetadata: [TypedVirtualPath: FileMetadata]
 
     /// The diagnostics engine to use when reporting errors.
     let diagnosticsEngine: DiagnosticsEngine
@@ -105,14 +107,14 @@ public final class MultiJobExecutor {
 
     init(
       argsResolver: ArgsResolver,
-      env: [String: String],
+      env: ProcessEnvironmentBlock,
       fileSystem: TSCBasic.FileSystem,
       workload: DriverExecutorWorkload,
       executorDelegate: JobExecutionDelegate,
       jobQueue: OperationQueue,
       processSet: ProcessSet?,
       forceResponseFiles: Bool,
-      recordedInputModificationDates: [TypedVirtualPath: TimePoint],
+      recordedInputMetadata: [TypedVirtualPath: FileMetadata],
       diagnosticsEngine: DiagnosticsEngine,
       processType: ProcessProtocol.Type = Process.self,
       inputHandleOverride: FileHandle? = nil
@@ -133,7 +135,7 @@ public final class MultiJobExecutor {
       self.jobQueue = jobQueue
       self.processSet = processSet
       self.forceResponseFiles = forceResponseFiles
-      self.recordedInputModificationDates = recordedInputModificationDates
+      self.recordedInputMetadata = recordedInputMetadata
       self.diagnosticsEngine = diagnosticsEngine
       self.processType = processType
       self.testInputHandle = inputHandleOverride
@@ -260,7 +262,7 @@ public final class MultiJobExecutor {
   private let forceResponseFiles: Bool
 
   /// The last time each input file was modified, recorded at the start of the build.
-  private let recordedInputModificationDates: [TypedVirtualPath: TimePoint]
+  private let recordedInputMetadata: [TypedVirtualPath: FileMetadata]
 
   /// The diagnostics engine to use when reporting errors.
   private let diagnosticsEngine: DiagnosticsEngine
@@ -279,7 +281,7 @@ public final class MultiJobExecutor {
     numParallelJobs: Int? = nil,
     processSet: ProcessSet? = nil,
     forceResponseFiles: Bool = false,
-    recordedInputModificationDates: [TypedVirtualPath: TimePoint] = [:],
+    recordedInputMetadata: [TypedVirtualPath: FileMetadata] = [:],
     processType: ProcessProtocol.Type = Process.self,
     inputHandleOverride: FileHandle? = nil
   ) {
@@ -290,13 +292,13 @@ public final class MultiJobExecutor {
     self.numParallelJobs = numParallelJobs ?? 1
     self.processSet = processSet
     self.forceResponseFiles = forceResponseFiles
-    self.recordedInputModificationDates = recordedInputModificationDates
+    self.recordedInputMetadata = recordedInputMetadata
     self.processType = processType
     self.testInputHandle = inputHandleOverride
   }
 
   /// Execute all jobs.
-  public func execute(env: [String: String], fileSystem: TSCBasic.FileSystem) throws {
+  public func execute(env: ProcessEnvironmentBlock, fileSystem: TSCBasic.FileSystem) throws {
     let context = createContext(env: env, fileSystem: fileSystem)
 
     let delegate = JobExecutorBuildDelegate(context)
@@ -308,8 +310,8 @@ public final class MultiJobExecutor {
 
     // Check for any inputs that were modified during the build. Report these
     // as errors so we don't e.g. reuse corrupted incremental build state.
-    for (input, recordedModTime) in context.recordedInputModificationDates {
-      guard try fileSystem.lastModificationTime(for: input.file) == recordedModTime else {
+    for (input, metadata) in context.recordedInputMetadata {
+      guard try fileSystem.lastModificationTime(for: input.file) == metadata.mTime else {
         let err = Job.InputError.inputUnexpectedlyModified(input)
         context.diagnosticsEngine.emit(err)
         throw err
@@ -323,7 +325,7 @@ public final class MultiJobExecutor {
   }
 
   /// Create the context required during the execution.
-  private func createContext(env: [String: String], fileSystem: TSCBasic.FileSystem) -> Context {
+  private func createContext(env: ProcessEnvironmentBlock, fileSystem: TSCBasic.FileSystem) -> Context {
     let jobQueue = OperationQueue()
     jobQueue.name = "org.swift.driver.job-execution"
     jobQueue.maxConcurrentOperationCount = numParallelJobs
@@ -337,7 +339,7 @@ public final class MultiJobExecutor {
       jobQueue: jobQueue,
       processSet: processSet,
       forceResponseFiles: forceResponseFiles,
-      recordedInputModificationDates: recordedInputModificationDates,
+      recordedInputMetadata: recordedInputMetadata,
       diagnosticsEngine: diagnosticsEngine,
       processType: processType,
       inputHandleOverride: testInputHandle
@@ -583,7 +585,7 @@ class ExecuteJobRule: LLBuildRule {
     let context = self.context
     let resolver = context.argsResolver
     let job = myJob
-    let env = context.env.merging(job.extraEnvironment, uniquingKeysWith: { $1 })
+    let env = context.env.merging(job.extraEnvironmentBlock, uniquingKeysWith: { $1 })
 
     let value: DriverBuildValue
     var pendingFinish = false
@@ -632,12 +634,14 @@ class ExecuteJobRule: LLBuildRule {
 #if os(Windows)
         case let .abnormal(exception):
           context.diagnosticsEngine.emit(.error_command_exception(kind: job.kind, exception: exception))
+          try handleSignalledJob(for: job)
 #else
         case let .signalled(signal):
           // An interrupt of an individual compiler job means it was deliberately cancelled,
           // most likely by the driver itself. This does not constitute an error.
           if signal != SIGINT {
             context.diagnosticsEngine.emit(.error_command_signalled(kind: job.kind, signal: signal))
+            try handleSignalledJob(for: job)
           }
 #endif
         }
@@ -660,7 +664,7 @@ class ExecuteJobRule: LLBuildRule {
         context.delegateQueue.sync {
           let result = ProcessResult(
             arguments: [],
-            environment: env,
+            environmentBlock: env,
             exitStatus: .terminated(code: EXIT_FAILURE),
             output: Result.success([]),
             stderrOutput: Result.success([])
@@ -672,6 +676,29 @@ class ExecuteJobRule: LLBuildRule {
     }
 
     engine.taskIsComplete(value)
+  }
+
+  private func handleSignalledJob(for job: Job) throws {
+    let reproDir: AbsolutePath
+    if let pathFromEnv = context.env["SWIFT_CRASH_DIAGNOSTICS_DIR"] {
+      reproDir = try AbsolutePath(validating: pathFromEnv)
+    } else {
+      reproDir = try fileSystem.tempDirectory
+    }
+    try withTemporaryDirectory(dir: reproDir, prefix: "swift-crash-reproducer", removeTreeOnDeinit: false) { tempDir in
+      guard let reproJob = context.executorDelegate.getReproducerJob(job: job, output: VirtualPath.absolute(tempDir)) else {
+        return
+      }
+      let arguments: [String] = try context.argsResolver.resolveArgumentList(for: reproJob,
+                                                                             useResponseFiles: .heuristic)
+      let process = try context.processType.launchProcess(arguments: arguments, env: context.env)
+      let reproResult = try process.waitUntilExit()
+      if case .terminated(let code) = reproResult.exitStatus, code == 0 {
+        context.diagnosticsEngine.emit(.note_reproducer_created(tempDir.pathString))
+      } else {
+        context.diagnosticsEngine.emit(.error_failed_to_create_reproducer)
+      }
+    }
   }
 }
 
@@ -699,5 +726,13 @@ private extension TSCBasic.Diagnostic.Message {
 
   static func error_command_exception(kind: Job.Kind, exception: UInt32) -> TSCBasic.Diagnostic.Message {
     .error("\(kind.rawValue) command failed due to exception \(exception) (use -v to see invocation)")
+  }
+
+  static var error_failed_to_create_reproducer: Diagnostic.Message {
+    .error("failed to create crash reproducer")
+  }
+
+  static func note_reproducer_created(_ path: String) -> Diagnostic.Message {
+    .note("crash reproducer is created at: \(path)")
   }
 }

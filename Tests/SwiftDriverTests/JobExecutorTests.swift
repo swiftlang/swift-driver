@@ -16,7 +16,7 @@ import TSCBasic
 import SwiftDriverExecution
 import TestUtilities
 
-extension Job.ArgTemplate: ExpressibleByStringLiteral {
+extension Job.ArgTemplate: @retroactive ExpressibleByStringLiteral {
   public init(stringLiteral value: String) {
     self = .flag(value)
   }
@@ -24,11 +24,11 @@ extension Job.ArgTemplate: ExpressibleByStringLiteral {
 
 class JobCollectingDelegate: JobExecutionDelegate {
   struct StubProcess: ProcessProtocol {
-    static func launchProcess(arguments: [String], env: [String : String]) throws -> StubProcess {
+    static func launchProcess(arguments: [String], env: ProcessEnvironmentBlock) throws -> StubProcess {
       return .init()
     }
 
-    static func launchProcessAndWriteInput(arguments: [String], env: [String : String],
+    static func launchProcessAndWriteInput(arguments: [String], env: ProcessEnvironmentBlock,
                                            inputFileHandle: FileHandle) throws -> StubProcess {
       return .init()
     }
@@ -38,7 +38,7 @@ class JobCollectingDelegate: JobExecutionDelegate {
     func waitUntilExit() throws -> ProcessResult {
       return ProcessResult(
         arguments: [],
-        environment: [:],
+        environmentBlock: [:],
         exitStatus: .terminated(code: EXIT_SUCCESS),
         output: Result.success(ByteString("test").contents),
         stderrOutput: Result.success([])
@@ -58,6 +58,10 @@ class JobCollectingDelegate: JobExecutionDelegate {
   }
 
   func jobSkipped(job: Job) {}
+
+  func getReproducerJob(job: Job, output: VirtualPath) -> Job? {
+    nil
+  }
 }
 
 extension DarwinToolchain {
@@ -66,7 +70,7 @@ extension DarwinToolchain {
     Result {
       let result = try executor.checkNonZeroExit(
         args: "xcrun", "-sdk", "macosx", "--show-sdk-path",
-        environment: env
+        environment: env.legacyVars
       ).spm_chomp()
       return try AbsolutePath(validating: result)
     }
@@ -105,8 +109,8 @@ final class JobExecutorTests: XCTestCase {
     let executor = try SwiftDriverExecutor(diagnosticsEngine: DiagnosticsEngine(),
                                            processSet: ProcessSet(),
                                            fileSystem: localFileSystem,
-                                           env: ProcessEnv.vars)
-    let toolchain = DarwinToolchain(env: ProcessEnv.vars, executor: executor)
+                                           env: ProcessEnv.block)
+    let toolchain = DarwinToolchain(env: ProcessEnv.block, executor: executor)
     try withTemporaryDirectory { path in
       let foo = path.appending(component: "foo.swift")
       let main = path.appending(component: "main.swift")
@@ -218,8 +222,8 @@ final class JobExecutorTests: XCTestCase {
     let executor = try SwiftDriverExecutor(diagnosticsEngine: DiagnosticsEngine(),
                                            processSet: ProcessSet(),
                                            fileSystem: localFileSystem,
-                                           env: ProcessEnv.vars)
-    let toolchain = DarwinToolchain(env: ProcessEnv.vars, executor: executor)
+                                           env: ProcessEnv.block)
+    let toolchain = DarwinToolchain(env: ProcessEnv.block, executor: executor)
     try withTemporaryDirectory { path in
       let exec = path.appending(component: "main")
       let compile = Job(
@@ -306,15 +310,15 @@ final class JobExecutorTests: XCTestCase {
       diagnosticsEngine: DiagnosticsEngine(),
       processType: JobCollectingDelegate.StubProcess.self
     )
-    try executor.execute(env: ProcessEnv.vars, fileSystem: localFileSystem)
+    try executor.execute(env: ProcessEnv.block, fileSystem: localFileSystem)
 
     XCTAssertEqual(try delegate.finished[0].1.utf8Output(), "test")
 #endif
   }
 
   func testSwiftDriverExecOverride() throws {
-    var env = ProcessEnv.vars
-    let envVarName = "SWIFT_DRIVER_SWIFT_FRONTEND_EXEC"
+    var env = ProcessEnv.block
+    let envVarName = ProcessEnvironmentKey("SWIFT_DRIVER_SWIFT_FRONTEND_EXEC")
     let dummyPath = "/some/garbage/path/fnord"
     let executor = try SwiftDriverExecutor(diagnosticsEngine: DiagnosticsEngine(),
                                            processSet: ProcessSet(),
@@ -365,7 +369,7 @@ final class JobExecutorTests: XCTestCase {
       try localFileSystem.writeFileContents(main, bytes: "let foo = 1")
       // Ensure that the file modification since the start of the build planning process
       // results in a corresponding error.
-      XCTAssertThrowsError(try soleJob.verifyInputsNotModified(since: driver.recordedInputModificationDates, fileSystem: localFileSystem)) {
+      XCTAssertThrowsError(try soleJob.verifyInputsNotModified(since: driver.recordedInputMetadata.mapValues{$0.mTime}, fileSystem: localFileSystem)) {
         XCTAssertEqual($0 as? Job.InputError,
                        .inputUnexpectedlyModified(TypedVirtualPath(file: VirtualPath.absolute(main).intern(), type: .swift)))
       }
@@ -462,10 +466,10 @@ final class JobExecutorTests: XCTestCase {
 
   private func getHostToolchainSdkArg(_ executor: SwiftDriverExecutor) throws -> [String] {
     #if os(macOS)
-    let toolchain = DarwinToolchain(env: ProcessEnv.vars, executor: executor)
+    let toolchain = DarwinToolchain(env: ProcessEnv.block, executor: executor)
     return try ["-sdk", toolchain.sdk.get().pathString]
     #elseif os(Windows)
-    let toolchain = WindowsToolchain(env: ProcessEnv.vars, executor: executor)
+    let toolchain = WindowsToolchain(env: ProcessEnv.block, executor: executor)
     if let path = try toolchain.defaultSDKPath(nil) {
       return ["-sdk", path.nativePathString(escaped: false)]
     }
@@ -485,11 +489,12 @@ final class JobExecutorTests: XCTestCase {
         let executor = try SwiftDriverExecutor(diagnosticsEngine: diags,
                                                processSet: ProcessSet(),
                                                fileSystem: localFileSystem,
-                                               env: ProcessEnv.vars)
+                                               env: ProcessEnv.block)
         let outputPath = path.appending(component: "finalOutput")
         var driver = try Driver(args: ["swiftc", main.pathString,
                                        "-driver-filelist-threshold", "0",
                                        "-o", outputPath.pathString] + getHostToolchainSdkArg(executor),
+                                envBlock: ProcessEnv.block,
                                 diagnosticsOutput: .engine(diags),
                                 fileSystem: localFileSystem,
                                 executor: executor)
@@ -519,12 +524,13 @@ final class JobExecutorTests: XCTestCase {
         let executor = try SwiftDriverExecutor(diagnosticsEngine: diags,
                                                processSet: ProcessSet(),
                                                fileSystem: localFileSystem,
-                                               env: ProcessEnv.vars)
+                                               env: ProcessEnv.block)
         let outputPath = path.appending(component: "finalOutput")
         var driver = try Driver(args: ["swiftc", main.pathString,
                                        "-save-temps",
                                        "-driver-filelist-threshold", "0",
                                        "-o", outputPath.pathString] + getHostToolchainSdkArg(executor),
+                                envBlock: ProcessEnv.block,
                                 diagnosticsOutput: .engine(diags),
                                 fileSystem: localFileSystem,
                                 executor: executor)
@@ -554,12 +560,13 @@ final class JobExecutorTests: XCTestCase {
         let executor = try SwiftDriverExecutor(diagnosticsEngine: diags,
                                                processSet: ProcessSet(),
                                                fileSystem: localFileSystem,
-                                               env: ProcessEnv.vars)
+                                               env: ProcessEnv.block)
         let outputPath = path.appending(component: "finalOutput")
         var driver = try Driver(args: ["swiftc", main.pathString,
                                        "-driver-filelist-threshold", "0",
                                        "-Xfrontend", "-debug-crash-immediately",
                                        "-o", outputPath.pathString] + getHostToolchainSdkArg(executor),
+                                envBlock: ProcessEnv.block,
                                 diagnosticsOutput: .engine(diags),
                                 fileSystem: localFileSystem,
                                 executor: executor)

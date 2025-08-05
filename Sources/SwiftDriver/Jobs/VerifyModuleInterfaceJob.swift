@@ -30,12 +30,16 @@ extension Driver {
     return isFrontendArgSupported(.inputFileKey)
   }
 
-  mutating func verifyModuleInterfaceJob(interfaceInput: TypedVirtualPath, emitModuleJob: Job, reportAsError: Bool) throws -> Job {
+  mutating func verifyModuleInterfaceJob(interfaceInput: TypedVirtualPath, emitModuleJob: Job, reportAsError: Bool,
+                                         explicitModulePlanner: ExplicitDependencyBuildPlanner?,
+                                         forVariantModule: Bool) throws -> Job {
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
     var inputs: [TypedVirtualPath] = [interfaceInput]
     commandLine.appendFlags("-frontend", "-typecheck-module-from-interface")
     try addPathArgument(interfaceInput.file, to: &commandLine)
-    try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs, kind: .verifyModuleInterface, bridgingHeaderHandling: .ignored)
+    try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs, kind: .verifyModuleInterface, bridgingHeaderHandling: .ignored,
+                                 explicitModulePlanner: explicitModulePlanner,
+                                 forVariantEmitModule: forVariantModule)
     try addRuntimeLibraryFlags(commandLine: &commandLine)
 
     // Output serialized diagnostics for this job, if specifically requested

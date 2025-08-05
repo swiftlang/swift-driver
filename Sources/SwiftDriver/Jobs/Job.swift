@@ -12,13 +12,14 @@
 
 import protocol TSCBasic.DiagnosticData
 import protocol TSCBasic.FileSystem
+import typealias TSCBasic.ProcessEnvironmentBlock
+import struct TSCBasic.ProcessEnvironmentKey
 
 /// A job represents an individual subprocess that should be invoked during compilation.
 public struct Job: Codable, Equatable, Hashable {
   public enum Kind: String, Codable {
     case compile
     case backend
-    case mergeModule = "merge-module"
     case link
     case generateDSYM = "generate-dSYM"
     case autolinkExtract = "autolink-extract"
@@ -43,6 +44,7 @@ public struct Job: Codable, Equatable, Hashable {
     case generateABIBaseline = "generate-abi-baseline"
     case compareAPIBaseline = "compare-api-baseline"
     case compareABIBaseline = "Check ABI stability"
+    case printSupportedFeatures = "print-supported-features"
   }
 
   public enum ArgTemplate: Equatable, Hashable {
@@ -93,7 +95,11 @@ public struct Job: Codable, Equatable, Hashable {
   public var outputs: [TypedVirtualPath]
 
   /// Any extra environment variables which should be set while running the job.
+  @available(*, deprecated, message: "use extraEnvironmentBlock")
   public var extraEnvironment: [String: String]
+
+  /// Any extra environment variables which should be set while running the job.
+  public var extraEnvironmentBlock: ProcessEnvironmentBlock
 
   /// Whether or not the job must be executed in place, replacing the current driver process.
   public var requiresInPlaceExecution: Bool
@@ -118,7 +124,7 @@ public struct Job: Codable, Equatable, Hashable {
     outputs: [TypedVirtualPath],
     outputCacheKeys: [TypedVirtualPath: String] = [:],
     inputOutputMap: [TypedVirtualPath : [TypedVirtualPath]] = [:],
-    extraEnvironment: [String: String] = [:],
+    extraEnvironment: ProcessEnvironmentBlock = [:],
     requiresInPlaceExecution: Bool = false
   ) {
     self.moduleName = moduleName
@@ -131,7 +137,8 @@ public struct Job: Codable, Equatable, Hashable {
     self.outputs = outputs
     self.outputCacheKeys = outputCacheKeys
     self.compileInputOutputMap = inputOutputMap
-    self.extraEnvironment = extraEnvironment
+    self.extraEnvironmentBlock = extraEnvironment
+    self.extraEnvironment = self.extraEnvironmentBlock.legacyVars
     self.requiresInPlaceExecution = requiresInPlaceExecution
     self.supportsResponseFiles = tool.supportsResponseFiles
   }
@@ -151,9 +158,9 @@ extension Job {
     }
   }
 
-  public func verifyInputsNotModified(since recordedInputModificationDates: [TypedVirtualPath: TimePoint], fileSystem: FileSystem) throws {
+  public func verifyInputsNotModified(since recordedInputMetadata: [TypedVirtualPath: TimePoint], fileSystem: FileSystem) throws {
     for input in inputs {
-      if let recordedModificationTime = recordedInputModificationDates[input],
+      if let recordedModificationTime = recordedInputMetadata[input],
          try fileSystem.lastModificationTime(for: input.file) != recordedModificationTime {
         throw InputError.inputUnexpectedlyModified(input)
       }
@@ -179,9 +186,6 @@ extension Job : CustomStringConvertible {
     switch kind {
     case .compile:
         return join("Compiling \(moduleName)", displayInputs.first?.file.basename)
-
-    case .mergeModule:
-        return "Merging module \(moduleName)"
 
     case .link:
         return "Linking \(moduleName)"
@@ -251,6 +255,9 @@ extension Job : CustomStringConvertible {
 
     case .compareABIBaseline:
       return "Comparing ABI of \(moduleName) to baseline"
+
+    case .printSupportedFeatures:
+      return "Print supported upcoming and experimental features"
     }
   }
 
@@ -268,9 +275,9 @@ extension Job.Kind {
   /// Whether this job kind uses the Swift frontend.
   public var isSwiftFrontend: Bool {
     switch self {
-    case .backend, .compile, .mergeModule, .emitModule, .compileModuleFromInterface, .generatePCH,
+    case .backend, .compile, .emitModule, .compileModuleFromInterface, .generatePCH,
         .generatePCM, .dumpPCM, .interpret, .repl, .printTargetInfo,
-        .versionRequest, .emitSupportedFeatures, .scanDependencies, .verifyModuleInterface:
+        .versionRequest, .emitSupportedFeatures, .scanDependencies, .verifyModuleInterface, .printSupportedFeatures:
         return true
 
     case .autolinkExtract, .generateDSYM, .help, .link, .verifyDebugInfo, .moduleWrap,
@@ -284,13 +291,13 @@ extension Job.Kind {
     switch self {
     case .compile:
       return true
-    case .backend, .mergeModule, .emitModule, .generatePCH, .compileModuleFromInterface,
+    case .backend, .emitModule, .generatePCH, .compileModuleFromInterface,
          .generatePCM, .dumpPCM, .interpret, .repl, .printTargetInfo,
          .versionRequest, .autolinkExtract, .generateDSYM,
          .help, .link, .verifyDebugInfo, .scanDependencies,
          .emitSupportedFeatures, .moduleWrap, .verifyModuleInterface,
          .generateAPIBaseline, .generateABIBaseline, .compareAPIBaseline,
-         .compareABIBaseline:
+         .compareABIBaseline, .printSupportedFeatures:
       return false
     }
   }
@@ -301,11 +308,11 @@ extension Job.Kind {
     case .compile, .emitModule, .generatePCH, .compileModuleFromInterface,
          .generatePCM, .verifyModuleInterface:
       return true
-    case .backend, .mergeModule, .dumpPCM, .interpret, .repl, .printTargetInfo,
+    case .backend, .dumpPCM, .interpret, .repl, .printTargetInfo,
          .versionRequest, .autolinkExtract, .generateDSYM, .help, .link,
          .verifyDebugInfo, .scanDependencies, .emitSupportedFeatures, .moduleWrap,
          .generateAPIBaseline, .generateABIBaseline, .compareAPIBaseline,
-         .compareABIBaseline:
+         .compareABIBaseline, .printSupportedFeatures:
       return false
     }
   }

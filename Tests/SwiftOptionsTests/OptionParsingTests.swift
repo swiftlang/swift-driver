@@ -42,8 +42,21 @@ final class SwiftDriverTests: XCTestCase {
     let three = Option("-three", .multiArg, attributes: [], numArgs: 3)
     options.addNewOption(two)
     options.addNewOption(three)
-    let results = try options.parse(["-two", "1", "2", "-three", "1", "2", "3", "-two", "2", "3"], for: .batch)
+    var results = try options.parse(["-two", "1", "2", "-three", "1", "2", "3", "-two", "2", "3"], for: .batch)
     XCTAssertEqual(results.description, "-two 1 2 -three 1 2 3 -two 2 3")
+    // test that the arguments are assigned to their corresponding flag correctly
+    XCTAssertEqual(results.allInputs.count, 0)
+    let twoOpts = results.arguments(for: two)
+    XCTAssertEqual(twoOpts.count, 2)
+    XCTAssertEqual(twoOpts[0].argument.asMultiple[0], "1")
+    XCTAssertEqual(twoOpts[0].argument.asMultiple[1], "2")
+    XCTAssertEqual(twoOpts[1].argument.asMultiple[0], "2")
+    XCTAssertEqual(twoOpts[1].argument.asMultiple[1], "3")
+    let threeOpts = results.arguments(for: three)
+    XCTAssertEqual(threeOpts.count, 1)
+    XCTAssertEqual(threeOpts[0].argument.asMultiple[0], "1")
+    XCTAssertEqual(threeOpts[0].argument.asMultiple[1], "2")
+    XCTAssertEqual(threeOpts[0].argument.asMultiple[2], "3")
     // Check not enough arguments are passed.
     XCTAssertThrowsError(try options.parse(["-two", "1"], for: .batch)) { error in
       XCTAssertEqual(error as? OptionParseError, .missingArgument(index: 0, argument: "-two"))

@@ -18,6 +18,8 @@ import func TSCBasic.lookupExecutablePath
 import class TSCBasic.DiagnosticsEngine
 import protocol TSCBasic.FileSystem
 import struct TSCBasic.AbsolutePath
+import typealias TSCBasic.ProcessEnvironmentBlock
+import struct TSCBasic.ProcessEnvironmentKey
 
 public enum Tool: Hashable {
   case swiftCompiler
@@ -76,9 +78,9 @@ public struct ResolvedTool {
 /// Describes a toolchain, which includes information about compilers, linkers
 /// and other tools required to build Swift code.
 public protocol Toolchain {
-  init(env: [String: String], executor: DriverExecutor, fileSystem: FileSystem, compilerExecutableDir: AbsolutePath?, toolDirectory: AbsolutePath?)
+  init(env: ProcessEnvironmentBlock, executor: DriverExecutor, fileSystem: FileSystem, compilerExecutableDir: AbsolutePath?, toolDirectory: AbsolutePath?)
 
-  var env: [String: String] { get }
+  var env: ProcessEnvironmentBlock { get }
 
   var fileSystem: FileSystem { get }
 
@@ -115,6 +117,9 @@ public protocol Toolchain {
   /// Constructs a proper output file name for a linker product.
   func makeLinkerOutputFilename(moduleName: String, type: LinkOutputType) -> String
 
+  /// Adds linker flags corresponding to the specified set of link libraries
+  func addAutoLinkFlags(for linkLibraries: [LinkLibraryInfo], to commandLine: inout [Job.ArgTemplate])
+
   /// Perform platform-specific argument validation.
   func validateArgs(_ parsedOptions: inout ParsedOptions,
                     targetTriple: Triple,
@@ -145,10 +150,10 @@ public protocol Toolchain {
   ) throws -> String
 
   func platformSpecificInterpreterEnvironmentVariables(
-    env: [String: String],
+    env: ProcessEnvironmentBlock,
     parsedOptions: inout ParsedOptions,
     sdkPath: VirtualPath.Handle?,
-    targetInfo: FrontendTargetInfo) throws -> [String: String]
+    targetInfo: FrontendTargetInfo) throws -> ProcessEnvironmentBlock
 
   func addPlatformSpecificCommonFrontendOptions(
     commandLine: inout [Job.ArgTemplate],
@@ -196,12 +201,12 @@ extension Toolchain {
   }
 
   /// - Returns: String in the form of: `SWIFT_DRIVER_TOOLNAME_EXEC`
-  private func envVarName(for toolName: String) -> String {
+  private func envVarName(for toolName: String) -> ProcessEnvironmentKey {
     let lookupName = toolName
         .replacingOccurrences(of: "-", with: "_")
         .replacingOccurrences(of: "+", with: "X")
         .uppercased()
-    return "SWIFT_DRIVER_\(lookupName)_EXEC"
+    return ProcessEnvironmentKey("SWIFT_DRIVER_\(lookupName)_EXEC")
   }
 
   /// Use this property only for testing purposes, for example,
@@ -311,7 +316,7 @@ extension Toolchain {
 
     let path = try executor.checkNonZeroExit(
       args: xcrun, "--find", executable,
-      environment: env
+      environment: env.legacyVars
     ).trimmingCharacters(in: .whitespacesAndNewlines)
     return try AbsolutePath(validating: path)
   }

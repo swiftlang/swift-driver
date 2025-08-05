@@ -18,7 +18,10 @@ import struct TSCBasic.AbsolutePath
 extension GenericUnixToolchain {
   private func majorArchitectureName(for triple: Triple) -> String {
     // The concept of a "major" arch name only applies to Linux triples
-    guard triple.os == .linux else { return triple.archName }
+    // We change spellings for amd64/x86_64 for OpenBSD here too to match LLVM.
+    guard triple.os == .linux || triple.os == .openbsd else { return triple.archName }
+
+    if triple.os == .openbsd && triple.archName == "amd64" { return "x86_64" }
 
     // HACK: We don't wrap LLVM's ARM target architecture parsing, and we should
     //       definitely not try to port it. This check was only normalizing
@@ -83,6 +86,12 @@ extension GenericUnixToolchain {
         }
       }
 
+      let staticStdlib = parsedOptions.hasFlag(positive: .staticStdlib,
+                                               negative: .noStaticStdlib,
+                                                   default: false)
+      let staticExecutable = parsedOptions.hasFlag(positive: .staticExecutable,
+                                                   negative: .noStaticExecutable,
+                                                  default: false)
       let clangTool: Tool = cxxCompatEnabled ? .clangxx : .clang
       var clangPath = try getToolPath(clangTool)
       if let toolsDirPath = parsedOptions.getLastArgument(.toolsDirectory) {
@@ -102,7 +111,7 @@ extension GenericUnixToolchain {
       }
 
       // Executables on Linux get -pie
-      if targetTriple.os == .linux && linkerOutputType == .executable {
+      if targetTriple.os == .linux && linkerOutputType == .executable && !staticExecutable {
         commandLine.appendFlag("-pie")
       }
 
@@ -129,12 +138,6 @@ extension GenericUnixToolchain {
         }
       }
 
-      let staticStdlib = parsedOptions.hasFlag(positive: .staticStdlib,
-                                               negative: .noStaticStdlib,
-                                                   default: false)
-      let staticExecutable = parsedOptions.hasFlag(positive: .staticExecutable,
-                                                   negative: .noStaticExecutable,
-                                                  default: false)
       let isEmbeddedEnabled = parsedOptions.isEmbeddedEnabled
 
       let toolchainStdlibRpath = parsedOptions

@@ -27,7 +27,7 @@ internal extension SwiftScan {
       throw DependencyScanningError.missingField("dependency_graph.dependencies")
     }
 
-    var resultGraph = InterModuleDependencyGraph(mainModuleName: mainModuleName)
+    var moduleInfoMap: ModuleInfoMap = [:]
     // Turn the `swiftscan_dependency_set_t` into an array of `swiftscan_dependency_info_t`
     // references we can iterate through in order to construct `ModuleInfo` objects.
     let moduleRefArray = Array(UnsafeBufferPointer(start: dependencySetRef.pointee.modules,
@@ -37,10 +37,10 @@ internal extension SwiftScan {
         throw DependencyScanningError.missingField("dependency_set_t.modules[_]")
       }
       let (moduleId, moduleInfo) = try constructModuleInfo(from: moduleRef, moduleAliases: moduleAliases)
-      resultGraph.modules[moduleId] = moduleInfo
+      moduleInfoMap[moduleId] = moduleInfo
     }
 
-    return resultGraph
+    return InterModuleDependencyGraph(mainModuleName: mainModuleName, modules: moduleInfoMap)
   }
 
   /// From a reference to a binary-format set of module imports return by libSwiftScan pre-scan query,
@@ -104,6 +104,22 @@ private extension SwiftScan {
       }
     }
 
+    var importInfos: [ImportInfo]? = nil
+    if supportsImportInfos {
+      let importInfoSetRefOrNull = api.swiftscan_module_info_get_imports(moduleInfoRef)
+      guard let importInfoSetRef = importInfoSetRefOrNull else {
+        throw DependencyScanningError.missingField("dependency_graph.imports")
+      }
+      let importInfoRefArray = Array(UnsafeBufferPointer(start: importInfoSetRef.pointee.imports,
+                                                         count: Int(importInfoSetRef.pointee.count)))
+      importInfos = try importInfoRefArray.map { importInfoRefOrNull in
+        guard let importInfoRef = importInfoRefOrNull else {
+          throw DependencyScanningError.missingField("dependency_set_t.imports[_]")
+        }
+        return try constructImportInfo(from: importInfoRef)
+      }
+    }
+
     guard let moduleDetailsRef = api.swiftscan_module_info_get_details(moduleInfoRef) else {
       throw DependencyScanningError.missingField("modules[\(moduleId)].details")
     }
@@ -113,6 +129,7 @@ private extension SwiftScan {
     return (moduleId, ModuleInfo(modulePath: modulePath, sourceFiles: sourceFiles,
                                  directDependencies: directDependencies,
                                  linkLibraries: linkLibraries,
+                                 importInfos: importInfos,
                                  details: details))
   }
 
@@ -120,6 +137,41 @@ private extension SwiftScan {
     return LinkLibraryInfo(linkName: try toSwiftString(api.swiftscan_link_library_info_get_link_name(linkLibraryInfoRef)),
                              isFramework: api.swiftscan_link_library_info_get_is_framework(linkLibraryInfoRef),
                              shouldForceLoad: api.swiftscan_link_library_info_get_should_force_load(linkLibraryInfoRef))
+  }
+
+  func constructImportInfo(from importInfoRef: swiftscan_import_info_t) throws -> ImportInfo {
+    var sourceLocations : [ScannerDiagnosticSourceLocation] = []
+
+    let sourceLocationsRefOrNull = api.swiftscan_import_info_get_source_locations(importInfoRef)
+    guard let sourceLocationsRef = sourceLocationsRefOrNull else {
+      throw DependencyScanningError.missingField("import_info.source_locations")
+    }
+    let sourceLocationsRefArray = Array(UnsafeBufferPointer(start: sourceLocationsRef.pointee.source_locations,
+                                                            count: Int(sourceLocationsRef.pointee.count)))
+    for sourceLocationRefOrNull in sourceLocationsRefArray {
+      guard let sourceLocationRef = sourceLocationRefOrNull else {
+        throw DependencyScanningError.missingField("import_info.source_locations[_]")
+      }
+      sourceLocations.append(try constructSourceLocation(from: sourceLocationRef))
+    }
+
+    let accessLevel = switch api.swiftscan_import_info_get_access_level(importInfoRef) {
+      case SWIFTSCAN_ACCESS_LEVEL_PRIVATE: ImportInfo.ImportAccessLevel.Private
+      case SWIFTSCAN_ACCESS_LEVEL_FILEPRIVATE: ImportInfo.ImportAccessLevel.FilePrivate
+      case SWIFTSCAN_ACCESS_LEVEL_INTERNAL: ImportInfo.ImportAccessLevel.Internal
+      case SWIFTSCAN_ACCESS_LEVEL_PACKAGE: ImportInfo.ImportAccessLevel.Package
+      case SWIFTSCAN_ACCESS_LEVEL_PUBLIC: ImportInfo.ImportAccessLevel.Public
+      default: ImportInfo.ImportAccessLevel.Public
+    }
+
+    return ImportInfo(importIdentifier: try toSwiftString(api.swiftscan_import_info_get_identifier(importInfoRef)),
+                      accessLevel: accessLevel, sourceLocations: sourceLocations)
+  }
+
+  func constructSourceLocation(from sourceLocationRef: swiftscan_source_location_t) throws -> ScannerDiagnosticSourceLocation {
+    return ScannerDiagnosticSourceLocation(bufferIdentifier: try toSwiftString(api.swiftscan_source_location_get_buffer_identifier(sourceLocationRef)),
+                                           lineNumber: Int(api.swiftscan_source_location_get_line_number(sourceLocationRef)),
+                                           columnNumber: Int(api.swiftscan_source_location_get_column_number(sourceLocationRef)))
   }
 
   /// From a reference to a binary-format module info details object info returned by libSwiftScan,
@@ -135,8 +187,6 @@ private extension SwiftScan {
                                                              moduleAliases: moduleAliases))
       case SWIFTSCAN_DEPENDENCY_INFO_SWIFT_BINARY:
         return .swiftPrebuiltExternal(try constructSwiftBinaryModuleDetails(from: moduleDetailsRef))
-      case SWIFTSCAN_DEPENDENCY_INFO_SWIFT_PLACEHOLDER:
-        return .swiftPlaceholder(try constructPlaceholderModuleDetails(from: moduleDetailsRef))
       case SWIFTSCAN_DEPENDENCY_INFO_CLANG:
         return .clang(try constructClangModuleDetails(from: moduleDetailsRef))
       default:
@@ -200,6 +250,16 @@ private extension SwiftScan {
       swiftOverlayDependencies = nil
     }
 
+    let sourceImportedDependencies: [ModuleDependencyId]?
+    if supportsSeparateImportOnlyDependencise,
+       let encodedImportedDepsRef = api.swiftscan_swift_textual_detail_get_swift_source_import_module_dependencies(moduleDetailsRef) {
+      let encodedImportedDepsendencies = try toSwiftStringArray(encodedImportedDepsRef.pointee)
+      sourceImportedDependencies =
+        try encodedImportedDepsendencies.map { try decodeModuleNameAndKind(from: $0, moduleAliases: moduleAliases) }
+    } else {
+      sourceImportedDependencies = nil
+    }
+
     return SwiftModuleDetails(moduleInterfacePath: moduleInterfacePath,
                               compiledModuleCandidates: compiledModuleCandidates,
                               bridgingHeader: bridgingHeader,
@@ -208,6 +268,7 @@ private extension SwiftScan {
                               contextHash: contextHash,
                               isFramework: isFramework,
                               swiftOverlayDependencies: swiftOverlayDependencies,
+                              sourceImportDependencies: sourceImportedDependencies,
                               moduleCacheKey: moduleCacheKey,
                               chainedBridgingHeaderPath: chainedBridgingHeaderPath,
                               chainedBridgingHeaderContent: chainedBridgingHeaderContent)
@@ -261,19 +322,6 @@ private extension SwiftScan {
                                               headerDependencyModuleDependencies: headerDependencyModuleDependencies,
                                               isFramework: isFramework,
                                               moduleCacheKey: moduleCacheKey)
-  }
-
-  /// Construct a `SwiftPlaceholderModuleDetails` from a `swiftscan_module_details_t` reference
-  func constructPlaceholderModuleDetails(from moduleDetailsRef: swiftscan_module_details_t)
-  throws -> SwiftPlaceholderModuleDetails {
-    let moduleDocPath =
-      try getOptionalPathDetail(from: moduleDetailsRef,
-                                using: api.swiftscan_swift_placeholder_detail_get_module_doc_path)
-    let moduleSourceInfoPath =
-      try getOptionalPathDetail(from: moduleDetailsRef,
-                                using: api.swiftscan_swift_placeholder_detail_get_module_source_info_path)
-    return SwiftPlaceholderModuleDetails(moduleDocPath: moduleDocPath,
-                                         moduleSourceInfoPath: moduleSourceInfoPath)
   }
 
   /// Construct a `ClangModuleDetails` from a `swiftscan_module_details_t` reference
@@ -426,7 +474,6 @@ private extension SwiftScan {
   /// where `module-kind` is one of:
   /// "swiftTextual"
   /// "swiftBinary"
-  /// "swiftPlaceholder"
   /// "clang""
   func decodeModuleNameAndKind(from encodedName: String,
                                moduleAliases: [String: String]?) throws -> ModuleDependencyId {
@@ -443,8 +490,6 @@ private extension SwiftScan {
           namePart = realName
         }
         return .swiftPrebuiltExternal(namePart)
-      case _ where encodedName.starts(with: "swiftPlaceholder:"):
-        return .swiftPlaceholder(String(encodedName.suffix(encodedName.count - "swiftPlaceholder:".count)))
       case _ where encodedName.starts(with: "clang:"):
         return .clang(String(encodedName.suffix(encodedName.count - "clang:".count)))
       default:

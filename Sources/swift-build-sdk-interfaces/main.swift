@@ -24,7 +24,6 @@ import Bionic
 #endif
 
 import class TSCBasic.DiagnosticsEngine
-import class TSCBasic.ProcessSet
 import enum TSCBasic.ProcessEnv
 import func TSCBasic.withTemporaryFile
 import struct TSCBasic.AbsolutePath
@@ -142,7 +141,7 @@ do {
     let executor = try SwiftDriverExecutor(diagnosticsEngine: diagnosticsEngine,
                                            processSet: processSet,
                                            fileSystem: localFileSystem,
-                                           env: ProcessEnv.vars)
+                                           env: ProcessEnv.block)
     var args = ["swiftc",
                 "-target", collector.targetTriple,
                 tempPath.description,
@@ -174,6 +173,7 @@ do {
     // modules for which a textual interface is discovered, ensuring that modules
     // always build from interface when one is available.
     if let supportedFlagsTestDriver = try? Driver(args: ["swiftc", "-v"],
+                                                  envBlock: ProcessEnv.block,
                                                   executor: executor,
                                                   compilerExecutableDir: swiftcPath.parentDirectory),
        supportedFlagsTestDriver.isFrontendArgSupported(.moduleLoadMode) {
@@ -185,6 +185,7 @@ do {
 
     let baselineABIDir = try getArgumentAsPath("-baseline-abi-dir")
     var driver = try Driver(args: args,
+                            envBlock: ProcessEnv.block,
                             diagnosticsOutput: .engine(diagnosticsEngine),
                             executor: executor,
                             compilerExecutableDir: swiftcPath.parentDirectory)

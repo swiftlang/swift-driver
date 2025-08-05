@@ -26,12 +26,7 @@ extension Toolchain {
     for targetInfo: FrontendTargetInfo,
     parsedOptions: inout ParsedOptions
   ) throws -> VirtualPath {
-    var platform = targetInfo.target.triple.platformName(conflatingDarwin: true)!
-    // compiler-rt moved these Android sanitizers into `lib/linux/` a couple
-    // years ago, llvm/llvm-project@a68ccba, so look for them there instead.
-    if platform == "android" {
-      platform = "linux"
-    }
+    let platform = targetInfo.target.triple.clangOSLibName
 
     // NOTE(compnerd) Windows uses the per-target runtime directory for the
     // Windows runtimes. This should also be done for the other platforms, but

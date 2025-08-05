@@ -33,6 +33,7 @@ add_library(SwiftDriver
   Execution/DriverExecutor.swift
   Execution/ParsableOutput.swift
   Execution/ProcessProtocol.swift
+  Execution/ProcessSet.swift
 
   "IncrementalCompilation/Bitcode/Bitcode.swift"
   "IncrementalCompilation/Bitcode/BitcodeElement.swift"
@@ -85,9 +86,9 @@ add_library(SwiftDriver
   Jobs/InterpretJob.swift
   Jobs/Job.swift
   Jobs/LinkJob.swift
-  Jobs/MergeModuleJob.swift
   Jobs/ModuleWrapJob.swift
   Jobs/Planning.swift
+  Jobs/PrintSupportedFeaturesJob.swift
   Jobs/PrintTargetInfoJob.swift
   Jobs/ReplJob.swift
   Jobs/SwiftHelpIntroJob.swift
@@ -113,6 +114,7 @@ add_library(SwiftDriver
   Utilities/DateAdditions.swift
   Utilities/Diagnostics.swift
   Utilities/FileList.swift
+  Utilities/FileMetadata.swift
   Utilities/FileType.swift
   Utilities/PredictableRandomNumberGenerator.swift
   Utilities/RelativePathAdditions.swift

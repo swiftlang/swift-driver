@@ -163,9 +163,9 @@ enum ModuleDependenciesInputs {
                 "-Xcc",
                 "-fno-implicit-module-maps",
                 "-candidate-module-file",
-                "\(AbsolutePath("/dummy/path2/SwiftOnoneSupport.swiftmodule").nativePathString(escaped: true))",
+                "\(try! AbsolutePath(validating: "/dummy/path2/SwiftOnoneSupport.swiftmodule").nativePathString(escaped: true))",
                 "-candidate-module-file",
-                "\(AbsolutePath("/dummy/path1/SwiftOnoneSupport.swiftmodule").nativePathString(escaped: true))",
+                "\(try! AbsolutePath(validating: "/dummy/path1/SwiftOnoneSupport.swiftmodule").nativePathString(escaped: true))",
                 "-target",
                 "x86_64-apple-macosx10.15",
                 "-sdk",
@@ -247,84 +247,6 @@ enum ModuleDependenciesInputs {
                 "-emit-module",
                 "-fmodule-name=SwiftShims"
               ]
-            }
-          }
-        }
-      ]
-    }
-    """
-  }
-
-  static var fastDependencyScannerPlaceholderOutput: String {
-    """
-    {
-      "mainModuleName": "A",
-      "modules": [
-        {
-          "swift": "A"
-        },
-        {
-          "modulePath": "A.swiftmodule",
-          "sourceFiles": [
-            "main.swift",
-            "A.swift"
-          ],
-          "directDependencies": [
-            {
-              "swiftPlaceholder": "B"
-            },
-            {
-              "swiftPlaceholder": "Swift"
-            },
-            {
-              "swiftPlaceholder": "SwiftOnoneSupport"
-            }
-          ],
-          "details": {
-            "swift": {
-              "isFramework": false
-            }
-          }
-        },
-        {
-          "swiftPlaceholder": "B"
-        },
-        {
-          "modulePath": "/Volumes/Data/Current/Driver/ExplicitPMTest/.build/x86_64-apple-macosx/debug/B.swiftmodule",
-          "sourceFiles": [
-          ],
-          "directDependencies" : [
-          ],
-          "details": {
-            "swiftPlaceholder": {
-            }
-          }
-        },
-        {
-          "swiftPlaceholder": "Swift"
-        },
-        {
-          "modulePath": "Swift.swiftmodule",
-          "sourceFiles": [
-          ],
-          "directDependencies": [
-          ],
-          "details": {
-            "swiftPlaceholder": {
-            }
-          }
-        },
-        {
-          "swiftPlaceholder": "SwiftOnoneSupport"
-        },
-        {
-          "modulePath": "SwiftOnoneSupport.swiftmodule",
-          "sourceFiles": [
-          ],
-          "directDependencies": [
-          ],
-          "details": {
-            "swiftPlaceholder": {
             }
           }
         }

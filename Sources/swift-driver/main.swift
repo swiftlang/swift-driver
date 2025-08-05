@@ -36,7 +36,6 @@ import func TSCBasic.exec
 import enum TSCBasic.ProcessEnv
 import class TSCBasic.DiagnosticsEngine
 import class TSCBasic.Process
-import class TSCBasic.ProcessSet
 import func TSCBasic.resolveSymlinks
 import protocol TSCBasic.DiagnosticData
 import var TSCBasic.localFileSystem
@@ -105,16 +104,16 @@ do {
     #endif
     let path: String = legacyExecutablePath.withUnsafeFileSystemRepresentation { String(cString: $0!) }
 
-    if localFileSystem.exists(AbsolutePath(path)) {
+    if localFileSystem.exists(try AbsolutePath(validating: path)) {
       let legacyDriverCommand = [path] + CommandLine.arguments[1...]
       try exec(path: path, args: legacyDriverCommand)
     } else {
-      throw Driver.Error.unknownOrMissingSubcommand(legacyExecutablePath.lastPathComponent)
+      throw Driver.Error.unknownOrMissingSubcommand(
+        legacyExecutablePath.lastPathComponent,
+        legacyExecutablePath
+          .deletingLastPathComponent()
+          .withUnsafeFileSystemRepresentation { String(cString: $0!) })
     }
-  }
-
-  if ProcessEnv.block["SWIFT_ENABLE_EXPLICIT_MODULE"] != nil {
-    CommandLine.arguments.append("-explicit-module-build")
   }
 
   let (mode, arguments) = try Driver.invocationRunMode(forArgs: CommandLine.arguments)
@@ -132,7 +131,7 @@ do {
 
     guard let subcommandPath = subcommandPath,
           localFileSystem.exists(subcommandPath) else {
-      throw Driver.Error.unknownOrMissingSubcommand(subcommand)
+      throw Driver.Error.unknownOrMissingSubcommand(subcommand, nil)
     }
 
     // Pass the full path to subcommand executable.
@@ -146,8 +145,9 @@ do {
   let executor = try SwiftDriverExecutor(diagnosticsEngine: diagnosticsEngine,
                                          processSet: processSet,
                                          fileSystem: localFileSystem,
-                                         env: ProcessEnv.vars)
+                                         env: ProcessEnv.block)
   var driver = try Driver(args: arguments,
+                          envBlock: ProcessEnv.block,
                           diagnosticsOutput: .engine(diagnosticsEngine),
                           executor: executor,
                           integratedDriver: false)

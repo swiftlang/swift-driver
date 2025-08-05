@@ -1,4 +1,4 @@
-// swift-tools-version:5.7
+// swift-tools-version:5.10
 
 import PackageDescription
 import class Foundation.ProcessInfo
@@ -170,7 +170,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
     // The 'swift-argument-parser' version declared here must match that
     // used by 'swift-package-manager' and 'sourcekit-lsp'. Please coordinate
     // dependency version changes here with those projects.
-    .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.4.0"),
+    .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.5.1"),
   ]
 } else {
     package.dependencies += [

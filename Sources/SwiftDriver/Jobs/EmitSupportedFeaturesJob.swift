@@ -18,6 +18,7 @@ import class TSCBasic.DiagnosticsEngine
 import protocol TSCBasic.FileSystem
 import struct TSCBasic.RelativePath
 import var TSCBasic.localFileSystem
+import typealias TSCBasic.ProcessEnvironmentBlock
 
 /// Describes information about the compiler's supported arguments and features
 @_spi(Testing) public struct SupportedCompilerFeatures: Codable {
@@ -85,12 +86,12 @@ extension Driver {
       job: frontendFeaturesJob,
       capturingJSONOutputAs: SupportedCompilerFeatures.self,
       forceResponseFiles: false,
-      recordedInputModificationDates: [:]).SupportedArguments
+      recordedInputMetadata: [:]).SupportedArguments
     return Set(decodedSupportedFlagList)
   }
 
   static func computeSupportedCompilerFeatures(of toolchain: Toolchain,
-                                               env: [String: String]) throws -> Set<String> {
+                                               env: ProcessEnvironmentBlock) throws -> Set<String> {
     struct FeatureInfo: Codable {
       var name: String
     }

@@ -247,10 +247,10 @@ fileprivate class ModuleCompileDelegate: JobExecutionDelegate {
       }
 #if os(Windows)
     case .abnormal(let exception):
-      diagnosticsEngine.emit(.remark("\(job.moduleName) exception: \(exception)"))
+      diagnosticsEngine.emit(.error(try! result.utf8stderrOutput()))
 #else
     case .signalled:
-      diagnosticsEngine.emit(.remark("\(job.moduleName) interrupted"))
+      diagnosticsEngine.emit(.error(try! result.utf8stderrOutput()))
 #endif
     }
     do {
@@ -270,6 +270,9 @@ fileprivate class ModuleCompileDelegate: JobExecutionDelegate {
   static func canHandle(job: Job) -> Bool {
     return job.kind == .compile
   }
+  func getReproducerJob(job: Job, output: VirtualPath) -> Job? {
+    nil
+  }
 }
 
 fileprivate class ABICheckingDelegate: JobExecutionDelegate {
@@ -277,6 +280,9 @@ fileprivate class ABICheckingDelegate: JobExecutionDelegate {
   let logPath: AbsolutePath?
 
   func jobSkipped(job: Job) {}
+  func getReproducerJob(job: Job, output: VirtualPath) -> Job? {
+    nil
+  }
 
   public init(_ verbose: Bool, _ logPath: AbsolutePath?) {
     self.verbose = verbose
@@ -338,6 +344,9 @@ public class PrebuiltModuleGenerationDelegate: JobExecutionDelegate {
 
   public func jobSkipped(job: Job) {
     selectDelegate(job: job).jobSkipped(job: job)
+  }
+  public func getReproducerJob(job: Job, output: VirtualPath) -> Job? {
+    selectDelegate(job: job).getReproducerJob(job: job, output: output)
   }
   public var shouldRunDanglingJobs: Bool {
     return compileDelegate.shouldRunDanglingJobs

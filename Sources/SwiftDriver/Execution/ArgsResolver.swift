@@ -15,6 +15,7 @@ import class Foundation.NSLock
 import func TSCBasic.withTemporaryDirectory
 import protocol TSCBasic.FileSystem
 import struct TSCBasic.AbsolutePath
+import struct TSCBasic.ByteString
 import struct TSCBasic.SHA256
 
 /// How the resolver is to handle usage of response files
@@ -44,6 +45,10 @@ public final class ArgsResolver {
 
     if let temporaryDirectory = temporaryDirectory {
       self.temporaryDirectory = temporaryDirectory
+      let temporaryDirExists = try fileSystem.exists(self.temporaryDirectory)
+      if !temporaryDirExists, let temporaryDirAbsPath = self.temporaryDirectory.absolutePath {
+        try fileSystem.createDirectory(temporaryDirAbsPath, recursive: true)
+      }
     } else {
       // FIXME: withTemporaryDirectory uses FileManager.default, need to create a FileSystem.temporaryDirectory api.
       let tmpDir: AbsolutePath = try withTemporaryDirectory(removeTreeOnDeinit: false) { path in
@@ -134,13 +139,19 @@ public final class ArgsResolver {
         try createFileList(path: actualPath, contents: items)
       case let .fileList(_, .outputFileMap(map)):
         try createFileList(path: actualPath, outputFileMap: map)
-      case .relative, .absolute, .standardInput, .standardOutput:
+      case .relative, .absolute, .standardInput, .standardOutput, .buildArtifactWithKnownContents:
         fatalError("Not a temporary path.")
       }
 
       let result = actualPath.name
       pathMapping[path] = result
       return result
+    }
+
+    // First time resolving a build product with a known path and driver-computed
+    // contents, write it to the filesystem.
+    if case let .buildArtifactWithKnownContents(absolutePath, contents) = path {
+      try fileSystem.writeFileContents(absolutePath, bytes: .init(contents))
     }
 
     // Otherwise, return the path.
@@ -184,9 +195,8 @@ public final class ArgsResolver {
 
       // FIXME: Need a way to support this for distributed build systems...
       if let absPath = responseFilePath.absolutePath {
-        try fileSystem.writeFileContents(absPath) {
-          $0.send(resolvedArguments[2...].map { $0.spm_shellEscaped() }.joined(separator: "\n"))
-        }
+        let argumentBytes = ByteString(resolvedArguments[2...].map { $0.spm_shellEscaped() }.joined(separator: "\n").utf8)
+        try fileSystem.writeFileContents(absPath, bytes: argumentBytes, atomically: true)
         resolvedArguments = [resolvedArguments[0], resolvedArguments[1], "@\(absPath.pathString)"]
       }
 

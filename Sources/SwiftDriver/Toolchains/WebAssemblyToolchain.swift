@@ -16,6 +16,7 @@ import struct TSCBasic.AbsolutePath
 import protocol TSCBasic.DiagnosticData
 import protocol TSCBasic.FileSystem
 import var TSCBasic.localFileSystem
+import typealias TSCBasic.ProcessEnvironmentBlock
 
 /// Toolchain for WebAssembly-based systems.
 public final class WebAssemblyToolchain: Toolchain {
@@ -42,7 +43,7 @@ public final class WebAssemblyToolchain: Toolchain {
     }
   }
 
-  public let env: [String: String]
+  public let env: ProcessEnvironmentBlock
 
   /// The executor used to run processes used to find tools and retrieve target info.
   public let executor: DriverExecutor
@@ -59,7 +60,7 @@ public final class WebAssemblyToolchain: Toolchain {
 
   public let dummyForTestingObjectFormat = Triple.ObjectFormat.wasm
 
-  public init(env: [String: String], executor: DriverExecutor, fileSystem: FileSystem = localFileSystem, compilerExecutableDir: AbsolutePath? = nil, toolDirectory: AbsolutePath? = nil) {
+  public init(env: ProcessEnvironmentBlock, executor: DriverExecutor, fileSystem: FileSystem = localFileSystem, compilerExecutableDir: AbsolutePath? = nil, toolDirectory: AbsolutePath? = nil) {
     self.env = env
     self.executor = executor
     self.fileSystem = fileSystem
@@ -76,6 +77,12 @@ public final class WebAssemblyToolchain: Toolchain {
       return ""
     case .staticLibrary:
       return "lib\(moduleName).a"
+    }
+  }
+
+  public func addAutoLinkFlags(for linkLibraries: [LinkLibraryInfo], to commandLine: inout [Job.ArgTemplate]) {
+    for linkLibrary in linkLibraries {
+      commandLine.appendFlag("-l\(linkLibrary.linkName)")
     }
   }
 
@@ -140,13 +147,18 @@ public final class WebAssemblyToolchain: Toolchain {
     targetTriple: Triple,
     isShared: Bool
   ) throws -> String {
-    throw Error.sanitizersUnsupportedForTarget(targetTriple.triple)
+    switch sanitizer {
+    case .address:
+      return "libclang_rt.\(sanitizer.libraryName)-\(targetTriple.archName).a"
+    default:
+      throw Error.sanitizersUnsupportedForTarget(targetTriple.triple)
+    }
   }
 
-  public func platformSpecificInterpreterEnvironmentVariables(env: [String : String],
+  public func platformSpecificInterpreterEnvironmentVariables(env: ProcessEnvironmentBlock,
                                                               parsedOptions: inout ParsedOptions,
                                                               sdkPath: VirtualPath.Handle?,
-                                                              targetInfo: FrontendTargetInfo) throws -> [String : String] {
+                                                              targetInfo: FrontendTargetInfo) throws -> ProcessEnvironmentBlock {
     throw Error.interactiveModeUnsupportedForTarget(targetInfo.target.triple.triple)
   }
 }
