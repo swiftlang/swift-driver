@@ -17,7 +17,7 @@ target_link_libraries(SwiftDriverExecution PUBLIC
   SwiftOptions
   SwiftDriver)
 target_link_libraries(SwiftDriverExecution PRIVATE
-  llbuild
+  libllbuild
   llbuildSwift)
 
 set_property(GLOBAL APPEND PROPERTY SWIFTDRIVER_EXPORTS SwiftDriverExecution)
