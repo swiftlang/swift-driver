@@ -2908,6 +2908,31 @@ final class SwiftDriverTests: XCTestCase {
     }
   #endif
 
+  // FIXME: This test will fail when not run on FreeBSD, because the driver uses
+  //        the existence of the runtime support libraries to determine if
+  //        a sanitizer is supported. Until we allow cross-compiling with
+  //        sanitizers, this test is disabled outside FreeBSD.
+  #if os(FreeBSD)
+    do {
+      var driver = try Driver(
+        args: commonArgs + [
+          "-target", "x86_64-unknown-freebsd14.3", "-sanitize=address"
+        ]
+      )
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(plannedJobs.count, 4)
+
+      let compileJob = plannedJobs[0]
+      let compileCmd = compileJob.commandLine
+      XCTAssertTrue(compileCmd.contains(.flag("-sanitize=address")))
+
+      let linkJob = plannedJobs[3]
+      let linkCmd = linkJob.commandLine
+      XCTAssertTrue(linkCmd.contains(.flag("-fsanitize=address")))
+    }
+  #endif
+
     func checkWASITarget(target: String, clangOSDir: String) throws {
       try withTemporaryDirectory { resourceDir in
         var env = ProcessEnv.block
