@@ -2751,7 +2751,9 @@ extension Driver {
     }
 
     // Check that we're one of the known supported targets for sanitizers.
-    if !(targetTriple.isWindows || targetTriple.isDarwin || targetTriple.os == .linux || targetTriple.os == .wasi) {
+    if !(targetTriple.isWindows ||
+      targetTriple.isDarwin ||
+      [.freeBSD, .linux, .wasi].contains(targetTriple.os)) {
       diagnosticEngine.emit(
         .error_unsupported_opt_for_target(
           arg: "-sanitize=",
