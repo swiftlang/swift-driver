@@ -812,13 +812,13 @@ extension Driver {
       return (key, outputPaths)
     })
 
-    func collectSwiftModuleNames(_ ids: [ModuleDependencyId]) -> [String] {
-      return ids.compactMap { id in
+    func collectUniqueSwiftModuleNames(_ ids: [ModuleDependencyId]) -> [String] {
+      return Array(Set(ids.compactMap { id in
         if case .swift(let module) = id {
           return module
         }
         return nil
-      }
+      }))
     }
 
     func getSwiftDependencies(for module: String) -> [String] {
@@ -827,7 +827,7 @@ extension Driver {
       guard !dependencies.isEmpty else {
         return []
       }
-      return collectSwiftModuleNames(dependencies)
+      return collectUniqueSwiftModuleNames(dependencies)
     }
 
     func getOutputPaths(withName modules: [String], loadableFor arch: Triple.Arch) throws -> [TypedVirtualPath] {
@@ -870,7 +870,7 @@ extension Driver {
     // Keep track of modules we haven't handled.
     var unhandledModules = Set<String>(inputMap.keys)
     // Start from those modules explicitly imported into the file under scanning
-    var openModules = collectSwiftModuleNames(dependencyGraph.mainModule.allDependencies)
+    var openModules = collectUniqueSwiftModuleNames(dependencyGraph.mainModule.allDependencies)
     var idx = 0
     while idx != openModules.count {
       let module = openModules[idx]
