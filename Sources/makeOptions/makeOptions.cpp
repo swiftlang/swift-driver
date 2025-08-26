@@ -18,43 +18,13 @@
 #include <vector>
 
 #if __has_include("swift/Option/Options.inc")
+#if __has_include("swift/Option/Options.h")
 #if __has_include("llvm/Option/OptTable.h")
 #if __has_include("llvm/Option/Option.h")
 
+#include "swift/Option/Options.h"
 #include "llvm/Option/OptTable.h"
 #include "llvm/Option/Option.h"
-
-//. The IDs of each option
-enum class OptionID {
-  Opt_INVALID = 0,
-#define OPTION(...) LLVM_MAKE_OPT_ID_WITH_ID_PREFIX(Opt_, __VA_ARGS__),
-#include "swift/Option/Options.inc"
-#undef OPTION
-};
-
-enum SwiftFlags {
-  HelpHidden       = (1 << 0),
-
-  FrontendOption = (1 << 4),
-  NoDriverOption = (1 << 5),
-  NoInteractiveOption = (1 << 6),
-  NoBatchOption = (1 << 7),
-  DoesNotAffectIncrementalBuild = (1 << 8),
-  AutolinkExtractOption = (1 << 9),
-  ModuleWrapOption = (1 << 10),
-  SwiftSynthesizeInterfaceOption = (1 << 11),
-  ArgumentIsPath = (1 << 12),
-  ModuleInterfaceOption = (1 << 13),
-  SupplementaryOutput = (1 << 14),
-  SwiftAPIExtractOption = (1 << 15),
-  SwiftSymbolGraphExtractOption = (1 << 16),
-  SwiftAPIDigesterOption = (1 << 17),
-  NewDriverOnlyOption = (1 << 18),
-  ModuleInterfaceOptionIgnorable = (1 << 19),
-  ModuleInterfaceOptionIgnorablePrivate = (1 << 20),
-  ArgumentIsFileList = (1 << 21),
-  CacheInvariant = (1 << 22),
-};
 
 static std::set<std::string> swiftKeywords = { "internal", "static" };
 
@@ -86,13 +56,13 @@ static std::string swiftify(const std::string &name) {
 
 /// Raw option from the TableGen'd output of the Swift options.
 struct RawOption {
-  OptionID id;
+  swift::options::ID id;
   std::vector<llvm::StringRef> prefixes;
   const char *spelling;
   std::string idName;
   llvm::opt::Option::OptionClass kind;
-  OptionID group;
-  OptionID alias;
+  swift::options::ID group;
+  swift::options::ID alias;
   unsigned flags;
   const char *helpText;
   const char *metaVar;
@@ -100,13 +70,9 @@ struct RawOption {
 
   bool isGroup() const { return kind == llvm::opt::Option::GroupClass; }
 
-  bool isAlias() const {
-    return alias != OptionID::Opt_INVALID;
-  }
+  bool isAlias() const { return alias != swift::options::OPT_INVALID; }
 
-  bool isHidden() const {
-    return flags & HelpHidden;
-  }
+  bool isHidden() const { return flags & llvm::opt::HelpHidden; }
 };
 
 #if defined(LLVM_VERSION_MAJOR) && LLVM_VERSION_MAJOR == 21
@@ -153,17 +119,20 @@ static const char *getPrefixedName(const char *prefixedName) {
 
 #endif // #if defined(LLVM_VERSION_MAJOR) && LLVM_VERSION_MAJOR == 21
 
+namespace {
+using namespace swift::options;
+using namespace llvm::opt;
 static const RawOption rawOptions[] = {
 #define OPTION(PREFIXES_OFFSET, PREFIXED_NAME_OFFSET, ID, KIND, GROUP, ALIAS,  \
                ALIASARGS, FLAGS, VISIBILITY, PARAM, HELPTEXT,                  \
                HELPTEXTFORVARIANTS, METAVAR, VALUES)                           \
-  {OptionID::Opt_##ID,                                                         \
+  {OPT_##ID,                                                                   \
    getPrefixes(PREFIXES_OFFSET),                                               \
    getPrefixedName(PREFIXED_NAME_OFFSET),                                      \
    swiftify(#ID),                                                              \
    llvm::opt::Option::KIND##Class,                                             \
-   OptionID::Opt_##GROUP,                                                      \
-   OptionID::Opt_##ALIAS,                                                      \
+   OPT_##GROUP,                                                                \
+   OPT_##ALIAS,                                                                \
    FLAGS,                                                                      \
    HELPTEXT,                                                                   \
    METAVAR,                                                                    \
@@ -171,6 +140,7 @@ static const RawOption rawOptions[] = {
 #include "swift/Option/Options.inc"
 #undef OPTION
 };
+} // end anonymous namespace
 
 struct Group {
   std::string id;
@@ -179,8 +149,8 @@ struct Group {
 };
 
 static std::vector<Group> groups;
-static std::map<OptionID, unsigned> groupIndexByID;
-static std::map<OptionID, unsigned> optionIndexByID;
+static std::map<swift::options::ID, unsigned> groupIndexByID;
+static std::map<swift::options::ID, unsigned> optionIndexByID;
 
 static std::string stringOrNil(const char *text) {
   if (!text)
@@ -359,29 +329,33 @@ int makeOptions_main() {
           out << name;
         };
 
-        auto emitFlagIf = [&](SwiftFlags flag, const char *name) {
-          if ((option.flags & flag) == 0) { return; }
+        auto emitFlagIf = [&](unsigned flag, const char *name) {
+          if ((option.flags & flag) == 0) {
+            return;
+          }
           emitFlag(name);
         };
 
         out << ", attributes: [";
-        emitFlagIf(HelpHidden, ".helpHidden");
-        emitFlagIf(FrontendOption, ".frontend");
-        emitFlagIf(NoDriverOption, ".noDriver");
-        emitFlagIf(NoInteractiveOption, ".noInteractive");
-        emitFlagIf(NoBatchOption, ".noBatch");
-        emitFlagIf(DoesNotAffectIncrementalBuild, ".doesNotAffectIncrementalBuild");
-        emitFlagIf(AutolinkExtractOption, ".autolinkExtract");
-        emitFlagIf(ModuleWrapOption, ".moduleWrap");
-        emitFlagIf(SwiftSynthesizeInterfaceOption, ".synthesizeInterface");
+        emitFlagIf(llvm::opt::HelpHidden, ".helpHidden");
+        emitFlagIf(swift::options::FrontendOption, ".frontend");
+        emitFlagIf(swift::options::NoDriverOption, ".noDriver");
+        emitFlagIf(swift::options::NoInteractiveOption, ".noInteractive");
+        emitFlagIf(swift::options::NoBatchOption, ".noBatch");
+        emitFlagIf(swift::options::DoesNotAffectIncrementalBuild,
+                   ".doesNotAffectIncrementalBuild");
+        emitFlagIf(swift::options::AutolinkExtractOption, ".autolinkExtract");
+        emitFlagIf(swift::options::ModuleWrapOption, ".moduleWrap");
+        emitFlagIf(swift::options::SwiftSynthesizeInterfaceOption,
+                   ".synthesizeInterface");
         if (option.kind == llvm::opt::Option::InputClass)
           emitFlag(".argumentIsPath");
         else
-          emitFlagIf(ArgumentIsPath, ".argumentIsPath");
-        emitFlagIf(ModuleInterfaceOption, ".moduleInterface");
-        emitFlagIf(SupplementaryOutput, ".supplementaryOutput");
-        emitFlagIf(ArgumentIsFileList, ".argumentIsFileList");
-        emitFlagIf(CacheInvariant, ".cacheInvariant");
+          emitFlagIf(swift::options::ArgumentIsPath, ".argumentIsPath");
+        emitFlagIf(swift::options::ModuleInterfaceOption, ".moduleInterface");
+        emitFlagIf(swift::options::SupplementaryOutput, ".supplementaryOutput");
+        emitFlagIf(swift::options::ArgumentIsFileList, ".argumentIsFileList");
+        emitFlagIf(swift::options::CacheInvariant, ".cacheInvariant");
         out << "]";
       }
 
@@ -391,7 +365,7 @@ int makeOptions_main() {
       if (option.helpText) {
         out << ", helpText: " << stringOrNilLeftTrimmed(option.helpText);
       }
-      if (option.group != OptionID::Opt_INVALID) {
+      if (option.group != swift::options::OPT_INVALID) {
         out << ", group: ." << groups[groupIndexByID[option.group]].id;
       }
       if (option.kind == llvm::opt::Option::MultiArgClass) {
@@ -463,6 +437,9 @@ static_assert(false, "Failed to locate/include llvm/Option/Option.h");
 #endif
 #else
 static_assert(false, "Failed to locate/include llvm/Option/OptTable.h");
+#endif
+#else
+static_assert(false, "Failed to locate/include swift/Option/Options.h");
 #endif
 #else
 #warning "Unable to include 'swift/Option/Options.inc', `makeOptions` will not be usable"
