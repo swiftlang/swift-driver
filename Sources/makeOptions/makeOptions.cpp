@@ -20,9 +20,11 @@
 #if __has_include("swift/Option/Options.inc")
 #if __has_include("llvm/ADT/ArrayRef.h")
 #if __has_include("llvm/ADT/StringRef.h")
+#if __has_include("llvm/ADT/StringTable.h")
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/StringTable.h"
 
 enum class OptionKind {
   Group = 0,
@@ -106,8 +108,8 @@ static std::string swiftify(const std::string &name) {
 /// Raw option from the TableGen'd output of the Swift options.
 struct RawOption {
   OptionID id;
-  const llvm::ArrayRef<llvm::StringLiteral> prefixes;
-  const char *spelling;
+  const unsigned prefixesOffset;
+  const llvm::StringTable::Offset prefixedNameOffset;
   std::string idName;
   OptionKind kind;
   OptionID group;
@@ -130,9 +132,14 @@ struct RawOption {
   }
 };
 
-#define PREFIX(NAME, VALUE) static constexpr llvm::StringLiteral NAME[] = VALUE;
+#define OPTTABLE_STR_TABLE_CODE
 #include "swift/Option/Options.inc"
-#undef PREFIX
+#undef OPTTABLE_STR_TABLE_CODE
+
+#define OPTTABLE_PREFIXES_TABLE_CODE
+#include "swift/Option/Options.inc"
+#undef OPTTABLE_PREFIXES_TABLE_CODE
+static const llvm::ArrayRef<llvm::StringTable::Offset> PrefixesTable(OptionPrefixesTable);
 
 static const RawOption rawOptions[] = {
 #define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS,         \
@@ -183,20 +190,24 @@ void forEachOption(std::function<void(const RawOption &)> fn) {
   }
 }
 
-void forEachSpelling(const llvm::ArrayRef<llvm::StringLiteral> prefixes, const std::string &spelling,
+void forEachSpelling(const unsigned prefixesOffset,
+                     const llvm::StringTable::Offset &prefixedNameOffset,
                      std::function<void(const std::string &spelling,
                                         bool isAlternateSpelling)> fn) {
-  fn(spelling, /*isAlternateSpelling=*/false);
+  fn(OptionStrTable[prefixedNameOffset].str(), /*isAlternateSpelling=*/false);
 
-  if (prefixes.empty())
+  if (prefixesOffset == 0)
     return;
 
-  std::string defaultPrefix = std::string(*prefixes.begin());
-  for (auto it = prefixes.begin() + 1, end = prefixes.end(); it != end; it++) {
-    if (it->empty())
-      continue;
+  const unsigned numPrefixes = OptionPrefixesTable[prefixesOffset].value();
+  const llvm::ArrayRef<llvm::StringTable::Offset> prefixesOffsets =
+    PrefixesTable.slice(prefixesOffset + 1, numPrefixes);
+  const llvm::StringRef defaultPrefix = OptionStrTable[prefixesOffsets[0]];
+  const llvm::StringRef spelling = OptionStrTable[prefixedNameOffset];
+
+  for (auto it = prefixesOffsets.begin() + 1, end = prefixesOffsets.end(); it != end; it++) {
     std::string altSpelling =
-        std::string(*it) + spelling.substr(defaultPrefix.size());
+        OptionStrTable[*it].str() + spelling.substr(defaultPrefix.size()).str();
     fn(altSpelling, /*isAlternateSpelling=*/true);
   }
 }
@@ -220,7 +231,7 @@ int makeOptions_main() {
       }
 
       groupIndexByID[rawOption.id] = groups.size();
-      groups.push_back({idName, rawOption.spelling, rawOption.helpText});
+      groups.push_back({idName, OptionStrTable[rawOption.prefixedNameOffset].data(), rawOption.helpText});
       ++rawOptionIdx;
       continue;
     }
@@ -253,8 +264,8 @@ int makeOptions_main() {
   out << "extension Option {\n";
   forEachOption([&](const RawOption &option) {
     // Look through each spelling of the option.
-    forEachSpelling(option.prefixes, option.spelling,
-                    [&](const std::string &spelling,
+    forEachSpelling(option.prefixesOffset, option.prefixedNameOffset,
+                    [&](const std::string& spelling,
                         bool isAlternateSpelling) {
       out << "  public static let " << option.idName;
 
@@ -371,8 +382,8 @@ int makeOptions_main() {
   out << "  public static var allOptions: [Option] {\n"
       << "    return [\n";
   forEachOption([&](const RawOption &option) {
-      // Look through each spelling of the option.
-      forEachSpelling(option.prefixes, option.spelling,
+      // Look through each prefixedNameOffset of the option.
+      forEachSpelling(option.prefixesOffset, option.prefixedNameOffset,
                       [&](const std::string &spelling,
                           bool isAlternateSpelling) {
         out << "      Option." << option.idName;
@@ -423,6 +434,9 @@ int makeOptions_main() {
 
   return 0;
 }
+#else
+static_assert(false, "Failed to locate/include StringTable.h");
+#endif
 #else
 static_assert(false, "Failed to locate/include StringRef.h");
 #endif
