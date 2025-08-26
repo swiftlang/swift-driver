@@ -16,7 +16,8 @@ add_executable(makeOptions
 set_target_properties(makeOptions PROPERTIES
   CXX_STANDARD 17)
 target_compile_definitions(makeOptions PRIVATE
-  LLVM_DISABLE_ABI_BREAKING_CHECKS_ENFORCING=1)
+  LLVM_DISABLE_ABI_BREAKING_CHECKS_ENFORCING=1
+  LLVM_VERSION_MAJOR=${LLVM_VERSION_MAJOR})
 target_include_directories(makeOptions PRIVATE
   ${SWIFT_INCLUDE_DIRS}
   ${LLVM_BUILD_BINARY_DIR}/include

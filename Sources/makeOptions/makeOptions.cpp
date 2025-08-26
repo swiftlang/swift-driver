@@ -18,11 +18,11 @@
 #include <vector>
 
 #if __has_include("swift/Option/Options.inc")
-#if __has_include("llvm/ADT/ArrayRef.h")
-#if __has_include("llvm/ADT/StringRef.h")
+#if __has_include("llvm/Option/OptTable.h")
+#if __has_include("llvm/Option/Option.h")
 
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/StringRef.h"
+#include "llvm/Option/OptTable.h"
+#include "llvm/Option/Option.h"
 
 enum class OptionKind {
   Group = 0,
@@ -36,12 +36,6 @@ enum class OptionKind {
   JoinedOrSeparate,
   MultiArg,
 };
-
-#define LLVM_MAKE_OPT_ID_WITH_ID_PREFIX(ID_PREFIX, PREFIX, NAME, ID, KIND,     \
-                                        GROUP, ALIAS, ALIASARGS, FLAGS,        \
-                                        VISIBILITY, PARAM, HELPTEXT,           \
-                                        HELPTEXTFORVARIANTS, METAVAR, VALUES)  \
-  ID_PREFIX##ID
 
 //. The IDs of each option
 enum class OptionID {
@@ -106,7 +100,7 @@ static std::string swiftify(const std::string &name) {
 /// Raw option from the TableGen'd output of the Swift options.
 struct RawOption {
   OptionID id;
-  const llvm::ArrayRef<llvm::StringLiteral> prefixes;
+  std::vector<llvm::StringRef> prefixes;
   const char *spelling;
   std::string idName;
   OptionKind kind;
@@ -130,16 +124,65 @@ struct RawOption {
   }
 };
 
+#if defined(LLVM_VERSION_MAJOR) && LLVM_VERSION_MAJOR == 21
+
+#define OPTTABLE_PREFIXES_TABLE_CODE
+#include "swift/Option/Options.inc"
+#undef OPTTABLE_PREFIXES_TABLE_CODE
+
+#define OPTTABLE_STR_TABLE_CODE
+#include "swift/Option/Options.inc"
+#undef OPTTABLE_STR_TABLE_CODE
+
+static std::vector<llvm::StringRef> getPrefixes(unsigned prefixesOffset) {
+  unsigned numPrefixes = OptionPrefixesTable[prefixesOffset].value();
+
+  std::vector<llvm::StringRef> prefixes;
+
+  const unsigned firstOffsetIndex = prefixesOffset + 1;
+  for (unsigned i = firstOffsetIndex, e = i + numPrefixes; i < e; ++i) {
+    prefixes.push_back(OptionStrTable[OptionPrefixesTable[i]]);
+  }
+
+  return prefixes;
+}
+
+static const char *getPrefixedName(unsigned prefixedNameOffset) {
+  return OptionStrTable[prefixedNameOffset].data();
+}
+
+#else // #if defined(LLVM_VERSION_MAJOR) && LLVM_VERSION_MAJOR == 21
+
 #define PREFIX(NAME, VALUE) static constexpr llvm::StringLiteral NAME[] = VALUE;
 #include "swift/Option/Options.inc"
 #undef PREFIX
 
+static std::vector<llvm::StringRef>
+getPrefixes(llvm::ArrayRef<llvm::StringLiteral> prefixes) {
+  return std::vector<llvm::StringRef>(prefixes.begin(), prefixes.end());
+}
+
+static const char *getPrefixedName(const char *prefixedName) {
+  return prefixedName;
+}
+
+#endif // #if defined(LLVM_VERSION_MAJOR) && LLVM_VERSION_MAJOR == 21
+
 static const RawOption rawOptions[] = {
-#define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS,         \
-               VISIBILITY, PARAM, HELPTEXT, HELPTEXTFORVARIANTS, METAVAR,      \
-               VALUES)                                                         \
- { OptionID::Opt_##ID, PREFIX, NAME, swiftify(#ID), OptionKind::KIND,          \
-   OptionID::Opt_##GROUP, OptionID::Opt_##ALIAS, FLAGS, HELPTEXT, METAVAR, PARAM },
+#define OPTION(PREFIXES_OFFSET, PREFIXED_NAME_OFFSET, ID, KIND, GROUP, ALIAS,  \
+               ALIASARGS, FLAGS, VISIBILITY, PARAM, HELPTEXT,                  \
+               HELPTEXTFORVARIANTS, METAVAR, VALUES)                           \
+  {OptionID::Opt_##ID,                                                         \
+   getPrefixes(PREFIXES_OFFSET),                                               \
+   getPrefixedName(PREFIXED_NAME_OFFSET),                                      \
+   swiftify(#ID),                                                              \
+   OptionKind::KIND,                                                           \
+   OptionID::Opt_##GROUP,                                                      \
+   OptionID::Opt_##ALIAS,                                                      \
+   FLAGS,                                                                      \
+   HELPTEXT,                                                                   \
+   METAVAR,                                                                    \
+   PARAM},
 #include "swift/Option/Options.inc"
 #undef OPTION
 };
@@ -183,9 +226,13 @@ void forEachOption(std::function<void(const RawOption &)> fn) {
   }
 }
 
-void forEachSpelling(const llvm::ArrayRef<llvm::StringLiteral> prefixes, const std::string &spelling,
-                     std::function<void(const std::string &spelling,
-                                        bool isAlternateSpelling)> fn) {
+void forEachSpelling(
+    const RawOption &option,
+    std::function<void(const std::string &spelling, bool isAlternateSpelling)>
+        fn) {
+  std::string spelling(option.spelling);
+  auto &prefixes = option.prefixes;
+
   fn(spelling, /*isAlternateSpelling=*/false);
 
   if (prefixes.empty())
@@ -253,9 +300,8 @@ int makeOptions_main() {
   out << "extension Option {\n";
   forEachOption([&](const RawOption &option) {
     // Look through each spelling of the option.
-    forEachSpelling(option.prefixes, option.spelling,
-                    [&](const std::string &spelling,
-                        bool isAlternateSpelling) {
+    forEachSpelling(option, [&](const std::string &spelling,
+                                bool isAlternateSpelling) {
       out << "  public static let " << option.idName;
 
       // Add a '_' suffix if this is an alternate spelling.
@@ -372,14 +418,13 @@ int makeOptions_main() {
       << "    return [\n";
   forEachOption([&](const RawOption &option) {
       // Look through each spelling of the option.
-      forEachSpelling(option.prefixes, option.spelling,
-                      [&](const std::string &spelling,
-                          bool isAlternateSpelling) {
-        out << "      Option." << option.idName;
-        if (isAlternateSpelling)
-          out << "_";
-        out << ",\n";
-      });
+      forEachSpelling(
+          option, [&](const std::string &spelling, bool isAlternateSpelling) {
+            out << "      Option." << option.idName;
+            if (isAlternateSpelling)
+              out << "_";
+            out << ",\n";
+          });
     });
   out << "    ]\n";
   out << "  }\n";
@@ -424,10 +469,10 @@ int makeOptions_main() {
   return 0;
 }
 #else
-static_assert(false, "Failed to locate/include StringRef.h");
+static_assert(false, "Failed to locate/include llvm/Option/Option.h");
 #endif
 #else
-static_assert(false, "Failed to locate/include ArrayRef.h");
+static_assert(false, "Failed to locate/include llvm/Option/OptTable.h");
 #endif
 #else
 #warning "Unable to include 'swift/Option/Options.inc', `makeOptions` will not be usable"
