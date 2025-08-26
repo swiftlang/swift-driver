@@ -24,19 +24,6 @@
 #include "llvm/Option/OptTable.h"
 #include "llvm/Option/Option.h"
 
-enum class OptionKind {
-  Group = 0,
-  Input,
-  Unknown,
-  Flag,
-  Joined,
-  Separate,
-  RemainingArgs,
-  CommaJoined,
-  JoinedOrSeparate,
-  MultiArg,
-};
-
 //. The IDs of each option
 enum class OptionID {
   Opt_INVALID = 0,
@@ -103,7 +90,7 @@ struct RawOption {
   std::vector<llvm::StringRef> prefixes;
   const char *spelling;
   std::string idName;
-  OptionKind kind;
+  llvm::opt::Option::OptionClass kind;
   OptionID group;
   OptionID alias;
   unsigned flags;
@@ -111,9 +98,7 @@ struct RawOption {
   const char *metaVar;
   unsigned numArgs;
 
-  bool isGroup() const {
-    return kind == OptionKind::Group;
-  }
+  bool isGroup() const { return kind == llvm::opt::Option::GroupClass; }
 
   bool isAlias() const {
     return alias != OptionID::Opt_INVALID;
@@ -176,7 +161,7 @@ static const RawOption rawOptions[] = {
    getPrefixes(PREFIXES_OFFSET),                                               \
    getPrefixedName(PREFIXED_NAME_OFFSET),                                      \
    swiftify(#ID),                                                              \
-   OptionKind::KIND,                                                           \
+   llvm::opt::Option::KIND##Class,                                             \
    OptionID::Opt_##GROUP,                                                      \
    OptionID::Opt_##ALIAS,                                                      \
    FLAGS,                                                                      \
@@ -219,7 +204,7 @@ void forEachOption(std::function<void(const RawOption &)> fn) {
     if (rawOption.isGroup())
       continue;
 
-    if (rawOption.kind == OptionKind::Unknown)
+    if (rawOption.kind == llvm::opt::Option::UnknownClass)
       continue;
 
     fn(rawOption);
@@ -313,41 +298,46 @@ int makeOptions_main() {
 
       out << ", ";
       switch (option.kind) {
-      case OptionKind::Input:
+      case llvm::opt::Option::InputClass:
         out << ".input";
         break;
 
-      case OptionKind::CommaJoined:
+      case llvm::opt::Option::CommaJoinedClass:
         out << ".commaJoined";
         break;
 
-      case OptionKind::Flag:
+      case llvm::opt::Option::FlagClass:
         out << ".flag";
         break;
 
-      case OptionKind::Joined:
+      case llvm::opt::Option::JoinedClass:
         out << ".joined";
         break;
 
-      case OptionKind::JoinedOrSeparate:
+      case llvm::opt::Option::JoinedOrSeparateClass:
         out << ".joinedOrSeparate";
         break;
 
-      case OptionKind::RemainingArgs:
+      case llvm::opt::Option::RemainingArgsClass:
         out << ".remaining";
         break;
 
-      case OptionKind::Separate:
+      case llvm::opt::Option::SeparateClass:
         out << ".separate";
         break;
 
-      case OptionKind::MultiArg:
+      case llvm::opt::Option::MultiArgClass:
         out << ".multiArg";
         break;
 
-      case OptionKind::Group:
-      case OptionKind::Unknown:
+      case llvm::opt::Option::GroupClass:
+      case llvm::opt::Option::UnknownClass:
         assert(false && "Should have been filtered out");
+
+      case llvm::opt::Option::ValuesClass:
+      case llvm::opt::Option::JoinedAndSeparateClass:
+      case llvm::opt::Option::RemainingArgsJoinedClass:
+        assert(false && "Not implemented");
       }
 
       if (option.isAlias()) {
@@ -357,7 +347,7 @@ int makeOptions_main() {
         out << ", alias: Option." << option.idName;
       }
 
-      if (option.flags != 0 || option.kind == OptionKind::Input) {
+      if (option.flags != 0 || option.kind == llvm::opt::Option::InputClass) {
         bool anyEmitted = false;
         auto emitFlag = [&](const char *name) {
           if (anyEmitted) {
@@ -384,7 +374,7 @@ int makeOptions_main() {
         emitFlagIf(AutolinkExtractOption, ".autolinkExtract");
         emitFlagIf(ModuleWrapOption, ".moduleWrap");
         emitFlagIf(SwiftSynthesizeInterfaceOption, ".synthesizeInterface");
-        if (option.kind == OptionKind::Input)
+        if (option.kind == llvm::opt::Option::InputClass)
           emitFlag(".argumentIsPath");
         else
           emitFlagIf(ArgumentIsPath, ".argumentIsPath");
@@ -404,7 +394,7 @@ int makeOptions_main() {
       if (option.group != OptionID::Opt_INVALID) {
         out << ", group: ." << groups[groupIndexByID[option.group]].id;
       }
-      if (option.kind == OptionKind::MultiArg) {
+      if (option.kind == llvm::opt::Option::MultiArgClass) {
         out << ", numArgs: " << option.numArgs;
       }
       out << ")\n";
