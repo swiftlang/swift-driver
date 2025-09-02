@@ -484,6 +484,40 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+    func testIndexMultipleFilesInSingleCommandLineInvocation() throws {
+      try withTemporaryFile { outputFileMap in
+        let outputMapContents = ByteString("""
+        {
+          "first.swift": {
+            "index-unit-output-path": "first.o"
+          },
+          "second.swift": {
+            "index-unit-output-path": "second.o"
+          }
+        }
+        """.utf8)
+        try localFileSystem.writeFileContents(outputFileMap.path, bytes: outputMapContents)
+        try assertNoDriverDiagnostics(args:
+          "swiftc", "-index-file",
+          "first.swift", "second.swift", "third.swift",
+          "-index-file-path", "first.swift",
+          "-index-file-path", "second.swift",
+          "-index-store-path", "/tmp/idx",
+          "-output-file-map", outputFileMap.path.pathString
+        ) { driver in
+            let jobs = try driver.planBuild()
+            XCTAssertEqual(jobs.count, 1)
+            let commandLine = jobs[0].commandLine
+            XCTAssertJobInvocationMatches(jobs[0], .flag("-index-unit-output-path"), .path(.relative(try RelativePath(validating: "first.o"))))
+            XCTAssertJobInvocationMatches(jobs[0], .flag("-index-unit-output-path"), .path(.relative(try RelativePath(validating: "second.o"))))
+            XCTAssertEqual(commandLine.filter { $0 == .flag("-index-unit-output-path") }.count, 2)
+            XCTAssertJobInvocationMatches(jobs[0], .flag("-primary-file"), .path(.relative(try RelativePath(validating: "first.swift"))))
+            XCTAssertJobInvocationMatches(jobs[0], .flag("-primary-file"), .path(.relative(try RelativePath(validating: "second.swift"))))
+            XCTAssertEqual(commandLine.filter { $0 == .flag("-primary-file") }.count, 2)
+        }
+      }
+  }
+
   func testMultiThreadingOutputs() throws {
     try assertDriverDiagnostics(args: "swiftc", "-c", "foo.swift", "bar.swift", "-o", "bar.ll", "-o", "foo.ll", "-num-threads", "2", "-whole-module-optimization") {
       $1.expect(.error("cannot specify -o when generating multiple output files"))
@@ -4709,7 +4743,7 @@ final class SwiftDriverTests: XCTestCase {
     // in addition to the usual flag.
     try withTemporaryDirectory { path in
       let completePath: AbsolutePath = path.appending(component: "profile.profdata")
-      
+
       try localFileSystem.writeFileContents(completePath, bytes: .init())
       var driver = try Driver(args: ["swiftc", "foo.swift",
         "-working-directory", path.pathString,
@@ -7516,7 +7550,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(try getLibraryLevel(flags), .spi)
     }
     try withTemporaryFile { file in
-      try localFileSystem.writeFileContents(file.path, bytes: 
+      try localFileSystem.writeFileContents(file.path, bytes:
         "// swift-module-flags: -target arm64e-apple-macos12.0"
       )
       let flags = try getAllModuleFlags(VirtualPath.absolute(file.path))
@@ -8332,7 +8366,7 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-load-pass-plugin=/path/to/plugin")))
 #endif
   }
-    
+
   func testSupplementaryOutputFileMapUsage() throws {
     // Ensure filenames are escaped properly when using a supplementary output file map
     try withTemporaryDirectory { path in
@@ -8363,7 +8397,7 @@ final class SwiftDriverTests: XCTestCase {
         struct D {}
         """
       )
-      
+
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       let invocationArguments = ["swiftc",
                                  "-parse-as-library",
