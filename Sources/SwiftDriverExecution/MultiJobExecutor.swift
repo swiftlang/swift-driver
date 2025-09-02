@@ -655,9 +655,8 @@ class ExecuteJobRule: LLBuildRule {
       context.cancelBuildIfNeeded(result)
       value = .jobExecution(success: success)
     } catch {
-      if error is DiagnosticData {
-        context.diagnosticsEngine.emit(error)
-      }
+      context.diagnosticsEngine.emit(error)
+
       // Only inform finished job if the job has been started, otherwise the build
       // system may complain about malformed output
       if (pendingFinish) {
