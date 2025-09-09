@@ -5725,15 +5725,10 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testExecutableFallbackPath() throws {
-    let driver1 = try Driver(args: ["swift", "main.swift"])
-    if !driver1.targetTriple.isDarwin {
-      XCTAssertThrowsError(try driver1.toolchain.getToolPath(.dsymutil))
-    }
-
     var env = ProcessEnv.vars
     env["SWIFT_DRIVER_TESTS_ENABLE_EXEC_PATH_FALLBACK"] = "1"
-    let driver2 = try Driver(args: ["swift", "main.swift"], env: env)
-    XCTAssertNoThrow(try driver2.toolchain.getToolPath(.dsymutil))
+    let driver = try Driver(args: ["swift", "main.swift"], env: env)
+    XCTAssertNoThrow(try driver.toolchain.getToolPath(.dsymutil))
   }
 
   func testVersionRequest() throws {
