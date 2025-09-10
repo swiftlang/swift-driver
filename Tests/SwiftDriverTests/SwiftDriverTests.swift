@@ -3576,6 +3576,19 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testEmitSymbolGraphSkipInheritedDocs() throws {
+    do {
+      let root = localFileSystem.currentWorkingDirectory!.appending(components: "foo", "bar")
+
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-emit-symbol-graph", "-emit-symbol-graph-dir", "/foo/bar/", "-symbol-graph-skip-inherited-docs", "-emit-library"])
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+
+      // We don't know the output file of the symbol graph, just make sure the flag is passed along.
+      XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-emit-symbol-graph"))
+      XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-symbol-graph-skip-inherited-docs"))
+    }
+  }
+
   func testEmitModuleSeparately() throws {
     var envVars = ProcessEnv.block
     envVars["SWIFT_DRIVER_LD_EXEC"] = ld.nativePathString(escaped: false)
