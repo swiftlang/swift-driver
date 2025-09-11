@@ -891,6 +891,7 @@ extension Option {
   public static let symbolGraphBlockAvailabilityPlatforms: Option = Option("-symbol-graph-block-availability-platforms", .separate, attributes: [.helpHidden, .frontend, .noInteractive, .supplementaryOutput], metaVar: "<platforms>", helpText: "Remove the given platforms from symbol graph availability metadata, e.g. 'macOS,Swift'")
   public static let symbolGraphPrettyPrint: Option = Option("-symbol-graph-pretty-print", .flag, attributes: [.helpHidden, .noInteractive], helpText: "Pretty-print the output symbol graph JSON")
   public static let symbolGraphSkipSynthesizedMembers: Option = Option("-symbol-graph-skip-synthesized-members", .flag, attributes: [.helpHidden, .noInteractive], helpText: "Skip members inherited through classes or default implementations")
+  public static let symbolGraphSkipInheritedDocs: Option = Option("-symbol-graph-skip-inherited-docs", .flag, attributes: [.helpHidden, .noInteractive], helpText: "Skip emitting doc comments for members inherited through classes or default implementations")
   public static let symbolGraphMinimumAccessLevel: Option = Option("-symbol-graph-minimum-access-level", .separate, attributes: [.helpHidden, .frontend, .noInteractive, .supplementaryOutput], metaVar: "<level>", helpText: "Include symbols with this access level or more when emitting a symbol graph")
   public static let sysroot: Option = Option("-sysroot", .separate, attributes: [.frontend, .synthesizeInterface, .argumentIsPath], metaVar: "<sysroot>", helpText: "Native Platform sysroot")
   public static let S: Option = Option("-S", .flag, alias: Option.emitAssembly, attributes: [.frontend, .noInteractive], group: .modes)
@@ -1864,6 +1865,7 @@ extension Option {
       Option.symbolGraphMinimumAccessLevel,
       Option.symbolGraphPrettyPrint,
       Option.symbolGraphSkipSynthesizedMembers,
+      Option.symbolGraphSkipInheritedDocs,
       Option.sysroot,
       Option.S,
       Option.tabWidth,
