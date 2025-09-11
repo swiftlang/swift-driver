@@ -374,6 +374,9 @@ public struct Driver {
   /// Path to the serialized diagnostics file of the emit-module task.
   let emitModuleSerializedDiagnosticsFilePath: VirtualPath.Handle?
 
+  /// Path to the serialized diagnostics file of the dependency scanning task.
+  let dependencyScanSerializedDiagnosticsPath: VirtualPath.Handle?
+
   /// Path to the discovered dependencies file of the emit-module task.
   let emitModuleDependenciesFilePath: VirtualPath.Handle?
 
@@ -1250,6 +1253,14 @@ public struct Driver {
     self.emitModuleSerializedDiagnosticsFilePath = try Self.computeSupplementaryOutputPath(
         &parsedOptions, type: .emitModuleDiagnostics, isOutputOptions: [.serializeDiagnostics],
         outputPath: .emitModuleSerializeDiagnosticsPath,
+        compilerOutputType: compilerOutputType,
+        compilerMode: compilerMode,
+        emitModuleSeparately: emitModuleSeparately,
+        outputFileMap: self.outputFileMap,
+        moduleName: moduleOutputInfo.name)
+    self.dependencyScanSerializedDiagnosticsPath = try Self.computeSupplementaryOutputPath(
+        &parsedOptions, type: .dependencyScanDiagnostics, isOutputOptions: [.serializeDiagnostics],
+        outputPath: .dependencyScanSerializeDiagnosticsPath,
         compilerOutputType: compilerOutputType,
         compilerMode: compilerMode,
         emitModuleSeparately: emitModuleSeparately,

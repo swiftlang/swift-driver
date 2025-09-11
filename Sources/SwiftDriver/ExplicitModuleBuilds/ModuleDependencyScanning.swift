@@ -193,6 +193,11 @@ public extension Driver {
       commandLine.appendFlag(.resolvedPluginVerification)
     }
 
+    if let depScanSerializedDiagnosticsPath = dependencyScanSerializedDiagnosticsPath {
+      commandLine.appendFlag("-serialize-diagnostics-path")
+      commandLine.appendPath(VirtualPath.lookup(depScanSerializedDiagnosticsPath))
+    }
+
     // Pass on the input files
     commandLine.append(contentsOf: inputFiles.filter { $0.type == .swift }.map { .path($0.file) })
     return (inputs, commandLine)

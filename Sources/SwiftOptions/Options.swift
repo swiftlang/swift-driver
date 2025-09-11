@@ -372,6 +372,7 @@ extension Option {
   public static let emitModuleSemanticInfoPath: Option = Option("-emit-module-semantic-info-path", .separate, attributes: [.frontend, .noDriver, .cacheInvariant], metaVar: "<path>", helpText: "Output semantic info of current module to <path>")
   public static let emitModuleSeparatelyWMO: Option = Option("-emit-module-separately-wmo", .flag, attributes: [.helpHidden], helpText: "Emit module files as a distinct job in wmo builds")
   public static let emitModuleSerializeDiagnosticsPath: Option = Option("-emit-module-serialize-diagnostics-path", .separate, attributes: [.argumentIsPath, .supplementaryOutput], metaVar: "<path>", helpText: "Emit a serialized diagnostics file for the emit-module task to <path>")
+  public static let dependencyScanSerializeDiagnosticsPath: Option = Option("-dependency-scan-serialize-diagnostics-path", .separate, attributes: [.argumentIsPath, .supplementaryOutput], metaVar: "<path>", helpText: "Emit a serialized diagnostics file for the dependency scanning task to <path>")
   public static let emitModuleSourceInfoPath: Option = Option("-emit-module-source-info-path", .separate, attributes: [.frontend, .noInteractive, .argumentIsPath, .supplementaryOutput, .cacheInvariant], metaVar: "<path>", helpText: "Output module source info file to <path>")
   public static let emitModuleSourceInfo: Option = Option("-emit-module-source-info", .flag, attributes: [.frontend, .noDriver], helpText: "Output module source info file")
   public static let emitModuleSummaryPath: Option = Option("-emit-module-summary-path", .separate, attributes: [.frontend, .noInteractive, .argumentIsPath, .supplementaryOutput, .cacheInvariant], metaVar: "<path>", helpText: "Output module summary file to <path>")
@@ -1345,6 +1346,7 @@ extension Option {
       Option.emitModuleSemanticInfoPath,
       Option.emitModuleSeparatelyWMO,
       Option.emitModuleSerializeDiagnosticsPath,
+      Option.dependencyScanSerializeDiagnosticsPath,
       Option.emitModuleSourceInfoPath,
       Option.emitModuleSourceInfo,
       Option.emitModuleSummaryPath,
