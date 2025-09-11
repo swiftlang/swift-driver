@@ -1652,6 +1652,55 @@ final class ExplicitModuleBuildTests: XCTestCase {
     }
   }
 
+  func testInMemoryScanWithSerializedDiagnostics() throws {
+    try withTemporaryDirectory { path in
+      let (stdLibPath, shimsPath, _, hostTriple) = try getDriverArtifactsForScanning()
+      let scannerCachePath: AbsolutePath = path.appending(component: "ClangScannerCache")
+      let moduleCachePath = path.appending(component: "ModuleCache")
+      let serializedDiagnosticsOutputPath = path.appending(component: "ScanDiags.dia")
+
+      // Setup our main test module
+      let mainSourcePath = path.appending(component: "Foo.swift")
+      try localFileSystem.writeFileContents(mainSourcePath, bytes: "import Swift")
+
+      // Setup the build plan
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+      var driver = try Driver(args: ["swiftc",
+                                     "-I", stdLibPath.nativePathString(escaped: true),
+                                     "-I", shimsPath.nativePathString(escaped: true),
+                                     "-explicit-module-build",
+                                     "-dependency-scan-serialize-diagnostics-path",
+                                     serializedDiagnosticsOutputPath.nativePathString(escaped: false),
+                                     "-module-name", "main",
+                                     "-target", hostTriple.triple,
+                                     "-working-directory", path.nativePathString(escaped: true),
+                                     "-clang-scanner-module-cache-path",
+                                     scannerCachePath.nativePathString(escaped: false),
+                                     "-module-cache-path",
+                                     moduleCachePath.nativePathString(escaped: true),
+                                     mainSourcePath.nativePathString(escaped: true)] + sdkArgumentsForTesting)
+
+      // Set up the in-memory dependency scan using the dependency oracle
+      let dependencyOracle = driver.interModuleDependencyOracle
+      let scanLibPath = try XCTUnwrap(driver.toolchain.lookupSwiftScanLib())
+      try dependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
+      let resolver = try ArgsResolver(fileSystem: localFileSystem)
+      let scannerCommand = try driver.dependencyScannerInvocationCommand().1.map { try resolver.resolve($0) }
+      XCTAssertTrue(scannerCommand.contains(subsequence: ["-serialize-diagnostics-path", serializedDiagnosticsOutputPath.pathString]))
+
+      // Perform the scan
+      var scanDiagnostics: [ScannerDiagnosticPayload] = []
+      let _ = try dependencyOracle.getDependencies(workingDirectory: path,
+                                                   commandLine: scannerCommand,
+                                                   diagnostics: &scanDiagnostics)
+
+      // TODO: Ensure the serialized diagnostics output got written out
+      // This requires an ability to confirm first whether the compiler we're using
+      // has this capability.
+      // XCTAssertTrue(localFileSystem.exists(serializedDiagnosticsOutputPath))
+    }
+  }
+
   func testBinaryFrameworkDependencyScan() throws {
     try withTemporaryDirectory { path in
       let (stdLibPath, shimsPath, toolchain, hostTriple) = try getDriverArtifactsForScanning()
