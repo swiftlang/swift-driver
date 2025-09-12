@@ -59,7 +59,7 @@ final class SwiftDriverToolingInterfaceTests: XCTestCase {
                                                                         diagnosticCallback: {_,_ in }))
       }
       do { // Force no outputs
-        let testCommand = "-module-name foo -emit-module -emit-module-path /tmp/foo.swiftmodule -emit-objc-header -emit-objc-header-path /tmp/foo.h -enable-library-evolution -emit-module-interface -emit-module-interface-path /tmp/foo.swiftinterface -emit-library -emit-tbd -emit-tbd-path /tmp/foo.tbd -emit-dependencies -serialize-diagnostics " + inputFile.description
+        let testCommand = "-swift-version 5 -module-name foo -emit-module -emit-module-path /tmp/foo.swiftmodule -emit-objc-header -emit-objc-header-path /tmp/foo.h -enable-library-evolution -emit-module-interface -emit-module-interface-path /tmp/foo.swiftinterface -emit-library -emit-tbd -emit-tbd-path /tmp/foo.tbd -emit-dependencies -serialize-diagnostics " + inputFile.description
         var resultingFrontendArgs: [String] = []
         var emittedDiagnostics: [Diagnostic] = []
         XCTAssertFalse(getSingleFrontendInvocationFromDriverArgumentsV2(driverPath: "swiftc",
@@ -149,7 +149,7 @@ final class SwiftDriverToolingInterfaceTests: XCTestCase {
                                                                         executor: executor))
       }
       do { // Force no outputs
-        let testCommand = "-module-name foo -emit-module -emit-module-path /tmp/foo.swiftmodule -emit-objc-header -emit-objc-header-path /tmp/foo.h -enable-library-evolution -emit-module-interface -emit-module-interface-path /tmp/foo.swiftinterface -emit-library -emit-tbd -emit-tbd-path /tmp/foo.tbd -emit-dependencies -serialize-diagnostics " + inputFile.description
+        let testCommand = "-swift-version 5 -module-name foo -emit-module -emit-module-path /tmp/foo.swiftmodule -emit-objc-header -emit-objc-header-path /tmp/foo.h -enable-library-evolution -emit-module-interface -emit-module-interface-path /tmp/foo.swiftinterface -emit-library -emit-tbd -emit-tbd-path /tmp/foo.tbd -emit-dependencies -serialize-diagnostics " + inputFile.description
         var resultingFrontendArgs: [String] = []
         var emittedDiagnostics: [Diagnostic] = []
         XCTAssertFalse(getSingleFrontendInvocationFromDriverArgumentsV3(driverPath: "swiftc",
@@ -336,7 +336,7 @@ final class SwiftDriverToolingInterfaceTests: XCTestCase {
                                                                         executor: executor))
       }
       do { // Force no outputs
-        let testCommand = "-module-name foo -emit-module -emit-module-path /tmp/foo.swiftmodule -emit-objc-header -emit-objc-header-path /tmp/foo.h -enable-library-evolution -emit-module-interface -emit-module-interface-path /tmp/foo.swiftinterface -emit-library -emit-tbd -emit-tbd-path /tmp/foo.tbd -emit-dependencies -serialize-diagnostics " + inputFile.description
+        let testCommand = "-swift-version 5 -module-name foo -emit-module -emit-module-path /tmp/foo.swiftmodule -emit-objc-header -emit-objc-header-path /tmp/foo.h -enable-library-evolution -emit-module-interface -emit-module-interface-path /tmp/foo.swiftinterface -emit-library -emit-tbd -emit-tbd-path /tmp/foo.tbd -emit-dependencies -serialize-diagnostics " + inputFile.description
         var resultingFrontendArgs: [String] = []
         var emittedDiagnostics: [Diagnostic] = []
         XCTAssertFalse(getSingleFrontendInvocationFromDriverArgumentsV5(driverPath: "swiftc",
