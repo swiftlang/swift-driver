@@ -99,110 +99,112 @@ public enum ExecutableArchitecture: String {
   #endif
 }
 
+#if os(Windows)
 extension Process {
-  #if os(Windows)
-    /// Resolves the filename from the `Path` environment variable and read its COFF header to determine the architecture
-    /// of the binary.
-    ///
-    /// - Parameters:
-    ///   - cwd: The current working directory.
-    ///   - env: A dictionary of the environment variables and their values. Usually of the parent shell.
-    ///   - filename: The name of the file we are resolving the architecture of.
-    /// - Returns: The architecture of the file which was found in the `Path`.
-    static func readWindowsExecutableArchitecture(
-      cwd: AbsolutePath?, envBlock: ProcessEnvironmentBlock, filename: String
-    ) -> ExecutableArchitecture {
-      let searchPaths = getEnvSearchPaths(
-        pathString: envBlock["Path"], currentWorkingDirectory: cwd)
-      guard
-        let filePath = lookupExecutablePath(
-          filename: filename, currentWorkingDirectory: cwd, searchPaths: searchPaths)
-      else {
-        return .unknown
-      }
-      guard let fileHandle = FileHandle(forReadingAtPath: filePath.pathString) else {
-        return .unknown
-      }
-
-      defer { fileHandle.closeFile() }
-
-      // Infering the architecture of a Windows executable from its COFF header involves the following:
-      // 1. Get the COFF header offset from the pointer located at the 0x3C offset (4 bytes long).
-      // 2. Jump to that offset and read the next 6 bytes.
-      // 3. The first 4 are the signature which should be equal to 0x50450000.
-      // 4. The last 2 are the machine architecture which can be infered from the value we get.
-      //
-      // The link below provides a visualization of the COFF header and the process to get to it.
-      // https://upload.wikimedia.org/wikipedia/commons/1/1b/Portable_Executable_32_bit_Structure_in_SVG_fixed.svg
-      guard (try? fileHandle.seek(toOffset: 0x3C)) != nil else {
-        return .unknown
-      }
-      guard let offsetPointer = try? fileHandle.read(upToCount: 4),
-        offsetPointer.count == 4
-      else {
-        return .unknown
-      }
-
-      let peHeaderOffset = offsetPointer.withUnsafeBytes { $0.load(as: UInt32.self) }
-
-      guard (try? fileHandle.seek(toOffset: UInt64(peHeaderOffset))) != nil else {
-        return .unknown
-      }
-      guard let coffHeader = try? fileHandle.read(upToCount: 6), coffHeader.count == 6 else {
-        return .unknown
-      }
-
-      let signature = coffHeader.prefix(4)
-      let machineBytes = coffHeader.suffix(2)
-
-      guard signature == Data([0x50, 0x45, 0x00, 0x00]) else {
-        return .unknown
-      }
-
-      let machine = machineBytes.withUnsafeBytes { $0.load(as: UInt16.self) }
-      return .fromPEMachineByte(machine: Int32(machine))
+  /// Resolves the filename from the `Path` environment variable and read its COFF header to determine the architecture
+  /// of the binary.
+  ///
+  /// - Parameters:
+  ///   - cwd: The current working directory.
+  ///   - env: A dictionary of the environment variables and their values. Usually of the parent shell.
+  ///   - filename: The name of the file we are resolving the architecture of.
+  /// - Returns: The architecture of the file which was found in the `Path`.
+  static func readWindowsExecutableArchitecture(
+    cwd: AbsolutePath?, envBlock: ProcessEnvironmentBlock, filename: String
+  ) -> ExecutableArchitecture {
+    let searchPaths = getEnvSearchPaths(
+      pathString: envBlock["Path"], currentWorkingDirectory: cwd)
+    guard
+      let filePath = lookupExecutablePath(
+        filename: filename, currentWorkingDirectory: cwd, searchPaths: searchPaths)
+    else {
+      return .unknown
     }
-  #endif
-
-  #if os(macOS)
-    static func readDarwinExecutableArchitecture(
-      cwd: AbsolutePath?, envBlock: ProcessEnvironmentBlock, filename: String
-    ) -> ExecutableArchitecture {
-      let magicNumber: UInt32 = 0xcafe_babe
-
-      let searchPaths = getEnvSearchPaths(
-        pathString: envBlock["PATH"], currentWorkingDirectory: cwd)
-      guard
-        let filePath = lookupExecutablePath(
-          filename: filename, currentWorkingDirectory: cwd, searchPaths: searchPaths)
-      else {
-        return .unknown
-      }
-      guard let fileHandle = FileHandle(forReadingAtPath: filePath.pathString) else {
-        return .unknown
-      }
-
-      defer {
-        try? fileHandle.close()
-      }
-
-      // The first 4 bytes of a Mach-O header contain the magic number. We use it to determine if the binary is
-      // universal.
-      // https://github.com/apple/darwin-xnu/blob/main/EXTERNAL_HEADERS/mach-o/loader.h
-      let magicData = fileHandle.readData(ofLength: 4)
-      let magic = magicData.withUnsafeBytes { $0.load(as: UInt32.self).bigEndian }
-
-      if magic == magicNumber {
-        return .universal
-      }
-
-      // If the binary is not universal, the next 4 bytes contain the CPU type.
-      guard (try? fileHandle.seek(toOffset: 4)) != nil else {
-        return .unknown
-      }
-      let cpuTypeData = fileHandle.readData(ofLength: 4)
-      let cpuType = cpuTypeData.withUnsafeBytes { $0.load(as: Int32.self) }
-      return .fromMachoCPUType(cpuType: cpuType)
+    guard let fileHandle = FileHandle(forReadingAtPath: filePath.pathString) else {
+      return .unknown
     }
-  #endif
+
+    defer { fileHandle.closeFile() }
+
+    // Infering the architecture of a Windows executable from its COFF header involves the following:
+    // 1. Get the COFF header offset from the pointer located at the 0x3C offset (4 bytes long).
+    // 2. Jump to that offset and read the next 6 bytes.
+    // 3. The first 4 are the signature which should be equal to 0x50450000.
+    // 4. The last 2 are the machine architecture which can be infered from the value we get.
+    //
+    // The link below provides a visualization of the COFF header and the process to get to it.
+    // https://upload.wikimedia.org/wikipedia/commons/1/1b/Portable_Executable_32_bit_Structure_in_SVG_fixed.svg
+    guard (try? fileHandle.seek(toOffset: 0x3C)) != nil else {
+      return .unknown
+    }
+    guard let offsetPointer = try? fileHandle.read(upToCount: 4),
+      offsetPointer.count == 4
+    else {
+      return .unknown
+    }
+
+    let peHeaderOffset = offsetPointer.withUnsafeBytes { $0.load(as: UInt32.self) }
+
+    guard (try? fileHandle.seek(toOffset: UInt64(peHeaderOffset))) != nil else {
+      return .unknown
+    }
+    guard let coffHeader = try? fileHandle.read(upToCount: 6), coffHeader.count == 6 else {
+      return .unknown
+    }
+
+    let signature = coffHeader.prefix(4)
+    let machineBytes = coffHeader.suffix(2)
+
+    guard signature == Data([0x50, 0x45, 0x00, 0x00]) else {
+      return .unknown
+    }
+
+    let machine = machineBytes.withUnsafeBytes { $0.load(as: UInt16.self) }
+    return .fromPEMachineByte(machine: Int32(machine))
+  }
 }
+#endif
+
+#if os(macOS)
+extension Process {
+  static func readDarwinExecutableArchitecture(
+    cwd: AbsolutePath?, envBlock: ProcessEnvironmentBlock, filename: String
+  ) -> ExecutableArchitecture {
+    let magicNumber: UInt32 = 0xcafe_babe
+
+    let searchPaths = getEnvSearchPaths(
+      pathString: envBlock["PATH"], currentWorkingDirectory: cwd)
+    guard
+      let filePath = lookupExecutablePath(
+        filename: filename, currentWorkingDirectory: cwd, searchPaths: searchPaths)
+    else {
+      return .unknown
+    }
+    guard let fileHandle = FileHandle(forReadingAtPath: filePath.pathString) else {
+      return .unknown
+    }
+
+    defer {
+      try? fileHandle.close()
+    }
+
+    // The first 4 bytes of a Mach-O header contain the magic number. We use it to determine if the binary is
+    // universal.
+    // https://github.com/apple/darwin-xnu/blob/main/EXTERNAL_HEADERS/mach-o/loader.h
+    let magicData = fileHandle.readData(ofLength: 4)
+    let magic = magicData.withUnsafeBytes { $0.load(as: UInt32.self).bigEndian }
+
+    if magic == magicNumber {
+      return .universal
+    }
+
+    // If the binary is not universal, the next 4 bytes contain the CPU type.
+    guard (try? fileHandle.seek(toOffset: 4)) != nil else {
+      return .unknown
+    }
+    let cpuTypeData = fileHandle.readData(ofLength: 4)
+    let cpuType = cpuTypeData.withUnsafeBytes { $0.load(as: Int32.self) }
+    return .fromMachoCPUType(cpuType: cpuType)
+  }
+}
+#endif
