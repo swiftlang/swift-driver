@@ -26,6 +26,11 @@ public enum ResponseFileHandling {
   case heuristic
 }
 
+public enum ResolvedCommandLine {
+  case plain([String])
+  case usingResponseFile(resolved: [String], responseFileContents: [String])
+}
+
 /// Resolver for a job's argument template.
 public final class ArgsResolver {
   /// The map of virtual path to the actual path.
@@ -74,6 +79,18 @@ public final class ArgsResolver {
     let usingResponseFile = try createResponseFileIfNeeded(for: job, resolvedArguments: &arguments,
                                                            useResponseFiles: useResponseFiles)
     return (arguments, usingResponseFile)
+  }
+
+  public func resolveArgumentList(for job: Job, useResponseFiles: ResponseFileHandling = .heuristic)
+  throws -> ResolvedCommandLine {
+    let tool = try resolve(.path(job.tool))
+    let resolvedArguments = [tool] + (try resolveArgumentList(for: job.commandLine))
+    var actualArguments = resolvedArguments
+    let usingResponseFile = try createResponseFileIfNeeded(for: job, resolvedArguments: &actualArguments,
+                                                           useResponseFiles: useResponseFiles)
+    return usingResponseFile ? .usingResponseFile(resolved: actualArguments,
+                                                  responseFileContents: resolvedArguments)
+                             : .plain(actualArguments)
   }
 
   public func resolveArgumentList(for commandLine: [Job.ArgTemplate]) throws -> [String] {
