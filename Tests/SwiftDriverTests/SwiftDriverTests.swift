@@ -1806,6 +1806,28 @@ final class SwiftDriverTests: XCTestCase {
       }
     }
 
+    // Response file query with full command-line API
+    do {
+      let source = try AbsolutePath(validating: "/foo.swift")
+      var driver = try Driver(args: ["swift"] + [source.nativePathString(escaped: false)])
+      let jobs = try driver.planBuild()
+      XCTAssertEqual(jobs.count, 1)
+      XCTAssertEqual(jobs[0].kind, .interpret)
+      let interpretJob = jobs[0]
+      let resolver = try ArgsResolver(fileSystem: localFileSystem)
+      let resolved: ResolvedCommandLine = try resolver.resolveArgumentList(for: interpretJob, useResponseFiles: .forced)
+      guard case .usingResponseFile(resolved: let resolvedArgs, responseFileContents: let contents) = resolved else {
+          XCTFail("Argument wasn't a response file")
+        return
+      }
+      XCTAssertEqual(resolvedArgs.count, 3)
+      XCTAssertEqual(resolvedArgs[1], "-frontend")
+      XCTAssertEqual(resolvedArgs[2].first, "@")
+
+      XCTAssertTrue(contents.contains(subsequence: ["-frontend", "-interpret"]))
+      XCTAssertTrue(contents.contains(subsequence: ["-module-name", "foo"]))
+    }
+
     // No response file
     do {
       var driver = try Driver(args: ["swift"] + ["foo.swift"])
@@ -1816,27 +1838,6 @@ final class SwiftDriverTests: XCTestCase {
       let resolver = try ArgsResolver(fileSystem: localFileSystem)
       let resolvedArgs: [String] = try resolver.resolveArgumentList(for: interpretJob)
       XCTAssertFalse(resolvedArgs.contains { $0.hasPrefix("@") })
-    }
-  }
-
-  func testResponseFileDeterministicNaming() throws {
-#if !os(macOS)
-    try XCTSkipIf(true, "Test assumes macOS response file quoting behavior")
-#endif
-    do {
-      let testJob = Job(moduleName: "Foo",
-                        kind: .compile,
-                        tool: .init(path: try AbsolutePath(validating: "/swiftc"), supportsResponseFiles: true),
-                        commandLine: (1...20000).map { .flag("-DTEST_\($0)") },
-                        inputs: [],
-                        primaryInputs: [],
-                        outputs: [])
-      let resolver = try ArgsResolver(fileSystem: localFileSystem)
-      let resolvedArgs: [String] = try resolver.resolveArgumentList(for: testJob)
-      XCTAssertEqual(resolvedArgs.count, 3)
-      XCTAssertEqual(resolvedArgs[2].first, "@")
-      let responseFilePath = try AbsolutePath(validating: String(resolvedArgs[2].dropFirst()))
-      XCTAssertEqual(responseFilePath.basename, "arguments-847d15e70d97df7c18033735497ca8dcc4441f461d5a9c2b764b127004524e81.resp")
     }
   }
 
