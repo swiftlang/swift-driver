@@ -78,6 +78,7 @@ final class IncrementalCompilationTests: XCTestCase {
       "-save-temps",
       "-incremental",
       "-no-color-diagnostics",
+      "-swift-version", "5",
     ]
     + inputPathsAndContents.map({ $0.0.nativePathString(escaped: false) }).sorted()
   }
