@@ -906,6 +906,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
                             .appending(component: "Swift")
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       let invocationArguments = ["swiftc",
+                                 "-swift-version", "5",
                                  "-incremental", "-c",
                                  "-emit-module",
                                  "-enable-library-evolution", "-emit-module-interface", "-driver-show-incremental",
@@ -963,6 +964,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let privateSwiftInterfacePath: AbsolutePath = path.appending(component: "testExplicitModuleVerifyInterfaceJobs.private.swiftinterface")
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       var driver = try Driver(args: ["swiftc",
+                                     "-swift-version", "5",
                                      "-I", cHeadersPath.nativePathString(escaped: true),
                                      "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
                                      "-I", stdlibPath.nativePathString(escaped: true),
@@ -2801,6 +2803,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
           """
         )
         var driver = try Driver(args: ["swiftc",
+                                       "-swift-version", "5",
                                        "-experimental-emit-variant-module",
                                        "-target", "x86_64-apple-macosx10.14",
                                        "-target-variant", "x86_64-apple-ios13.1-macabi",
