@@ -665,7 +665,7 @@ extension Driver {
                                                         moduleOutputInfo: ModuleOutputInfo,
                                                         moduleOutputPaths: SupplementalModuleTargetOutputPaths,
                                                         includeModuleTracePath: Bool,
-                                                        indexFilePath: TypedVirtualPath?) throws -> [TypedVirtualPath] {
+                                                        indexFilePaths: [TypedVirtualPath]) throws -> [TypedVirtualPath] {
     var flaggedInputOutputPairs: [(flag: String, input: TypedVirtualPath?, output: TypedVirtualPath)] = []
 
     /// Add output of a particular type, if needed.
@@ -879,7 +879,10 @@ extension Driver {
       }
       // To match the legacy driver behavior, make sure we add an entry for the
       // file under indexing and the primary output file path.
-      if let indexFilePath = indexFilePath, let idxOutput = inputOutputMap[indexFilePath]?.first {
+      for indexFilePath in indexFilePaths {
+        guard let idxOutput = inputOutputMap[indexFilePath]?.first else {
+          continue
+        }
         entries[indexFilePath.fileHandle] = [.indexData: idxOutput.fileHandle]
       }
       let outputFileMap = OutputFileMap(entries: entries)

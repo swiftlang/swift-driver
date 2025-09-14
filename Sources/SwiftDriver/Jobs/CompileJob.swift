@@ -107,7 +107,7 @@ extension Driver {
   /// corresponding primary set of outputs and, if not identical, the output
   /// paths to record in the index data (empty otherwise).
   mutating func addCompileInputs(primaryInputs: [TypedVirtualPath],
-                                 indexFilePath: TypedVirtualPath?,
+                                 indexFilePaths: [TypedVirtualPath],
                                  inputs: inout [TypedVirtualPath],
                                  inputOutputMap: inout [TypedVirtualPath: [TypedVirtualPath]],
                                  outputType: FileType?,
@@ -149,11 +149,11 @@ extension Driver {
       assert(!primaryInputs.isEmpty)
       usesPrimaryFileInputs = true
       primaryInputFiles = primaryInputs
-    } else if let path = indexFilePath {
+    } else if !indexFilePaths.isEmpty {
       // If -index-file is used, we perform a single compile but pass the
       // -index-file-path as a primary input file.
       usesPrimaryFileInputs = true
-      primaryInputFiles = [path]
+      primaryInputFiles = indexFilePaths
     } else {
       usesPrimaryFileInputs = false
       primaryInputFiles = []
@@ -244,17 +244,14 @@ extension Driver {
     commandLine.appendFlag("-frontend")
     addCompileModeOption(outputType: outputType, commandLine: &commandLine)
 
-    let indexFilePath: TypedVirtualPath?
-    if let indexFileArg = parsedOptions.getLastArgument(.indexFilePath)?.asSingle {
-      let path = try VirtualPath(path: indexFileArg)
-      indexFilePath = inputFiles.first { $0.file == path }
-    } else {
-      indexFilePath = nil
-    }
+    let indexFileArgs = try Set(
+      parsedOptions.arguments(for: .indexFilePath).map { try VirtualPath(path: $0.argument.asSingle) }
+    )
+    let indexFilePaths = inputFiles.filter { indexFileArgs.contains($0.file) }
 
     let (primaryOutputs, primaryIndexUnitOutputs) =
       try addCompileInputs(primaryInputs: primaryInputs,
-                           indexFilePath: indexFilePath,
+                           indexFilePaths: indexFilePaths,
                            inputs: &inputs,
                            inputOutputMap: &inputOutputMap,
                            outputType: outputType,
@@ -282,7 +279,7 @@ extension Driver {
       moduleOutputInfo: self.moduleOutputInfo,
       moduleOutputPaths: self.moduleOutputPaths,
       includeModuleTracePath: emitModuleTrace,
-      indexFilePath: indexFilePath)
+      indexFilePaths: indexFilePaths)
 
     // Forward migrator flags.
     try commandLine.appendLast(.apiDiffDataFile, from: &parsedOptions)
