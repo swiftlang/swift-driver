@@ -160,8 +160,11 @@ extension WebAssemblyToolchain {
       // The value of lowest valid address, called "global base", must be always
       // synchronized with `SWIFT_ABI_WASM32_LEAST_VALID_POINTER` defined in
       // apple/swift's runtime library.
+      let SWIFT_ABI_WASM32_LEAST_VALID_POINTER = 4096
       commandLine.appendFlag(.Xlinker)
-      commandLine.appendFlag("--global-base=4096")
+      commandLine.appendFlag("--global-base=\(SWIFT_ABI_WASM32_LEAST_VALID_POINTER)")
+      commandLine.appendFlag(.Xlinker)
+      commandLine.appendFlag("--table-base=\(SWIFT_ABI_WASM32_LEAST_VALID_POINTER)")
 
       // Delegate to Clang for sanitizers. It will figure out the correct linker
       // options.
