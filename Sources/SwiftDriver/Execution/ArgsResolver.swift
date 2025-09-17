@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import class Foundation.NSLock
+import struct Foundation.UUID
 
 import func TSCBasic.withTemporaryDirectory
 import protocol TSCBasic.FileSystem
@@ -23,6 +24,11 @@ public enum ResponseFileHandling {
   case forced
   case disabled
   case heuristic
+}
+
+public enum ResolvedCommandLine {
+  case plain([String])
+  case usingResponseFile(resolved: [String], responseFileContents: [String])
 }
 
 /// Resolver for a job's argument template.
@@ -73,6 +79,18 @@ public final class ArgsResolver {
     let usingResponseFile = try createResponseFileIfNeeded(for: job, resolvedArguments: &arguments,
                                                            useResponseFiles: useResponseFiles)
     return (arguments, usingResponseFile)
+  }
+
+  public func resolveArgumentList(for job: Job, useResponseFiles: ResponseFileHandling = .heuristic)
+  throws -> ResolvedCommandLine {
+    let tool = try resolve(.path(job.tool))
+    let resolvedArguments = [tool] + (try resolveArgumentList(for: job.commandLine))
+    var actualArguments = resolvedArguments
+    let usingResponseFile = try createResponseFileIfNeeded(for: job, resolvedArguments: &actualArguments,
+                                                           useResponseFiles: useResponseFiles)
+    return usingResponseFile ? .usingResponseFile(resolved: actualArguments,
+                                                  responseFileContents: resolvedArguments)
+                             : .plain(actualArguments)
   }
 
   public func resolveArgumentList(for commandLine: [Job.ArgTemplate]) throws -> [String] {
@@ -189,14 +207,13 @@ public final class ArgsResolver {
       (job.supportsResponseFiles && !commandLineFitsWithinSystemLimits(path: resolvedArguments[0], args: resolvedArguments)) {
       assert(!forceResponseFiles || job.supportsResponseFiles,
              "Platform does not support response files for job: \(job)")
-      // Match the integrated driver's behavior, which uses response file names of the form "arguments-[0-9a-zA-Z].resp".
-      let hash = SHA256().hash(resolvedArguments.joined(separator: " ")).hexadecimalRepresentation
-      let responseFilePath = temporaryDirectory.appending(component: "arguments-\(hash).resp")
+      let uuid = UUID().uuidString
+      let responseFilePath = temporaryDirectory.appending(component: "arguments-\(uuid).resp")
 
       // FIXME: Need a way to support this for distributed build systems...
       if let absPath = responseFilePath.absolutePath {
         let argumentBytes = ByteString(resolvedArguments[2...].map { $0.spm_shellEscaped() }.joined(separator: "\n").utf8)
-        try fileSystem.writeFileContents(absPath, bytes: argumentBytes, atomically: true)
+        try fileSystem.writeFileContents(absPath, bytes: argumentBytes)
         resolvedArguments = [resolvedArguments[0], resolvedArguments[1], "@\(absPath.pathString)"]
       }
 
