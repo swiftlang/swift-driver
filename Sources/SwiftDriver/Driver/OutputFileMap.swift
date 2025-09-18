@@ -172,6 +172,11 @@ public struct OutputFileMap: Hashable, Codable {
     }
     return result
   }
+
+  /// Check if the output file map has any entries for the given file type
+  public func hasEntries(for fileType: FileType) -> Bool {
+    return entries.values.contains { $0[fileType] != nil }
+  }
 }
 
 /// Struct for loading the JSON file from disk.

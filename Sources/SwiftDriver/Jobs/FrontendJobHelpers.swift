@@ -667,8 +667,32 @@ extension Driver {
                                                         moduleOutputInfo: ModuleOutputInfo,
                                                         moduleOutputPaths: SupplementalModuleTargetOutputPaths,
                                                         includeModuleTracePath: Bool,
-                                                        indexFilePaths: [TypedVirtualPath]) throws -> [TypedVirtualPath] {
+                                                        indexFilePaths: [TypedVirtualPath],
+                                                        allInputs: [TypedVirtualPath] = []) throws -> [TypedVirtualPath] {
     var flaggedInputOutputPairs: [(flag: String, input: TypedVirtualPath?, output: TypedVirtualPath)] = []
+
+    /// Generate directory-based output path for supplementary outputs
+    func generateSupplementaryOutputPath(for input: TypedVirtualPath, outputType: FileType, directory: String) throws -> TypedVirtualPath {
+      let inputBasename = input.file.basenameWithoutExt
+      let fileExtension = outputType == .sil ? "sil" : "ll"
+      let filename = "\(inputBasename).\(fileExtension)"
+      let individualPath = try VirtualPath(path: directory).appending(component: filename)
+      let outputPath = individualPath.intern()
+      return TypedVirtualPath(file: outputPath, type: outputType)
+    }
+
+    /// Process inputs for supplementary output generation (SIL/IR)
+    func processInputsForSupplementaryOutput(inputs: [TypedVirtualPath], outputType: FileType, flag: String, directory: String?) throws {
+      for inputFile in inputs {
+        // Check output file map first, then fall back to directory-based generation
+        if let outputFileMapPath = try outputFileMap?.existingOutput(inputFile: inputFile.fileHandle, outputType: outputType) {
+          flaggedInputOutputPairs.append((flag: flag, input: inputFile, output: TypedVirtualPath(file: outputFileMapPath, type: outputType)))
+        } else if let directory = directory {
+          let outputPath = try generateSupplementaryOutputPath(for: inputFile, outputType: outputType, directory: directory)
+          flaggedInputOutputPairs.append((flag: flag, input: inputFile, output: outputPath))
+        }
+      }
+    }
 
     /// Add output of a particular type, if needed.
     func addOutputOfType(
@@ -677,6 +701,25 @@ extension Driver {
       input: TypedVirtualPath?,
       flag: String
     ) throws {
+      // Handle directory-based options and file maps for SIL and LLVM IR when finalOutputPath is nil
+      if finalOutputPath == nil && (outputType == .sil || outputType == .llvmIR) {
+        let directoryOption: Option = outputType == .sil ? .silOutputDir : .irOutputDir
+        let directory = parsedOptions.getLastArgument(directoryOption)?.asSingle
+        let hasFileMapEntries = outputFileMap?.hasEntries(for: outputType) ?? false
+
+        if directory != nil || hasFileMapEntries {
+          let inputsToProcess: [TypedVirtualPath]
+          if compilerMode.usesPrimaryFileInputs {
+            inputsToProcess = input.map { [$0] } ?? []
+          } else {
+            inputsToProcess = allInputs
+          }
+
+          try processInputsForSupplementaryOutput(inputs: inputsToProcess, outputType: outputType, flag: flag, directory: directory)
+          return
+        }
+      }
+
       // If there is no final output, there's nothing to do.
       guard let finalOutputPath = finalOutputPath else { return }
 
@@ -763,6 +806,18 @@ extension Driver {
         finalOutputPath: serializedDiagnosticsFilePath,
         input: input,
         flag: "-serialize-diagnostics-path")
+
+      try addOutputOfType(
+        outputType: .sil,
+        finalOutputPath: silOutputPath,
+        input: input,
+        flag: "-sil-output-path")
+
+      try addOutputOfType(
+        outputType: .llvmIR,
+        finalOutputPath: llvmIROutputPath,
+        input: input,
+        flag: "-ir-output-path")
     }
 
     if compilerMode.usesPrimaryFileInputs {
