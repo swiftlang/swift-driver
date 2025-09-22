@@ -229,7 +229,6 @@ extension Driver {
     try commandLine.appendLast(.nostdimport, from: &parsedOptions)
     try commandLine.appendLast(.nostdlibimport, from: &parsedOptions)
     try commandLine.appendLast(.parseStdlib, from: &parsedOptions)
-    try commandLine.appendLast(.solverMemoryThreshold, from: &parsedOptions)
     try commandLine.appendLast(.valueRecursionThreshold, from: &parsedOptions)
     try commandLine.appendLast(.warnSwift3ObjcInference, from: &parsedOptions)
     try commandLine.appendLast(.remarkLoadingModule, from: &parsedOptions)
@@ -475,6 +474,9 @@ extension Driver {
               try computeCanonicalObjCHeader(explicitModulePlanner: explicitModulePlanner)
     let objcHeaderFile = (kind == .scanDependencies) ? originalObjCHeaderFile : importedObjCHeader
     if let importedObjCHeader = objcHeaderFile, bridgingHeaderHandling != .ignored {
+      let importBridgingHeaderFlag: Option = importBridgingHeaderAsInternal
+        ? .internalImportBridgingHeader
+        : .importObjcHeader
       if bridgingHeaderHandling == .precompiled, let pch = precompiledObjCHeader {
         // For explicit module build, we directly pass the compiled pch to
         // swift-frontend, rather than rely on swift-frontend to locate
@@ -482,7 +484,7 @@ extension Driver {
         // of a lookup failure.
         if parsedOptions.contains(.pchOutputDir) &&
            !parsedOptions.contains(.driverExplicitModuleBuild) {
-          commandLine.appendFlag(.importObjcHeader)
+          commandLine.appendFlag(importBridgingHeaderFlag)
           try addPathArgument(VirtualPath.lookup(importedObjCHeader), to:&commandLine, remap: jobNeedPathRemap)
           try commandLine.appendLast(.pchOutputDir, from: &parsedOptions)
           if !compilerMode.isSingleCompilation {
@@ -491,21 +493,21 @@ extension Driver {
         } else {
           // If header chaining is enabled, pass objc header through `-import-objc-header` and
           // PCH file through `-import-pch`. Otherwise, pass either the PCH or header through
-          // `-import-objc-header` option.
+          // `-import-objc-header` option (or its internal variant).
           if isFrontendArgSupported(.importPch), importedObjCHeader != originalObjCHeaderFile {
-            commandLine.appendFlag(.importPch)
+            commandLine.appendFlag(importBridgingHeaderAsInternal ? .internalImportPch : .importPch)
             try addPathArgument(VirtualPath.lookup(pch), to:&commandLine, remap: jobNeedPathRemap)
             if let originalHeader = originalObjCHeaderFile {
-              commandLine.appendFlag(.importObjcHeader)
+              commandLine.appendFlag(importBridgingHeaderFlag)
               try addPathArgument(VirtualPath.lookup(originalHeader), to:&commandLine, remap: jobNeedPathRemap)
             }
           } else {
-            commandLine.appendFlag(.importObjcHeader)
+            commandLine.appendFlag(importBridgingHeaderFlag)
             try addPathArgument(VirtualPath.lookup(pch), to:&commandLine, remap: jobNeedPathRemap)
           }
         }
       } else {
-        commandLine.appendFlag(.importObjcHeader)
+        commandLine.appendFlag(importBridgingHeaderFlag)
         try addPathArgument(VirtualPath.lookup(importedObjCHeader), to:&commandLine, remap: jobNeedPathRemap)
       }
     }

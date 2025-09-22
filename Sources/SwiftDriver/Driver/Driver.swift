@@ -353,6 +353,9 @@ public struct Driver {
   /// Original ObjC Header passed from command-line
   let originalObjCHeaderFile: VirtualPath.Handle?
 
+  /// Whether to import the bridging header as internal (vs public).
+  let importBridgingHeaderAsInternal: Bool
+
   /// Enable bridging header chaining.
   let bridgingHeaderChaining: Bool
 
@@ -1165,10 +1168,12 @@ public struct Driver {
     }
     self.producePCHJob = maybeNeedPCH
 
-    if let objcHeaderPathArg = parsedOptions.getLastArgument(.importObjcHeader) {
-      self.originalObjCHeaderFile = try? VirtualPath.intern(path: objcHeaderPathArg.asSingle)
+    if let importBridgingHeaderOption = parsedOptions.last(for: .importBridgingHeader, .internalImportBridgingHeader) {
+      self.originalObjCHeaderFile = try? VirtualPath.intern(path: importBridgingHeaderOption.argument.asSingle)
+      self.importBridgingHeaderAsInternal = importBridgingHeaderOption.option == .internalImportBridgingHeader
     } else {
       self.originalObjCHeaderFile = nil
+      self.importBridgingHeaderAsInternal = false
     }
 
     if parsedOptions.hasFlag(positive: .autoBridgingHeaderChaining,
@@ -2059,8 +2064,8 @@ extension Driver {
 
     // Put bridging header as first input if we have it
     let allInputs: [TypedVirtualPath]
-    if let objcHeader = originalObjCHeaderFile {
-      allInputs = [TypedVirtualPath(file: objcHeader, type: .objcHeader)] + inputFiles
+    if let bridgingHeader = originalObjCHeaderFile {
+      allInputs = [TypedVirtualPath(file: bridgingHeader, type: .objcHeader)] + inputFiles
     } else {
       allInputs = inputFiles
     }
