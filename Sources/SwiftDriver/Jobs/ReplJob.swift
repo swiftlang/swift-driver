@@ -18,7 +18,10 @@ extension Driver {
     try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs, kind: .repl)
     try addRuntimeLibraryFlags(commandLine: &commandLine)
 
-    try commandLine.appendLast(.importObjcHeader, from: &parsedOptions)
+    try commandLine.appendLast(
+      .importObjcHeader, .internalImportBridgingHeader,
+      from: &parsedOptions
+    )
     toolchain.addLinkedLibArgs(
       to: &commandLine,
       parsedOptions: &parsedOptions
