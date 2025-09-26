@@ -376,6 +376,32 @@ extension Toolchain {
     }
     return clangArg
   }
+
+  internal func mapInstrumentationTypeToClangArgs(from options: inout ParsedOptions) -> [String] {
+    var args: [String] = []
+
+    if options.contains(.profileGenerate) || options.contains(.irProfileGenerate) {
+      args.append("-fprofile-generate")
+    }
+
+    if options.contains(.csProfileGenerate) {
+      args.append("-fcs-profile-generate")
+    }
+
+    if options.contains(.csProfileGenerateEq),
+       let path = options.getLastArgument(.csProfileGenerateEq)?.asSingle {
+      args.append("-fcs-profile-generate=\(path)")
+    }
+
+    return args
+  }
+
+  internal func needsInstrumentedProfile(from parsedOptions: inout ParsedOptions) -> Bool {
+    parsedOptions.contains(.profileGenerate) ||
+    parsedOptions.contains(.irProfileGenerate) ||
+    parsedOptions.contains(.csProfileGenerate) ||
+    parsedOptions.contains(.csProfileGenerateEq)
+  }
 }
 
 @_spi(Testing) public enum ToolchainError: Swift.Error {

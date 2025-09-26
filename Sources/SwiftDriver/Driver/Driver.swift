@@ -3323,24 +3323,87 @@ extension Driver {
     }
   }
 
+  static private func validateProfilingGenerateArgs(
+    _ parsedOptions: inout ParsedOptions,
+    diagnosticEngine: DiagnosticsEngine
+  ) {
+    let genFlags: [Option] = [
+      .profileGenerate,
+      .irProfileGenerate,
+      .csProfileGenerate,
+      .csProfileGenerateEq,
+    ]
+
+    var providedGen = genFlags.filter { parsedOptions.hasArgument($0) }
+    if parsedOptions.hasArgument(.csProfileGenerate),
+      parsedOptions.hasArgument(.csProfileGenerateEq)
+    {
+      // If both forms were specified, report a clear conflict.
+      diagnosticEngine.emit(
+        .error(Error.conflictingOptions(.csProfileGenerate, .csProfileGenerateEq)),
+        location: nil
+      )
+      providedGen.removeAll { $0 == .csProfileGenerateEq }
+    }
+
+    guard providedGen.count >= 2 else { return }
+    for i in 1..<providedGen.count {
+      let error = Error.conflictingOptions(providedGen[i - 1], providedGen[i])
+      diagnosticEngine.emit(.error(error), location: nil)
+    }
+  }
+
+  static private func validateProfilingUseArgs(
+    _ parsedOptions: inout ParsedOptions,
+    diagnosticEngine: DiagnosticsEngine
+  ) {
+    let conflictingGenFlags: [Option] = [
+      .profileGenerate,
+      .irProfileGenerate,
+    ]
+    let useProfArgs: [Option] = [
+      .profileUse,
+      .profileSampleUse,
+    ]
+    let providedUse = useProfArgs.filter { parsedOptions.hasArgument($0) }
+    guard !providedUse.isEmpty else { return }
+
+    // At most one *use* option allowed
+    if providedUse.count > 1 {
+      for i in 0..<(providedUse.count - 1) {
+        for j in (i + 1)..<providedUse.count {
+          diagnosticEngine.emit(
+            .error(Error.conflictingOptions(providedUse[i], providedUse[j])),
+            location: nil
+          )
+        }
+      }
+    }
+
+    // If no generate flags, we're good.
+    let providedGen = conflictingGenFlags.filter { parsedOptions.hasArgument($0) }
+    guard !providedGen.isEmpty else { return }
+
+    // We already diagnosed if the user passed more than one "use" option
+    // (e.g. both `-profile-use` and `-profile-sample-use`). To avoid
+    // spamming diagnostics, we now treat the first provided "use" flag
+    // as the canonical representative.
+    let canonicalUse = providedUse[0]
+
+    // Generate vs Use are mutually exclusive
+    for g in providedGen {
+      diagnosticEngine.emit(.error(Error.conflictingOptions(g, canonicalUse)), location: nil)
+    }
+  }
+
+
   static func validateProfilingArgs(_ parsedOptions: inout ParsedOptions,
                                     fileSystem: FileSystem,
                                     workingDirectory: AbsolutePath?,
                                     diagnosticEngine: DiagnosticsEngine) {
-    let conflictingProfArgs: [Option] = [.profileGenerate,
-                                         .profileUse,
-                                         .profileSampleUse]
-
     // Find out which of the mutually exclusive profiling arguments were provided.
-    let provided = conflictingProfArgs.filter { parsedOptions.hasArgument($0) }
-
-    // If there's at least two of them, there's a conflict.
-    if provided.count >= 2 {
-      for i in 1..<provided.count {
-        let error = Error.conflictingOptions(provided[i-1], provided[i])
-        diagnosticEngine.emit(.error(error), location: nil)
-      }
-    }
+    validateProfilingGenerateArgs(&parsedOptions, diagnosticEngine: diagnosticEngine)
+    validateProfilingUseArgs(&parsedOptions, diagnosticEngine: diagnosticEngine)
 
     // Ensure files exist for the given paths.
     func checkForMissingProfilingData(_ profileDataArgs: [String]) {
