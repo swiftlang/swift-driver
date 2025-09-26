@@ -66,6 +66,22 @@ extension ModuleDependencyGraph.Tracer {
 
   private mutating func collectPreviouslyUntracedDependents() {
     for n in startingPoints {
+      if (n.key.aspect == .interface) {
+        if case .sourceFileProvide(name: _) = n.key.designator {
+          if case let .known(source) = n.definitionLocation {
+            if source.typedFile.type == .swiftModule {
+              // If a change in the fingerprint of an interface causes a change in the swiftmodule, 
+              // but other swiftmodules that depend on this swiftmodule do not depend on this interface, 
+              // then those other swiftmodules should not be recompiled.
+              //
+              // This means that recompilation is only triggered when the fingerprint of a dependent interface changes.
+              graph.info.reporter?.report("skipped startingPoint key: \(n.key.description(in: graph)) definitionLocation: \(n.definitionLocation)")
+              continue
+            }
+          }
+        }
+      }
+      graph.info.reporter?.report("startingPoint key: \(n.key.description(in: graph)) definitionLocation: \(n.definitionLocation)")
       collectNextPreviouslyUntracedDependent(of: n)
     }
   }
