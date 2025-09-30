@@ -3542,6 +3542,49 @@ final class SwiftDriverTests: XCTestCase {
     try checkSupplementaryOutputFileMap(format: "bitstream", .bitstreamOptimizationRecord)
   }
 
+  func testOptimizationRecordPathUserProvidedPath() throws {
+
+    do {
+      var driver = try Driver(args: [
+        "swiftc", "-save-optimization-record", "-save-optimization-record-path", "/tmp/test.opt.yaml",
+        "-c", "test.swift"
+      ])
+      let plannedJobs = try driver.planBuild()
+      let compileJob = try XCTUnwrap(plannedJobs.first { $0.kind == .compile })
+
+      XCTAssertTrue(compileJob.commandLine.contains(.path(VirtualPath.absolute(try AbsolutePath(validating: "/tmp/test.opt.yaml")))))
+      XCTAssertTrue(compileJob.commandLine.contains(.flag("-save-optimization-record-path")))
+    }
+
+    do {
+      var driver = try Driver(args: [
+        "swiftc", "-wmo", "-save-optimization-record", "-save-optimization-record-path", "/tmp/wmo.opt.yaml",
+        "-c", "test.swift"
+      ])
+      let plannedJobs = try driver.planBuild()
+      let compileJob = try XCTUnwrap(plannedJobs.first { $0.kind == .compile })
+
+      XCTAssertTrue(compileJob.commandLine.contains(.path(VirtualPath.absolute(try AbsolutePath(validating: "/tmp/wmo.opt.yaml")))))
+      XCTAssertTrue(compileJob.commandLine.contains(.flag("-save-optimization-record-path")))
+    }
+
+    do {
+      var driver = try Driver(args: [
+        "swiftc", "-wmo", "-num-threads", "4", "-save-optimization-record",
+        "-save-optimization-record-path", "/tmp/mt1.opt.yaml",
+        "-save-optimization-record-path", "/tmp/mt2.opt.yaml",
+        "-c", "test1.swift", "test2.swift"
+      ])
+      let plannedJobs = try driver.planBuild()
+      let compileJob = try XCTUnwrap(plannedJobs.first { $0.kind == .compile })
+
+      XCTAssertTrue(compileJob.commandLine.contains(.flag("-save-optimization-record-path")))
+      let hasFirstPath = compileJob.commandLine.contains(.path(VirtualPath.absolute(try AbsolutePath(validating: "/tmp/mt1.opt.yaml"))))
+      let hasSecondPath = compileJob.commandLine.contains(.path(VirtualPath.absolute(try AbsolutePath(validating: "/tmp/mt2.opt.yaml"))))
+      XCTAssertTrue(hasFirstPath || hasSecondPath, "Should contain at least one user-provided optimization record path")
+    }
+  }
+
   func testUpdateCode() throws {
     do {
       var driver = try Driver(args: [

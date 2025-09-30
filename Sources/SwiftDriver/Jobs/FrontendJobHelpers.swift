@@ -691,8 +691,13 @@ extension Driver {
         if let outputFileMapPath = try outputFileMap?.existingOutput(inputFile: input.fileHandle, outputType: outputType) {
           outputPath = outputFileMapPath
         } else if let output = inputOutputMap[input]?.first, output.file != .standardOutput, compilerOutputType != nil {
-          // Alongside primary output
-          outputPath = try output.file.replacingExtension(with: outputType).intern()
+          // For optimization records, use finalOutputPath over derived path
+          if outputType == .yamlOptimizationRecord || outputType == .bitstreamOptimizationRecord {
+            outputPath = finalOutputPath
+          } else {
+            // Alongside primary output for other types
+            outputPath = try output.file.replacingExtension(with: outputType).intern()
+          }
         } else {
           outputPath = try VirtualPath.createUniqueTemporaryFile(RelativePath(validating: input.file.basenameWithoutExt.appendingFileTypeExtension(outputType))).intern()
         }
