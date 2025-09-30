@@ -67,6 +67,11 @@ do {
     // to return a corresponding exit code when done.
     processSet.terminate()
     driverInterrupted = true
+
+    // If graceful termination doesn't work within a reasonable time, force exit
+    DispatchQueue.global().asyncAfter(deadline: .now() + 2.0) {
+      exit(1)
+    }
   }
   interruptSignalSource.resume()
 
