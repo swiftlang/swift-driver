@@ -536,8 +536,12 @@ final class JobExecutorTests: XCTestCase {
                                 executor: executor)
         let jobs = try driver.planBuild()
         XCTAssertEqual(jobs.removingAutolinkExtractJobs().map(\.kind), [.compile, .link])
-        XCTAssertEqual(jobs[0].outputs.count, 1)
-        let compileOutput = jobs[0].outputs[0].file
+        // With -save-temps, we now have additional SIL and IR outputs, so expect more outputs
+        XCTAssertTrue(jobs[0].outputs.count >= 1, "Should have at least the object file output")
+        // Find the main object file output
+        let objectOutput = jobs[0].outputs.first { $0.type == .object }
+        XCTAssertNotNil(objectOutput, "Should have object file output")
+        let compileOutput = objectOutput!.file
         guard matchTemporary(compileOutput, "main.o") else {
           XCTFail("unexpected output")
           return
@@ -583,6 +587,54 @@ final class JobExecutorTests: XCTestCase {
         XCTAssertTrue(
           localFileSystem.exists(try .init(validating: executor.resolver.resolve(.path(driver.allSourcesFileList!))))
         )
+      }
+    }
+
+    // Test that -save-temps also saves SIL and IR intermediate files
+    do {
+      // Skip test if frontend doesn't support these options
+      let diags = DiagnosticsEngine()
+      let executor = try SwiftDriverExecutor(diagnosticsEngine: diags,
+                                             processSet: ProcessSet(),
+                                             fileSystem: localFileSystem,
+                                             env: ProcessEnv.block)
+      let checkDriver = try Driver(args: ["swiftc", "foo.swift"] + getHostToolchainSdkArg(executor),
+                                   envBlock: ProcessEnv.block,
+                                   diagnosticsOutput: .engine(diags),
+                                   fileSystem: localFileSystem,
+                                   executor: executor)
+      guard Driver.isOptionFound("-sil-output-path", allOpts: checkDriver.supportedFrontendFlags) &&
+            Driver.isOptionFound("-ir-output-path", allOpts: checkDriver.supportedFrontendFlags) else {
+        throw XCTSkip("Skipping: frontend does not support -sil-output-path or -ir-output-path")
+      }
+
+      try withTemporaryDirectory { path in
+        let main = path.appending(component: "main.swift")
+        try localFileSystem.writeFileContents(main, bytes: "print(\"hello, world!\")")
+        let diags = DiagnosticsEngine()
+        let executor = try SwiftDriverExecutor(diagnosticsEngine: diags,
+                                               processSet: ProcessSet(),
+                                               fileSystem: localFileSystem,
+                                               env: ProcessEnv.block)
+        let outputPath = path.appending(component: "finalOutput")
+        var driver = try Driver(args: ["swiftc", main.pathString,
+                                       "-save-temps",
+                                       "-o", outputPath.pathString] + getHostToolchainSdkArg(executor),
+                                envBlock: ProcessEnv.block,
+                                diagnosticsOutput: .engine(diags),
+                                fileSystem: localFileSystem,
+                                executor: executor)
+        let jobs = try driver.planBuild()
+        let compileJobs = jobs.removingAutolinkExtractJobs()
+        XCTAssertEqual(compileJobs.map(\.kind), [.compile, .link])
+
+        let compileJob = compileJobs[0]
+
+        XCTAssertTrue(compileJob.commandLine.contains(.flag("-sil-output-path")))
+        XCTAssertTrue(compileJob.commandLine.contains(.flag("-ir-output-path")))
+
+        let hasMultipleOutputs = compileJob.outputs.count > 1
+        XCTAssertTrue(hasMultipleOutputs, "Should have additional SIL/IR outputs when using -save-temps")
       }
     }
   }
