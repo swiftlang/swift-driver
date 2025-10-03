@@ -75,8 +75,6 @@ struct RawOption {
   bool isHidden() const { return flags & llvm::opt::HelpHidden; }
 };
 
-#if defined(LLVM_VERSION_MAJOR) && LLVM_VERSION_MAJOR == 21
-
 #define OPTTABLE_PREFIXES_TABLE_CODE
 #include "swift/Option/Options.inc"
 #undef OPTTABLE_PREFIXES_TABLE_CODE
@@ -101,23 +99,6 @@ static std::vector<llvm::StringRef> getPrefixes(unsigned prefixesOffset) {
 static const char *getPrefixedName(unsigned prefixedNameOffset) {
   return OptionStrTable[prefixedNameOffset].data();
 }
-
-#else // #if defined(LLVM_VERSION_MAJOR) && LLVM_VERSION_MAJOR == 21
-
-#define PREFIX(NAME, VALUE) static constexpr llvm::StringLiteral NAME[] = VALUE;
-#include "swift/Option/Options.inc"
-#undef PREFIX
-
-static std::vector<llvm::StringRef>
-getPrefixes(llvm::ArrayRef<llvm::StringLiteral> prefixes) {
-  return std::vector<llvm::StringRef>(prefixes.begin(), prefixes.end());
-}
-
-static const char *getPrefixedName(const char *prefixedName) {
-  return prefixedName;
-}
-
-#endif // #if defined(LLVM_VERSION_MAJOR) && LLVM_VERSION_MAJOR == 21
 
 namespace {
 using namespace swift::options;
