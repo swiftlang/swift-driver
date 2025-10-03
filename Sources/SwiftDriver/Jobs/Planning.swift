@@ -715,7 +715,8 @@ extension Driver {
                                               resourceDirPath: resourceDirPath,
                                               requiresInPlaceExecution: true,
                                               useStaticResourceDir: useStaticResourceDir,
-                                              swiftCompilerPrefixArgs: swiftCompilerPrefixArgs)
+                                              swiftCompilerPrefixArgs: swiftCompilerPrefixArgs,
+                                              isEmbedded: parsedOptions.isEmbeddedEnabled)
     }
 
     if parsedOptions.hasArgument(.printSupportedFeatures) {

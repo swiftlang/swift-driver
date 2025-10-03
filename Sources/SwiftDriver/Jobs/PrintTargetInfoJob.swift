@@ -134,7 +134,9 @@ extension Toolchain {
                                                 runtimeCompatibilityVersion: String? = nil,
                                                 requiresInPlaceExecution: Bool = false,
                                                 useStaticResourceDir: Bool = false,
-                                                swiftCompilerPrefixArgs: [String]) throws -> Job {
+                                                swiftCompilerPrefixArgs: [String],
+                                                isEmbedded: Bool = false
+  ) throws -> Job {
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
     commandLine.append(contentsOf: [.flag("-frontend"),
                                     .flag("-print-target-info")])
@@ -167,6 +169,13 @@ extension Toolchain {
     if useStaticResourceDir {
        commandLine += [.flag("-use-static-resource-dir")]
      }
+
+    if isEmbedded {
+      commandLine += [
+        .flag("-enable-experimental-feature"),
+        .flag("Embedded")
+      ]
+    }
 
     return Job(
       moduleName: "",
