@@ -6950,6 +6950,21 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertFalse(linkJob.commandLine.joinedUnresolvedArguments.contains("swiftrt.o"))
     }
 
+    // Printing target info needs to pass through the experimental flag.
+    do {
+      var driver = try Driver(args: [
+        "swiftc",
+        "-target",
+        "aarch64-none-none-elf",
+        "-enable-experimental-feature", "Embedded",
+        "-print-target-info"
+      ], env: env)
+
+      let jobs = try driver.planBuild()
+      let targetInfoJob = try jobs.findJob(.printTargetInfo)
+      XCTAssertTrue(targetInfoJob.commandLine.contains(.flag("Embedded")))
+    }
+
     // Embedded Wasm compile job
     do {
       var driver = try Driver(args: ["swiftc", "-target", "wasm32-none-none-wasm", "test.swift", "-enable-experimental-feature", "Embedded", "-wmo", "-o", "a.wasm"], env: env)
