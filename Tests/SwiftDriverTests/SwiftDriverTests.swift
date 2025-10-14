@@ -1766,7 +1766,7 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testUsingResponseFiles() throws {
-    let manyArgs = (1...20000).map { "-DTEST_\($0)" }
+    let manyArgs = (1...200000).map { "-DTEST_\($0)" }
     // Needs response file
     do {
       let source = try AbsolutePath(validating: "/foo.swift")
@@ -1879,7 +1879,7 @@ final class SwiftDriverTests: XCTestCase {
     // The jobs below often take large command lines (e.g., when passing a large number of Clang
     // modules to Swift). Ensure that they don't regress in their ability to pass response files
     // from the driver to the frontend.
-    let manyArgs = (1...20000).map { "-DTEST_\($0)" }
+    let manyArgs = (1...200000).map { "-DTEST_\($0)" }
 
     // Compile + separate emit module job
     do {
