@@ -556,6 +556,238 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testSupplementarySilAndIrOutputDirectories() throws {
+    // Skip test if frontend doesn't support these options
+    do {
+      let checkDriver = try Driver(args: ["swiftc", "foo.swift"])
+      guard Driver.isOptionFound("-sil-output-path", allOpts: checkDriver.supportedFrontendFlags) &&
+            Driver.isOptionFound("-ir-output-path", allOpts: checkDriver.supportedFrontendFlags) else {
+        throw XCTSkip("Skipping: frontend does not support -sil-output-path or -ir-output-path")
+      }
+    }
+
+    // Test SIL output directory with multiple files (single-file compilation mode)
+    do {
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-emit-object", "-sil-output-dir", "/tmp/sil-output"])
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(plannedJobs.count, 2)
+
+      // First job should generate foo.sil in the output directory
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+      try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-sil-output-path"), .path(.absolute(.init(validating: "/tmp/sil-output/foo.sil"))))
+
+      // Second job should generate bar.sil in the output directory
+      XCTAssertEqual(plannedJobs[1].kind, .compile)
+      try XCTAssertJobInvocationMatches(plannedJobs[1], .flag("-sil-output-path"), .path(.absolute(.init(validating: "/tmp/sil-output/bar.sil"))))
+    }
+
+    // Test IR output directory with multiple files (single-file compilation mode)
+    do {
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-emit-object", "-ir-output-dir", "/tmp/ir-output"])
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(plannedJobs.count, 2)
+
+      // First job should generate foo.ll in the output directory
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+      try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-ir-output-path"), .path(.absolute(.init(validating: "/tmp/ir-output/foo.ll"))))
+
+      // Second job should generate bar.ll in the output directory
+      XCTAssertEqual(plannedJobs[1].kind, .compile)
+      try XCTAssertJobInvocationMatches(plannedJobs[1], .flag("-ir-output-path"), .path(.absolute(.init(validating: "/tmp/ir-output/bar.ll"))))
+    }
+
+    // Test both SIL and IR output directories together (single-file compilation mode)
+    do {
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-emit-object", "-sil-output-dir", "/tmp/sil-output", "-ir-output-dir", "/tmp/ir-output"])
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(plannedJobs.count, 2)
+
+      // First job should generate both foo.sil and foo.ll
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+      try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-sil-output-path"), .path(.absolute(.init(validating: "/tmp/sil-output/foo.sil"))))
+      try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-ir-output-path"), .path(.absolute(.init(validating: "/tmp/ir-output/foo.ll"))))
+
+      // Second job should generate both bar.sil and bar.ll
+      XCTAssertEqual(plannedJobs[1].kind, .compile)
+      try XCTAssertJobInvocationMatches(plannedJobs[1], .flag("-sil-output-path"), .path(.absolute(.init(validating: "/tmp/sil-output/bar.sil"))))
+      try XCTAssertJobInvocationMatches(plannedJobs[1], .flag("-ir-output-path"), .path(.absolute(.init(validating: "/tmp/ir-output/bar.ll"))))
+    }
+
+    // Test directory options with single-file compilation
+    do {
+      var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-object", "-sil-output-dir", "/tmp/sil-output", "-o", "foo.o"])
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(plannedJobs.count, 1)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+      try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-sil-output-path"), .path(.absolute(.init(validating: "/tmp/sil-output/foo.sil"))))
+    }
+
+    // Test directory options with WMO (whole module optimization)
+    do {
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-emit-object", "-wmo", "-sil-output-dir", "/tmp/sil-output", "-ir-output-dir", "/tmp/ir-output"])
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(plannedJobs.count, 1)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+      // In WMO mode, should generate output for all input files
+      try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-sil-output-path"), .path(.absolute(.init(validating: "/tmp/sil-output/foo.sil"))))
+      try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-sil-output-path"), .path(.absolute(.init(validating: "/tmp/sil-output/bar.sil"))))
+      try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-ir-output-path"), .path(.absolute(.init(validating: "/tmp/ir-output/foo.ll"))))
+      try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-ir-output-path"), .path(.absolute(.init(validating: "/tmp/ir-output/bar.ll"))))
+    }
+  }
+
+  func testSupplementarySilAndIrOutputFileMaps() throws {
+    // Skip test if frontend doesn't support these options
+    do {
+      let checkDriver = try Driver(args: ["swiftc", "foo.swift"])
+      guard Driver.isOptionFound("-sil-output-path", allOpts: checkDriver.supportedFrontendFlags) &&
+            Driver.isOptionFound("-ir-output-path", allOpts: checkDriver.supportedFrontendFlags) else {
+        throw XCTSkip("Skipping: frontend does not support -sil-output-path or -ir-output-path")
+      }
+    }
+
+    // Test SIL and IR output file maps in WMO mode
+    try withTemporaryFile { fileMapFile in
+      let outputMapContents: ByteString = """
+        {
+          "foo.swift": {
+            "sil": "/tmp/build/foo_custom.sil",
+            "llvm-ir": "/tmp/build/foo_custom.ll"
+          },
+          "bar.swift": {
+            "sil": "/tmp/build/bar_custom.sil",
+            "llvm-ir": "/tmp/build/bar_custom.ll"
+          }
+        }
+        """
+      try localFileSystem.writeFileContents(fileMapFile.path, bytes: outputMapContents)
+
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-emit-object", "-wmo",
+                                     "-output-file-map", fileMapFile.path.pathString])
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(plannedJobs.count, 1)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+      // In WMO mode with file maps, should generate SIL/IR files at specified paths
+      try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-sil-output-path"), .path(.absolute(.init(validating: "/tmp/build/foo_custom.sil"))))
+      try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-sil-output-path"), .path(.absolute(.init(validating: "/tmp/build/bar_custom.sil"))))
+      try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-ir-output-path"), .path(.absolute(.init(validating: "/tmp/build/foo_custom.ll"))))
+      try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-ir-output-path"), .path(.absolute(.init(validating: "/tmp/build/bar_custom.ll"))))
+    }
+
+    // Test single-file compilation with file maps
+    try withTemporaryFile { fileMapFile in
+      let outputMapContents: ByteString = """
+        {
+          "foo.swift": {
+            "sil": "/tmp/build/foo_single.sil",
+            "llvm-ir": "/tmp/build/foo_single.ll"
+          },
+          "bar.swift": {
+            "sil": "/tmp/build/bar_single.sil",
+            "llvm-ir": "/tmp/build/bar_single.ll"
+          }
+        }
+        """
+      try localFileSystem.writeFileContents(fileMapFile.path, bytes: outputMapContents)
+
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-emit-object",
+                                     "-output-file-map", fileMapFile.path.pathString])
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(plannedJobs.count, 2)
+
+      // First job for foo.swift
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+      try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-sil-output-path"), .path(.absolute(.init(validating: "/tmp/build/foo_single.sil"))))
+      try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-ir-output-path"), .path(.absolute(.init(validating: "/tmp/build/foo_single.ll"))))
+
+      // Second job for bar.swift
+      XCTAssertEqual(plannedJobs[1].kind, .compile)
+      try XCTAssertJobInvocationMatches(plannedJobs[1], .flag("-sil-output-path"), .path(.absolute(.init(validating: "/tmp/build/bar_single.sil"))))
+      try XCTAssertJobInvocationMatches(plannedJobs[1], .flag("-ir-output-path"), .path(.absolute(.init(validating: "/tmp/build/bar_single.ll"))))
+    }
+
+    // Test partial file map (only some files have SIL/IR entries)
+    try withTemporaryFile { fileMapFile in
+      let outputMapContents: ByteString = """
+        {
+          "foo.swift": {
+            "sil": "/tmp/build/foo_partial.sil"
+          },
+          "bar.swift": {
+            "llvm-ir": "/tmp/build/bar_partial.ll"
+          }
+        }
+        """
+      try localFileSystem.writeFileContents(fileMapFile.path, bytes: outputMapContents)
+
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-emit-object", "-wmo",
+                                     "-output-file-map", fileMapFile.path.pathString])
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(plannedJobs.count, 1)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+      // Should only generate files for entries that exist in the file map
+      try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-sil-output-path"), .path(.absolute(.init(validating: "/tmp/build/foo_partial.sil"))))
+      try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-ir-output-path"), .path(.absolute(.init(validating: "/tmp/build/bar_partial.ll"))))
+    }
+
+    // Test that file maps work alongside directory options (file maps should take precedence)
+    try withTemporaryFile { fileMapFile in
+      let outputMapContents: ByteString = """
+        {
+          "foo.swift": {
+            "sil": "/tmp/build/foo_precedence.sil",
+            "llvm-ir": "/tmp/build/foo_precedence.ll"
+          }
+        }
+        """
+      try localFileSystem.writeFileContents(fileMapFile.path, bytes: outputMapContents)
+
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-emit-object", "-wmo",
+                                     "-sil-output-dir", "/tmp/dir-output",
+                                     "-ir-output-dir", "/tmp/dir-output",
+                                     "-output-file-map", fileMapFile.path.pathString])
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(plannedJobs.count, 1)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+      // foo.swift should use file map paths (precedence over directory options)
+      try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-sil-output-path"), .path(.absolute(.init(validating: "/tmp/build/foo_precedence.sil"))))
+      try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-ir-output-path"), .path(.absolute(.init(validating: "/tmp/build/foo_precedence.ll"))))
+
+      // bar.swift should fall back to directory options
+      try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-sil-output-path"), .path(.absolute(.init(validating: "/tmp/dir-output/bar.sil"))))
+      try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-ir-output-path"), .path(.absolute(.init(validating: "/tmp/dir-output/bar.ll"))))
+    }
+
+    // Ensure file maps without SIL/IR entries don't generate spurious flags
+    try withTemporaryFile { fileMapFile in
+      let outputMapContents: ByteString = """
+        {
+          "foo.swift": {
+            "object": "/tmp/build/foo.o"
+          },
+          "bar.swift": {
+            "object": "/tmp/build/bar.o"
+          }
+        }
+        """
+      try localFileSystem.writeFileContents(fileMapFile.path, bytes: outputMapContents)
+
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-emit-object", "-wmo",
+                                     "-output-file-map", fileMapFile.path.pathString])
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(plannedJobs.count, 1)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+      // Should not generate any SIL/IR flags when file map has no SIL/IR entries
+      XCTAssertFalse(plannedJobs[0].commandLine.contains(Job.ArgTemplate.flag("-sil-output-path")))
+      XCTAssertFalse(plannedJobs[0].commandLine.contains(Job.ArgTemplate.flag("-ir-output-path")))
+    }
+  }
+
     func testMultithreading() throws {
       XCTAssertNil(try Driver(args: ["swiftc"]).numParallelJobs)
 

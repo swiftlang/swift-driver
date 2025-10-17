@@ -279,7 +279,8 @@ extension Driver {
       moduleOutputInfo: self.moduleOutputInfo,
       moduleOutputPaths: self.moduleOutputPaths,
       includeModuleTracePath: emitModuleTrace,
-      indexFilePaths: indexFilePaths)
+      indexFilePaths: indexFilePaths,
+      allInputs: inputs)
 
     // Forward migrator flags.
     try commandLine.appendLast(.apiDiffDataFile, from: &parsedOptions)

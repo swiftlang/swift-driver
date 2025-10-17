@@ -389,6 +389,12 @@ public struct Driver {
   /// Path to the Objective-C generated header.
   let objcGeneratedHeaderPath: VirtualPath.Handle?
 
+  /// Path to the SIL output file.
+  let silOutputPath: VirtualPath.Handle?
+
+  /// Path to the LLVM IR output file.
+  let llvmIROutputPath: VirtualPath.Handle?
+
   /// Path to the loaded module trace file.
   let loadedModuleTracePath: VirtualPath.Handle?
 
@@ -1296,6 +1302,11 @@ public struct Driver {
         emitModuleSeparately: emitModuleSeparately,
         outputFileMap: self.outputFileMap,
         moduleName: moduleOutputInfo.name)
+    // SIL and IR outputs are handled through directory options and file maps
+    // rather than single output paths, so we set these to nil to enable
+    // the supplementary output path logic in FrontendJobHelpers
+    self.silOutputPath = nil
+    self.llvmIROutputPath = nil
 
     if let loadedModuleTraceEnvVar = env["SWIFT_LOADED_MODULE_TRACE_FILE"] {
       self.loadedModuleTracePath = try VirtualPath.intern(path: loadedModuleTraceEnvVar)
@@ -3869,6 +3880,18 @@ extension Driver {
                   .intern()
     }
     return try VirtualPath.intern(path: moduleName.appendingFileTypeExtension(type))
+  }
+
+  static func hasFileMapEntry(outputFileMap: OutputFileMap?, fileType: FileType) -> Bool {
+    guard let outputFileMap = outputFileMap else { return false }
+
+    // Check if any input has this file type in the output file map
+    for inputFile in outputFileMap.entries.keys {
+      if outputFileMap.entries[inputFile]?[fileType] != nil {
+        return true
+      }
+    }
+    return false
   }
 
   /// Determine if the build system has created a Project/ directory for auxiliary outputs.

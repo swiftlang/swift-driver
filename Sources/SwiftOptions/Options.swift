@@ -655,6 +655,7 @@ extension Option {
   public static let Isystem: Option = Option("-Isystem", .separate, attributes: [.frontend, .synthesizeInterface, .argumentIsPath], helpText: "Add directory to the system import search path")
   public static let I: Option = Option("-I", .joinedOrSeparate, attributes: [.frontend, .synthesizeInterface, .argumentIsPath], helpText: "Add directory to the import search path")
   public static let i: Option = Option("-i", .flag, group: .modes)
+  public static let irOutputDir: Option = Option("-ir-output-dir", .separate, attributes: [.argumentIsPath, .supplementaryOutput, .cacheInvariant], metaVar: "<dir>", helpText: "Output LLVM IR files to directory <dir> as additional output during compilation")
   public static let json: Option = Option("-json", .flag, attributes: [.noDriver], helpText: "Print output in JSON format.")
   public static let json_: Option = Option("--json", .flag, alias: Option.json, attributes: [.noDriver], helpText: "Print output in JSON format.")
   public static let j: Option = Option("-j", .joinedOrSeparate, attributes: [.doesNotAffectIncrementalBuild], metaVar: "<n>", helpText: "Number of commands to execute in parallel")
@@ -864,6 +865,7 @@ extension Option {
   public static let silDebugSerialization: Option = Option("-sil-debug-serialization", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Do not eliminate functions in Mandatory Inlining/SILCombine dead functions. (for debugging only)")
   public static let silInlineCallerBenefitReductionFactor: Option = Option("-sil-inline-caller-benefit-reduction-factor", .separate, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<2>", helpText: "Controls the aggressiveness of performance inlining in -Osize mode by reducing the base benefits of a caller (lower value permits more inlining!)")
   public static let silInlineThreshold: Option = Option("-sil-inline-threshold", .separate, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<50>", helpText: "Controls the aggressiveness of performance inlining")
+  public static let silOutputDir: Option = Option("-sil-output-dir", .separate, attributes: [.argumentIsPath, .supplementaryOutput, .cacheInvariant], metaVar: "<dir>", helpText: "Output SIL files to directory <dir> as additional output during compilation")
   public static let silOwnershipVerifyAll: Option = Option("-sil-ownership-verify-all", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Verify ownership after each transform")
   public static let silStopOptznsBeforeLoweringOwnership: Option = Option("-sil-stop-optzns-before-lowering-ownership", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Stop optimizing at SIL time before we lower ownership from SIL. Intended only for SIL ossa tests")
   public static let silUnrollThreshold: Option = Option("-sil-unroll-threshold", .separate, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<250>", helpText: "Controls the aggressiveness of loop unrolling")
@@ -1610,6 +1612,7 @@ extension Option {
       Option.importPch,
       Option.importPrescan,
       Option.importUnderlyingModule,
+      Option.irOutputDir,
       Option.inPlace,
       Option.inProcessPluginServerPath,
       Option.includeSpiSymbols,
@@ -1849,6 +1852,7 @@ extension Option {
       Option.silDebugSerialization,
       Option.silInlineCallerBenefitReductionFactor,
       Option.silInlineThreshold,
+      Option.silOutputDir,
       Option.silOwnershipVerifyAll,
       Option.silStopOptznsBeforeLoweringOwnership,
       Option.silUnrollThreshold,
