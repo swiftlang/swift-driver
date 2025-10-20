@@ -105,6 +105,8 @@ extension Option {
   public static let coveragePrefixMap: Option = Option("-coverage-prefix-map", .separate, attributes: [.frontend], metaVar: "<prefix=replacement>", helpText: "Remap source paths in coverage info")
   public static let CrossModuleOptimization: Option = Option("-cross-module-optimization", .flag, attributes: [.helpHidden, .frontend], helpText: "Perform cross-module optimization")
   public static let crosscheckUnqualifiedLookup: Option = Option("-crosscheck-unqualified-lookup", .flag, attributes: [.frontend, .noDriver], helpText: "Compare legacy DeclContext- to ASTScope-based unqualified name lookup (for debugging)")
+  public static let csProfileGenerateEQ: Option = Option("-cs-profile-generate=", .joined, attributes: [.frontend, .noInteractive], metaVar: "<directory>", helpText: "Generate instrumented code to collect context sensitive execution counts into <directory>/default.profraw (overridden by LLVM_PROFILE_FILE env var)")
+  public static let csProfileGenerate: Option = Option("-cs-profile-generate", .flag, attributes: [.frontend, .noInteractive], helpText: "Generate instrumented code to collect context sensitive execution counts into default.profraw (overridden by LLVM_PROFILE_FILE env var)")
   public static let cxxInteropGettersSettersAsProperties: Option = Option("-cxx-interop-getters-setters-as-properties", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Import getters and setters as computed properties in Swift")
   public static let cxxInteropUseOpaquePointerForMoveonly: Option = Option("-cxx-interop-use-opaque-pointer-for-moveonly", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Testing flag that will be eliminated soon. Do not use.")
   public static let cxxInteroperabilityMode: Option = Option("-cxx-interoperability-mode=", .joined, attributes: [.frontend, .synthesizeInterface], helpText: "Enables C++ interoperability; pass 'default' to enable or 'off' to disable")
@@ -643,6 +645,9 @@ extension Option {
   public static let swiftinterfaceCompilerVersion: Option = Option("-interface-compiler-version", .separate, attributes: [.helpHidden, .frontend], metaVar: "<intcvers>", helpText: "The version of the Swift compiler used to generate a .swiftinterface file")
   public static let internalizeAtLink: Option = Option("-internalize-at-link", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Allow internalizing public symbols and vtables at link time (assume all client code of public types is part of the same link unit, or that external symbols are explicitly requested via -exported_symbols_list)")
   public static let interpret: Option = Option("-interpret", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Immediate mode", group: .modes)
+  public static let irProfileGenerateEQ: Option = Option("-ir-profile-generate=", .joined, attributes: [.frontend, .noInteractive], metaVar: "<directory>", helpText: "Generate instrumented code to collect execution counts into <directory>/default.profraw (overridden by LLVM_PROFILE_FILE env var)")
+  public static let irProfileGenerate: Option = Option("-ir-profile-generate", .flag, attributes: [.frontend, .noInteractive], helpText: "Generate instrumented code to collect execution counts into default.profraw (overridden by LLVM_PROFILE_FILE env var)")
+  public static let irProfileUse: Option = Option("-ir-profile-use=", .commaJoined, attributes: [.frontend, .noInteractive, .argumentIsPath], metaVar: "<profdata>", helpText: "Supply an IR-level PGO profdata file to enable profile-guided optimization")
   public static let Isystem: Option = Option("-Isystem", .separate, attributes: [.frontend, .synthesizeInterface, .argumentIsPath], helpText: "Add directory to the system import search path")
   public static let I: Option = Option("-I", .joinedOrSeparate, attributes: [.frontend, .synthesizeInterface, .argumentIsPath], helpText: "Add directory to the import search path")
   public static let i: Option = Option("-i", .flag, group: .modes)
@@ -776,9 +781,6 @@ extension Option {
   public static let printZeroStats: Option = Option("-print-zero-stats", .flag, attributes: [.helpHidden, .frontend], helpText: "Prints all stats even if they are zero")
   public static let profileCoverageMapping: Option = Option("-profile-coverage-mapping", .flag, attributes: [.frontend, .noInteractive], helpText: "Generate coverage data for use with profiled execution counts")
   public static let profileGenerate: Option = Option("-profile-generate", .flag, attributes: [.frontend, .noInteractive], helpText: "Generate instrumented code to collect execution counts")
-  public static let irProfileGenerate: Option = Option("-ir-profile-generate", .flag, attributes: [.frontend, .noInteractive], helpText: "Generate instrumented code to collect execution counts into default.profraw (overridden by LLVM_PROFILE_FILE env var)")
-  public static let csProfileGenerate: Option = Option("-cs-profile-generate", .flag, attributes: [.frontend, .noInteractive], helpText: "Generate instrumented code to collect context sensitive execution counts into default.profraw (overridden by LLVM_PROFILE_FILE env var)")
-  public static let csProfileGenerateEq: Option = Option("-cs-profile-generate=", .joined, attributes: [.frontend, .noInteractive, .argumentIsPath], metaVar: "<dir>", helpText: "Generate instrumented code to collect context sensitive execution counts into <directory>/default.profraw (overridden by LLVM_PROFILE_FILE env var)")
   public static let profileSampleUse: Option = Option("-profile-sample-use=", .joined, attributes: [.frontend, .noInteractive, .argumentIsPath], metaVar: "<profile data>", helpText: "Supply sampling-based profiling data from llvm-profdata to enable profile-guided optimization")
   public static let profileStatsEntities: Option = Option("-profile-stats-entities", .flag, attributes: [.helpHidden, .frontend], helpText: "Profile changes to stats in -stats-output-dir, subdivided by source entity")
   public static let profileStatsEvents: Option = Option("-profile-stats-events", .flag, attributes: [.helpHidden, .frontend], helpText: "Profile changes to stats in -stats-output-dir")
@@ -1081,6 +1083,8 @@ extension Option {
       Option.coveragePrefixMap,
       Option.CrossModuleOptimization,
       Option.crosscheckUnqualifiedLookup,
+      Option.csProfileGenerateEQ,
+      Option.csProfileGenerate,
       Option.cxxInteropGettersSettersAsProperties,
       Option.cxxInteropUseOpaquePointerForMoveonly,
       Option.cxxInteroperabilityMode,
@@ -1619,6 +1623,9 @@ extension Option {
       Option.swiftinterfaceCompilerVersion,
       Option.internalizeAtLink,
       Option.interpret,
+      Option.irProfileGenerateEQ,
+      Option.irProfileGenerate,
+      Option.irProfileUse,
       Option.Isystem,
       Option.I,
       Option.i,
@@ -1752,9 +1759,6 @@ extension Option {
       Option.printZeroStats,
       Option.profileCoverageMapping,
       Option.profileGenerate,
-      Option.irProfileGenerate,
-      Option.csProfileGenerate,
-      Option.csProfileGenerateEq,
       Option.profileSampleUse,
       Option.profileStatsEntities,
       Option.profileStatsEvents,

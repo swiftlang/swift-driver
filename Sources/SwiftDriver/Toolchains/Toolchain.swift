@@ -384,13 +384,23 @@ extension Toolchain {
       args.append("-fprofile-generate")
     }
 
+    if options.contains(.irProfileGenerateEQ),
+       let path = options.getLastArgument(.irProfileGenerateEQ)?.asSingle {
+      args.append("-fprofile-generate=\(path)")
+    }
+
     if options.contains(.csProfileGenerate) {
       args.append("-fcs-profile-generate")
     }
 
-    if options.contains(.csProfileGenerateEq),
-       let path = options.getLastArgument(.csProfileGenerateEq)?.asSingle {
+    if options.contains(.csProfileGenerateEQ),
+       let path = options.getLastArgument(.csProfileGenerateEQ)?.asSingle {
       args.append("-fcs-profile-generate=\(path)")
+    }
+
+    if options.contains(.irProfileUse),
+       let path = options.getLastArgument(.irProfileUse)?.asMultiple.last {
+      args.append("-fprofile-use=\(path)")
     }
 
     return args
@@ -399,8 +409,9 @@ extension Toolchain {
   internal func needsInstrumentedProfile(from parsedOptions: inout ParsedOptions) -> Bool {
     parsedOptions.contains(.profileGenerate) ||
     parsedOptions.contains(.irProfileGenerate) ||
+    parsedOptions.contains(.irProfileGenerateEQ) ||
     parsedOptions.contains(.csProfileGenerate) ||
-    parsedOptions.contains(.csProfileGenerateEq)
+    parsedOptions.contains(.csProfileGenerateEQ)
   }
 }
 

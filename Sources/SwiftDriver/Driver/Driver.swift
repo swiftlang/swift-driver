@@ -3314,21 +3314,25 @@ extension Driver {
     let genFlags: [Option] = [
       .profileGenerate,
       .irProfileGenerate,
+      .irProfileGenerateEQ,
       .csProfileGenerate,
-      .csProfileGenerateEq,
+      .csProfileGenerateEQ,
     ]
+    func resolveDualFormConflict(_ plain: Option, _ equalsForm: Option) {
+       if parsedOptions.hasArgument(plain),
+          parsedOptions.hasArgument(equalsForm)
+       {
+         diagnosticEngine.emit(
+           .error(Error.conflictingOptions(plain, equalsForm)),
+           location: nil
+         )
+         providedGen.removeAll { $0 == equalsForm }
+       }
+     }
 
     var providedGen = genFlags.filter { parsedOptions.hasArgument($0) }
-    if parsedOptions.hasArgument(.csProfileGenerate),
-      parsedOptions.hasArgument(.csProfileGenerateEq)
-    {
-      // If both forms were specified, report a clear conflict.
-      diagnosticEngine.emit(
-        .error(Error.conflictingOptions(.csProfileGenerate, .csProfileGenerateEq)),
-        location: nil
-      )
-      providedGen.removeAll { $0 == .csProfileGenerateEq }
-    }
+    resolveDualFormConflict(.irProfileGenerate, .irProfileGenerateEQ)
+    resolveDualFormConflict(.csProfileGenerate, .csProfileGenerateEQ)
 
     guard providedGen.count >= 2 else { return }
     for i in 1..<providedGen.count {
@@ -3344,10 +3348,12 @@ extension Driver {
     let conflictingGenFlags: [Option] = [
       .profileGenerate,
       .irProfileGenerate,
+      .irProfileGenerateEQ,
     ]
     let useProfArgs: [Option] = [
       .profileUse,
       .profileSampleUse,
+      .irProfileUse
     ]
     let providedUse = useProfArgs.filter { parsedOptions.hasArgument($0) }
     guard !providedUse.isEmpty else { return }
@@ -3411,6 +3417,10 @@ extension Driver {
 
     if let profileSampleUseArg = parsedOptions.getLastArgument(.profileSampleUse)?.asSingle {
       checkForMissingProfilingData([profileSampleUseArg])
+    }
+
+    if let irProfileUseArgs = parsedOptions.getLastArgument(.irProfileUse)?.asMultiple {
+      checkForMissingProfilingData(irProfileUseArgs)
     }
   }
 
