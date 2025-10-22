@@ -62,17 +62,15 @@ func quoteArgument(_ argument: String) -> String {
 #if canImport(Darwin) || os(Linux) || os(Android) || os(OpenBSD) || os(FreeBSD)
 // Adapted from llvm::sys::commandLineFitsWithinSystemLimits.
 func commandLineFitsWithinSystemLimits(path: String, args: [String]) -> Bool {
-  let upperBound = sysconf(Int32(_SC_ARG_MAX))
-  guard upperBound != -1 else {
+  let systemLimit = sysconf(Int32(_SC_ARG_MAX))
+  guard systemLimit != -1 else {
     // The system reports no limit.
     return true
   }
   // The lower bound for ARG_MAX on a POSIX system
-  let lowerBound = Int(_POSIX_ARG_MAX)
-  // This the same baseline used by xargs.
-  let baseline = 128 * 1024
+  let posixLimit = Int(_POSIX_ARG_MAX)
 
-  var effectiveArgMax = max(min(baseline, upperBound), lowerBound)
+  var effectiveArgMax = max(systemLimit, posixLimit)
   // Conservatively assume environment variables consume half the space.
   effectiveArgMax /= 2
 

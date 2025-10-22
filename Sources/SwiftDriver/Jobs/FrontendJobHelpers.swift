@@ -229,7 +229,6 @@ extension Driver {
     try commandLine.appendLast(.nostdimport, from: &parsedOptions)
     try commandLine.appendLast(.nostdlibimport, from: &parsedOptions)
     try commandLine.appendLast(.parseStdlib, from: &parsedOptions)
-    try commandLine.appendLast(.solverMemoryThreshold, from: &parsedOptions)
     try commandLine.appendLast(.valueRecursionThreshold, from: &parsedOptions)
     try commandLine.appendLast(.warnSwift3ObjcInference, from: &parsedOptions)
     try commandLine.appendLast(.remarkLoadingModule, from: &parsedOptions)
@@ -475,6 +474,9 @@ extension Driver {
               try computeCanonicalObjCHeader(explicitModulePlanner: explicitModulePlanner)
     let objcHeaderFile = (kind == .scanDependencies) ? originalObjCHeaderFile : importedObjCHeader
     if let importedObjCHeader = objcHeaderFile, bridgingHeaderHandling != .ignored {
+      let importBridgingHeaderFlag: Option = importBridgingHeaderAsInternal
+        ? .internalImportBridgingHeader
+        : .importObjcHeader
       if bridgingHeaderHandling == .precompiled, let pch = precompiledObjCHeader {
         // For explicit module build, we directly pass the compiled pch to
         // swift-frontend, rather than rely on swift-frontend to locate
@@ -482,7 +484,7 @@ extension Driver {
         // of a lookup failure.
         if parsedOptions.contains(.pchOutputDir) &&
            !parsedOptions.contains(.driverExplicitModuleBuild) {
-          commandLine.appendFlag(.importObjcHeader)
+          commandLine.appendFlag(importBridgingHeaderFlag)
           try addPathArgument(VirtualPath.lookup(importedObjCHeader), to:&commandLine, remap: jobNeedPathRemap)
           try commandLine.appendLast(.pchOutputDir, from: &parsedOptions)
           if !compilerMode.isSingleCompilation {
@@ -491,21 +493,21 @@ extension Driver {
         } else {
           // If header chaining is enabled, pass objc header through `-import-objc-header` and
           // PCH file through `-import-pch`. Otherwise, pass either the PCH or header through
-          // `-import-objc-header` option.
+          // `-import-objc-header` option (or its internal variant).
           if isFrontendArgSupported(.importPch), importedObjCHeader != originalObjCHeaderFile {
-            commandLine.appendFlag(.importPch)
+            commandLine.appendFlag(importBridgingHeaderAsInternal ? .internalImportPch : .importPch)
             try addPathArgument(VirtualPath.lookup(pch), to:&commandLine, remap: jobNeedPathRemap)
             if let originalHeader = originalObjCHeaderFile {
-              commandLine.appendFlag(.importObjcHeader)
+              commandLine.appendFlag(importBridgingHeaderFlag)
               try addPathArgument(VirtualPath.lookup(originalHeader), to:&commandLine, remap: jobNeedPathRemap)
             }
           } else {
-            commandLine.appendFlag(.importObjcHeader)
+            commandLine.appendFlag(importBridgingHeaderFlag)
             try addPathArgument(VirtualPath.lookup(pch), to:&commandLine, remap: jobNeedPathRemap)
           }
         }
       } else {
-        commandLine.appendFlag(.importObjcHeader)
+        commandLine.appendFlag(importBridgingHeaderFlag)
         try addPathArgument(VirtualPath.lookup(importedObjCHeader), to:&commandLine, remap: jobNeedPathRemap)
       }
     }
@@ -665,8 +667,36 @@ extension Driver {
                                                         moduleOutputInfo: ModuleOutputInfo,
                                                         moduleOutputPaths: SupplementalModuleTargetOutputPaths,
                                                         includeModuleTracePath: Bool,
-                                                        indexFilePath: TypedVirtualPath?) throws -> [TypedVirtualPath] {
+                                                        indexFilePaths: [TypedVirtualPath],
+                                                        allInputs: [TypedVirtualPath] = []) throws -> [TypedVirtualPath] {
     var flaggedInputOutputPairs: [(flag: String, input: TypedVirtualPath?, output: TypedVirtualPath)] = []
+
+    /// Generate directory-based output path for supplementary outputs
+    func generateSupplementaryOutputPath(for input: TypedVirtualPath, outputType: FileType, directory: String) throws -> TypedVirtualPath {
+      let inputBasename = input.file.basenameWithoutExt
+      let fileExtension = outputType == .sil ? "sil" : "ll"
+      let filename = "\(inputBasename).\(fileExtension)"
+      let individualPath = try VirtualPath(path: directory).appending(component: filename)
+      let outputPath = individualPath.intern()
+      return TypedVirtualPath(file: outputPath, type: outputType)
+    }
+
+    /// Process inputs for supplementary output generation (SIL/IR)
+    func processInputsForSupplementaryOutput(inputs: [TypedVirtualPath], outputType: FileType, flag: String, directory: String?) throws {
+      for inputFile in inputs {
+        // Check output file map first, then fall back to directory-based generation
+        if let outputFileMapPath = try outputFileMap?.existingOutput(inputFile: inputFile.fileHandle, outputType: outputType) {
+          flaggedInputOutputPairs.append((flag: flag, input: inputFile, output: TypedVirtualPath(file: outputFileMapPath, type: outputType)))
+        } else if let directory = directory {
+          let outputPath = try generateSupplementaryOutputPath(for: inputFile, outputType: outputType, directory: directory)
+          flaggedInputOutputPairs.append((flag: flag, input: inputFile, output: outputPath))
+        } else if parsedOptions.hasArgument(.saveTemps) {
+          // When using -save-temps without explicit directories, output to current directory
+          let outputPath = try generateSupplementaryOutputPath(for: inputFile, outputType: outputType, directory: ".")
+          flaggedInputOutputPairs.append((flag: flag, input: inputFile, output: outputPath))
+        }
+      }
+    }
 
     /// Add output of a particular type, if needed.
     func addOutputOfType(
@@ -675,6 +705,25 @@ extension Driver {
       input: TypedVirtualPath?,
       flag: String
     ) throws {
+      // Handle directory-based options and file maps for SIL and LLVM IR when finalOutputPath is nil
+      if finalOutputPath == nil && (outputType == .sil || outputType == .llvmIR) {
+        let directoryOption: Option = outputType == .sil ? .silOutputDir : .irOutputDir
+        let directory = parsedOptions.getLastArgument(directoryOption)?.asSingle
+        let hasFileMapEntries = outputFileMap?.hasEntries(for: outputType) ?? false
+
+        if directory != nil || hasFileMapEntries || (parsedOptions.hasArgument(.saveTemps) && !hasFileMapEntries) {
+          let inputsToProcess: [TypedVirtualPath]
+          if compilerMode.usesPrimaryFileInputs {
+            inputsToProcess = input.map { [$0] } ?? []
+          } else {
+            inputsToProcess = allInputs
+          }
+
+          try processInputsForSupplementaryOutput(inputs: inputsToProcess, outputType: outputType, flag: flag, directory: directory)
+          return
+        }
+      }
+
       // If there is no final output, there's nothing to do.
       guard let finalOutputPath = finalOutputPath else { return }
 
@@ -761,6 +810,41 @@ extension Driver {
         finalOutputPath: serializedDiagnosticsFilePath,
         input: input,
         flag: "-serialize-diagnostics-path")
+
+      // Add SIL and IR outputs when explicitly requested via directory options, file maps, or -save-temps
+      let saveTempsWithoutFileMap = parsedOptions.hasArgument(.saveTemps) && outputFileMap == nil
+      let hasSilFileMapEntries = outputFileMap?.hasEntries(for: .sil) ?? false
+      let hasIrFileMapEntries = outputFileMap?.hasEntries(for: .llvmIR) ?? false
+
+      let silOutputPathSupported = Driver.isOptionFound("-sil-output-path", allOpts: supportedFrontendFlags)
+      let irOutputPathSupported = Driver.isOptionFound("-ir-output-path", allOpts: supportedFrontendFlags)
+
+      if !silOutputPathSupported && (parsedOptions.hasArgument(.silOutputDir) || hasSilFileMapEntries) {
+        diagnosticEngine.emit(.warning("frontend does not support -sil-output-path; SIL output will not be emitted"))
+      }
+
+      if !irOutputPathSupported && (parsedOptions.hasArgument(.irOutputDir) || hasIrFileMapEntries) {
+        diagnosticEngine.emit(.warning("frontend does not support -ir-output-path; IR output will not be emitted"))
+      }
+
+      let shouldAddSilOutput = silOutputPathSupported && (parsedOptions.hasArgument(.silOutputDir) || saveTempsWithoutFileMap || hasSilFileMapEntries)
+      let shouldAddIrOutput = irOutputPathSupported && (parsedOptions.hasArgument(.irOutputDir) || saveTempsWithoutFileMap || hasIrFileMapEntries)
+
+      if shouldAddSilOutput {
+        try addOutputOfType(
+          outputType: .sil,
+          finalOutputPath: silOutputPath,
+          input: input,
+          flag: "-sil-output-path")
+      }
+
+      if shouldAddIrOutput {
+        try addOutputOfType(
+          outputType: .llvmIR,
+          finalOutputPath: llvmIROutputPath,
+          input: input,
+          flag: "-ir-output-path")
+      }
     }
 
     if compilerMode.usesPrimaryFileInputs {
@@ -879,7 +963,10 @@ extension Driver {
       }
       // To match the legacy driver behavior, make sure we add an entry for the
       // file under indexing and the primary output file path.
-      if let indexFilePath = indexFilePath, let idxOutput = inputOutputMap[indexFilePath]?.first {
+      for indexFilePath in indexFilePaths {
+        guard let idxOutput = inputOutputMap[indexFilePath]?.first else {
+          continue
+        }
         entries[indexFilePath.fileHandle] = [.indexData: idxOutput.fileHandle]
       }
       let outputFileMap = OutputFileMap(entries: entries)
@@ -907,6 +994,9 @@ extension Driver {
     try commandLine.appendLast(.includeSpiSymbols, from: &parsedOptions)
     try commandLine.appendLast(.emitExtensionBlockSymbols, .omitExtensionBlockSymbols, from: &parsedOptions)
     try commandLine.appendLast(.symbolGraphMinimumAccessLevel, from: &parsedOptions)
+    try commandLine.appendLast(.symbolGraphPrettyPrint, from: &parsedOptions)
+    try commandLine.appendLast(.symbolGraphSkipSynthesizedMembers, from: &parsedOptions)
+    try commandLine.appendLast(.symbolGraphSkipInheritedDocs, from: &parsedOptions)
   }
 
   mutating func addEntry(_ entries: inout [VirtualPath.Handle: [FileType: VirtualPath.Handle]], input: TypedVirtualPath?, output: TypedVirtualPath) throws {

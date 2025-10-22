@@ -906,6 +906,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
                             .appending(component: "Swift")
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       let invocationArguments = ["swiftc",
+                                 "-swift-version", "5",
                                  "-incremental", "-c",
                                  "-emit-module",
                                  "-enable-library-evolution", "-emit-module-interface", "-driver-show-incremental",
@@ -963,6 +964,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let privateSwiftInterfacePath: AbsolutePath = path.appending(component: "testExplicitModuleVerifyInterfaceJobs.private.swiftinterface")
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       var driver = try Driver(args: ["swiftc",
+                                     "-swift-version", "5",
                                      "-I", cHeadersPath.nativePathString(escaped: true),
                                      "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
                                      "-I", stdlibPath.nativePathString(escaped: true),
@@ -1649,6 +1651,55 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let jobs = try driver.planBuild()
       try driver.run(jobs: jobs)
       XCTAssertFalse(driver.diagnosticEngine.hasErrors)
+    }
+  }
+
+  func testInMemoryScanWithSerializedDiagnostics() throws {
+    try withTemporaryDirectory { path in
+      let (stdLibPath, shimsPath, _, hostTriple) = try getDriverArtifactsForScanning()
+      let scannerCachePath: AbsolutePath = path.appending(component: "ClangScannerCache")
+      let moduleCachePath = path.appending(component: "ModuleCache")
+      let serializedDiagnosticsOutputPath = path.appending(component: "ScanDiags.dia")
+
+      // Setup our main test module
+      let mainSourcePath = path.appending(component: "Foo.swift")
+      try localFileSystem.writeFileContents(mainSourcePath, bytes: "import Swift")
+
+      // Setup the build plan
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+      var driver = try Driver(args: ["swiftc",
+                                     "-I", stdLibPath.nativePathString(escaped: true),
+                                     "-I", shimsPath.nativePathString(escaped: true),
+                                     "-explicit-module-build",
+                                     "-dependency-scan-serialize-diagnostics-path",
+                                     serializedDiagnosticsOutputPath.nativePathString(escaped: false),
+                                     "-module-name", "main",
+                                     "-target", hostTriple.triple,
+                                     "-working-directory", path.nativePathString(escaped: true),
+                                     "-clang-scanner-module-cache-path",
+                                     scannerCachePath.nativePathString(escaped: false),
+                                     "-module-cache-path",
+                                     moduleCachePath.nativePathString(escaped: true),
+                                     mainSourcePath.nativePathString(escaped: true)] + sdkArgumentsForTesting)
+
+      // Set up the in-memory dependency scan using the dependency oracle
+      let dependencyOracle = driver.interModuleDependencyOracle
+      let scanLibPath = try XCTUnwrap(driver.toolchain.lookupSwiftScanLib())
+      try dependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
+      let resolver = try ArgsResolver(fileSystem: localFileSystem)
+      let scannerCommand = try driver.dependencyScannerInvocationCommand().1.map { try resolver.resolve($0) }
+      XCTAssertTrue(scannerCommand.contains(subsequence: ["-serialize-diagnostics-path", serializedDiagnosticsOutputPath.pathString]))
+
+      // Perform the scan
+      var scanDiagnostics: [ScannerDiagnosticPayload] = []
+      let _ = try dependencyOracle.getDependencies(workingDirectory: path,
+                                                   commandLine: scannerCommand,
+                                                   diagnostics: &scanDiagnostics)
+
+      // TODO: Ensure the serialized diagnostics output got written out
+      // This requires an ability to confirm first whether the compiler we're using
+      // has this capability.
+      // XCTAssertTrue(localFileSystem.exists(serializedDiagnosticsOutputPath))
     }
   }
 
@@ -2801,6 +2852,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
           """
         )
         var driver = try Driver(args: ["swiftc",
+                                       "-swift-version", "5",
                                        "-experimental-emit-variant-module",
                                        "-target", "x86_64-apple-macosx10.14",
                                        "-target-variant", "x86_64-apple-ios13.1-macabi",

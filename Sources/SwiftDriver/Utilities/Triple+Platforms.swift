@@ -215,8 +215,10 @@ extension Triple {
     switch compatibilityPlatform ?? darwinPlatform! {
     case .macOS:
       return _macOSVersion ?? osVersion
-    case .iOS, .tvOS:
+    case .iOS:
       return _iOSVersion
+    case .tvOS:
+      return _tvOSVersion
     case .watchOS:
       return _watchOSVersion
     case .visionOS:
@@ -282,14 +284,22 @@ extension Triple {
       }
 
       return _iOSVersion
-    case .iOS(.device), .iOS(.simulator), .tvOS(_):
-      // The first deployment of arm64 simulators is iOS/tvOS 14.0;
+    case .iOS(_):
+      // The first deployment of arm64 simulators is iOS 14.0;
       // the linker doesn't want to see a deployment target before that.
       if _isSimulatorEnvironment && _iOSVersion.major < 14 && arch == .aarch64 {
         return Version(14, 0, 0)
       }
 
       return _iOSVersion
+    case .tvOS(_):
+      // The first deployment of arm64 simulators is tvOS 14.0;
+      // the linker doesn't want to see a deployment target before that.
+      if _isSimulatorEnvironment && _tvOSVersion.major < 14 && arch == .aarch64 {
+        return Version(14, 0, 0)
+      }
+
+      return _tvOSVersion
     case .watchOS(_):
       // The first deployment of arm64 simulators is watchOS 7;
       // the linker doesn't want to see a deployment target before that.
@@ -297,7 +307,7 @@ extension Triple {
         return Version(7, 0, 0)
       }
 
-      return osVersion
+      return _watchOSVersion
     case .visionOS(_):
       return _visionOSVersion
     }

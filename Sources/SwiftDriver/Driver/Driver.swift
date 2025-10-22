@@ -353,6 +353,9 @@ public struct Driver {
   /// Original ObjC Header passed from command-line
   let originalObjCHeaderFile: VirtualPath.Handle?
 
+  /// Whether to import the bridging header as internal (vs public).
+  let importBridgingHeaderAsInternal: Bool
+
   /// Enable bridging header chaining.
   let bridgingHeaderChaining: Bool
 
@@ -374,6 +377,9 @@ public struct Driver {
   /// Path to the serialized diagnostics file of the emit-module task.
   let emitModuleSerializedDiagnosticsFilePath: VirtualPath.Handle?
 
+  /// Path to the serialized diagnostics file of the dependency scanning task.
+  let dependencyScanSerializedDiagnosticsPath: VirtualPath.Handle?
+
   /// Path to the discovered dependencies file of the emit-module task.
   let emitModuleDependenciesFilePath: VirtualPath.Handle?
 
@@ -382,6 +388,12 @@ public struct Driver {
 
   /// Path to the Objective-C generated header.
   let objcGeneratedHeaderPath: VirtualPath.Handle?
+
+  /// Path to the SIL output file.
+  let silOutputPath: VirtualPath.Handle?
+
+  /// Path to the LLVM IR output file.
+  let llvmIROutputPath: VirtualPath.Handle?
 
   /// Path to the loaded module trace file.
   let loadedModuleTracePath: VirtualPath.Handle?
@@ -875,9 +887,23 @@ public struct Driver {
 
     self.executor = executor
 
+    if args.count > 1 && args[1] == "-repl" {
+      #if arch(arm64)
+        checkIfMatchingPythonArch(
+          cwd: ProcessEnv.cwd, envBlock: envBlock, toolchainArchitecture: .arm64, diagnosticsEngine: diagnosticsEngine)
+      #elseif arch(x86_64)
+        checkIfMatchingPythonArch(
+          cwd: ProcessEnv.cwd, envBlock: envBlock, toolchainArchitecture: .x64, diagnosticsEngine: diagnosticsEngine)
+      #elseif arch(x86)
+        checkIfMatchingPythonArch(
+          cwd: ProcessEnv.cwd, envBlock: envBlock, toolchainArchitecture: .x86, diagnosticsEngine: diagnosticsEngine)
+      #endif
+    }
+
     if case .subcommand = try Self.invocationRunMode(forArgs: args).mode {
       throw Error.subcommandPassedToDriver
     }
+
     var args = args
     if let additional = env["ADDITIONAL_SWIFT_DRIVER_FLAGS"] {
       args.append(contentsOf: additional.components(separatedBy: " "))
@@ -1148,10 +1174,12 @@ public struct Driver {
     }
     self.producePCHJob = maybeNeedPCH
 
-    if let objcHeaderPathArg = parsedOptions.getLastArgument(.importObjcHeader) {
-      self.originalObjCHeaderFile = try? VirtualPath.intern(path: objcHeaderPathArg.asSingle)
+    if let importBridgingHeaderOption = parsedOptions.last(for: .importBridgingHeader, .internalImportBridgingHeader) {
+      self.originalObjCHeaderFile = try? VirtualPath.intern(path: importBridgingHeaderOption.argument.asSingle)
+      self.importBridgingHeaderAsInternal = importBridgingHeaderOption.option == .internalImportBridgingHeader
     } else {
       self.originalObjCHeaderFile = nil
+      self.importBridgingHeaderAsInternal = false
     }
 
     if parsedOptions.hasFlag(positive: .autoBridgingHeaderChaining,
@@ -1241,6 +1269,14 @@ public struct Driver {
         emitModuleSeparately: emitModuleSeparately,
         outputFileMap: self.outputFileMap,
         moduleName: moduleOutputInfo.name)
+    self.dependencyScanSerializedDiagnosticsPath = try Self.computeSupplementaryOutputPath(
+        &parsedOptions, type: .dependencyScanDiagnostics, isOutputOptions: [.serializeDiagnostics],
+        outputPath: .dependencyScanSerializeDiagnosticsPath,
+        compilerOutputType: compilerOutputType,
+        compilerMode: compilerMode,
+        emitModuleSeparately: emitModuleSeparately,
+        outputFileMap: self.outputFileMap,
+        moduleName: moduleOutputInfo.name)
     self.emitModuleDependenciesFilePath = try Self.computeSupplementaryOutputPath(
         &parsedOptions, type: .emitModuleDependencies, isOutputOptions: [.emitDependencies],
         outputPath: .emitModuleDependenciesPath,
@@ -1266,6 +1302,11 @@ public struct Driver {
         emitModuleSeparately: emitModuleSeparately,
         outputFileMap: self.outputFileMap,
         moduleName: moduleOutputInfo.name)
+    // SIL and IR outputs are handled through directory options and file maps
+    // rather than single output paths, so we set these to nil to enable
+    // the supplementary output path logic in FrontendJobHelpers
+    self.silOutputPath = nil
+    self.llvmIROutputPath = nil
 
     if let loadedModuleTraceEnvVar = env["SWIFT_LOADED_MODULE_TRACE_FILE"] {
       self.loadedModuleTracePath = try VirtualPath.intern(path: loadedModuleTraceEnvVar)
@@ -2034,8 +2075,8 @@ extension Driver {
 
     // Put bridging header as first input if we have it
     let allInputs: [TypedVirtualPath]
-    if let objcHeader = originalObjCHeaderFile {
-      allInputs = [TypedVirtualPath(file: objcHeader, type: .objcHeader)] + inputFiles
+    if let bridgingHeader = originalObjCHeaderFile {
+      allInputs = [TypedVirtualPath(file: bridgingHeader, type: .objcHeader)] + inputFiles
     } else {
       allInputs = inputFiles
     }
@@ -2751,7 +2792,9 @@ extension Driver {
     }
 
     // Check that we're one of the known supported targets for sanitizers.
-    if !(targetTriple.isWindows || targetTriple.isDarwin || targetTriple.os == .linux || targetTriple.os == .wasi) {
+    if !(targetTriple.isWindows ||
+      targetTriple.isDarwin ||
+      [.freeBSD, .linux, .wasi].contains(targetTriple.os)) {
       diagnosticEngine.emit(
         .error_unsupported_opt_for_target(
           arg: "-sanitize=",
@@ -3837,6 +3880,18 @@ extension Driver {
                   .intern()
     }
     return try VirtualPath.intern(path: moduleName.appendingFileTypeExtension(type))
+  }
+
+  static func hasFileMapEntry(outputFileMap: OutputFileMap?, fileType: FileType) -> Bool {
+    guard let outputFileMap = outputFileMap else { return false }
+
+    // Check if any input has this file type in the output file map
+    for inputFile in outputFileMap.entries.keys {
+      if outputFileMap.entries[inputFile]?[fileType] != nil {
+        return true
+      }
+    }
+    return false
   }
 
   /// Determine if the build system has created a Project/ directory for auxiliary outputs.
