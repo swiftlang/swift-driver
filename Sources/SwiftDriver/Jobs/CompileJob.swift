@@ -292,7 +292,8 @@ extension Driver {
     }
 
     try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs, kind: .compile,
-                                 explicitModulePlanner: explicitModulePlanner)
+                                 explicitModulePlanner: explicitModulePlanner, forVariantEmitModule: false,
+                                 forObject: outputType == .object)
     try addRuntimeLibraryFlags(commandLine: &commandLine)
 
     if Driver.canDoCrossModuleOptimization(parsedOptions: &parsedOptions) &&
@@ -371,6 +372,9 @@ extension Driver {
       commandLine.appendFlag(map)
     }
 
+    if isFrontendArgSupported(.debugModulePath) {
+      try commandLine.appendLast(.debugModulePath, from: &parsedOptions)
+    }
     try commandLine.appendLast(.trackSystemDependencies, from: &parsedOptions)
     try commandLine.appendLast(.CrossModuleOptimization, from: &parsedOptions)
     try commandLine.appendLast(.EnableCMOEverything, from: &parsedOptions)
