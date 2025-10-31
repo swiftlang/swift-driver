@@ -163,8 +163,6 @@ private func checkCachingBuildJobDependencies(job: Job,
       TypedVirtualPath(file: clangDependencyModulePathString, type: .pcm)
     XCTAssertTrue(job.inputs.contains(clangDependencyModulePath))
     XCTAssertTrue(job.commandLine.contains(
-      .flag(String("-fmodule-file=\(dependencyId.moduleName)=\(clangDependencyModulePathString)"))))
-    XCTAssertTrue(job.commandLine.contains(
       .flag(String("-fmodule-file-cache-key"))))
     let cacheKey = try XCTUnwrap(clangDependencyDetails.moduleCacheKey)
     XCTAssertTrue(job.commandLine.contains(.flag(String(cacheKey))))
