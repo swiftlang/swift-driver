@@ -105,6 +105,8 @@ extension Option {
   public static let coveragePrefixMap: Option = Option("-coverage-prefix-map", .separate, attributes: [.frontend], metaVar: "<prefix=replacement>", helpText: "Remap source paths in coverage info")
   public static let CrossModuleOptimization: Option = Option("-cross-module-optimization", .flag, attributes: [.helpHidden, .frontend], helpText: "Perform cross-module optimization")
   public static let crosscheckUnqualifiedLookup: Option = Option("-crosscheck-unqualified-lookup", .flag, attributes: [.frontend, .noDriver], helpText: "Compare legacy DeclContext- to ASTScope-based unqualified name lookup (for debugging)")
+  public static let csProfileGenerateEQ: Option = Option("-cs-profile-generate=", .joined, attributes: [.frontend, .noInteractive], metaVar: "<directory>", helpText: "Generate instrumented code to collect context sensitive execution counts into <directory>/default.profraw (overridden by LLVM_PROFILE_FILE env var)")
+  public static let csProfileGenerate: Option = Option("-cs-profile-generate", .flag, attributes: [.frontend, .noInteractive], helpText: "Generate instrumented code to collect context sensitive execution counts into default.profraw (overridden by LLVM_PROFILE_FILE env var)")
   public static let cxxInteropGettersSettersAsProperties: Option = Option("-cxx-interop-getters-setters-as-properties", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Import getters and setters as computed properties in Swift")
   public static let cxxInteropUseOpaquePointerForMoveonly: Option = Option("-cxx-interop-use-opaque-pointer-for-moveonly", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Testing flag that will be eliminated soon. Do not use.")
   public static let cxxInteroperabilityMode: Option = Option("-cxx-interoperability-mode=", .joined, attributes: [.frontend, .synthesizeInterface], helpText: "Enables C++ interoperability; pass 'default' to enable or 'off' to disable")
@@ -652,6 +654,9 @@ extension Option {
   public static let internalImportPch: Option = Option("-internal-import-pch", .separate, attributes: [.helpHidden, .frontend, .argumentIsPath], helpText: "Import bridging header PCH file as internal")
   public static let internalizeAtLink: Option = Option("-internalize-at-link", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Allow internalizing public symbols and vtables at link time (assume all client code of public types is part of the same link unit, or that external symbols are explicitly requested via -exported_symbols_list)")
   public static let interpret: Option = Option("-interpret", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Immediate mode", group: .modes)
+  public static let irProfileGenerateEQ: Option = Option("-ir-profile-generate=", .joined, attributes: [.frontend, .noInteractive], metaVar: "<directory>", helpText: "Generate instrumented code to collect execution counts into <directory>/default.profraw (overridden by LLVM_PROFILE_FILE env var)")
+  public static let irProfileGenerate: Option = Option("-ir-profile-generate", .flag, attributes: [.frontend, .noInteractive], helpText: "Generate instrumented code to collect execution counts into default.profraw (overridden by LLVM_PROFILE_FILE env var)")
+  public static let irProfileUse: Option = Option("-ir-profile-use=", .commaJoined, attributes: [.frontend, .noInteractive, .argumentIsPath], metaVar: "<profdata>", helpText: "Supply an IR-level PGO profdata file to enable profile-guided optimization")
   public static let Isystem: Option = Option("-Isystem", .separate, attributes: [.frontend, .synthesizeInterface, .argumentIsPath], helpText: "Add directory to the system import search path")
   public static let I: Option = Option("-I", .joinedOrSeparate, attributes: [.frontend, .synthesizeInterface, .argumentIsPath], helpText: "Add directory to the import search path")
   public static let i: Option = Option("-i", .flag, group: .modes)
@@ -1092,6 +1097,8 @@ extension Option {
       Option.coveragePrefixMap,
       Option.CrossModuleOptimization,
       Option.crosscheckUnqualifiedLookup,
+      Option.csProfileGenerateEQ,
+      Option.csProfileGenerate,
       Option.cxxInteropGettersSettersAsProperties,
       Option.cxxInteropUseOpaquePointerForMoveonly,
       Option.cxxInteroperabilityMode,
@@ -1640,6 +1647,9 @@ extension Option {
       Option.internalImportPch,
       Option.internalizeAtLink,
       Option.interpret,
+      Option.irProfileGenerateEQ,
+      Option.irProfileGenerate,
+      Option.irProfileUse,
       Option.Isystem,
       Option.I,
       Option.i,
