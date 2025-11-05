@@ -24,7 +24,6 @@ jobs:
       linux_static_sdk_build_command: SWIFTBUILD_STATIC_LINK=1 LLBUILD_STATIC_LINK=1 swift build
       enable_macos_checks: true
       macos_xcode_versions: "[\"26.0\"]"
-      macos_build_command: swift test
 
   soundness:
     name: Soundness
