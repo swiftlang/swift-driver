@@ -718,6 +718,10 @@ final class ExplicitModuleBuildTests: XCTestCase {
       for job in jobs {
         XCTAssertEqual(job.outputs.count, 1)
         let outputFilePath = job.outputs[0].file
+        if job.kind == .compile && driver.isFrontendArgSupported(.debugModulePath) {
+          XCTAssertTrue(job.commandLine.contains(subsequence: ["-debug-module-path", try toPathOption("testExplicitModuleBuildJobs.swiftmodule")]))
+
+        }
 
         // Swift dependencies
         if outputFilePath.extension != nil,

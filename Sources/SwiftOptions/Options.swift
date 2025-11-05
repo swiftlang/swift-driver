@@ -131,6 +131,8 @@ extension Option {
   public static let debugInverseRequirements: Option = Option("-debug-inverse-requirements", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Print real requirements in -debug-generic-signatures output")
   public static let debugMapping: Option = Option("-debug-mapping", .flag, attributes: [.noDriver], helpText: "Dumping information for debug purposes")
   public static let debugMapping_: Option = Option("--debug-mapping", .flag, alias: Option.debugMapping, attributes: [.noDriver], helpText: "Dumping information for debug purposes")
+  public static let debugModulePathEQ: Option = Option("-debug-module-path=", .joined, alias: Option.debugModulePath, attributes: [.frontend])
+  public static let debugModulePath: Option = Option("-debug-module-path", .separate, attributes: [.frontend], helpText: "Path to this module's binary swiftmodule artifact (required by debug info)")
   public static let debugPrefixMap: Option = Option("-debug-prefix-map", .separate, attributes: [.frontend], metaVar: "<prefix=replacement>", helpText: "Remap source paths in debug info")
   public static let debugRequirementMachine: Option = Option("-debug-requirement-machine=", .joined, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Fine-grained debug output from the generics implementation")
   public static let debugTimeExpressionTypeChecking: Option = Option("-debug-time-expression-type-checking", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Dumps the time it takes to type-check each expression")
@@ -1579,6 +1581,8 @@ extension Option {
       Option.explicitAutoLinking,
       Option.explicitDependencyGraphFormat,
       Option.explicitInterfaceModuleBuild,
+      Option.debugModulePathEQ,
+      Option.debugModulePath,
       Option.driverExplicitModuleBuild,
       Option.explicitSwiftModuleMap,
       Option.exportAs,
