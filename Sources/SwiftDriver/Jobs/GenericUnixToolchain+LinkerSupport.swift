@@ -128,7 +128,7 @@ extension GenericUnixToolchain {
         }
       }
 
-      if targetTriple.os == .openbsd && targetTriple.arch == .aarch64 {
+      if targetTriple.os == .openbsd && (targetTriple.arch == .aarch64 || targetTriple.arch == .x86_64) {
         let btcfiEnabled = targetInfo.target.openbsdBTCFIEnabled ?? false
         if !btcfiEnabled {
           commandLine.appendFlag("-Xlinker")

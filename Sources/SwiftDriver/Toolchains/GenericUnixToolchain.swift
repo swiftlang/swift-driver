@@ -170,7 +170,7 @@ public final class GenericUnixToolchain: Toolchain {
       try commandLine.appendPath(VirtualPath(path: sysroot.pathString))
     }
 
-    if driver.targetTriple.os == .openbsd && driver.targetTriple.arch == .aarch64 {
+    if driver.targetTriple.os == .openbsd && (driver.targetTriple.arch == .aarch64 || driver.targetTriple.arch == .x86_64) {
       if frontendTargetInfo.target.openbsdBTCFIEnabled ?? false {
         commandLine.appendFlag(.Xcc)
         commandLine.appendFlag("-Xclang=-msign-return-address=non-leaf")
