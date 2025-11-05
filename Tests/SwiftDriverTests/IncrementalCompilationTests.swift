@@ -43,11 +43,11 @@ final class IncrementalCompilationTests: XCTestCase {
   var derivedDataPath: AbsolutePath {
     tempDir.appending(component: "derivedData")
   }
-  var masterSwiftDepsPath: AbsolutePath {
-    derivedDataPath.appending(component: "\(module)-master.swiftdeps")
+  var mainSwiftDepsPath: AbsolutePath {
+    derivedDataPath.appending(component: "\(module)-main.swiftdeps")
   }
   var priorsPath: AbsolutePath {
-    derivedDataPath.appending(component: "\(module)-master.priors")
+    derivedDataPath.appending(component: "\(module)-main.priors")
   }
   var casPath: AbsolutePath {
     derivedDataPath.appending(component: "cas")
@@ -56,7 +56,7 @@ final class IncrementalCompilationTests: XCTestCase {
     derivedDataPath.appending(component: "\(basename).swiftdeps")
   }
   var serializedDepScanCachePath: AbsolutePath {
-    derivedDataPath.appending(component: "\(module)-master.swiftmoduledeps")
+    derivedDataPath.appending(component: "\(module)-main.swiftmoduledeps")
   }
   fileprivate var autolinkIncrementalExpectedDiags: [Diagnostic.Message] {
     queuingExtractingAutolink(module)
@@ -2028,7 +2028,7 @@ extension DiagVerifiable {
       "Incremental compilation: Disabling incremental build: different arguments were passed to the compiler"
   }
   @DiagsBuilder var missingMainDependencyEntry: [Diagnostic.Message] {
-    .warning("ignoring -incremental; output file map has no master dependencies entry (\"swift-dependencies\" under \"\")")
+    .warning("ignoring -incremental; output file map has no main dependencies entry (\"swift-dependencies\" under \"\")")
   }
   @DiagsBuilder var disablingIncremental: [Diagnostic.Message] {
     "Incremental compilation: Disabling incremental build: no build record path"

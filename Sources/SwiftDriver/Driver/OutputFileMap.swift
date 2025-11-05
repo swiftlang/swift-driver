@@ -262,9 +262,9 @@ fileprivate struct OutputFileMapJSON: Codable {
     _ entries: [VirtualPath.Handle : [FileType : VirtualPath.Handle]]
   ) -> Self {
     func convert(entry: (key: VirtualPath.Handle, value: [FileType: VirtualPath.Handle])) -> (String, Entry) {
-      // We use a VirtualPath with an empty path for the master entry, but its name is "." and we need ""
-      let fixedIfMaster = VirtualPath.lookup(entry.key).name == "." ? "" : VirtualPath.lookup(entry.key).name
-      return (fixedIfMaster, convert(outputs: entry.value))
+      // We use a VirtualPath with an empty path for the main entry, but its name is "." and we need ""
+      let fixedIfMain = VirtualPath.lookup(entry.key).name == "." ? "" : VirtualPath.lookup(entry.key).name
+      return (fixedIfMain, convert(outputs: entry.value))
     }
     func convert(outputs: [FileType: VirtualPath.Handle]) -> Entry {
       Entry(paths: outputs.mapValues({ VirtualPath.lookup($0).name }))

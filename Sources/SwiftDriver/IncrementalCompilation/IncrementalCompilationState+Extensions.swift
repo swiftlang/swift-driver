@@ -113,7 +113,7 @@ extension Diagnostic.Message {
   static var warning_incremental_requires_build_record_entry: Diagnostic.Message {
     .warning(
       "ignoring -incremental; " +
-        "output file map has no master dependencies entry (\"\(FileType.swiftDeps)\" under \"\")"
+        "output file map has no main dependencies entry (\"\(FileType.swiftDeps)\" under \"\")"
     )
   }
 
