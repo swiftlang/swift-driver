@@ -50,9 +50,9 @@ func getExitCode(_ code: Int32) -> Int32 {
     TerminateProcess(GetCurrentProcess(), UINT(0xC0000000 | UINT(2)))
 #else
     signal(SIGINT, SIG_DFL)
-    kill(getpid(), SIGINT)
+    kill(getpid(), SIGINT) // ignore-unacceptable-language
 #endif
-    fatalError("Invalid state, could not kill process")
+    fatalError("Invalid state, could not terminate process")
   }
   return code
 }

@@ -110,7 +110,7 @@ class IncrementalBuildPerformanceTests: XCTestCase {
           return nil
         }
         let withoutExtension = fileName.prefix(upTo: suffixRange.lowerBound)
-        guard !withoutExtension.hasSuffix("-master") else { return nil }
+        guard !withoutExtension.hasSuffix("-main") else { return nil }
         return withoutExtension
       }
       .sorted()
