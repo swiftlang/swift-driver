@@ -1,12 +1,14 @@
-//===--------------- ProcessSet.swift - Swift Subprocesses ---------------===//
+//===----------------------------------------------------------------------===//
 //
-// This source file is part of the Swift.org open source project
+// This source file is part of the Swift open source project
 //
 // Copyright (c) 2014 - 2025 Apple Inc. and the Swift project authors
-// Licensed under Apache License v2.0 with Runtime Library Exception
+// Licensed under Apache License v2.0
 //
-// See https://swift.org/LICENSE.txt for license information
-// See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+// See LICENSE.txt for license information
+// See CONTRIBUTORS.txt for the list of Swift project authors
+//
+// SPDX-License-Identifier: Apache-2.0
 //
 //===----------------------------------------------------------------------===//
 
@@ -37,18 +39,18 @@ public final class ProcessSet {
   /// If the process group was asked to cancel all active processes.
   private var cancelled = false
 
-  /// The timeout (in seconds) after which the processes should be killed if they don't respond to SIGINT.
-  public let killTimeout: Double
+  /// The timeout (in seconds) after which the processes should be terminated if they don't respond to SIGINT.
+  public let terminateTimeout: Double
 
-  /// Condition to block kill thread until timeout.
-  private var killingCondition = Condition()
+  /// Condition to block termination thread until timeout.
+  private var terminationCondition = Condition()
 
-  /// Boolean predicate for killing condition.
-  private var shouldKill = false
+  /// Boolean predicate for termination condition.
+  private var shouldTerminate = false
 
   /// Create a process set.
-  public init(killTimeout: Double = 5) {
-    self.killTimeout = killTimeout
+  public init(terminateTimeout: Double = 5) {
+    self.terminateTimeout = terminateTimeout
   }
 
   /// Add a process to the process set. This method will throw if the process set is terminated using the terminate()
@@ -80,22 +82,22 @@ public final class ProcessSet {
     // Interrupt all processes.
     signalAll(SIGINT)
 
-    // Create a thread that will kill all processes after a timeout.
+    // Create a thread that will terminate all processes after a timeout.
     let thread = TSCBasic.Thread {
       // Compute the timeout date.
-      let timeout = Date() + self.killTimeout
+      let timeout = Date() + self.terminateTimeout
       // Block until we timeout or notification.
-      self.killingCondition.whileLocked {
-        while !self.shouldKill {
+      self.terminationCondition.whileLocked {
+        while !self.shouldTerminate {
           // Block until timeout expires.
-          let timeLimitReached = !self.killingCondition.wait(until: timeout)
-          // Set should kill to true if time limit was reached.
+          let timeLimitReached = !self.terminationCondition.wait(until: timeout)
+          // Set shouldTerminate to true if time limit was reached.
           if timeLimitReached {
-            self.shouldKill = true
+            self.shouldTerminate = true
           }
         }
       }
-      // Send kill signal to all processes.
+      // Send terminate signal to all processes.
 #if os(Windows)
       self.signalAll(SIGTERM)
 #else
@@ -105,17 +107,17 @@ public final class ProcessSet {
 
     thread.start()
 
-    // Wait until all processes terminate and notify the kill thread
+    // Wait until all processes terminate and notify the termination thread
     // if everyone exited to avoid waiting till timeout.
     for process in self.processes {
       _ = try? process.waitUntilExit()
     }
-    killingCondition.whileLocked {
-      shouldKill = true
-      killingCondition.signal()
+    terminationCondition.whileLocked {
+      shouldTerminate = true
+      terminationCondition.signal()
     }
 
-    // Join the kill thread so we don't exit before everything terminates.
+    // Join the termination thread so we don't exit before everything terminates.
     thread.join()
   }
 

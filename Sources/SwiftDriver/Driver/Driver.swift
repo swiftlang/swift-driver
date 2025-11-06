@@ -1,12 +1,14 @@
-//===--------------- Driver.swift - Swift Driver --------------------------===//
+//===----------------------------------------------------------------------===//
 //
-// This source file is part of the Swift.org open source project
+// This source file is part of the Swift open source project
 //
-// Copyright (c) 2014 - 2019 Apple Inc. and the Swift project authors
-// Licensed under Apache License v2.0 with Runtime Library Exception
+// Copyright (c) 2014 - 2025 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0
 //
-// See https://swift.org/LICENSE.txt for license information
-// See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+// See LICENSE.txt for license information
+// See CONTRIBUTORS.txt for the list of Swift project authors
+//
+// SPDX-License-Identifier: Apache-2.0
 //
 //===----------------------------------------------------------------------===//
 import SwiftOptions
@@ -3870,7 +3872,7 @@ extension Driver {
     }
 
     // If an explicit path is not provided by the output file map, attempt to
-    // synthesize a path from the master swift dependency path.  This is
+    // synthesize a path from the main swift dependency path.  This is
     // important as we may otherwise emit this file at the location where the
     // driver was invoked, which is normally the root of the package.
     if let path = try outputFileMap?.existingOutputForSingleInput(outputType: .swiftDeps) {

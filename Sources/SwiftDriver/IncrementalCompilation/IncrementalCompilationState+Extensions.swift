@@ -1,12 +1,14 @@
 //===----------------------------------------------------------------------===//
 //
-// This source file is part of the Swift.org open source project
+// This source file is part of the Swift open source project
 //
-// Copyright (c) 2014 - 2019 Apple Inc. and the Swift project authors
-// Licensed under Apache License v2.0 with Runtime Library Exception
+// Copyright (c) 2014 - 2025 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0
 //
-// See https://swift.org/LICENSE.txt for license information
-// See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+// See LICENSE.txt for license information
+// See CONTRIBUTORS.txt for the list of Swift project authors
+//
+// SPDX-License-Identifier: Apache-2.0
 //
 //===----------------------------------------------------------------------===//
 
@@ -113,7 +115,7 @@ extension Diagnostic.Message {
   static var warning_incremental_requires_build_record_entry: Diagnostic.Message {
     .warning(
       "ignoring -incremental; " +
-        "output file map has no master dependencies entry (\"\(FileType.swiftDeps)\" under \"\")"
+        "output file map has no main dependencies entry (\"\(FileType.swiftDeps)\" under \"\")"
     )
   }
 

@@ -1,12 +1,14 @@
 //===--------------- SwiftDriverTests.swift - Swift Driver Tests -======---===//
 //
-// This source file is part of the Swift.org open source project
+// This source file is part of the Swift open source project
 //
 // Copyright (c) 2014 - 2019 Apple Inc. and the Swift project authors
-// Licensed under Apache License v2.0 with Runtime Library Exception
+// Licensed under Apache License v2.0
 //
-// See https://swift.org/LICENSE.txt for license information
-// See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+// See LICENSE.txt for license information
+// See CONTRIBUTORS.txt for the list of Swift project authors
+//
+// SPDX-License-Identifier: Apache-2.0
 //
 //===----------------------------------------------------------------------===//
 @testable @_spi(Testing) import SwiftDriver
@@ -1197,8 +1199,8 @@ final class SwiftDriverTests: XCTestCase {
       let outputMapContents: ByteString = """
       {
         "": {
-          "diagnostics": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.dia",
-          "emit-module-diagnostics": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.emit-module.dia"
+          "diagnostics": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/main.dia",
+          "emit-module-diagnostics": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/main.emit-module.dia"
         },
         "foo.swift": {
           "diagnostics": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.dia"
@@ -1216,7 +1218,7 @@ final class SwiftDriverTests: XCTestCase {
         XCTAssertEqual(plannedJobs[0].kind, .emitModule)
         XCTAssertEqual(plannedJobs[1].kind, .compile)
         XCTAssertEqual(plannedJobs[2].kind, .link)
-        try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-serialize-diagnostics-path"), .path(.absolute(.init(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.emit-module.dia"))))
+        try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-serialize-diagnostics-path"), .path(.absolute(.init(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/main.emit-module.dia"))))
         try XCTAssertJobInvocationMatches(plannedJobs[1], .flag("-serialize-diagnostics-path"), .path(.absolute(.init(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.dia"))))
       }
 
@@ -1230,8 +1232,8 @@ final class SwiftDriverTests: XCTestCase {
         XCTAssertEqual(plannedJobs[0].kind, .compile)
         XCTAssertEqual(plannedJobs[1].kind, .emitModule)
         XCTAssertEqual(plannedJobs[2].kind, .link)
-        try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-serialize-diagnostics-path"), .path(.absolute(.init(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.dia"))))
-        try XCTAssertJobInvocationMatches(plannedJobs[1], .flag("-serialize-diagnostics-path"), .path(.absolute(.init(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.emit-module.dia"))))
+        try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-serialize-diagnostics-path"), .path(.absolute(.init(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/main.dia"))))
+        try XCTAssertJobInvocationMatches(plannedJobs[1], .flag("-serialize-diagnostics-path"), .path(.absolute(.init(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/main.emit-module.dia"))))
       }
     }
   }
@@ -1241,8 +1243,8 @@ final class SwiftDriverTests: XCTestCase {
       let outputMapContents: ByteString = """
       {
         "": {
-          "dependencies": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.d",
-          "emit-module-dependencies": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.emit-module.d"
+          "dependencies": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/main.d",
+          "emit-module-dependencies": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/main.emit-module.d"
         },
         "foo.swift": {
           "dependencies": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.d"
@@ -1260,7 +1262,7 @@ final class SwiftDriverTests: XCTestCase {
         XCTAssertEqual(plannedJobs[0].kind, .emitModule)
         XCTAssertEqual(plannedJobs[1].kind, .compile)
         XCTAssertEqual(plannedJobs[2].kind, .link)
-        try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-emit-dependencies-path"), .path(.absolute(.init(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.emit-module.d"))))
+        try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-emit-dependencies-path"), .path(.absolute(.init(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/main.emit-module.d"))))
         try XCTAssertJobInvocationMatches(plannedJobs[1], .flag("-emit-dependencies-path"), .path(.absolute(.init(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.d"))))
       }
 
@@ -1274,8 +1276,8 @@ final class SwiftDriverTests: XCTestCase {
         XCTAssertEqual(plannedJobs[0].kind, .compile)
         XCTAssertEqual(plannedJobs[1].kind, .emitModule)
         XCTAssertEqual(plannedJobs[2].kind, .link)
-        try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-emit-dependencies-path"), .path(.absolute(.init(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.d"))))
-        try XCTAssertJobInvocationMatches(plannedJobs[1], .flag("-emit-dependencies-path"), .path(.absolute(.init(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.emit-module.d"))))
+        try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-emit-dependencies-path"), .path(.absolute(.init(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/main.d"))))
+        try XCTAssertJobInvocationMatches(plannedJobs[1], .flag("-emit-dependencies-path"), .path(.absolute(.init(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/main.emit-module.d"))))
       }
     }
   }
@@ -1287,7 +1289,7 @@ final class SwiftDriverTests: XCTestCase {
     let contents = ByteString("""
     {
       "": {
-        "swift-dependencies": "\(objroot.appending(components: "master.swiftdeps").nativePathString(escaped: true))"
+        "swift-dependencies": "\(objroot.appending(components: "main.swiftdeps").nativePathString(escaped: true))"
       },
       "/tmp/foo/Sources/foo/foo.swift": {
         "dependencies": "\(objroot.appending(components: "foo.d").nativePathString(escaped: true))",
@@ -1306,8 +1308,8 @@ final class SwiftDriverTests: XCTestCase {
         let object = try outputFileMap.getOutput(inputFile: VirtualPath.intern(path: "/tmp/foo/Sources/foo/foo.swift"), outputType: .object)
         XCTAssertEqual(VirtualPath.lookup(object).name, objroot.appending(components: "foo.swift.o").pathString)
 
-        let masterDeps = try outputFileMap.getOutput(inputFile: VirtualPath.intern(path: ""), outputType: .swiftDeps)
-        XCTAssertEqual(VirtualPath.lookup(masterDeps).name, objroot.appending(components: "master.swiftdeps").pathString)
+        let mainDeps = try outputFileMap.getOutput(inputFile: VirtualPath.intern(path: ""), outputType: .swiftDeps)
+        XCTAssertEqual(VirtualPath.lookup(mainDeps).name, objroot.appending(components: "main.swiftdeps").pathString)
       }
     }
   }
@@ -1320,7 +1322,7 @@ final class SwiftDriverTests: XCTestCase {
       """
       {
         "": {
-          "swift-dependencies": "\(objroot.appending(components: "master.swiftdeps").nativePathString(escaped: true))"
+          "swift-dependencies": "\(objroot.appending(components: "main.swiftdeps").nativePathString(escaped: true))"
         },
         "/tmp/foo/Sources/foo/foo.swift": {
           "dependencies": "\(objroot.appending(components: "foo.d").nativePathString(escaped: true))",
@@ -1351,7 +1353,7 @@ final class SwiftDriverTests: XCTestCase {
       """
       {
         "": {
-          "swift-dependencies": "\(objroot.appending(components: "master.swiftdeps").nativePathString(escaped: true))"
+          "swift-dependencies": "\(objroot.appending(components: "main.swiftdeps").nativePathString(escaped: true))"
         },
         "/tmp/foo/Sources/foo/foo.swift": {
           "dependencies": "\(objroot.appending(components: "foo.d").nativePathString(escaped: true))",
@@ -1643,7 +1645,7 @@ final class SwiftDriverTests: XCTestCase {
       let outputMapContents: ByteString = """
         {
           "": {
-            "const-values": "/tmp/foo.build/foo.master.swiftconstvalues"
+            "const-values": "/tmp/foo.build/foo.main.swiftconstvalues"
           },
           "foo.swift": {
             "object": "/tmp/foo.build/foo.swift.o",
@@ -1668,7 +1670,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs.count, 2)
       XCTAssertEqual(plannedJobs[0].kind, .compile)
       XCTAssertEqual(plannedJobs[0].outputs.first(where: { $0.type == .swiftConstValues })?.file,
-                     .absolute(try .init(validating: "/tmp/foo.build/foo.master.swiftconstvalues")))
+                     .absolute(try .init(validating: "/tmp/foo.build/foo.main.swiftconstvalues")))
       XCTAssertEqual(plannedJobs[1].kind, .link)
     }
   }
@@ -1754,7 +1756,7 @@ final class SwiftDriverTests: XCTestCase {
 
     // Rather than writing VirtualPath(path:...) over and over again, make strings, then fix it
     let stringyEntries: [String: [FileType: String]] = [
-      "": [.swiftDeps: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.swiftdeps"],
+      "": [.swiftDeps: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/main.swiftdeps"],
       "foo.swift" : [
         .dependencies: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.d",
         .object: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.swift.o",
@@ -1783,7 +1785,7 @@ final class SwiftDriverTests: XCTestCase {
     // Create sample OutputFileMap:
 
     let stringyEntries: [String: [FileType: String]] = [
-      "": [.swiftDeps: "foo.build/master.swiftdeps"],
+      "": [.swiftDeps: "foo.build/main.swiftdeps"],
       "foo.swift" : [
         .dependencies: "foo.build/foo.d",
         .object: "foo.build/foo.swift.o",
@@ -1795,7 +1797,7 @@ final class SwiftDriverTests: XCTestCase {
     let root = localFileSystem.currentWorkingDirectory!.appending(components: "foo_root")
 
     let resolvedStringyEntries: [String: [FileType: String]] = [
-      "": [.swiftDeps: root.appending(components: "foo.build", "master.swiftdeps").pathString],
+      "": [.swiftDeps: root.appending(components: "foo.build", "main.swiftdeps").pathString],
       root.appending(component: "foo.swift").pathString : [
         .dependencies: root.appending(components: "foo.build", "foo.d").pathString,
         .object: root.appending(components: "foo.build", "foo.swift.o").pathString,
@@ -1833,7 +1835,7 @@ final class SwiftDriverTests: XCTestCase {
         """
         {
           "": {
-            "swift-dependencies": "build/master.swiftdeps"
+            "swift-dependencies": "build/main.swiftdeps"
           },
           "main.swift": {
             "object": "build/main.o",
@@ -7571,8 +7573,8 @@ final class SwiftDriverTests: XCTestCase {
       let outputMapContents: ByteString = """
       {
         "": {
-          "diagnostics": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.dia",
-          "emit-module-diagnostics": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.emit-module.dia"
+          "diagnostics": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/main.dia",
+          "emit-module-diagnostics": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/main.emit-module.dia"
         },
         "foo.swift": {
           "object": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.o"
@@ -7596,8 +7598,8 @@ final class SwiftDriverTests: XCTestCase {
       let outputMapContents: ByteString = .init(encodingAsUTF8: """
       {
         "": {
-          "diagnostics": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.dia",
-          "emit-module-diagnostics": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/master.emit-module.dia"
+          "diagnostics": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/main.dia",
+          "emit-module-diagnostics": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/main.emit-module.dia"
         },
         "\(try AbsolutePath(validating: "/some/workingdir/foo.swift").nativePathString(escaped: true))": {
           "object": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.o"
