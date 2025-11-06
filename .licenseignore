@@ -1,0 +1,10 @@
+**/Package.swift
+**/Package.resolved
+**/*.swiftdeps
+.dir-locals.el
+.editorconfig
+.swift-version
+CODEOWNERS
+Package.resolved
+Package.swift
+TestInputs/**
