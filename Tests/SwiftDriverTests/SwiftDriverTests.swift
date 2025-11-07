@@ -7983,6 +7983,16 @@ final class SwiftDriverTests: XCTestCase {
       try XCTAssertJobInvocationMatches(jobs[0], .flag("-emit-objc-header-path"), toPathOption("path/to/header"))
   }
 
+  func testEmitClangHeaderMinAccess() throws {
+      VirtualPath.resetTemporaryFileStore()
+      var driver = try Driver(args: [
+        "swiftc", "-emit-clang-header-path", "path/to/header", "-emit-clang-header-min-access", "public", "-typecheck", "test.swift"
+      ])
+      let jobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(jobs.count, 2)
+      try XCTAssertJobInvocationMatches(jobs[0], .flag("-emit-clang-header-min-access"), .flag("public"))
+  }
+
   func testGccToolchainFlags() throws {
       VirtualPath.resetTemporaryFileStore()
       var driver = try Driver(args: [
