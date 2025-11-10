@@ -181,13 +181,23 @@ extension GenericUnixToolchain {
       }
 
       if !isEmbeddedEnabled && !parsedOptions.hasArgument(.nostartfiles) {
-        let swiftrtPath = VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
-          .appending(
-            components: targetTriple.platformName() ?? "",
-            String(majorArchitectureName(for: targetTriple)),
-            "swiftrt.o"
-          )
-        commandLine.appendPath(swiftrtPath)
+        let rsrc: VirtualPath
+        // Prefer the swiftrt.o runtime file from the SDK, if it's specified
+        // with a separate C/C++ sysroot.
+        if let sdk = targetInfo.sdkPath, parsedOptions.hasArgument(.sysroot) {
+          let swiftDir: String
+          if staticStdlib || staticExecutable {
+            swiftDir = "swift_static"
+          } else {
+            swiftDir = "swift"
+          }
+          rsrc = VirtualPath.lookup(sdk.path).appending(components: "usr", "lib", swiftDir)
+        } else {
+          rsrc = VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
+        }
+        let platform: String = targetTriple.platformName() ?? ""
+        let architecture: String = majorArchitectureName(for: targetTriple)
+        commandLine.appendPath(rsrc.appending(components: platform, architecture, "swiftrt.o"))
       }
 
       // If we are linking statically, we need to add all
