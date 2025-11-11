@@ -803,6 +803,82 @@ final class ExplicitModuleBuildTests: XCTestCase {
     }
   }
 
+  func testRegisterModuleDependencyFlag() throws {
+    let (stdlibPath, shimsPath, _, _) = try getDriverArtifactsForScanning()
+    try withTemporaryDirectory { path in
+      try localFileSystem.changeCurrentWorkingDirectory(to: path)
+      let moduleCachePath = path.appending(component: "ModuleCache")
+      try localFileSystem.createDirectory(moduleCachePath)
+      let main = path.appending(component: "testRegisterModuleDependency.swift")
+      // Note: We're NOT importing module E in the source code
+      try localFileSystem.writeFileContents(main, bytes:
+        """
+        import A;
+        """
+      )
+      let cHeadersPath: AbsolutePath =
+      try testInputsPath.appending(component: "ExplicitModuleBuilds")
+        .appending(component: "CHeaders")
+      let swiftModuleInterfacesPath: AbsolutePath =
+      try testInputsPath.appending(component: "ExplicitModuleBuilds")
+        .appending(component: "Swift")
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+      
+      var driver = try Driver(args: ["swiftc",
+                                     "-I", cHeadersPath.nativePathString(escaped: true),
+                                     "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                     "-I", stdlibPath.nativePathString(escaped: true),
+                                     "-I", shimsPath.nativePathString(escaped: true),
+                                     "-explicit-module-build",
+                                     "-module-cache-path", moduleCachePath.nativePathString(escaped: true),
+                                     "-working-directory", path.nativePathString(escaped: true),
+                                     "-disable-implicit-concurrency-module-import",
+                                     "-disable-implicit-string-processing-module-import",
+                                     "-register-module-dependency", "E",
+                                     "-register-module-dependency", "G",
+                                     "-emit-loaded-module-trace",
+                                     main.nativePathString(escaped: true)] + sdkArgumentsForTesting)
+      let dependencyGraph = try driver.scanModuleDependencies()
+      let jobs = try driver.planBuild()
+      // E and G SHOULD be in the dependency graph (registered for scanning)
+      XCTAssertTrue(dependencyGraph.modules.keys.contains(.swift("E")),
+                    "Module E should be in dependency graph when registered via -register-module-dependency")
+      XCTAssertTrue(dependencyGraph.modules.keys.contains(.swift("G")),
+                    "Module G should be in dependency graph when registered via -register-module-dependency")
+      // Checking that registered module compiled
+      let moduleEJobs = jobs.filter { job in
+        job.outputs.contains { output in
+          output.file.basename.contains("E") && output.file.extension == "swiftmodule"
+        }
+      }
+      XCTAssertFalse(moduleEJobs.isEmpty,
+                    "Module E should have a build job when registered via -register-module-dependency")
+      let moduleGJobs = jobs.filter { job in
+        job.outputs.contains { output in
+          output.file.basename.contains("G") && output.file.extension == "swiftmodule"
+        }
+      }
+      XCTAssertFalse(moduleGJobs.isEmpty,
+                    "Module G should have a build job when registered via -register-module-dependency")
+      // Checking that registered module is not loaded for the main compilation
+      try driver.run(jobs: jobs)
+      XCTAssertFalse(driver.diagnosticEngine.hasErrors)
+      // Checking the output given by the -emit-loaded-module-trace flag
+      let traceFile = path.appending(component: "testRegisterModuleDependency.trace.json")
+      XCTAssertTrue(localFileSystem.exists(traceFile), "Module trace file should exist")
+      let traceData = try localFileSystem.readFileContents(traceFile)
+      let traceJSON = try traceData.withData { data in
+        try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any]
+      }
+      let jsonString = String(decoding: traceData.contents, as: UTF8.self)
+      XCTAssertFalse(jsonString.contains("\"name\":\"E\""),
+                     "Module E should not be loaded in the final compilation since it's not imported")
+      XCTAssertFalse(jsonString.contains("\"name\":\"G\""),
+                     "Module G should not be loaded in the final compilation since it's not imported")
+
+    }
+  }
+
   // Ensure that (even when not in '-incremental' mode) up-to-date module dependencies
   // do not get re-built
   func testExplicitModuleBuildIncrementalEndToEnd() throws {
