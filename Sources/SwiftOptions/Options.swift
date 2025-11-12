@@ -238,6 +238,7 @@ extension Option {
   public static let disableLlvmVerifyEach: Option = Option("-disable-llvm-verify-each", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't run the LLVM IR verifier after every pass.")
   public static let disableLlvmVerify: Option = Option("-disable-llvm-verify", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't run the LLVM IR verifier.")
   public static let disableMigratorFixits: Option = Option("-disable-migrator-fixits", .flag, attributes: [.frontend, .noInteractive], helpText: "Disable the Migrator phase which automatically applies fix-its")
+  public static let disableModuleSelectorsInModuleInterface: Option = Option("-disable-module-selectors-in-module-interface", .flag, attributes: [.frontend, .noInteractive], helpText: "When emitting module interface files, do not use module selectors to avoid name collisions")
   public static let disableModulesValidateSystemHeaders: Option = Option("-disable-modules-validate-system-headers", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable validating system headers in the Clang importer")
   public static let disableNamedLazyImportAsMemberLoading: Option = Option("-disable-named-lazy-import-as-member-loading", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Import all of a type's import-as-member globals together, as Swift 5.10 and earlier did; temporary workaround for modules that are sensitive to this change")
   public static let disableNamedLazyMemberLoading: Option = Option("-disable-named-lazy-member-loading", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable per-name lazy member loading (obsolete)")
@@ -497,6 +498,7 @@ extension Option {
   public static let enableLlvmVerifyEach: Option = Option("-enable-llvm-verify-each", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Run the LLVM IR verifier after every pass.")
   public static let enableLlvmVfe: Option = Option("-enable-llvm-vfe", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Use LLVM IR Virtual Function Elimination on Swift class virtual tables")
   public static let enableLlvmWme: Option = Option("-enable-llvm-wme", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Use LLVM IR Witness Method Elimination on Swift protocol witness tables")
+  public static let enableModuleSelectorsInModuleInterface: Option = Option("-enable-module-selectors-in-module-interface", .flag, attributes: [.frontend, .noInteractive], helpText: "When emitting module interface files, use module selectors to avoid name collisions")
   public static let enableMoveInoutStackProtector: Option = Option("-enable-move-inout-stack-protector", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable the stack protector by moving values to temporaries")
   public static let enableNewLlvmPassManager: Option = Option("-enable-new-llvm-pass-manager", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable the new llvm pass manager")
   public static let enableNewOperatorLookup: Option = Option("-enable-new-operator-lookup", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable the new operator decl and precedencegroup lookup behavior")
@@ -819,6 +821,7 @@ extension Option {
   public static let dependencyScanCacheRemarks: Option = Option("-Rdependency-scan-cache", .flag, attributes: [.frontend, .noDriver], helpText: "Emit remarks indicating use of the serialized module dependency scanning cache.")
   public static let readLegacyTypeInfoPathEQ: Option = Option("-read-legacy-type-info-path=", .joined, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Read legacy type layout from the given path instead of default path")
   public static let reflectionMetadataForDebuggerOnly: Option = Option("-reflection-metadata-for-debugger-only", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Emit reflection metadata for debugger only, don't make them available at runtime")
+  public static let registerModuleDependency: Option = Option("-register-module-dependency", .separate, helpText: "Register module for dependency scan without importing in the frontend")
   public static let RemoveRuntimeAsserts: Option = Option("-remove-runtime-asserts", .flag, attributes: [.frontend], helpText: "Remove runtime safety checks.")
   public static let repl: Option = Option("-repl", .flag, attributes: [.helpHidden, .frontend, .noBatch], helpText: "REPL mode (the default if there is no input file)", group: .modes)
   public static let reportErrorsToDebugger: Option = Option("-report-errors-to-debugger", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Deprecated, will be removed in future versions.")
@@ -1140,6 +1143,8 @@ extension Option {
       Option.debugInverseRequirements,
       Option.debugMapping,
       Option.debugMapping_,
+      Option.debugModulePathEQ,
+      Option.debugModulePath,
       Option.debugPrefixMap,
       Option.debugRequirementMachine,
       Option.debugTimeExpressionTypeChecking,
@@ -1245,6 +1250,7 @@ extension Option {
       Option.disableLlvmVerifyEach,
       Option.disableLlvmVerify,
       Option.disableMigratorFixits,
+      Option.disableModuleSelectorsInModuleInterface,
       Option.disableModulesValidateSystemHeaders,
       Option.disableNamedLazyImportAsMemberLoading,
       Option.disableNamedLazyMemberLoading,
@@ -1504,6 +1510,7 @@ extension Option {
       Option.enableLlvmVerifyEach,
       Option.enableLlvmVfe,
       Option.enableLlvmWme,
+      Option.enableModuleSelectorsInModuleInterface,
       Option.enableMoveInoutStackProtector,
       Option.enableNewLlvmPassManager,
       Option.enableNewOperatorLookup,
@@ -1581,8 +1588,6 @@ extension Option {
       Option.explicitAutoLinking,
       Option.explicitDependencyGraphFormat,
       Option.explicitInterfaceModuleBuild,
-      Option.debugModulePathEQ,
-      Option.debugModulePath,
       Option.driverExplicitModuleBuild,
       Option.explicitSwiftModuleMap,
       Option.exportAs,
@@ -1828,6 +1833,7 @@ extension Option {
       Option.dependencyScanCacheRemarks,
       Option.readLegacyTypeInfoPathEQ,
       Option.reflectionMetadataForDebuggerOnly,
+      Option.registerModuleDependency,
       Option.RemoveRuntimeAsserts,
       Option.repl,
       Option.reportErrorsToDebugger,
