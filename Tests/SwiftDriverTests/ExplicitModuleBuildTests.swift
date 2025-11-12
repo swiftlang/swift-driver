@@ -1075,6 +1075,24 @@ final class ExplicitModuleBuildTests: XCTestCase {
               let baseName = "testExplicitModuleVerifyInterfaceJobs"
               XCTAssertTrue(matchTemporary(outputFilePath, basename: baseName, fileExtension: "o") ||
                             matchTemporary(outputFilePath, basename: baseName, fileExtension: "autolink"))
+            if outputFilePath.extension == FileType.object.rawValue && driver.isFrontendArgSupported(.debugModulePath) {
+              // Check that this is an absolute path pointing to the temporary directory.
+              var found : Bool = false
+              for arg in job.commandLine {
+                if !found && arg == "-debug-module-path" {
+                  found = true
+                } else if found {
+                  if case let .path(vpath) = arg {
+                    XCTAssertTrue(vpath.isTemporary)
+                    XCTAssertTrue(vpath.extension == FileType.swiftModule.rawValue)
+                  } else {
+                    XCTFail("argument is not a path")
+                  }
+                    break
+                }
+              }
+              XCTAssertTrue(found)
+            }
             default:
               XCTFail("Unexpected module dependency build job output: \(outputFilePath)")
           }
