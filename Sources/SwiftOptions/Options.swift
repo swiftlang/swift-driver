@@ -620,7 +620,6 @@ extension Option {
   public static let help_: Option = Option("--help", .flag, alias: Option.help, attributes: [.frontend, .autolinkExtract, .moduleWrap, .synthesizeInterface], helpText: "Display available options")
   public static let h: Option = Option("-h", .flag, alias: Option.help)
   public static let IEQ: Option = Option("-I=", .joined, alias: Option.I, attributes: [.frontend, .argumentIsPath])
-  public static let iframework: Option = Option("-iframework", .joinedOrSeparate, attributes: [.noDriver, .argumentIsPath], helpText: "add a directory to the clang importer system framework search path")
   public static let ignoreAlwaysInline: Option = Option("-ignore-always-inline", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Ignore @inline(__always) attributes.")
   public static let ignoreModuleSourceInfo: Option = Option("-ignore-module-source-info", .flag, attributes: [.frontend, .noDriver], helpText: "Avoid getting source location from .swiftsourceinfo files")
   public static let ignoreSpiGroups: Option = Option("-ignore-spi-group", .separate, attributes: [.noDriver], helpText: "SPI group name to not diagnose about")
@@ -1632,7 +1631,6 @@ extension Option {
       Option.help_,
       Option.h,
       Option.IEQ,
-      Option.iframework,
       Option.ignoreAlwaysInline,
       Option.ignoreModuleSourceInfo,
       Option.ignoreSpiGroups,
