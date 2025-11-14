@@ -148,9 +148,9 @@ public final class GenericUnixToolchain: Toolchain {
     for sanitizer: Sanitizer,
     targetTriple: Triple,
     isShared: Bool
-  ) throws -> String {
+  ) throws -> String? {
     let environment = (targetTriple.environment == .android) ? "-android" : ""
-    return "libclang_rt.\(sanitizer.libraryName)-\(targetTriple.archName)\(environment).a"
+    return "libclang_rt.\(sanitizer.runtimeLibraryName)-\(targetTriple.archName)\(environment).a"
   }
 
   public func addPlatformSpecificCommonFrontendOptions(

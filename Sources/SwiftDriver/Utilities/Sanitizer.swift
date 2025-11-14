@@ -33,8 +33,19 @@ public enum Sanitizer: String, Hashable {
   /// Scudo hardened allocator
   case scudo
 
-  /// The name inside the `compiler_rt` library path (e.g. libclang_rt.{name}.a)
-  var libraryName: String {
+  /// Memory tagging sanitizer (MemTag)
+  case memtag_stack = "memtag-stack"
+
+  /// Does this sanitizer have a runtime library
+  var hasRuntimeLibrary: Bool {
+    if self == .memtag_stack {
+      return false
+    }
+    return true
+  }
+
+  /// The name inside the `compiler_rt` runtime library path (e.g. libclang_rt.{name}.a)
+  var runtimeLibraryName: String? {
     switch self {
     case .address: return "asan"
     case .address_stable_abi: return "asan_abi"
@@ -42,6 +53,7 @@ public enum Sanitizer: String, Hashable {
     case .undefinedBehavior: return "ubsan"
     case .fuzzer: return "fuzzer"
     case .scudo: return "scudo"
+    case .memtag_stack: return nil
     }
   }
 }
