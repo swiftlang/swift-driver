@@ -112,7 +112,9 @@ extension Driver {
     if isPlanJobForExplicitModule && forObject && isFrontendArgSupported(.debugModulePath),
        let explicitModulePlanner {
       let mainModule = explicitModulePlanner.dependencyGraph.mainModule
-      try addPathOption(option: .debugModulePath, path: VirtualPath.lookup(mainModule.modulePath.path), to: &commandLine, remap: jobNeedPathRemap)
+      let pathHandle = moduleOutputInfo.output?.outputPath ?? mainModule.modulePath.path
+      let path = VirtualPath.lookup(pathHandle)
+      try addPathOption(option: .debugModulePath, path: path, to: &commandLine, remap: jobNeedPathRemap)
     }
 
     // Check if dependency scanner has put the job into direct clang cc1 mode.
