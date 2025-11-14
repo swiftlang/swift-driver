@@ -146,10 +146,10 @@ public final class WebAssemblyToolchain: Toolchain {
     for sanitizer: Sanitizer,
     targetTriple: Triple,
     isShared: Bool
-  ) throws -> String {
+  ) throws -> String? {
     switch sanitizer {
     case .address:
-      return "libclang_rt.\(sanitizer.libraryName)-\(targetTriple.archName).a"
+      return "libclang_rt.\(sanitizer.runtimeLibraryName!)-\(targetTriple.archName).a"
     default:
       throw Error.sanitizersUnsupportedForTarget(targetTriple.triple)
     }
