@@ -2818,7 +2818,7 @@ extension Driver {
       )
     }
 
-    // Address and memtag sanitizers can not be enabled concurrently.
+    // Address and memtag-stack sanitizers can not be enabled concurrently.
     if set.contains(.memtag_stack) && set.contains(.address) {
       diagnosticEngine.emit(
         .error_argument_not_allowed_with(
