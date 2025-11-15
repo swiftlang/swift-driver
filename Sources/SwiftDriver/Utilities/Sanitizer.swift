@@ -33,7 +33,7 @@ public enum Sanitizer: String, Hashable {
   /// Scudo hardened allocator
   case scudo
 
-  /// Memory tagging sanitizer (MemTag)
+  /// Memory-Tagging-based stack sanitizer
   case memtag_stack = "memtag-stack"
 
   /// Does this sanitizer have a runtime library
