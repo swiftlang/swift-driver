@@ -139,7 +139,10 @@ let package = Package(
       // Do not enforce checks for LLVM's ABI-breaking build settings.
       // makeOptions runtime uses some header-only code from LLVM's ADT classes,
       // but we do not want to link libSupport into the executable.
-      cxxSettings: [.unsafeFlags(["-DLLVM_DISABLE_ABI_BREAKING_CHECKS_ENFORCING=1"])]),
+      cxxSettings: [.unsafeFlags(["-DLLVM_DISABLE_ABI_BREAKING_CHECKS_ENFORCING=1"])],
+      linkerSettings: [
+        .linkedLibrary("swiftCore", .when(platforms: [.windows])), // for swift_addNewDSOImage
+      ]),
   ],
   cxxLanguageStandard: .cxx17
 )
