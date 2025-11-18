@@ -44,6 +44,10 @@ extension GenericUnixToolchain {
     sanitizers: Set<Sanitizer>,
     targetInfo: FrontendTargetInfo
   ) throws -> ResolvedTool {
+#if os(Windows)
+    commandLine.appendFlag("--rsp-quoting=windows")
+#endif
+
     let targetTriple = targetInfo.target.triple
     switch linkerOutputType {
     case .dynamicLibrary:
