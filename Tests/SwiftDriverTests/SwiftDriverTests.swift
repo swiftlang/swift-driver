@@ -7988,6 +7988,9 @@ final class SwiftDriverTests: XCTestCase {
       var driver = try Driver(args: [
         "swiftc", "-emit-clang-header-path", "path/to/header", "-emit-clang-header-min-access", "public", "-typecheck", "test.swift"
       ])
+      guard driver.isFrontendArgSupported(.emitClangHeaderMinAccess) else {
+        throw XCTSkip("Skipping: compiler does not support '-emit-clang-header-min-access'")
+      }
       let jobs = try driver.planBuild().removingAutolinkExtractJobs()
       XCTAssertEqual(jobs.count, 2)
       try XCTAssertJobInvocationMatches(jobs[0], .flag("-emit-clang-header-min-access"), .flag("public"))
