@@ -145,6 +145,14 @@ public extension Driver {
       commandLine.appendFlag(.dependencyScanCacheRemarks)
     }
 
+    // command-line flag registers a dependency with the dependency scanner
+    // without causing it to be implicitly imported in compilation tasks
+    for moduleNameArg in parsedOptions.arguments(for: .registerModuleDependency) {
+      let moduleName = moduleNameArg.argument.asSingle
+      commandLine.appendFlag(.importModule)
+      commandLine.appendFlag(moduleName)
+    }
+
     if shouldAttemptIncrementalCompilation &&
        parsedOptions.contains(.incrementalDependencyScan) {
       if let serializationPath = buildRecordInfo?.dependencyScanSerializedResultPath {
