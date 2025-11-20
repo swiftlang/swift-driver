@@ -10,6 +10,7 @@ if let deploymentTarget = ProcessInfo.processInfo.environment["SWIFTPM_MACOS_DEP
     macOSPlatform = .macOS(.v12)
 }
 
+
 let swiftToolsSupportCoreLibName = (ProcessInfo.processInfo.environment["SWIFT_DRIVER_USE_STSC_DYLIB"] == nil) ? "SwiftToolsSupport-auto": "SwiftToolsSupport"
 
 let package = Package(
