@@ -170,7 +170,9 @@ extension WebAssemblyToolchain {
       // workflows like Swift Testing can run within this limited stack space.
       let SWIFT_WASM_DEFAULT_STACK_SIZE = 1024 * 128
       commandLine.appendFlag(.Xlinker)
-      commandLine.appendFlag("--stack-size=\(SWIFT_WASM_DEFAULT_STACK_SIZE)")
+      commandLine.appendFlag("-z")
+      commandLine.appendFlag(.Xlinker)
+      commandLine.appendFlag("stack-size=\(SWIFT_WASM_DEFAULT_STACK_SIZE)")
 
       // Delegate to Clang for sanitizers. It will figure out the correct linker
       // options.
