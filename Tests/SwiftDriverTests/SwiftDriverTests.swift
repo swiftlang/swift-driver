@@ -7994,7 +7994,7 @@ final class SwiftDriverTests: XCTestCase {
       }
       let jobs = try driver.planBuild().removingAutolinkExtractJobs()
       XCTAssertEqual(jobs.count, 2)
-      try XCTAssertJobInvocationMatches(jobs[0], .flag("-emit-clang-header-min-access"), .flag("public"))
+      XCTAssertJobInvocationMatches(jobs[0], .flag("-emit-clang-header-min-access"), .flag("public"))
   }
 
   func testGccToolchainFlags() throws {
