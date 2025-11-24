@@ -3043,6 +3043,16 @@ final class SwiftDriverTests: XCTestCase {
     let commonArgs = [
       "swiftc", "foo.swift", "bar.swift", "-emit-executable", "-module-name", "Test", "-use-ld=lld"
     ]
+  #if os(Windows)
+    do {
+      var driver = try Driver(args: commonArgs + ["-sanitize=address"])
+      try XCTSkipUnless(driver.toolchain.runtimeLibraryExists(for: .address,
+                                                              targetInfo: driver.frontendTargetInfo,
+                                                              parsedOptions: &driver.parsedOptions,
+                                                              isShared: false),
+        "sanitizer not supported in this windows environment")
+    }
+  #endif
 
   #if os(macOS) || os(Windows)
     do {
