@@ -2719,9 +2719,6 @@ final class ExplicitModuleBuildTests: XCTestCase {
 
   func testTraceDependency() throws {
     try withTemporaryDirectory { path in
-#if os(Windows)
-      throw XCTSkip("generatePCM error on windows")
-#endif
       try localFileSystem.changeCurrentWorkingDirectory(to: path)
       let moduleCachePath = path.appending(component: "ModuleCache")
       try localFileSystem.createDirectory(moduleCachePath)

@@ -116,7 +116,9 @@ final class IncrementalCompilationTests: XCTestCase {
   }
   var extraExplicitBuildArgs: [String] = []
 
-  override func setUp() {
+  override func setUpWithError() throws {
+    try super.setUpWithError()
+
     self.tempDir = try! withTemporaryDirectory(removeTreeOnDeinit: false) {$0}
     try! localFileSystem.createDirectory(explicitModuleCacheDir)
     try! localFileSystem.createDirectory(derivedDataPath)
@@ -154,6 +156,9 @@ final class IncrementalCompilationTests: XCTestCase {
     if driver.isFrontendArgSupported(.moduleLoadMode) {
       self.extraExplicitBuildArgs = ["-Xfrontend", "-module-load-mode", "-Xfrontend", "prefer-interface"]
     }
+
+    // Disable incremental tests on windows due to very different module setup.
+    try XCTSkipIf(driver.targetTriple.isWindows, "https://github.com/swiftlang/swift-driver/issues/2029")
   }
 
   deinit {
@@ -360,7 +365,7 @@ extension IncrementalCompilationTests {
     XCTAssertFalse(mandatoryJobInputs.contains("other.swift"))
   }
 
-  // External deps timestamp updated but contents are the same, and file-hashing is explicitly disabled 
+  // External deps timestamp updated but contents are the same, and file-hashing is explicitly disabled
   func testExplicitIncrementalBuildExternalDepsWithoutHashing() throws {
     replace(contentsOf: "other", with: "import E;let bar = foo")
     try buildInitialState(extraArguments: ["-disable-incremental-file-hashing"], explicitModuleBuild: true)
@@ -372,7 +377,7 @@ extension IncrementalCompilationTests {
     XCTAssertTrue(mandatoryJobInputs.contains("main.swift"))
   }
 
-  // Source file timestamps updated but contents are the same, and file-hashing is explicitly disabled 
+  // Source file timestamps updated but contents are the same, and file-hashing is explicitly disabled
   func testExplicitIncrementalBuildSourceFilesWithoutHashing() throws {
     try buildInitialState(extraArguments: ["-disable-incremental-file-hashing"], explicitModuleBuild: true)
     touch("main")
@@ -1043,7 +1048,7 @@ extension IncrementalCompilationTests {
   }
 
   private func testRemoval(_ options: RemovalTestOptions) throws {
-    setUp() // clear derived data, restore output file map
+    try setUpWithError() // clear derived data, restore output file map
     print("\n*** testRemoval \(options) ***", to: &stderrStream); stderrStream.flush()
 
     let newInput = "another"
