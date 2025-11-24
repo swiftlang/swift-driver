@@ -528,6 +528,8 @@ final class JobExecutorTests: XCTestCase {
         let outputPath = path.appending(component: "finalOutput")
         var driver = try Driver(args: ["swiftc", main.pathString,
                                        "-save-temps",
+                                       "-sil-output-dir", path.pathString,
+                                       "-ir-output-dir", path.pathString,
                                        "-driver-filelist-threshold", "0",
                                        "-o", outputPath.pathString] + getHostToolchainSdkArg(executor),
                                 envBlock: ProcessEnv.block,
