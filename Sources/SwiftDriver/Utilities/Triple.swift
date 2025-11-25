@@ -168,11 +168,13 @@ public struct Triple: Sendable {
       self.environment = parsedEnv.value.environment
       self.objectFormat = parsedEnv.value.objectFormat
         ?? ObjectFormat.infer(arch: parsedArch?.value.arch,
+                              vendor: parsedVendor?.value,
                               os: parsedOS?.value)
     }
     else {
       self.environment = Environment.infer(archName: parsedArch?.substring)
       self.objectFormat = ObjectFormat.infer(arch: parsedArch?.value.arch,
+                                             vendor: parsedVendor?.value,
                                              os: parsedOS?.value)
     }
   }
@@ -1121,6 +1123,7 @@ extension Triple {
     case wasi
     case emscripten
     case visionos = "xros"
+    case firmware
     case noneOS // 'OS' suffix purely to avoid name clash with Optional.none
 
     var name: String {
@@ -1205,6 +1208,8 @@ extension Triple {
         return .noneOS
       case _ where os.hasPrefix("xros"):
         return .visionos
+      case _ where os.hasPrefix("firmware"):
+        return .firmware
       default:
         return nil
       }
@@ -1382,10 +1387,10 @@ extension Triple {
       }
     }
 
-    fileprivate static func infer(arch: Triple.Arch?, os: Triple.OS?) -> Triple.ObjectFormat {
+    fileprivate static func infer(arch: Triple.Arch?, vendor: Triple.Vendor?, os: Triple.OS?) -> Triple.ObjectFormat {
       switch arch {
         case nil, .aarch64, .aarch64e, .aarch64_32, .arm, .thumb, .x86, .x86_64:
-          if os?.isDarwin ?? false {
+        if Triple.isDarwin(vendor: vendor, os: os) {
             return .macho
           } else if os?.isWindows ?? false {
             return .coff
@@ -1437,7 +1442,7 @@ extension Triple {
           return .elf
 
         case .ppc, .ppc64:
-          if os?.isDarwin ?? false {
+          if Triple.isDarwin(vendor: vendor, os: os) {
             return .macho
           } else if os == .aix {
             return .xcoff
@@ -1500,10 +1505,9 @@ extension Triple.OS {
     self == .visionos
   }
 
-
-  /// isOSDarwin - Is this a "Darwin" OS (macOS, iOS, tvOS, watchOS, or visionOS).
-  public var isDarwin: Bool {
-    isMacOSX || isiOS || isTvOS || isWatchOS || isVisionOS
+  /// Is this a Firmware triple.
+  public var isFirmware: Bool {
+    self == .firmware
   }
 }
 
@@ -1612,7 +1616,7 @@ extension Triple {
       if version.major < 10 {
         return nil
       }
-    case .ios, .tvos, .watchos, .visionos:
+    case .ios, .tvos, .watchos, .visionos, .firmware:
        // Ignore the version from the triple.  This is only handled because the
        // the clang driver combines OS X and IOS support into a common Darwin
        // toolchain that wants to know the OS X version number even when targeting
@@ -1725,6 +1729,48 @@ extension Triple {
       fatalError("conflicting triple info")
     default:
       fatalError("unexpected OS for Darwin triple")
+    }
+  }
+
+  public var _FirmwareVersion: Version {
+    switch os {
+    case .darwin, .macosx:
+      return Version(1, 0, 0)
+    case .firmware:
+      var version = self.osVersion
+      // Default to 1.0
+      if version.major == 0 {
+        version.major = 1
+      }
+      return version
+    case .ios, .tvos, .watchos, .visionos:
+      fatalError("conflicting triple info")
+    default:
+      fatalError("unexpected OS for Darwin triple")
+    }
+  }
+}
+
+extension Triple {
+  public var isAppleFirmware: Bool {
+    return (vendor == .apple) && (os?.isFirmware ?? false)
+  }
+
+  /// isDarwin - Is this a "Darwin" triple (macOS, iOS, tvOS, watchOS, visionOS, or other Darwin like platforms).
+  public var isDarwin: Bool {
+    return Self.isDarwin(vendor: vendor, os: os)
+  }
+
+  fileprivate static func isDarwin(vendor: Triple.Vendor?, os: Triple.OS?) -> Bool {
+    switch os {
+    case .darwin, .macosx, .ios, .tvos, .watchos, .visionos:
+      return true
+    case .firmware:
+      // Apple firmware isn't necessarily a Darwin based OS, but for most intents
+      // and purposes it can be treated like a Darwin OS in the driver.
+      return vendor == .apple
+    default:
+      return false
     }
   }
 }

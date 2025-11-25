@@ -295,6 +295,8 @@ private extension DarwinPlatform {
       return ["xros"]
     case .visionOS(.simulator):
       return ["xrossim", "xros"]
+    default:
+      fatalError("Unsupported Darwin platform \(self)")
     }
   }
 }
