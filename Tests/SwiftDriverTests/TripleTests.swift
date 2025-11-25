@@ -123,6 +123,14 @@ final class TripleTests: XCTestCase {
     XCTAssertEqual(T.os, Triple.OS.darwin)
     XCTAssertEqual(T.environment, nil)
 
+    T = Triple("arm64-apple-firmware1.0")
+    XCTAssertEqual(T.arch, Triple.Arch.aarch64)
+    XCTAssertEqual(T.vendor, Triple.Vendor.apple)
+    XCTAssertEqual(T.os, Triple.OS.firmware)
+    XCTAssertEqual(T.environment, nil)
+    XCTAssertEqual(T.objectFormat, .macho)
+    XCTAssertTrue(T.isDarwin)
+
     T = Triple("i386-pc-elfiamcu")
     XCTAssertEqual(T.arch, Triple.Arch.x86)
     XCTAssertEqual(T.vendor, Triple.Vendor.pc)
@@ -1084,6 +1092,7 @@ final class TripleTests: XCTestCase {
 
     XCTAssertEqual(.macho, Triple("i686-apple-macosx").objectFormat)
     XCTAssertEqual(.macho, Triple("i686-apple-ios").objectFormat)
+    XCTAssertEqual(.macho, Triple("arm64-apple-firmware1.0").objectFormat)
     XCTAssertEqual(.macho, Triple("i686---macho").objectFormat)
 
     XCTAssertEqual(.coff, Triple("i686--win32").objectFormat)
@@ -1217,6 +1226,9 @@ final class TripleTests: XCTestCase {
     func watchOS(_ platform: DarwinPlatform) -> DarwinPlatform.EnvironmentWithoutCatalyst? {
       if case .watchOS(let env) = platform { return env } else { return nil }
     }
+    func Firmware(_ platform: DarwinPlatform) -> DarwinPlatform.Environment? {
+      if case .Firmware = platform { return .device } else { return nil }
+    }
 
     let macOS1 = Triple("x86_64-apple-macosx10.12")
     let macOS2 = Triple("i386-apple-macos10.50.0")
@@ -1342,6 +1354,26 @@ final class TripleTests: XCTestCase {
                                 tvOSVersion: nil,
                                 watchOSVersion: .init(60, 0, 0),
                                 shouldHaveJetPacks: true)
+
+    let firmware1 = Triple("arm64-apple-firmware1.0")
+    let firmware2 = Triple("powerpc-apple-firmware1.0")
+
+    assertDarwinPlatformCorrect(firmware1,
+                                case: Firmware,
+                                environment: .device,
+                                macOSVersion: .init(10, 4, 0),
+                                iOSVersion: nil,
+                                tvOSVersion: nil,
+                                watchOSVersion: nil,
+                                shouldHaveJetPacks: true)
+    assertDarwinPlatformCorrect(firmware2,
+                                case: Firmware,
+                                environment: .device,
+                                macOSVersion: .init(10, 4, 0),
+                                iOSVersion: nil,
+                                tvOSVersion: nil,
+                                watchOSVersion: nil,
+                                shouldHaveJetPacks: true)
   }
 
   func testClangOSLibName() {
@@ -1462,6 +1494,7 @@ final class TripleTests: XCTestCase {
     assertToolchain("x86_64-apple-tvos13.0-simulator", DarwinToolchain.self)
     assertToolchain("arm64_32-apple-ios", DarwinToolchain.self)
     assertToolchain("armv7s-apple-ios", DarwinToolchain.self)
+    assertToolchain("arm64-apple-firmware1.0", DarwinToolchain.self)
     assertToolchain("armv7em-unknown-none-macho", GenericUnixToolchain.self)
     assertToolchain("armv7em-apple-none-macho", DarwinToolchain.self)
     assertToolchain("armv7em-apple-none", DarwinToolchain.self)
