@@ -835,7 +835,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       try testInputsPath.appending(component: "ExplicitModuleBuilds")
         .appending(component: "Swift")
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
-      
+
       var driver = try Driver(args: ["swiftc",
                                      "-I", cHeadersPath.nativePathString(escaped: true),
                                      "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
@@ -2282,7 +2282,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
          hostTriple.version(for: .macOS) < Triple.Version(11, 0, 0) {
         expectedNumberOfDependencies = 13
       } else if driver.targetTriple.isWindows {
-        expectedNumberOfDependencies = 13
+        expectedNumberOfDependencies = 14
       } else {
         expectedNumberOfDependencies = 12
       }
