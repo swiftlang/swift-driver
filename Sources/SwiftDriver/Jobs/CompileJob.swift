@@ -296,12 +296,14 @@ extension Driver {
                                  forObject: outputType == .object)
     try addRuntimeLibraryFlags(commandLine: &commandLine)
 
+    // Enable default cross-module optimization when possible, but only if we're not
+    // emitting the module separately (CMO is incompatible with separate module emission)
     if Driver.canDoCrossModuleOptimization(parsedOptions: &parsedOptions) &&
        // For historical reasons, -cross-module-optimization turns on "aggressive" CMO
        // which is different from "default" CMO.
        !parsedOptions.hasArgument(.CrossModuleOptimization) &&
-       !parsedOptions.hasArgument(.EnableCMOEverything) {
-      assert(!emitModuleSeparately, "Cannot emit module separately with cross-module-optimization")
+       !parsedOptions.hasArgument(.EnableCMOEverything) &&
+       !emitModuleSeparately {
       commandLine.appendFlag("-enable-default-cmo")
     }
 
