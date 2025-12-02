@@ -485,7 +485,8 @@ final class SwiftDriverTests: XCTestCase {
   }
 
     func testIndexMultipleFilesInSingleCommandLineInvocation() throws {
-      try withTemporaryFile { outputFileMap in
+      try withTemporaryDirectory { dir in
+        let outputFileMap = dir.appending(component: "output-filelist")
         let outputMapContents = ByteString("""
         {
           "first.swift": {
@@ -496,14 +497,14 @@ final class SwiftDriverTests: XCTestCase {
           }
         }
         """.utf8)
-        try localFileSystem.writeFileContents(outputFileMap.path, bytes: outputMapContents)
+        try localFileSystem.writeFileContents(outputFileMap, bytes: outputMapContents)
         try assertNoDriverDiagnostics(args:
           "swiftc", "-index-file",
           "first.swift", "second.swift", "third.swift",
           "-index-file-path", "first.swift",
           "-index-file-path", "second.swift",
           "-index-store-path", "/tmp/idx",
-          "-output-file-map", outputFileMap.path.pathString
+          "-output-file-map", outputFileMap.pathString
         ) { driver in
             let jobs = try driver.planBuild()
             XCTAssertEqual(jobs.count, 1)
@@ -648,7 +649,8 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     // Test SIL and IR output file maps in WMO mode
-    try withTemporaryFile { fileMapFile in
+    try withTemporaryDirectory { dir in
+      let fileMapFile = dir.appending(component: "file-map-file")
       let outputMapContents: ByteString = """
         {
           "foo.swift": {
@@ -661,10 +663,10 @@ final class SwiftDriverTests: XCTestCase {
           }
         }
         """
-      try localFileSystem.writeFileContents(fileMapFile.path, bytes: outputMapContents)
+      try localFileSystem.writeFileContents(fileMapFile, bytes: outputMapContents)
 
       var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-emit-object", "-wmo",
-                                     "-output-file-map", fileMapFile.path.pathString])
+                                     "-output-file-map", fileMapFile.pathString])
       let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
       XCTAssertEqual(plannedJobs.count, 1)
       XCTAssertEqual(plannedJobs[0].kind, .compile)
@@ -677,7 +679,8 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     // Test single-file compilation with file maps
-    try withTemporaryFile { fileMapFile in
+    try withTemporaryDirectory { dir in
+      let fileMapFile = dir.appending(component: "file-map-file")
       let outputMapContents: ByteString = """
         {
           "foo.swift": {
@@ -690,10 +693,10 @@ final class SwiftDriverTests: XCTestCase {
           }
         }
         """
-      try localFileSystem.writeFileContents(fileMapFile.path, bytes: outputMapContents)
+      try localFileSystem.writeFileContents(fileMapFile, bytes: outputMapContents)
 
       var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-emit-object",
-                                     "-output-file-map", fileMapFile.path.pathString])
+                                     "-output-file-map", fileMapFile.pathString])
       let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
       XCTAssertEqual(plannedJobs.count, 2)
 
@@ -709,7 +712,8 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     // Test partial file map (only some files have SIL/IR entries)
-    try withTemporaryFile { fileMapFile in
+    try withTemporaryDirectory { dir in
+      let fileMapFile = dir.appending(component: "file-map-file")
       let outputMapContents: ByteString = """
         {
           "foo.swift": {
@@ -720,10 +724,10 @@ final class SwiftDriverTests: XCTestCase {
           }
         }
         """
-      try localFileSystem.writeFileContents(fileMapFile.path, bytes: outputMapContents)
+      try localFileSystem.writeFileContents(fileMapFile, bytes: outputMapContents)
 
       var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-emit-object", "-wmo",
-                                     "-output-file-map", fileMapFile.path.pathString])
+                                     "-output-file-map", fileMapFile.pathString])
       let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
       XCTAssertEqual(plannedJobs.count, 1)
       XCTAssertEqual(plannedJobs[0].kind, .compile)
@@ -734,7 +738,8 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     // Test that file maps work alongside directory options (file maps should take precedence)
-    try withTemporaryFile { fileMapFile in
+    try withTemporaryDirectory { dir in
+      let fileMapFile = dir.appending(component: "file-map-file")
       let outputMapContents: ByteString = """
         {
           "foo.swift": {
@@ -743,12 +748,12 @@ final class SwiftDriverTests: XCTestCase {
           }
         }
         """
-      try localFileSystem.writeFileContents(fileMapFile.path, bytes: outputMapContents)
+      try localFileSystem.writeFileContents(fileMapFile, bytes: outputMapContents)
 
       var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-emit-object", "-wmo",
                                      "-sil-output-dir", "/tmp/dir-output",
                                      "-ir-output-dir", "/tmp/dir-output",
-                                     "-output-file-map", fileMapFile.path.pathString])
+                                     "-output-file-map", fileMapFile.pathString])
       let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
       XCTAssertEqual(plannedJobs.count, 1)
       XCTAssertEqual(plannedJobs[0].kind, .compile)
@@ -763,7 +768,8 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     // Ensure file maps without SIL/IR entries don't generate spurious flags
-    try withTemporaryFile { fileMapFile in
+    try withTemporaryDirectory { dir in
+      let fileMapFile = dir.appending(component: "file-map-file")
       let outputMapContents: ByteString = """
         {
           "foo.swift": {
@@ -774,10 +780,10 @@ final class SwiftDriverTests: XCTestCase {
           }
         }
         """
-      try localFileSystem.writeFileContents(fileMapFile.path, bytes: outputMapContents)
+      try localFileSystem.writeFileContents(fileMapFile, bytes: outputMapContents)
 
       var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-emit-object", "-wmo",
-                                     "-output-file-map", fileMapFile.path.pathString])
+                                     "-output-file-map", fileMapFile.pathString])
       let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
       XCTAssertEqual(plannedJobs.count, 1)
       XCTAssertEqual(plannedJobs[0].kind, .compile)
@@ -1193,7 +1199,8 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testEmitModuleSeparatelyDiagnosticPath() throws {
-    try withTemporaryFile { fileMapFile in
+    try withTemporaryDirectory { dir in
+      let fileMapFile = dir.appending(component: "file-map-file")
       let outputMapContents: ByteString = """
       {
         "": {
@@ -1205,11 +1212,11 @@ final class SwiftDriverTests: XCTestCase {
         }
       }
       """
-      try localFileSystem.writeFileContents(fileMapFile.path, bytes: outputMapContents)
+      try localFileSystem.writeFileContents(fileMapFile, bytes: outputMapContents)
 
       // Plain (batch/single-file) compile
       do {
-        var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-output-file-map", fileMapFile.path.pathString,
+        var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-output-file-map", fileMapFile.pathString,
                                        "-emit-library", "-module-name", "Test", "-serialize-diagnostics"])
         let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
         XCTAssertEqual(plannedJobs.count, 3)
@@ -1223,7 +1230,7 @@ final class SwiftDriverTests: XCTestCase {
       // WMO
       do {
         var driver = try Driver(args: ["swiftc", "foo.swift", "-whole-module-optimization", "-emit-module",
-                                       "-output-file-map", fileMapFile.path.pathString, "-disable-cmo",
+                                       "-output-file-map", fileMapFile.pathString, "-disable-cmo",
                                        "-emit-library", "-module-name", "Test", "-serialize-diagnostics"])
         let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
         XCTAssertEqual(plannedJobs.count, 3)
@@ -1237,7 +1244,8 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testEmitModuleSeparatelyDependenciesPath() throws {
-    try withTemporaryFile { fileMapFile in
+    try withTemporaryDirectory { dir in
+      let fileMapFile = dir.appending(component: "file-map-file")
       let outputMapContents: ByteString = """
       {
         "": {
@@ -1249,11 +1257,11 @@ final class SwiftDriverTests: XCTestCase {
         }
       }
       """
-      try localFileSystem.writeFileContents(fileMapFile.path, bytes: outputMapContents)
+      try localFileSystem.writeFileContents(fileMapFile, bytes: outputMapContents)
 
       // Plain (batch/single-file) compile
       do {
-        var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-output-file-map", fileMapFile.path.pathString,
+        var driver = try Driver(args: ["swiftc", "foo.swift", "-emit-module", "-output-file-map", fileMapFile.pathString,
                                        "-emit-library", "-module-name", "Test", "-emit-dependencies"])
         let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
         XCTAssertEqual(plannedJobs.count, 3)
@@ -1267,7 +1275,7 @@ final class SwiftDriverTests: XCTestCase {
       // WMO
       do {
         var driver = try Driver(args: ["swiftc", "foo.swift", "-whole-module-optimization", "-emit-module",
-                                       "-output-file-map", fileMapFile.path.pathString, "-disable-cmo",
+                                       "-output-file-map", fileMapFile.pathString, "-disable-cmo",
                                        "-emit-library", "-module-name", "Test", "-emit-dependencies"])
         let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
         XCTAssertEqual(plannedJobs.count, 3)
@@ -1298,10 +1306,11 @@ final class SwiftDriverTests: XCTestCase {
     }
     """.utf8)
 
-    try withTemporaryFile { file in
+    try withTemporaryDirectory { dir in
+      let file = dir.appending(component: "file")
       try assertNoDiagnostics { diags in
-        try localFileSystem.writeFileContents(file.path, bytes: contents)
-        let outputFileMap = try OutputFileMap.load(fileSystem: localFileSystem, file: .absolute(file.path), diagnosticEngine: diags)
+        try localFileSystem.writeFileContents(file, bytes: contents)
+        let outputFileMap = try OutputFileMap.load(fileSystem: localFileSystem, file: .absolute(file), diagnosticEngine: diags)
 
         let object = try outputFileMap.getOutput(inputFile: VirtualPath.intern(path: "/tmp/foo/Sources/foo/foo.swift"), outputType: .object)
         XCTAssertEqual(VirtualPath.lookup(object).name, objroot.appending(components: "foo.swift.o").pathString)
@@ -1332,10 +1341,11 @@ final class SwiftDriverTests: XCTestCase {
       }
       """.utf8
     )
-    try withTemporaryFile { file in
+    try withTemporaryDirectory { dir in
+      let file = dir.appending(component: "file")
       try assertNoDiagnostics { diags in
-        try localFileSystem.writeFileContents(file.path, bytes: contents)
-        let outputFileMap = try OutputFileMap.load(fileSystem: localFileSystem, file: .absolute(file.path), diagnosticEngine: diags)
+        try localFileSystem.writeFileContents(file, bytes: contents)
+        let outputFileMap = try OutputFileMap.load(fileSystem: localFileSystem, file: .absolute(file), diagnosticEngine: diags)
 
         let obj = try outputFileMap.getOutput(inputFile: VirtualPath.intern(path: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.swift.bc"), outputType: .object)
         XCTAssertEqual(VirtualPath.lookup(obj).name, objroot.appending(components: "foo.swift.o").pathString)
@@ -1363,10 +1373,11 @@ final class SwiftDriverTests: XCTestCase {
       """.utf8
     )
 
-    try withTemporaryFile { file in
+    try withTemporaryDirectory { dir in
+      let file = dir.appending(component: "file")
       try assertNoDiagnostics { diags in
-        try localFileSystem.writeFileContents(file.path, bytes: contents)
-        let outputFileMap = try OutputFileMap.load(fileSystem: localFileSystem, file: .absolute(file.path), diagnosticEngine: diags)
+        try localFileSystem.writeFileContents(file, bytes: contents)
+        let outputFileMap = try OutputFileMap.load(fileSystem: localFileSystem, file: .absolute(file), diagnosticEngine: diags)
 
         let doc = try outputFileMap.getOutput(inputFile: VirtualPath.intern(path: "/tmp/foo/Sources/foo/foo.swift"), outputType: .swiftDocumentation)
         XCTAssertEqual(VirtualPath.lookup(doc).name, objroot.appending(components: "foo~partial.swiftdoc").pathString)
@@ -1407,15 +1418,16 @@ final class SwiftDriverTests: XCTestCase {
       return inputs
     }
 
-    try withTemporaryFile { file in
+    try withTemporaryDirectory { dir in
+      let file = dir.appending(component: "file")
       try assertNoDiagnostics { diags in
-        try localFileSystem.writeFileContents(file.path, bytes: contents)
+        try localFileSystem.writeFileContents(file, bytes: contents)
 
         // 1. Incremental mode (single primary file)
         // a) without filelists
         var driver = try Driver(args: [
           "swiftc", "-c",
-          "-output-file-map", file.path.pathString,
+          "-output-file-map", file.pathString,
           "-module-name", "test", "/tmp/second.swift", "/tmp/main.swift"
         ])
         var jobs = try driver.planBuild()
@@ -1429,7 +1441,7 @@ final class SwiftDriverTests: XCTestCase {
         // b) with filelists
         driver = try Driver(args: [
           "swiftc", "-c", "-driver-filelist-threshold=0",
-          "-output-file-map", file.path.pathString,
+          "-output-file-map", file.pathString,
           "-module-name", "test", "/tmp/second.swift", "/tmp/main.swift"
         ])
         jobs = try driver.planBuild()
@@ -1446,7 +1458,7 @@ final class SwiftDriverTests: XCTestCase {
         // a) without filelists
         driver = try Driver(args: [
           "swiftc", "-c", "-enable-batch-mode", "-driver-batch-count", "1",
-          "-output-file-map", file.path.pathString,
+          "-output-file-map", file.pathString,
           "-module-name", "test", "/tmp/second.swift", "/tmp/main.swift"
         ])
         jobs = try driver.planBuild()
@@ -1461,7 +1473,7 @@ final class SwiftDriverTests: XCTestCase {
         driver = try Driver(args: [
           "swiftc", "-c", "-driver-filelist-threshold=0",
           "-enable-batch-mode", "-driver-batch-count", "1",
-          "-output-file-map", file.path.pathString,
+          "-output-file-map", file.pathString,
           "-module-name", "test", "/tmp/second.swift", "/tmp/main.swift"
         ])
         jobs = try driver.planBuild()
@@ -1474,7 +1486,7 @@ final class SwiftDriverTests: XCTestCase {
         // a) without filelists
         driver = try Driver(args: [
           "swiftc", "-c", "-whole-module-optimization", "-num-threads", "2",
-          "-output-file-map", file.path.pathString,
+          "-output-file-map", file.pathString,
           "-module-name", "test", "/tmp/second.swift", "/tmp/main.swift"
         ])
         jobs = try driver.planBuild()
@@ -1489,7 +1501,7 @@ final class SwiftDriverTests: XCTestCase {
         driver = try Driver(args: [
           "swiftc", "-c", "-driver-filelist-threshold=0",
           "-whole-module-optimization", "-num-threads", "2",
-          "-output-file-map", file.path.pathString,
+          "-output-file-map", file.pathString,
           "-module-name", "test", "/tmp/second.swift", "/tmp/main.swift"
         ])
         jobs = try driver.planBuild()
@@ -1589,7 +1601,8 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[2].kind, .link)
     }
 
-    try withTemporaryFile { fileMapFile in // Batch with output-file-map
+    try withTemporaryDirectory { dir in // Batch with output-file-map
+      let fileMapFile = dir.appending(component: "file-map-file")
       let outputMapContents: ByteString = """
         {
           "foo.swift": {
@@ -1606,11 +1619,11 @@ final class SwiftDriverTests: XCTestCase {
           }
         }
         """
-      try localFileSystem.writeFileContents(fileMapFile.path, bytes: outputMapContents)
+      try localFileSystem.writeFileContents(fileMapFile, bytes: outputMapContents)
       var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "baz.swift",
                                      "-enable-batch-mode","-driver-batch-size-limit", "2",
                                      "-module-name", "Foo", "-emit-const-values",
-                                     "-output-file-map", fileMapFile.path.description])
+                                     "-output-file-map", fileMapFile.description])
       let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
       XCTAssertEqual(plannedJobs.count, 3)
 
@@ -1639,7 +1652,8 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[1].kind, .link)
     }
 
-    try withTemporaryFile { fileMapFile in // WMO with output-file-map
+    try withTemporaryDirectory { dir in  // WMO with output-file-map
+      let fileMapFile = dir.appending(component: "file-map-file")
       let outputMapContents: ByteString = """
         {
           "": {
@@ -1659,11 +1673,11 @@ final class SwiftDriverTests: XCTestCase {
           }
         }
         """
-      try localFileSystem.writeFileContents(fileMapFile.path, bytes: outputMapContents)
+      try localFileSystem.writeFileContents(fileMapFile, bytes: outputMapContents)
       var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "baz.swift",
                                      "-whole-module-optimization",
                                      "-module-name", "Foo", "-emit-const-values",
-                                     "-output-file-map", fileMapFile.path.description])
+                                     "-output-file-map", fileMapFile.description])
       let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
       XCTAssertEqual(plannedJobs.count, 2)
       XCTAssertEqual(plannedJobs[0].kind, .compile)
@@ -1770,11 +1784,12 @@ final class SwiftDriverTests: XCTestCase {
         )})
     let sampleOutputFileMap = OutputFileMap(entries: pathyEntries)
 
-    try withTemporaryFile { file in
-      try sampleOutputFileMap.store(fileSystem: localFileSystem, file: file.path)
-      let contentsForDebugging = try localFileSystem.readFileContents(file.path).cString
+    try withTemporaryDirectory { dir in
+      let file = dir.appending(component: "file")
+      try sampleOutputFileMap.store(fileSystem: localFileSystem, file: file)
+      let contentsForDebugging = try localFileSystem.readFileContents(file).cString
       _ = contentsForDebugging
-      let recoveredOutputFileMap = try OutputFileMap.load(fileSystem: localFileSystem, file: .absolute(file.path), diagnosticEngine: DiagnosticsEngine())
+      let recoveredOutputFileMap = try OutputFileMap.load(fileSystem: localFileSystem, file: .absolute(file), diagnosticEngine: DiagnosticsEngine())
       XCTAssertEqual(sampleOutputFileMap, recoveredOutputFileMap)
     }
   }
@@ -3043,6 +3058,16 @@ final class SwiftDriverTests: XCTestCase {
     let commonArgs = [
       "swiftc", "foo.swift", "bar.swift", "-emit-executable", "-module-name", "Test", "-use-ld=lld"
     ]
+  #if os(Windows)
+    do {
+      var driver = try Driver(args: commonArgs + ["-sanitize=address"])
+      try XCTSkipUnless(driver.toolchain.runtimeLibraryExists(for: .address,
+                                                              targetInfo: driver.frontendTargetInfo,
+                                                              parsedOptions: &driver.parsedOptions,
+                                                              isShared: false),
+        "sanitizer not supported in this windows environment")
+    }
+  #endif
 
   #if os(macOS) || os(Windows)
     do {
@@ -3651,12 +3676,13 @@ final class SwiftDriverTests: XCTestCase {
       """.utf8
     )
 
-    try withTemporaryFile { file in
+    try withTemporaryDirectory { dir in
+      let file = dir.appending(component: "file")
       try assertNoDiagnostics { diags in
-        try localFileSystem.writeFileContents(file.path, bytes: contents)
+        try localFileSystem.writeFileContents(file, bytes: contents)
         var driver1 = try Driver(args: [
           "swiftc", "-whole-module-optimization", "foo.swift", "bar.swift", "wibble.swift", "-module-name", "Test",
-          "-num-threads", "4", "-output-file-map", file.path.pathString, "-emit-module-interface"
+          "-num-threads", "4", "-output-file-map", file.pathString, "-emit-module-interface"
         ])
         let plannedJobs = try driver1.planBuild().removingAutolinkExtractJobs()
         XCTAssertEqual(plannedJobs.count, 3)
@@ -7568,7 +7594,8 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertJobInvocationMatches(compileJob, .flag("-sdk"), .path(.absolute(workingDirectory.appending(component: "relsdkpath"))))
     }
 
-    try withTemporaryFile { fileMapFile in
+    try withTemporaryDirectory { dir in
+      let fileMapFile = dir.appending(component: "file-map-file")
       let outputMapContents: ByteString = """
       {
         "": {
@@ -7580,20 +7607,21 @@ final class SwiftDriverTests: XCTestCase {
         }
       }
       """
-      try localFileSystem.writeFileContents(fileMapFile.path, bytes: outputMapContents)
+      try localFileSystem.writeFileContents(fileMapFile, bytes: outputMapContents)
 
       // Inputs with relative paths should be found in output file maps
       var driver = try Driver(args: ["swiftc",
                                      "-target", "arm64-apple-ios13.1",
                                      "foo.swift",
-                                     "-output-file-map", fileMapFile.path.description])
+                                     "-output-file-map", fileMapFile.description])
       let plannedJobs = try driver.planBuild()
       let compileJob = plannedJobs[0]
       XCTAssertEqual(compileJob.kind, .compile)
       try XCTAssertJobInvocationMatches(compileJob, .flag("-o"), .path(.absolute(.init(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.o"))))
     }
 
-    try withTemporaryFile { fileMapFile in
+    try withTemporaryDirectory { dir in
+      let fileMapFile = dir.appending(component: "file-map-file")
       let outputMapContents: ByteString = .init(encodingAsUTF8: """
       {
         "": {
@@ -7605,14 +7633,14 @@ final class SwiftDriverTests: XCTestCase {
         }
       }
       """)
-      try localFileSystem.writeFileContents(fileMapFile.path, bytes: outputMapContents)
+      try localFileSystem.writeFileContents(fileMapFile, bytes: outputMapContents)
 
       // Inputs with relative paths and working-dir should use absolute paths in output file maps
       var driver = try Driver(args: ["swiftc",
                                      "-target", "arm64-apple-ios13.1",
                                      "foo.swift",
                                      "-working-directory", try AbsolutePath(validating: "/some/workingdir").nativePathString(escaped: false),
-                                     "-output-file-map", fileMapFile.path.description])
+                                     "-output-file-map", fileMapFile.description])
       let plannedJobs = try driver.planBuild()
       let compileJob = plannedJobs[0]
       XCTAssertEqual(compileJob.kind, .compile)
@@ -7672,19 +7700,22 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testIsIosMacInterface() throws {
-    try withTemporaryFile { file in
-      try localFileSystem.writeFileContents(file.path, bytes: "// swift-module-flags: -target x86_64-apple-ios15.0-macabi")
-      XCTAssertTrue(try isIosMacInterface(VirtualPath.absolute(file.path)))
+    try withTemporaryDirectory { dir in
+      let file = dir.appending(component: "file")
+      try localFileSystem.writeFileContents(file, bytes: "// swift-module-flags: -target x86_64-apple-ios15.0-macabi")
+      XCTAssertTrue(try isIosMacInterface(VirtualPath.absolute(file)))
     }
-    try withTemporaryFile { file in
-      try localFileSystem.writeFileContents(file.path, bytes: "// swift-module-flags: -target arm64e-apple-macos12.0")
-      XCTAssertFalse(try isIosMacInterface(VirtualPath.absolute(file.path)))
+    try withTemporaryDirectory { dir in
+      let file = dir.appending(component: "file")
+      try localFileSystem.writeFileContents(file, bytes: "// swift-module-flags: -target arm64e-apple-macos12.0")
+      XCTAssertFalse(try isIosMacInterface(VirtualPath.absolute(file)))
     }
   }
 
   func testAdopterConfigFile() throws {
-    try withTemporaryFile { file in
-      try localFileSystem.writeFileContents(file.path, bytes:
+    try withTemporaryDirectory { dir in
+      let file = dir.appending(component: "file")
+      try localFileSystem.writeFileContents(file, bytes:
         #"""
         [
           {
@@ -7694,7 +7725,7 @@ final class SwiftDriverTests: XCTestCase {
         ]
         """#
       )
-      let configs = Driver.parseAdopterConfigs(file.path)
+      let configs = Driver.parseAdopterConfigs(file)
       XCTAssertEqual(configs.count, 1)
       XCTAssertEqual(configs[0].key, "SkipFeature1")
       XCTAssertEqual(configs[0].moduleNames, ["foo", "bar"])
@@ -7703,9 +7734,10 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(modules.contains("bar"))
       XCTAssertTrue(Driver.getAllConfiguredModules(withKey: "SkipFeature2", configs).isEmpty)
     }
-    try withTemporaryFile { file in
-      try localFileSystem.writeFileContents(file.path, bytes: "][ malformed }{")
-      let configs = Driver.parseAdopterConfigs(file.path)
+    try withTemporaryDirectory { dir in
+      let file = dir.appending(component: "file")
+      try localFileSystem.writeFileContents(file, bytes: "][ malformed }{")
+      let configs = Driver.parseAdopterConfigs(file)
       XCTAssertEqual(configs.count, 0)
     }
     do {
@@ -7715,15 +7747,16 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testExtractPackageName() throws {
-    try withTemporaryFile { file in
-      try localFileSystem.writeFileContents(file.path, bytes:
+    try withTemporaryDirectory { dir in
+      let file = dir.appending(component: "file")
+      try localFileSystem.writeFileContents(file, bytes:
         """
         // swift-module-flags: -target arm64e-apple-macos12.0
         // swift-module-flags-ignorable: -library-level api\
         // swift-module-flags-ignorable-private: -package-name myPkg
         """
       )
-      let flags = try getAllModuleFlags(VirtualPath.absolute(file.path))
+      let flags = try getAllModuleFlags(VirtualPath.absolute(file))
       let idx = flags.firstIndex(of: "-package-name")
       XCTAssertNotNil(idx)
       XCTAssert(idx! + 1 < flags.count)
@@ -7732,26 +7765,29 @@ final class SwiftDriverTests: XCTestCase {
   }
 
   func testExtractLibraryLevel() throws {
-    try withTemporaryFile { file in
-      try localFileSystem.writeFileContents(file.path, bytes: "// swift-module-flags: -library-level api")
-      let flags = try getAllModuleFlags(VirtualPath.absolute(file.path))
+    try withTemporaryDirectory { dir in
+      let file = dir.appending(component: "file")
+      try localFileSystem.writeFileContents(file, bytes: "// swift-module-flags: -library-level api")
+      let flags = try getAllModuleFlags(VirtualPath.absolute(file))
       XCTAssertEqual(try getLibraryLevel(flags), .api)
     }
-    try withTemporaryFile { file in
-      try localFileSystem.writeFileContents(file.path, bytes:
+    try withTemporaryDirectory { dir in
+      let file = dir.appending(component: "file")
+      try localFileSystem.writeFileContents(file, bytes:
         """
         // swift-module-flags: -target arm64e-apple-macos12.0
         // swift-module-flags-ignorable: -library-level spi
         """
       )
-      let flags = try getAllModuleFlags(VirtualPath.absolute(file.path))
+      let flags = try getAllModuleFlags(VirtualPath.absolute(file))
       XCTAssertEqual(try getLibraryLevel(flags), .spi)
     }
-    try withTemporaryFile { file in
-      try localFileSystem.writeFileContents(file.path, bytes:
+    try withTemporaryDirectory { dir in
+      let file = dir.appending(component: "file")
+      try localFileSystem.writeFileContents(file, bytes:
         "// swift-module-flags: -target arm64e-apple-macos12.0"
       )
-      let flags = try getAllModuleFlags(VirtualPath.absolute(file.path))
+      let flags = try getAllModuleFlags(VirtualPath.absolute(file))
       XCTAssertEqual(try getLibraryLevel(flags), .unspecified)
     }
   }
@@ -7994,7 +8030,7 @@ final class SwiftDriverTests: XCTestCase {
       }
       let jobs = try driver.planBuild().removingAutolinkExtractJobs()
       XCTAssertEqual(jobs.count, 2)
-      try XCTAssertJobInvocationMatches(jobs[0], .flag("-emit-clang-header-min-access"), .flag("public"))
+      XCTAssertJobInvocationMatches(jobs[0], .flag("-emit-clang-header-min-access"), .flag("public"))
   }
 
   func testGccToolchainFlags() throws {
