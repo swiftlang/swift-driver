@@ -150,7 +150,7 @@ let package = Package(
 if ProcessInfo.processInfo.environment["SWIFT_DRIVER_LLBUILD_FWK"] == nil {
     if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         package.dependencies += [
-            .package(url: "https://github.com/swiftlang/swift-llbuild.git", branch: "main"),
+            .package(url: "https://github.com/swiftlang/swift-llbuild.git", branch: "release/6.3"),
         ]
         package.targets.first(where: { $0.name == "SwiftDriverExecution" })!.dependencies += [
             .product(name: "llbuildSwift", package: "swift-llbuild"),
@@ -169,7 +169,7 @@ if ProcessInfo.processInfo.environment["SWIFT_DRIVER_LLBUILD_FWK"] == nil {
 
 if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
   package.dependencies += [
-    .package(url: "https://github.com/swiftlang/swift-tools-support-core.git", branch: "main"),
+    .package(url: "https://github.com/swiftlang/swift-tools-support-core.git", branch: "release/6.3"),
     // The 'swift-argument-parser' version declared here must match that
     // used by 'swift-package-manager' and 'sourcekit-lsp'. Please coordinate
     // dependency version changes here with those projects.
