@@ -719,22 +719,10 @@ extension Driver {
       input: TypedVirtualPath?,
       flag: String
     ) throws {
-      // Handle directory-based options and file maps for SIL, LLVM IR, and optimization records when finalOutputPath is nil
-      if finalOutputPath == nil && (outputType == .sil || outputType == .llvmIR || outputType.isOptimizationRecord) {
-        let directoryOption: Option?
-        switch outputType {
-        case .sil:
-          directoryOption = .silOutputDir
-        case .llvmIR:
-          directoryOption = .irOutputDir
-        case .yamlOptimizationRecord, .bitstreamOptimizationRecord:
-          // Optimization records don't have a directory option
-          directoryOption = nil
-        default:
-          fatalError("Unexpected output type")
-        }
-
-        let directory = directoryOption.flatMap { parsedOptions.getLastArgument($0)?.asSingle }
+      // Handle directory-based options and file maps for SIL and LLVM IR when finalOutputPath is nil
+      if finalOutputPath == nil && (outputType == .sil || outputType == .llvmIR) {
+        let directoryOption: Option = outputType == .sil ? .silOutputDir : .irOutputDir
+        let directory = parsedOptions.getLastArgument(directoryOption)?.asSingle
         let hasFileMapEntries = outputFileMap?.hasEntries(for: outputType) ?? false
 
         if directory != nil || hasFileMapEntries || (parsedOptions.hasArgument(.saveTemps) && !hasFileMapEntries) {
@@ -761,17 +749,11 @@ extension Driver {
       // use the final output.
       let outputPath: VirtualPath.Handle
       if let input = input {
-        // Check if the output file map has an entry for this specific input and output type
         if let outputFileMapPath = try outputFileMap?.existingOutput(inputFile: input.fileHandle, outputType: outputType) {
           outputPath = outputFileMapPath
         } else if let output = inputOutputMap[input]?.first, output.file != .standardOutput, compilerOutputType != nil {
-          // For optimization records with an explicit final output path and no file map entry, use the final output path
-          if outputType.isOptimizationRecord {
-            outputPath = finalOutputPath
-          } else {
-            // Otherwise, derive path alongside primary output
-            outputPath = try output.file.replacingExtension(with: outputType).intern()
-          }
+          // Alongside primary output
+          outputPath = try output.file.replacingExtension(with: outputType).intern()
         } else {
           outputPath = try VirtualPath.createUniqueTemporaryFile(RelativePath(validating: input.file.basenameWithoutExt.appendingFileTypeExtension(outputType))).intern()
         }
@@ -832,17 +814,21 @@ extension Driver {
         flag: "-emit-reference-dependencies-path")
 
       try addOutputOfType(
+        outputType: self.optimizationRecordFileType ?? .yamlOptimizationRecord,
+        finalOutputPath: optimizationRecordPath,
+        input: input,
+        flag: "-save-optimization-record-path")
+
+      try addOutputOfType(
         outputType: .diagnostics,
         finalOutputPath: serializedDiagnosticsFilePath,
         input: input,
         flag: "-serialize-diagnostics-path")
 
-      // Add SIL, IR, and optimization record outputs when explicitly requested via directory options, file maps, or -save-temps
+      // Add SIL and IR outputs when explicitly requested via directory options, file maps, or -save-temps
       let saveTempsWithoutFileMap = parsedOptions.hasArgument(.saveTemps) && outputFileMap == nil
       let hasSilFileMapEntries = outputFileMap?.hasEntries(for: .sil) ?? false
       let hasIrFileMapEntries = outputFileMap?.hasEntries(for: .llvmIR) ?? false
-      let optRecordType = self.optimizationRecordFileType ?? .yamlOptimizationRecord
-      let hasOptRecordFileMapEntries = outputFileMap?.hasEntries(for: optRecordType) ?? false
 
       let silOutputPathSupported = Driver.isOptionFound("-sil-output-path", allOpts: supportedFrontendFlags)
       let irOutputPathSupported = Driver.isOptionFound("-ir-output-path", allOpts: supportedFrontendFlags)
@@ -857,9 +843,6 @@ extension Driver {
 
       let shouldAddSilOutput = silOutputPathSupported && (parsedOptions.hasArgument(.silOutputDir) || saveTempsWithoutFileMap || hasSilFileMapEntries)
       let shouldAddIrOutput = irOutputPathSupported && (parsedOptions.hasArgument(.irOutputDir) || saveTempsWithoutFileMap || hasIrFileMapEntries)
-      let shouldAddOptRecordOutput = parsedOptions.hasArgument(.saveOptimizationRecord) ||
-                                     parsedOptions.hasArgument(.saveOptimizationRecordEQ) ||
-                                     hasOptRecordFileMapEntries
 
       if shouldAddSilOutput {
         try addOutputOfType(
@@ -876,30 +859,6 @@ extension Driver {
           input: input,
           flag: "-ir-output-path")
       }
-
-      if shouldAddOptRecordOutput {
-        let inputHasOptRecordEntry = input.flatMap { inp in
-          (try? outputFileMap?.existingOutput(inputFile: inp.fileHandle, outputType: optRecordType)) != nil
-        } ?? false
-
-        // Pass nil for finalOutputPath when this specific input has a file map entry,
-        // so that the file map entry will be used. Otherwise, use the explicit path if provided.
-        let effectiveFinalPath = inputHasOptRecordEntry ? nil : optimizationRecordPath
-        try addOutputOfType(
-          outputType: optRecordType,
-          finalOutputPath: effectiveFinalPath,
-          input: input,
-          flag: "-save-optimization-record-path")
-      }
-    }
-
-    // Emit warning once if both -save-optimization-record-path and file map entries are provided
-    let optRecordType = self.optimizationRecordFileType ?? .yamlOptimizationRecord
-    let hasOptRecordFileMapEntries = outputFileMap?.hasEntries(for: optRecordType) ?? false
-    if hasOptRecordFileMapEntries && optimizationRecordPath != nil {
-      diagnosticEngine.emit(.warning(
-        "ignoring -save-optimization-record-path because output file map contains optimization record entries"
-      ))
     }
 
     if compilerMode.usesPrimaryFileInputs {
