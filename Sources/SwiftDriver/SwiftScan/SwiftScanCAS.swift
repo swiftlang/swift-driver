@@ -78,19 +78,18 @@ extension CachedCompilation: Sequence {
   public struct Iterator: IteratorProtocol {
     public typealias Element = CachedOutput
     let limit: UInt32
-    let ptr: swiftscan_cached_compilation_t
-    let lib: SwiftScan
+    let sequence: CachedCompilation
     var idx: UInt32 = 0
     public mutating func next() -> CachedOutput? {
       guard idx < self.limit else { return nil }
-      let output = self.lib.api.swiftscan_cached_compilation_get_output(self.ptr, idx)
+      let output = self.sequence.lib.api.swiftscan_cached_compilation_get_output(self.sequence.ptr, idx)
       idx += 1
       // output can never be nil.
-      return CachedOutput(output!, lib: self.lib)
+      return CachedOutput(output!, lib: self.sequence.lib)
     }
   }
   public func makeIterator() -> Iterator {
-      return Iterator(limit: self.count, ptr: self.ptr, lib: self.lib)
+      return Iterator(limit: self.count, sequence: self)
   }
 }
 
