@@ -7109,6 +7109,24 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testMixedWindowsPath() throws {
+    // Mixed path on Windows.
+#if os(windows)
+    do {
+      try withTemporaryDirectory { path in
+        let headerPath = path.appending("TestInputHeader.h")
+        try localFileSystem.writeFileContents(headerPath, bytes: "void test(void);")
+        let swiftPath = path.appending("foo.swift")
+        try localFileSystem.writeFileContents(swiftPath, bytes: "func foo() { test() }")
+        let pathStr = path.nativePathString(escaped: true)
+        var driver = try Driver(args: ["swift", "-c", "-import-objc-header", pathStr + "/TestInputHeader.h", pathStr + "/foo.swift", "-v", "-I", pathStr + "/include", "-sdk", pathStr + "/sdk"])
+        let plannedJobs = try driver.planBuild()
+        try driver.run(jobs: plannedJobs)
+      }
+    }
+#endif
+  }
+
   func testPCMGeneration() throws {
      do {
        var driver = try Driver(args: ["swiftc", "-emit-pcm", "module.modulemap", "-module-name", "Test"])
