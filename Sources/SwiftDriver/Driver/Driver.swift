@@ -2754,12 +2754,17 @@ extension Driver {
       // Support is determined by existence of the sanitizer library.
       // FIXME: Should we do this? This prevents cross-compiling with sanitizers
       //        enabled.
-      var sanitizerSupported = try toolchain.runtimeLibraryExists(
-        for: stableAbi ? .address_stable_abi : sanitizer,
-        targetInfo: targetInfo,
-        parsedOptions: &parsedOptions,
-        isShared: sanitizer != .fuzzer && !stableAbi
-      )
+      var sanitizerSupported = true
+
+      // memtag-stack sanitizer doesn't have a runtime library
+      if sanitizer.hasRuntimeLibrary {
+        sanitizerSupported = try toolchain.runtimeLibraryExists(
+          for: stableAbi ? .address_stable_abi : sanitizer,
+          targetInfo: targetInfo,
+          parsedOptions: &parsedOptions,
+          isShared: sanitizer != .fuzzer && !stableAbi
+        )
+      }
 
       if sanitizer == .thread {
         // TSAN is unavailable on Windows
@@ -2808,6 +2813,16 @@ extension Driver {
       diagnosticEngine.emit(
         .error_argument_not_allowed_with(
           arg: "-sanitize=thread",
+          other: "-sanitize=address"
+        )
+      )
+    }
+
+    // Address and memtag-stack sanitizers can not be enabled concurrently.
+    if set.contains(.memtag_stack) && set.contains(.address) {
+      diagnosticEngine.emit(
+        .error_argument_not_allowed_with(
+          arg: "-sanitize=memtag-stack",
           other: "-sanitize=address"
         )
       )
