@@ -3887,13 +3887,13 @@ final class SwiftDriverTests: XCTestCase {
       try localFileSystem.writeFileContents(outputFileMap) {
         $0.send("""
         {
-          "\(file1.pathString)": {
-            "object": "\(path.appending(component: "file1.o").pathString)",
-            "yaml-opt-record": "\(optRecord1.pathString)"
+          "\(file1.nativePathString(escaped: true))": {
+            "object": "\(path.appending(component: "file1.o").nativePathString(escaped: true))",
+            "yaml-opt-record": "\(optRecord1.nativePathString(escaped: true))"
           },
-          "\(file2.pathString)": {
-            "object": "\(path.appending(component: "file2.o").pathString)",
-            "yaml-opt-record": "\(optRecord2.pathString)"
+          "\(file2.nativePathString(escaped: true))": {
+            "object": "\(path.appending(component: "file2.o").nativePathString(escaped: true))",
+            "yaml-opt-record": "\(optRecord2.nativePathString(escaped: true))"
           }
         }
         """)
@@ -3950,9 +3950,9 @@ final class SwiftDriverTests: XCTestCase {
       try localFileSystem.writeFileContents(outputFileMap) {
         $0.send("""
         {
-          "\(file1.pathString)": {
-            "object": "\(path.appending(component: "file1.o").pathString)",
-            "yaml-opt-record": "\(optRecord1.pathString)"
+          "\(file1.nativePathString(escaped: true))": {
+            "object": "\(path.appending(component: "file1.o").nativePathString(escaped: true))",
+            "yaml-opt-record": "\(optRecord1.nativePathString(escaped: true))"
           }
         }
         """)
@@ -3983,12 +3983,12 @@ final class SwiftDriverTests: XCTestCase {
       try localFileSystem.writeFileContents(outputFileMap) {
         $0.send("""
         {
-          "\(file1.pathString)": {
-            "object": "\(path.appending(component: "file1.o").pathString)",
-            "yaml-opt-record": "\(optRecord1.pathString)"
+          "\(file1.nativePathString(escaped: true))": {
+            "object": "\(path.appending(component: "file1.o").nativePathString(escaped: true))",
+            "yaml-opt-record": "\(optRecord1.nativePathString(escaped: true))"
           },
-          "\(file2.pathString)": {
-            "object": "\(path.appending(component: "file2.o").pathString)"
+          "\(file2.nativePathString(escaped: true))": {
+            "object": "\(path.appending(component: "file2.o").nativePathString(escaped: true))"
           }
         }
         """)
