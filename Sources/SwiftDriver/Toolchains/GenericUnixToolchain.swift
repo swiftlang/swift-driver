@@ -28,19 +28,6 @@ internal enum AndroidNDK {
     nil
 #endif
   }
-
-  internal static func getDefaultSysrootPath(in env: ProcessEnvironmentBlock) -> AbsolutePath? {
-    // The NDK is only available on an x86_64 hosts currently.
-#if arch(x86_64)
-    guard let ndk = env["ANDROID_NDK_ROOT"], let os = getOSName() else { return nil }
-    return try? AbsolutePath(validating: ndk)
-      .appending(components: "toolchains", "llvm", "prebuilt")
-      .appending(component: "\(os)-x86_64")
-      .appending(component: "sysroot")
-#else
-    return nil
-#endif
-  }
 }
 
 /// Toolchain for Unix-like systems.
@@ -166,11 +153,6 @@ public final class GenericUnixToolchain: Toolchain {
     if let sysroot = driver.parsedOptions.getLastArgument(.sysroot)?.asSingle {
       commandLine.appendFlag("-sysroot")
       try commandLine.appendPath(VirtualPath(path: sysroot))
-    } else if driver.targetTriple.environment == .android,
-      let sysroot = AndroidNDK.getDefaultSysrootPath(in: self.env)
-    {
-      commandLine.appendFlag("-sysroot")
-      try commandLine.appendPath(VirtualPath(path: sysroot.pathString))
     }
 
     if driver.targetTriple.os == .openbsd && driver.targetTriple.arch == .aarch64 {
