@@ -580,6 +580,9 @@ def get_build_target(swiftc_path, args, cross_compile=False):
         if '-apple-macosx' in args.target_info["target"]["unversionedTriple"]:
           triple = args.target_info['target']['unversionedTriple']
         return triple
+    except subprocess.CalledProcessError as e:
+        error(f"""Command {e.cmd} terminated with non-zero exit status {e.returncode}
+  Output: {e.output}""")
     except Exception as e:
         error(str(e))
 
