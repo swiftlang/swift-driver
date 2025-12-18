@@ -40,9 +40,10 @@ import func TSCBasic.resolveSymlinks
 import protocol TSCBasic.DiagnosticData
 import var TSCBasic.localFileSystem
 
-let interruptSignalSource = DispatchSource.makeSignalSource(signal: SIGINT)
-let diagnosticsEngine = DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler])
-var driverInterrupted = false
+internal let interruptSignalSource = DispatchSource.makeSignalSource(signal: SIGINT)
+internal let diagnosticsEngine = DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler])
+internal var driverInterrupted = false
+
 func getExitCode(_ code: Int32) -> Int32 {
   if driverInterrupted {
     interruptSignalSource.cancel()
