@@ -3127,16 +3127,6 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertJobInvocationMatches(jobs[2], .flag("-fsanitize=undefined"))
     }
 
-    do {
-      // memory tagging stack sanitizer
-      var driver = try Driver(args: commonArgs + ["-sanitize=memtag-stack"])
-      let jobs = try driver.planBuild().removingAutolinkExtractJobs()
-
-      XCTAssertEqual(jobs.count, 3)
-      XCTAssertJobInvocationMatches(jobs[0], .flag("-sanitize=memtag-stack"))
-      // No runtime for memtag-stack - thus no linker arg required
-    }
-
     // FIXME: This test will fail when run on macOS, because the driver uses
     //        the existence of the runtime support libraries to determine if
     //        a sanitizer is supported. Until we allow cross-compiling with

@@ -143,12 +143,11 @@ public protocol Toolchain {
     targetInfo: FrontendTargetInfo
   ) throws -> ResolvedTool
 
-  /// Returns the runtime library name for a given sanitizer (or nil if the sanitizer does not have a runtime library)
   func runtimeLibraryName(
     for sanitizer: Sanitizer,
     targetTriple: Triple,
     isShared: Bool
-  ) throws -> String?
+  ) throws -> String
 
   func platformSpecificInterpreterEnvironmentVariables(
     env: ProcessEnvironmentBlock,

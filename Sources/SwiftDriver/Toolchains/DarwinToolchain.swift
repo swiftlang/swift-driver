@@ -168,12 +168,9 @@ public final class DarwinToolchain: Toolchain {
     for sanitizer: Sanitizer,
     targetTriple: Triple,
     isShared: Bool
-  ) throws -> String? {
-    guard let libraryName = sanitizer.runtimeLibraryName else {
-      return nil
-    }
+  ) throws -> String {
     return """
-    libclang_rt.\(libraryName)_\
+    libclang_rt.\(sanitizer.libraryName)_\
     \(targetTriple.darwinPlatform!.libraryNameSuffix)\
     \(isShared ? "_dynamic.dylib" : ".a")
     """

@@ -65,22 +65,17 @@ extension Toolchain {
     return result
   }
 
-  /// Returns true if a runtime library exists for this sanitizer. Note: some
-  /// sanitizers don't have runtime libraries - ideally this function should
-  /// not be called on them - first check with `sanitizer.hasRuntimeLibrary`
   func runtimeLibraryExists(
     for sanitizer: Sanitizer,
     targetInfo: FrontendTargetInfo,
     parsedOptions: inout ParsedOptions,
     isShared: Bool
   ) throws -> Bool {
-    guard let runtimeName = try runtimeLibraryName(
+    let runtimeName = try runtimeLibraryName(
       for: sanitizer,
       targetTriple: targetInfo.target.triple,
       isShared: isShared
-    ) else {
-      return false
-    }
+    )
     let path = try clangLibraryPath(
       for: targetInfo,
       parsedOptions: &parsedOptions
