@@ -529,10 +529,16 @@ public struct SDKPrebuiltModuleInputsCollector {
   }
 
   private func sanitizeInterfaceMap(_ map: [String: [PrebuiltModuleInput]]) -> [String: [PrebuiltModuleInput]] {
-    return map.filter {
+    return map.compactMapValues { inputs in
+      // Filter out .package.swiftinterface files
+      return inputs.filter { input in
+        !(input.path.file.extension == "swiftinterface" &&
+          input.path.file.basenameWithoutExt.hasSuffix(".package"))
+      }
+    }.filter { key, value in
       // Remove modules without associated .swiftinterface files and diagnose.
-      if $0.value.isEmpty {
-        diagEngine.emit(.warning("\($0.key) has no associated .swiftinterface files"),
+      if value.isEmpty {
+        diagEngine.emit(.warning("\(key) has no associated .swiftinterface files"),
                         location: nil)
         return false
       }
