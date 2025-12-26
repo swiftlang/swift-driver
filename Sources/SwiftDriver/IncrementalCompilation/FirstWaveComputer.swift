@@ -202,9 +202,41 @@ extension IncrementalCompilationState.FirstWaveComputer {
       return false
     }
 
-    // Ensure that no output is older than any of the inputs
+    // If all the modules are older than the outputs, we can skip
     let oldestOutputModTime: TimePoint = try emitModuleJob.outputs.map { try fileSystem.lastModificationTime(for: $0.file) }.min() ?? .distantPast
-    return try emitModuleJob.inputs.swiftSourceFiles.allSatisfy({ try fileSystem.lastModificationTime(for: $0.typedFile.file) < oldestOutputModTime })
+    let areModulesOlderThanOutput = try emitModuleJob.inputs.swiftSourceFiles.allSatisfy({ try fileSystem.lastModificationTime(for: $0.typedFile.file) < oldestOutputModTime })
+    guard !areModulesOlderThanOutput else {
+        return true
+    }
+    // If we are not using hashes, we cannot skip
+    guard useHashes else {
+        return false
+    }
+    let inputs:[TypedVirtualPath] = emitModuleJob.inputs
+    for input:TypedVirtualPath in inputs {
+        guard let currentDate:FileMetadata = buildRecordInfo.compilationInputModificationDates[input] else {
+            reporter?.report("Missing file metadata for: \(input)")
+            return false 
+        }
+
+        guard let currentHash:String = currentDate.hash else {
+            reporter?.report("Missing file hash data for: \(input)")
+            return false 
+        }
+
+        let inputInfos:[VirtualPath: InputInfo] = buildRecord.inputInfos
+        guard let inputInfo:InputInfo = inputInfos[input.file] else {
+            reporter?.report("Missing incremental info for: \(input)")
+            return false
+        }
+
+        if currentHash != inputInfo.hash {
+            reporter?.report("Changed hash for: \(input)")
+            return false
+        }
+    }
+    return true
+
   }
 
   /// Figure out which compilation inputs are *not* mandatory at the start
