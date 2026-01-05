@@ -182,4 +182,8 @@ extension Diagnostic.Message {
   static var error_no_objc_interop_embedded: Diagnostic.Message {
     .error("Objective-C interop cannot be enabled with embedded Swift.")
   }
+
+  static var error_single_opt_record_path_with_multi_threaded_wmo: Diagnostic.Message {
+    .error("multi-threaded whole-module optimization requires one '-save-optimization-record-path' per source file")
+  }
 }

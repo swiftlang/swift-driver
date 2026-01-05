@@ -134,7 +134,63 @@ public struct OutputFileMap: Hashable, Codable {
     var outputFileMap = OutputFileMap()
     outputFileMap.entries = try result.toVirtualOutputFileMap()
 
+    outputFileMap.fixDuplicateOptimizationRecordPaths(diagnosticEngine: diagnosticEngine)
+
     return outputFileMap
+  }
+
+  /// Detect and fix duplicate optimization record paths in the output file map.
+  /// When multiple inputs point to the same optimization record file, synthesize unique paths.
+  private mutating func fixDuplicateOptimizationRecordPaths(diagnosticEngine: DiagnosticsEngine) {
+    var optRecordPaths: [VirtualPath.Handle: [VirtualPath.Handle]] = [:]
+
+    for (inputFile, outputs) in entries {
+      for outputType in [FileType.yamlOptimizationRecord, FileType.bitstreamOptimizationRecord] {
+        if let optRecordPath = outputs[outputType] {
+          optRecordPaths[optRecordPath, default: []].append(inputFile)
+        }
+      }
+    }
+
+    // Fix duplicates by synthesizing unique paths
+    for (optRecordPath, inputFiles) in optRecordPaths where inputFiles.count > 1 {
+      let pathName = VirtualPath.lookup(optRecordPath).basename
+      diagnosticEngine.emit(.warning(
+        "output file map contains duplicate optimization record path '\(pathName)' for \(inputFiles.count) inputs; synthesizing unique paths"
+      ))
+
+      // Use first input path as-is and synthesize for the rest
+      for (index, inputFile) in inputFiles.enumerated() where index > 0 {
+        guard var outputs = entries[inputFile] else { continue }
+
+        let outputType: FileType
+        if outputs[.yamlOptimizationRecord] == optRecordPath {
+          outputType = .yamlOptimizationRecord
+        } else if outputs[.bitstreamOptimizationRecord] == optRecordPath {
+          outputType = .bitstreamOptimizationRecord
+        } else {
+          continue
+        }
+
+        let optRecordPathVirtual = VirtualPath.lookup(optRecordPath)
+        let inputFileVirtual = VirtualPath.lookup(inputFile)
+        let inputBaseName = inputFileVirtual.basenameWithoutExt
+
+        let filename = optRecordPathVirtual.basename
+        let synthesized: String
+        if let firstDotIndex = filename.firstIndex(of: ".") {
+          let baseName = String(filename[..<firstDotIndex])
+          let fullExtension = String(filename[firstDotIndex...].dropFirst())
+          synthesized = "\(baseName)-\(inputBaseName).\(fullExtension)"
+        } else {
+          synthesized = "\(filename)-\(inputBaseName).\(outputType.rawValue)"
+        }
+
+        let uniquePath = optRecordPathVirtual.parentDirectory.appending(component: synthesized)
+        outputs[outputType] = uniquePath.intern()
+        entries[inputFile] = outputs
+      }
+    }
   }
 
   /// Store the output file map at the given path.
