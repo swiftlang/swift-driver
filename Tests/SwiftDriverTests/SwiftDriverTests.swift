@@ -3947,6 +3947,21 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testOptimizationRecordPathUserProvidedPath() throws {
+    // Test single file with explicit path (primary file mode)
+    do {
+      var driver = try Driver(args: [
+        "swiftc", "-save-optimization-record", "-save-optimization-record-path", "/tmp/test.opt.yaml",
+        "-c", "test.swift"
+      ])
+      let plannedJobs = try driver.planBuild()
+      let compileJob = try XCTUnwrap(plannedJobs.first { $0.kind == .compile })
+
+      XCTAssertTrue(compileJob.commandLine.contains(.path(VirtualPath.absolute(try AbsolutePath(validating: "/tmp/test.opt.yaml")))))
+      XCTAssertTrue(compileJob.commandLine.contains(.flag("-save-optimization-record-path")))
+    }
+  }
+
   func testUpdateCode() throws {
     do {
       var driver = try Driver(args: [

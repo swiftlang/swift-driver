@@ -683,8 +683,18 @@ extension Driver {
                                                         moduleOutputPaths: SupplementalModuleTargetOutputPaths,
                                                         includeModuleTracePath: Bool,
                                                         indexFilePaths: [TypedVirtualPath],
-                                                        allInputs: [TypedVirtualPath] = []) throws -> [TypedVirtualPath] {
+                                                        allInputs: [TypedVirtualPath] = [],
+                                                        explicitOptRecordPaths: [VirtualPath.Handle]? = nil) throws -> [TypedVirtualPath] {
     var flaggedInputOutputPairs: [(flag: String, input: TypedVirtualPath?, output: TypedVirtualPath)] = []
+
+    // Create mapping from input file to explicit opt-record path
+    var explicitOptRecordPathMap: [VirtualPath.Handle: VirtualPath.Handle] = [:]
+    if let paths = explicitOptRecordPaths {
+      let swiftInputs = allInputs.filter {$0.type.isPartOfSwiftCompilation}
+      for (index, input) in swiftInputs.enumerated() where index < paths.count {
+        explicitOptRecordPathMap[input.fileHandle] = paths[index]
+      }
+    }
 
     /// Generate directory-based output path for supplementary outputs
     func generateSupplementaryOutputPath(for input: TypedVirtualPath, outputType: FileType, directory: String) throws -> TypedVirtualPath {
@@ -767,6 +777,9 @@ extension Driver {
       if let input = input {
         if let outputFileMapPath = try outputFileMap?.existingOutput(inputFile: input.fileHandle, outputType: outputType) {
           outputPath = outputFileMapPath
+        } else if outputType.isOptimizationRecord && finalOutputPath != optimizationRecordPath {
+          // For opt-records with an explicit final output path that isn't the module-level path, use it directly
+          outputPath = finalOutputPath
         } else if let output = inputOutputMap[input]?.first, output.file != .standardOutput, compilerOutputType != nil {
           // Alongside primary output
           outputPath = try output.file.replacingExtension(with: outputType).intern()
@@ -830,12 +843,6 @@ extension Driver {
         flag: "-emit-reference-dependencies-path")
 
       try addOutputOfType(
-        outputType: self.optimizationRecordFileType ?? .yamlOptimizationRecord,
-        finalOutputPath: optimizationRecordPath,
-        input: input,
-        flag: "-save-optimization-record-path")
-
-      try addOutputOfType(
         outputType: .diagnostics,
         finalOutputPath: serializedDiagnosticsFilePath,
         input: input,
@@ -845,6 +852,8 @@ extension Driver {
       let saveTempsWithoutFileMap = parsedOptions.hasArgument(.saveTemps) && outputFileMap == nil
       let hasSilFileMapEntries = outputFileMap?.hasEntries(for: .sil) ?? false
       let hasIrFileMapEntries = outputFileMap?.hasEntries(for: .llvmIR) ?? false
+      let optRecordType = self.optimizationRecordFileType ?? .yamlOptimizationRecord
+      let hasOptRecordFileMapEntries = outputFileMap?.hasEntries(for: optRecordType) ?? false
 
       let silOutputPathSupported = Driver.isOptionFound("-sil-output-path", allOpts: supportedFrontendFlags)
       let irOutputPathSupported = Driver.isOptionFound("-ir-output-path", allOpts: supportedFrontendFlags)
@@ -859,6 +868,10 @@ extension Driver {
 
       let shouldAddSilOutput = silOutputPathSupported && (parsedOptions.hasArgument(.silOutputDir) || saveTempsWithoutFileMap || hasSilFileMapEntries)
       let shouldAddIrOutput = irOutputPathSupported && (parsedOptions.hasArgument(.irOutputDir) || saveTempsWithoutFileMap || hasIrFileMapEntries)
+      let shouldAddOptRecordOutput = parsedOptions.hasArgument(.saveOptimizationRecord) ||
+                                     parsedOptions.hasArgument(.saveOptimizationRecordEQ) ||
+                                     hasOptRecordFileMapEntries ||
+                                     explicitOptRecordPaths != nil
 
       if shouldAddSilOutput {
         try addOutputOfType(
@@ -874,6 +887,22 @@ extension Driver {
           finalOutputPath: llvmIROutputPath,
           input: input,
           flag: "-ir-output-path")
+      }
+
+      if shouldAddOptRecordOutput {
+        // If we have an explicit path for this input, add it directly
+        if let inp = input, let explicitPath = explicitOptRecordPathMap[inp.fileHandle] {
+          flaggedInputOutputPairs.append((flag: "-save-optimization-record-path",
+                                          input: inp,
+                                          output: TypedVirtualPath(file: explicitPath, type: optRecordType)))
+        } else {
+          // Otherwise, use the standard addOutputOfType logic
+          try addOutputOfType(
+            outputType: optRecordType,
+            finalOutputPath: optimizationRecordPath,
+            input: input,
+            flag: "-save-optimization-record-path")
+        }
       }
     }
 
@@ -966,7 +995,12 @@ extension Driver {
                                       output: TypedVirtualPath(file: tracePath, type: .moduleTrace)))
     }
 
-    if inputsGeneratingCodeCount * FileType.allCases.count > fileListThreshold {
+    // When we have multiple opt records in flaggedInputOutputPairs, we must use a supplementary
+    // output file map to pass all the per-file paths to the frontend.
+    let hasMultipleOptRecords = flaggedInputOutputPairs
+      .filter { $0.flag == "-save-optimization-record-path" }.count > 1
+
+    if inputsGeneratingCodeCount * FileType.allCases.count > fileListThreshold || hasMultipleOptRecords {
       var entries = [VirtualPath.Handle: [FileType: VirtualPath.Handle]]()
       for input in primaryInputs {
         if let output = inputOutputMap[input]?.first {
