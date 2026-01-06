@@ -264,6 +264,7 @@ extension Driver {
     // -save-optimization-record and -save-optimization-record= have different meanings.
     // In this case, we specifically want to pass the EQ variant to the frontend
     // to control the output type of optimization remarks (YAML or bitstream).
+    try commandLine.appendLast(.saveOptimizationRecord, from: &parsedOptions)
     try commandLine.appendLast(.saveOptimizationRecordEQ, from: &parsedOptions)
     try commandLine.appendLast(.saveOptimizationRecordPasses, from: &parsedOptions)
 
