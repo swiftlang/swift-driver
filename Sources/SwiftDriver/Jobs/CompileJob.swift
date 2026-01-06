@@ -272,6 +272,19 @@ extension Driver {
       ? inputs.count
       : primaryInputs.count
 
+    let hasOptRecordFileMapEntries = outputFileMap?.hasEntries(for: optimizationRecordFileType ?? .yamlOptimizationRecord) ?? false
+
+    // If we have N explicit optimization record paths for N Swift files, collect them
+    var explicitOptRecordPaths: [VirtualPath.Handle]? = nil
+    if compilerMode.usesPrimaryFileInputs {
+      let swiftInputCount = self.inputFiles.filter { $0.type.isPartOfSwiftCompilation }.count
+      let optRecordPathCount = parsedOptions.arguments(for: .saveOptimizationRecordPath).count
+      if optRecordPathCount == swiftInputCount && !hasOptRecordFileMapEntries {
+        let allPaths = parsedOptions.arguments(for: .saveOptimizationRecordPath)
+        explicitOptRecordPaths = try allPaths.map { try VirtualPath(path: $0.argument.asSingle).intern() }
+      }
+    }
+
     outputs += try addFrontendSupplementaryOutputArguments(
       commandLine: &commandLine,
       primaryInputs: primaryInputs,
@@ -281,7 +294,8 @@ extension Driver {
       moduleOutputPaths: self.moduleOutputPaths,
       includeModuleTracePath: emitModuleTrace,
       indexFilePaths: indexFilePaths,
-      allInputs: inputs)
+      allInputs: inputs,
+      explicitOptRecordPaths: explicitOptRecordPaths)
 
     // Forward migrator flags.
     try commandLine.appendLast(.apiDiffDataFile, from: &parsedOptions)
