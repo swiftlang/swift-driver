@@ -689,17 +689,17 @@ extension Driver {
     /// Generate directory-based output path for supplementary outputs
     func generateSupplementaryOutputPath(for input: TypedVirtualPath, outputType: FileType, directory: String) throws -> TypedVirtualPath {
       let inputBasename = input.file.basenameWithoutExt
-      let fileExtension = outputType == .sil ? "sil" : "ll"
+      let fileExtension = outputType.extension
       let filename = "\(inputBasename).\(fileExtension)"
       let individualPath = try VirtualPath(path: directory).appending(component: filename)
       let outputPath = individualPath.intern()
       return TypedVirtualPath(file: outputPath, type: outputType)
     }
 
-    /// Process inputs for supplementary output generation (SIL/IR)
+    /// Process inputs for supplementary output generation (SIL/IR/opt-records)
     func processInputsForSupplementaryOutput(inputs: [TypedVirtualPath], outputType: FileType, flag: String, directory: String?) throws {
       for inputFile in inputs {
-        // Check output file map first, then fall back to directory-based generation
+        // Check output file map first for per-file entry
         if let outputFileMapPath = try outputFileMap?.existingOutput(inputFile: inputFile.fileHandle, outputType: outputType) {
           flaggedInputOutputPairs.append((flag: flag, input: inputFile, output: TypedVirtualPath(file: outputFileMapPath, type: outputType)))
         } else if let directory = directory {
@@ -720,13 +720,28 @@ extension Driver {
       input: TypedVirtualPath?,
       flag: String
     ) throws {
-      // Handle directory-based options and file maps for SIL and LLVM IR when finalOutputPath is nil
-      if finalOutputPath == nil && (outputType == .sil || outputType == .llvmIR) {
-        let directoryOption: Option = outputType == .sil ? .silOutputDir : .irOutputDir
-        let directory = parsedOptions.getLastArgument(directoryOption)?.asSingle
-        let hasFileMapEntries = outputFileMap?.hasEntries(for: outputType) ?? false
+      // Handle directory-based options and file maps for SIL, LLVM IR, and optimization records when finalOutputPath is nil
+      if finalOutputPath == nil && (outputType == .sil || outputType == .llvmIR || outputType.isOptimizationRecord) {
+        let directoryOption: Option?
+        switch outputType {
+        case .sil:
+          directoryOption = .silOutputDir
+        case .llvmIR:
+          directoryOption = .irOutputDir
+        case .yamlOptimizationRecord, .bitstreamOptimizationRecord:
+          // Optimization records don't have a directory option
+          directoryOption = nil
+        default:
+          fatalError("Unexpected output type")
+        }
 
-        if directory != nil || hasFileMapEntries || (parsedOptions.hasArgument(.saveTemps) && !hasFileMapEntries) {
+        let directory = directoryOption.flatMap { parsedOptions.getLastArgument($0)?.asSingle }
+        let hasFileMapEntries = outputFileMap?.hasEntries(for: outputType) ?? false
+        let hasOptRecordFlag = outputType.isOptimizationRecord &&
+                                (parsedOptions.hasArgument(.saveOptimizationRecord) ||
+                                 parsedOptions.hasArgument(.saveOptimizationRecordEQ))
+
+        if directory != nil || hasFileMapEntries || (parsedOptions.hasArgument(.saveTemps) && !hasFileMapEntries && !outputType.isOptimizationRecord) || hasOptRecordFlag {
           let inputsToProcess: [TypedVirtualPath]
           if compilerMode.usesPrimaryFileInputs {
             inputsToProcess = input.map { [$0] } ?? []
