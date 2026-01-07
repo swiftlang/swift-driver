@@ -274,13 +274,29 @@ extension Driver {
 
     let hasOptRecordFileMapEntries = outputFileMap?.hasEntries(for: optimizationRecordFileType ?? .yamlOptimizationRecord) ?? false
 
-    // If we have N explicit optimization record paths for N Swift files, collect them
+    // If explicit paths are provided, need one path per input file
+    let optRecordPathCount = parsedOptions.arguments(for: .saveOptimizationRecordPath).count
+
+    if !compilerMode.usesPrimaryFileInputs && numThreads > 1 && inputs.count > 1 &&
+       optRecordPathCount > 0 && optRecordPathCount < inputs.count && !hasOptRecordFileMapEntries {
+      diagnosticEngine.emit(.error_single_opt_record_path_with_multi_threaded_wmo)
+      throw ErrorDiagnostics.emitted
+    }
+
+    // If we have N explicit optimization record paths for N files, collect them
     var explicitOptRecordPaths: [VirtualPath.Handle]? = nil
-    if compilerMode.usesPrimaryFileInputs {
-      let swiftInputCount = self.inputFiles.filter { $0.type.isPartOfSwiftCompilation }.count
-      let optRecordPathCount = parsedOptions.arguments(for: .saveOptimizationRecordPath).count
-      if optRecordPathCount == swiftInputCount && !hasOptRecordFileMapEntries {
-        let allPaths = parsedOptions.arguments(for: .saveOptimizationRecordPath)
+    if optRecordPathCount == inputs.count && !hasOptRecordFileMapEntries {
+      let allPaths = parsedOptions.arguments(for: .saveOptimizationRecordPath)
+
+      // In multi-threaded WMO, all paths go to the single job
+      if !compilerMode.usesPrimaryFileInputs && numThreads > 1 {
+        for optPath in allPaths {
+          commandLine.appendFlag(.saveOptimizationRecordPath)
+          try commandLine.appendPath(VirtualPath(path: optPath.argument.asSingle))
+        }
+      }
+      // In non-WMO mode, collect paths to pass to addFrontendSupplementaryOutputArguments
+      else if compilerMode.usesPrimaryFileInputs {
         explicitOptRecordPaths = try allPaths.map { try VirtualPath(path: $0.argument.asSingle).intern() }
       }
     }

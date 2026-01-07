@@ -3962,6 +3962,38 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testOptimizationRecordMultiThreadedWMOInsufficientPaths() throws {
+    // Test error when multi-threaded WMO has insufficient explicit paths
+    var driver = try Driver(args: [
+      "swiftc", "-wmo", "-num-threads", "2", "-save-optimization-record",
+      "-save-optimization-record-path", "/tmp/single.opt.yaml",
+      "-c", "file1.swift", "file2.swift"
+    ])
+
+    XCTAssertThrowsError(try driver.planBuild())
+
+    XCTAssertTrue(driver.diagnosticEngine.diagnostics.contains(where: {
+      $0.message.text.contains("multi-threaded whole-module optimization requires one '-save-optimization-record-path' per source file")
+    }))
+  }
+
+  func testOptimizationRecordMultiThreadedWMOWithExplicitPaths() throws {
+    var driver = try Driver(args: [
+      "swiftc", "-wmo", "-num-threads", "2", "-save-optimization-record",
+      "-save-optimization-record-path", "/tmp/file1.opt.yaml",
+      "-save-optimization-record-path", "/tmp/file2.opt.yaml",
+      "-c", "file1.swift", "file2.swift"
+    ])
+
+    let plannedJobs = try driver.planBuild()
+    let compileJob = try XCTUnwrap(plannedJobs.first { $0.kind == .compile })
+
+    XCTAssertTrue(compileJob.commandLine.contains(.path(VirtualPath.absolute(try AbsolutePath(validating: "/tmp/file1.opt.yaml")))),
+                  "Command line should contain file1.opt.yaml path")
+    XCTAssertTrue(compileJob.commandLine.contains(.path(VirtualPath.absolute(try AbsolutePath(validating: "/tmp/file2.opt.yaml")))),
+                  "Command line should contain file2.opt.yaml path")
+  }
+
   func testUpdateCode() throws {
     do {
       var driver = try Driver(args: [
