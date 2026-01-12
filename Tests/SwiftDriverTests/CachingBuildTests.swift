@@ -228,15 +228,14 @@ final class CachingBuildTests: XCTestCase {
           cHeadersPath.appending(component: "Bridging.h")
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       var driver = try Driver(args: ["swiftc",
-                                     "-I", cHeadersPath.nativePathString(escaped: true),
-                                     "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
-                                     "-I", stdlibPath.nativePathString(escaped: true),
-                                     "-I", shimsPath.nativePathString(escaped: true),
+                                     "-I", cHeadersPath.nativePathString(escaped: false),
+                                     "-I", swiftModuleInterfacesPath.nativePathString(escaped: false),
+                                     "-I", stdlibPath.nativePathString(escaped: false),
+                                     "-I", shimsPath.nativePathString(escaped: false),
                                      "-explicit-module-build",
-                                     "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: true),
-                                     "-import-objc-header", bridgingHeaderpath.nativePathString(escaped: true),
-                                     main.nativePathString(escaped: true)] + sdkArgumentsForTesting)
-
+                                     "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: false),
+                                     "-import-objc-header", bridgingHeaderpath.nativePathString(escaped: false),
+                                     main.nativePathString(escaped: false)] + sdkArgumentsForTesting)
       let jobs = try driver.planBuild()
       let dependencyGraph = try driver.scanModuleDependencies()
       let mainModuleInfo = try dependencyGraph.moduleInfo(of: .swift("testCachingBuildJobs"))
@@ -368,18 +367,18 @@ final class CachingBuildTests: XCTestCase {
       var driver = try Driver(args: ["swiftc",
                                      "-swift-version", "5",
                                      "-module-name", "ModuleOnly",
-                                     "-I", cHeadersPath.nativePathString(escaped: true),
-                                     "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
-                                     "-I", stdlibPath.nativePathString(escaped: true),
-                                     "-I", shimsPath.nativePathString(escaped: true),
-                                     "-module-cache-path", moduleCachePath.nativePathString(escaped: true),
-                                     "-emit-module-interface-path", swiftInterfacePath.nativePathString(escaped: true),
-                                     "-emit-private-module-interface-path", privateSwiftInterfacePath.nativePathString(escaped: true),
+                                     "-I", cHeadersPath.nativePathString(escaped: false),
+                                     "-I", swiftModuleInterfacesPath.nativePathString(escaped: false),
+                                     "-I", stdlibPath.nativePathString(escaped: false),
+                                     "-I", shimsPath.nativePathString(escaped: false),
+                                     "-module-cache-path", moduleCachePath.nativePathString(escaped: false),
+                                     "-emit-module-interface-path", swiftInterfacePath.nativePathString(escaped: false),
+                                     "-emit-private-module-interface-path", privateSwiftInterfacePath.nativePathString(escaped: false),
                                      "-explicit-module-build", "-emit-module-separately-wmo", "-disable-cmo", "-Rcache-compile-job",
                                      "-enable-library-evolution", "-O", "-whole-module-optimization",
-                                     "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: true),
-                                     "-emit-module", "-o", modulePath.nativePathString(escaped: true),
-                                     main.nativePathString(escaped: true), other.nativePathString(escaped: true)] + sdkArgumentsForTesting,
+                                     "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: false),
+                                     "-emit-module", "-o", modulePath.nativePathString(escaped: false),
+                                     main.nativePathString(escaped: false), other.nativePathString(escaped: false)] + sdkArgumentsForTesting,
                               interModuleDependencyOracle: dependencyOracle)
       let jobs = try driver.planBuild()
       try driver.run(jobs: jobs)
@@ -425,20 +424,20 @@ final class CachingBuildTests: XCTestCase {
       var driver = try Driver(args: ["swiftc",
                                      "-swift-version", "5",
                                      "-module-name", "SeparateModuleJob",
-                                     "-I", cHeadersPath.nativePathString(escaped: true),
-                                     "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
-                                     "-I", stdlibPath.nativePathString(escaped: true),
-                                     "-I", shimsPath.nativePathString(escaped: true),
-                                     "-module-cache-path", moduleCachePath.nativePathString(escaped: true),
-                                     "-emit-module-path", modulePath.nativePathString(escaped: true),
-                                     "-emit-module-interface-path", swiftInterfacePath.nativePathString(escaped: true),
-                                     "-emit-private-module-interface-path", privateSwiftInterfacePath.nativePathString(escaped: true),
+                                     "-I", cHeadersPath.nativePathString(escaped: false),
+                                     "-I", swiftModuleInterfacesPath.nativePathString(escaped: false),
+                                     "-I", stdlibPath.nativePathString(escaped: false),
+                                     "-I", shimsPath.nativePathString(escaped: false),
+                                     "-module-cache-path", moduleCachePath.nativePathString(escaped: false),
+                                     "-emit-module-path", modulePath.nativePathString(escaped: false),
+                                     "-emit-module-interface-path", swiftInterfacePath.nativePathString(escaped: false),
+                                     "-emit-private-module-interface-path", privateSwiftInterfacePath.nativePathString(escaped: false),
                                      "-explicit-module-build", "-experimental-emit-module-separately", "-Rcache-compile-job",
                                      "-enable-library-evolution", "-O",
-                                     "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: true),
+                                     "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: false),
                                      "-Xfrontend", "-disable-implicit-concurrency-module-import",
                                      "-Xfrontend", "-disable-implicit-string-processing-module-import",
-                                     main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
+                                     main.nativePathString(escaped: false)] + sdkArgumentsForTesting,
                               interModuleDependencyOracle: dependencyOracle)
       let jobs = try driver.planBuild()
       for job in jobs {
@@ -482,17 +481,16 @@ final class CachingBuildTests: XCTestCase {
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       var driver = try Driver(args: ["swiftc",
                                      "-swift-version", "5",
-                                     "-I", cHeadersPath.nativePathString(escaped: true),
-                                     "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
-                                     "-I", stdlibPath.nativePathString(escaped: true),
-                                     "-I", shimsPath.nativePathString(escaped: true),
-                                     "-emit-module-interface-path", swiftInterfacePath.nativePathString(escaped: true),
-                                     "-emit-private-module-interface-path", privateSwiftInterfacePath.nativePathString(escaped: true),
+                                     "-I", cHeadersPath.nativePathString(escaped: false),
+                                     "-I", swiftModuleInterfacesPath.nativePathString(escaped: false),
+                                     "-I", stdlibPath.nativePathString(escaped: false),
+                                     "-I", shimsPath.nativePathString(escaped: false),
+                                     "-emit-module-interface-path", swiftInterfacePath.nativePathString(escaped: false),
+                                     "-emit-private-module-interface-path", privateSwiftInterfacePath.nativePathString(escaped: false),
                                      "-explicit-module-build", "-verify-emitted-module-interface",
                                      "-enable-library-evolution",
-                                     "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: true),
-                                     main.nativePathString(escaped: true)] + sdkArgumentsForTesting)
-
+                                     "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: false),
+                                     main.nativePathString(escaped: false)] + sdkArgumentsForTesting)
       guard driver.supportExplicitModuleVerifyInterface() else {
         throw XCTSkip("-typecheck-module-from-interface doesn't support explicit build.")
       }
@@ -624,13 +622,13 @@ final class CachingBuildTests: XCTestCase {
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       let dependencyOracle = InterModuleDependencyOracle()
       var driver = try Driver(args: ["swiftc",
-                                     "-I", cHeadersPath.nativePathString(escaped: true),
-                                     "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                     "-I", cHeadersPath.nativePathString(escaped: false),
+                                     "-I", swiftModuleInterfacesPath.nativePathString(escaped: false),
                                      "-explicit-module-build", "-Rcache-compile-job",
-                                     "-module-cache-path", moduleCachePath.nativePathString(escaped: true),
-                                     "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: true),
-                                     "-working-directory", path.nativePathString(escaped: true),
-                                     main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
+                                     "-module-cache-path", moduleCachePath.nativePathString(escaped: false),
+                                     "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: false),
+                                     "-working-directory", path.nativePathString(escaped: false),
+                                     main.nativePathString(escaped: false)] + sdkArgumentsForTesting,
                               interModuleDependencyOracle: dependencyOracle)
       let jobs = try driver.planBuild()
       try driver.run(jobs: jobs)
@@ -678,14 +676,14 @@ final class CachingBuildTests: XCTestCase {
 
       var fooBuildDriver = try Driver(args: ["swiftc",
                                              "-explicit-module-build",
-                                             "-module-cache-path", moduleCachePath.nativePathString(escaped: true),
-                                             "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: true),
-                                             "-working-directory", path.nativePathString(escaped: true),
-                                             foo.nativePathString(escaped: true),
+                                             "-module-cache-path", moduleCachePath.nativePathString(escaped: false),
+                                             "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: false),
+                                             "-working-directory", path.nativePathString(escaped: false),
+                                             foo.nativePathString(escaped: false),
                                              "-emit-module", "-wmo", "-module-name", "Foo",
-                                             "-emit-module-path", FooInstallPath.appending(component: "Foo.swiftmodule").nativePathString(escaped: true),
-                                             "-import-objc-header", fooHeader.nativePathString(escaped: true),
-                                             "-pch-output-dir", PCHPath.nativePathString(escaped: true)]
+                                             "-emit-module-path", FooInstallPath.appending(component: "Foo.swiftmodule").nativePathString(escaped: false),
+                                             "-import-objc-header", fooHeader.nativePathString(escaped: false),
+                                             "-pch-output-dir", PCHPath.nativePathString(escaped: false)]
                                       + sdkArgumentsForTesting,
                                       interModuleDependencyOracle: dependencyOracle)
 
@@ -708,13 +706,13 @@ final class CachingBuildTests: XCTestCase {
       try checkCASForResults(jobs: fooJobs, cas: cas, fs: fooBuildDriver.fileSystem)
 
       var driver = try Driver(args: ["swiftc",
-                                     "-I", FooInstallPath.nativePathString(escaped: true),
+                                     "-I", FooInstallPath.nativePathString(escaped: false),
                                      "-explicit-module-build", "-emit-module", "-emit-module-path",
-                                     path.appending(component: "testEMBETEWBHD.swiftmodule").nativePathString(escaped: true),
-                                     "-module-cache-path", moduleCachePath.nativePathString(escaped: true),
-                                     "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: true),
-                                     "-working-directory", path.nativePathString(escaped: true),
-                                     main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
+                                     path.appending(component: "testEMBETEWBHD.swiftmodule").nativePathString(escaped: false),
+                                     "-module-cache-path", moduleCachePath.nativePathString(escaped: false),
+                                     "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: false),
+                                     "-working-directory", path.nativePathString(escaped: false),
+                                     main.nativePathString(escaped: false)] + sdkArgumentsForTesting,
                               interModuleDependencyOracle: dependencyOracle)
       let jobs = try driver.planBuild()
       for job in jobs {
@@ -750,15 +748,15 @@ final class CachingBuildTests: XCTestCase {
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       let dependencyOracle = InterModuleDependencyOracle()
       var driver = try Driver(args: ["swiftc",
-                                     "-I", cHeadersPath.nativePathString(escaped: true),
-                                     "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                     "-I", cHeadersPath.nativePathString(escaped: false),
+                                     "-I", swiftModuleInterfacesPath.nativePathString(escaped: false),
                                      "/tmp/Foo.o",
                                      "-explicit-module-build",
-                                     "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: true),
-                                     "-working-directory", path.nativePathString(escaped: true),
-                                     "-Xcc", "-ivfsoverlay", "-Xcc", vfsoverlay.nativePathString(escaped: true),
+                                     "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: false),
+                                     "-working-directory", path.nativePathString(escaped: false),
+                                     "-Xcc", "-ivfsoverlay", "-Xcc", vfsoverlay.nativePathString(escaped: false),
                                      "-disable-clang-target",
-                                     main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
+                                     main.nativePathString(escaped: false)] + sdkArgumentsForTesting,
                               interModuleDependencyOracle: dependencyOracle)
       // Plan a build to initialize the scanner and the CAS underneath.
       _ = try driver.planBuild()
@@ -851,7 +849,7 @@ final class CachingBuildTests: XCTestCase {
                                       // FIXME: We need to differentiate the scanning action hash,
                                       // though the module-name above should be sufficient.
                                       "-I/tmp/bad",
-                                      "-cas-path", casPath2.nativePathString(escaped: true),
+                                      "-cas-path", casPath2.nativePathString(escaped: false),
                                       ]
       var scanDiagnostics: [ScannerDiagnosticPayload] = []
       do {
@@ -888,19 +886,19 @@ final class CachingBuildTests: XCTestCase {
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       let mockBlocklistDir = try testInputsPath.appending(components: "Dummy.xctoolchain", "usr", "bin")
       var env = ProcessEnv.block
-      env["_SWIFT_DRIVER_MOCK_BLOCK_LIST_DIR"] = mockBlocklistDir.nativePathString(escaped: true)
+      env["_SWIFT_DRIVER_MOCK_BLOCK_LIST_DIR"] = mockBlocklistDir.nativePathString(escaped: false)
       let dependencyOracle = InterModuleDependencyOracle()
       var driver = try Driver(args: ["swiftc",
-                                     "-I", cHeadersPath.nativePathString(escaped: true),
-                                     "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                     "-I", cHeadersPath.nativePathString(escaped: false),
+                                     "-I", swiftModuleInterfacesPath.nativePathString(escaped: false),
                                      "-g", "-explicit-module-build",
-                                     "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: true),
-                                     "-working-directory", path.nativePathString(escaped: true),
+                                     "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: false),
+                                     "-working-directory", path.nativePathString(escaped: false),
                                      "-disable-clang-target", "-scanner-prefix-map-sdk", "/^sdk",
                                      "-scanner-prefix-map-toolchain", "/^toolchain",
                                      "-scanner-prefix-map", testInputsPath.description + "=/^src",
                                      "-scanner-prefix-map", path.description + "=/^tmp",
-                                     main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
+                                     main.nativePathString(escaped: false)] + sdkArgumentsForTesting,
                               env: env,
                               interModuleDependencyOracle: dependencyOracle)
       guard driver.isFrontendArgSupported(.scannerPrefixMapPaths) else {
@@ -972,15 +970,15 @@ final class CachingBuildTests: XCTestCase {
           cHeadersPath.appending(component: "Bridging.h")
       let dependencyOracle = InterModuleDependencyOracle()
       var driver = try Driver(args: ["swiftc",
-                                     "-I", cHeadersPath.nativePathString(escaped: true),
-                                     "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                     "-I", cHeadersPath.nativePathString(escaped: false),
+                                     "-I", swiftModuleInterfacesPath.nativePathString(escaped: false),
                                      "-explicit-module-build", "-Rcache-compile-job", "-incremental",
-                                     "-module-cache-path", moduleCachePath.nativePathString(escaped: true),
-                                     "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: true),
-                                     "-import-objc-header", bridgingHeaderpath.nativePathString(escaped: true),
-                                     "-output-file-map", ofm.nativePathString(escaped: true),
-                                     "-working-directory", path.nativePathString(escaped: true),
-                                     main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
+                                     "-module-cache-path", moduleCachePath.nativePathString(escaped: false),
+                                     "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: false),
+                                     "-import-objc-header", bridgingHeaderpath.nativePathString(escaped: false),
+                                     "-output-file-map", ofm.nativePathString(escaped: false),
+                                     "-working-directory", path.nativePathString(escaped: false),
+                                     main.nativePathString(escaped: false)] + sdkArgumentsForTesting,
                               interModuleDependencyOracle: dependencyOracle)
       let jobs = try driver.planBuild()
       try driver.run(jobs: jobs)
@@ -1027,15 +1025,15 @@ final class CachingBuildTests: XCTestCase {
           cHeadersPath.appending(component: "Bridging.h")
       let dependencyOracle = InterModuleDependencyOracle()
       var driver = try Driver(args: ["swiftc",
-                                     "-I", cHeadersPath.nativePathString(escaped: true),
-                                     "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                     "-I", cHeadersPath.nativePathString(escaped: false),
+                                     "-I", swiftModuleInterfacesPath.nativePathString(escaped: false),
                                      "-explicit-module-build", "-Rcache-compile-job", "-incremental",
-                                     "-module-cache-path", moduleCachePath.nativePathString(escaped: true),
-                                     "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: true),
-                                     "-import-objc-header", bridgingHeaderpath.nativePathString(escaped: true),
-                                     "-output-file-map", ofm.nativePathString(escaped: true),
-                                     "-working-directory", path.nativePathString(escaped: true),
-                                     main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
+                                     "-module-cache-path", moduleCachePath.nativePathString(escaped: false),
+                                     "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: false),
+                                     "-import-objc-header", bridgingHeaderpath.nativePathString(escaped: false),
+                                     "-output-file-map", ofm.nativePathString(escaped: false),
+                                     "-working-directory", path.nativePathString(escaped: false),
+                                     main.nativePathString(escaped: false)] + sdkArgumentsForTesting,
                               interModuleDependencyOracle: dependencyOracle)
       let jobs = try driver.planBuild()
       try driver.run(jobs: jobs)
@@ -1073,16 +1071,16 @@ final class CachingBuildTests: XCTestCase {
                             .appending(component: "Swift")
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       var env = ProcessEnv.block
-      env["SWIFT_CRASH_DIAGNOSTICS_DIR"] = path.nativePathString(escaped: true)
+      env["SWIFT_CRASH_DIAGNOSTICS_DIR"] = path.nativePathString(escaped: false)
       var driver = try Driver(args: ["swiftc",
-                                     "-I", cHeadersPath.nativePathString(escaped: true),
-                                     "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                     "-I", cHeadersPath.nativePathString(escaped: false),
+                                     "-I", swiftModuleInterfacesPath.nativePathString(escaped: false),
                                      "-explicit-module-build", "-enable-deterministic-check",
-                                     "-module-cache-path", moduleCachePath.nativePathString(escaped: true),
-                                     "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: true),
-                                     "-working-directory", path.nativePathString(escaped: true),
+                                     "-module-cache-path", moduleCachePath.nativePathString(escaped: false),
+                                     "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: false),
+                                     "-working-directory", path.nativePathString(escaped: false),
                                      "-Xfrontend", "-debug-crash-after-parse",
-                                     main.nativePathString(escaped: true)] + sdkArgumentsForTesting,
+                                     main.nativePathString(escaped: false)] + sdkArgumentsForTesting,
                               env: env)
       guard driver.isFrontendArgSupported(.genReproducer) else {
         throw XCTSkip("crash reproducer not supported")
@@ -1121,14 +1119,14 @@ final class CachingBuildTests: XCTestCase {
       let bridgingHeaderpath: AbsolutePath =
           cHeadersPath.appending(component: "Bridging.h")
       var driver = try Driver(args: ["swiftc",
-                                     "-I", cHeadersPath.nativePathString(escaped: true),
-                                     "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                     "-I", cHeadersPath.nativePathString(escaped: false),
+                                     "-I", swiftModuleInterfacesPath.nativePathString(escaped: false),
                                      "-explicit-module-build", "-enable-deterministic-check",
-                                     "-module-cache-path", moduleCachePath.nativePathString(escaped: true),
-                                     "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: true),
-                                     "-import-objc-header", bridgingHeaderpath.nativePathString(escaped: true),
-                                     "-working-directory", path.nativePathString(escaped: true),
-                                     main.nativePathString(escaped: true)] + sdkArgumentsForTesting)
+                                     "-module-cache-path", moduleCachePath.nativePathString(escaped: false),
+                                     "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: false),
+                                     "-import-objc-header", bridgingHeaderpath.nativePathString(escaped: false),
+                                     "-working-directory", path.nativePathString(escaped: false),
+                                     main.nativePathString(escaped: false)] + sdkArgumentsForTesting)
       let jobs = try driver.planBuild()
       jobs.forEach { job in
         guard job.kind == .compile else {
@@ -1187,13 +1185,13 @@ final class CachingBuildTests: XCTestCase {
 
       func createDriver(main: AbsolutePath) throws -> Driver {
         return try Driver(args: ["swiftc",
-                                 "-I", cHeadersPath.nativePathString(escaped: true),
-                                 "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                 "-I", cHeadersPath.nativePathString(escaped: false),
+                                 "-I", swiftModuleInterfacesPath.nativePathString(escaped: false),
                                  "-explicit-module-build", "-Rcache-compile-job",
-                                 "-module-cache-path", moduleCachePath.nativePathString(escaped: true),
-                                 "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: true),
-                                 "-working-directory", path.nativePathString(escaped: true),
-                                 main.nativePathString(escaped: true)] + sdkArgumentsForTesting)
+                                 "-module-cache-path", moduleCachePath.nativePathString(escaped: false),
+                                 "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: false),
+                                 "-working-directory", path.nativePathString(escaped: false),
+                                 main.nativePathString(escaped: false)] + sdkArgumentsForTesting)
       }
 
       func buildAndGetSwiftCASKeys(main: AbsolutePath, forceCASLimit: Bool) throws -> [String] {

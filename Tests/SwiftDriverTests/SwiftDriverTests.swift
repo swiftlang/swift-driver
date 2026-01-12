@@ -6869,11 +6869,11 @@ final class SwiftDriverTests: XCTestCase {
       let swiftModuleInterfacesPath: AbsolutePath =
       try testInputsPath.appending(component: "testLoadPackageInterface")
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
-      var driver = try Driver(args: ["swiftc", main.nativePathString(escaped: true),
+      var driver = try Driver(args: ["swiftc", main.nativePathString(escaped: false),
                                      "-typecheck",
                                      "-package-name", "foopkg",
                                      "-experimental-package-interface-load",
-                                     "-I", swiftModuleInterfacesPath.nativePathString(escaped: true),
+                                     "-I", swiftModuleInterfacesPath.nativePathString(escaped: false),
                                      "-enable-library-evolution"] + sdkArgumentsForTesting,
                               env: envVars)
 
@@ -7973,12 +7973,12 @@ final class SwiftDriverTests: XCTestCase {
       func doBuild() throws -> Bool {
         let sdkArguments = try XCTUnwrap(try Driver.sdkArgumentsForTesting())
         var driver = try Driver(args: ["swiftc",
-                                       "-working-directory", tmpDir.nativePathString(escaped: true),
+                                       "-working-directory", tmpDir.nativePathString(escaped: false),
                                        "-module-name", "mod",
                                        "-c",
                                        "-incremental",
-                                       "-output-file-map", ofm.nativePathString(escaped: true),
-                                       main.nativePathString(escaped: true)] + sdkArguments)
+                                       "-output-file-map", ofm.nativePathString(escaped: false),
+                                       main.nativePathString(escaped: false)] + sdkArguments)
         let jobs = try driver.planBuild()
         do {try driver.run(jobs: jobs)}
         catch {return false}
@@ -8459,7 +8459,7 @@ final class SwiftDriverTests: XCTestCase {
   func testEmitAPIDescriptorEmitModule() throws {
     try withTemporaryDirectory { path in
       do {
-        let apiDescriptorPath = path.appending(component: "api.json").nativePathString(escaped: true)
+        let apiDescriptorPath = path.appending(component: "api.json").nativePathString(escaped: false)
         var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "baz.swift",
                                        "-emit-module", "-module-name", "Test",
                                        "-emit-api-descriptor-path", apiDescriptorPath])
@@ -8500,7 +8500,7 @@ final class SwiftDriverTests: XCTestCase {
   func testEmitAPIDescriptorWholeModuleOptimization() throws {
     try withTemporaryDirectory { path in
       do {
-        let apiDescriptorPath = path.appending(component: "api.json").nativePathString(escaped: true)
+        let apiDescriptorPath = path.appending(component: "api.json").nativePathString(escaped: false)
         var driver = try Driver(args: ["swiftc", "-whole-module-optimization",
                                        "-driver-filelist-threshold=0",
                                        "foo.swift", "bar.swift", "baz.swift",
@@ -8660,12 +8660,12 @@ final class SwiftDriverTests: XCTestCase {
                                  "-parse-as-library",
                                  "-emit-library",
                                  "-driver-filelist-threshold", "0",
-                                 "-module-cache-path", moduleCachePath.nativePathString(escaped: true),
-                                 "-working-directory", path.nativePathString(escaped: true),
-                                 one.nativePathString(escaped: true),
-                                 two.nativePathString(escaped: true),
-                                 three.nativePathString(escaped: true),
-                                 four.nativePathString(escaped: true)] + sdkArgumentsForTesting
+                                 "-module-cache-path", moduleCachePath.nativePathString(escaped: false),
+                                 "-working-directory", path.nativePathString(escaped: false),
+                                 one.nativePathString(escaped: false),
+                                 two.nativePathString(escaped: false),
+                                 three.nativePathString(escaped: false),
+                                 four.nativePathString(escaped: false)] + sdkArgumentsForTesting
       var driver = try Driver(args: invocationArguments)
       let jobs = try driver.planBuild()
       try driver.run(jobs: jobs)
