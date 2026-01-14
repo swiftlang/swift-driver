@@ -299,28 +299,28 @@ public struct Driver {
   let scannerPrefixMapSDK: AbsolutePath?
   let scannerPrefixMapToolchain: AbsolutePath?
   lazy var prefixMapping: [(AbsolutePath, AbsolutePath)] = {
+    guard isFrontendArgSupported(.cacheReplayPrefixMap) else {
+      return []
+    }
     var mapping: [(AbsolutePath, AbsolutePath)] = scannerPrefixMap.map {
       return ($0.key, $0.value)
     }
-    do {
-      guard isFrontendArgSupported(.cacheReplayPrefixMap) else {
-        return []
-      }
-      if let sdkMapping = scannerPrefixMapSDK,
-         let sdkPath = absoluteSDKPath {
-        mapping.append((sdkPath, sdkMapping))
-      }
-      if let toolchainMapping = scannerPrefixMapToolchain {
-        let toolchainPath = try toolchain.executableDir.parentDirectory // usr
-                                                       .parentDirectory // toolchain
-        mapping.append((toolchainPath, toolchainMapping))
-      }
-      // The mapping needs to be sorted so the mapping is determinisitic.
-      // The sorting order is reversed so /tmp/tmp is preferred over /tmp in remapping.
-      return mapping.sorted { $0.0 > $1.0 }
-    } catch {
-      return mapping.sorted { $0.0 > $1.0 }
+    if let sdkMapping = scannerPrefixMapSDK,
+       let sdkPath = absoluteSDKPath {
+      mapping.append((sdkPath, sdkMapping))
     }
+    if let toolchainMapping = scannerPrefixMapToolchain,
+       let toolchainPath = try? toolchain.executableDir.parentDirectory   // usr
+                                                       .parentDirectory { // toolchain
+      mapping.append((toolchainPath, toolchainMapping))
+    }
+    guard mapping.isEmpty || isCachingEnabled else {
+      diagnosticEngine.emit(.warning("ignore '-scanner-prefix-*' options that cannot be used without compilation caching"))
+      return []
+    }
+    // The mapping needs to be sorted so the mapping is determinisitic.
+    // The sorting order is reversed so /tmp/tmp is preferred over /tmp in remapping.
+    return mapping.sorted { $0.0 > $1.0 }
   }()
 
   /// Code & data for incremental compilation. Nil if not running in incremental mode.
