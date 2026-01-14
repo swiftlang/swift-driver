@@ -311,6 +311,29 @@ extension FileType {
 }
 
 extension FileType {
+  /// Whether this file type represents an optimization record
+  public var isOptimizationRecord: Bool {
+    self == .yamlOptimizationRecord || self == .bitstreamOptimizationRecord
+  }
+
+  /// The file extension for this file type
+  public var `extension`: String {
+    switch self {
+    case .sil:
+      return "sil"
+    case .llvmIR:
+      return "ll"
+    case .yamlOptimizationRecord:
+      return "opt.yaml"
+    case .bitstreamOptimizationRecord:
+      return "opt.bitstream"
+    default:
+      return self.rawValue
+    }
+  }
+}
+
+extension FileType {
 
   private static let typesByName = Dictionary(uniqueKeysWithValues: FileType.allCases.map { ($0.name, $0) })
 
