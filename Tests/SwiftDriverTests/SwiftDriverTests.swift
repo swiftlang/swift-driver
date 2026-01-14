@@ -2791,6 +2791,23 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
+      // -sysroot is preferred over -sdk as the sysroot passed to the clang linker
+      try withTemporaryDirectory { path in
+        try localFileSystem.writeFileContents(path.appending(components: "wasi", "static-executable-args.lnk")) {
+          $0.send("garbage")
+        }
+        var driver = try Driver(args: commonArgs + ["-emit-executable", "-Ounchecked",
+                                                    "-target", "wasm32-unknown-wasi",
+                                                    "-resource-dir", path.pathString,
+                                                    "-sysroot", "/sysroot/path",
+                                                    "-sdk", "/sdk/path"], env: env)
+        let plannedJobs = try driver.planBuild()
+        let cmd = plannedJobs.last!.commandLine
+        XCTAssertTrue(cmd.contains(subsequence: ["--sysroot", .path(.absolute(try .init(validating: "/sysroot/path")))]))
+      }
+    }
+
+    do {
       // Linker flags with and without space
       var driver = try Driver(args: commonArgs + ["-lsomelib","-l","otherlib"], env: env)
       let plannedJobs = try driver.planBuild()
