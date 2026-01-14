@@ -16,6 +16,46 @@ import TSCBasic
 import XCTest
 import TestUtilities
 
+private func argumentNeedsQuoting(_ argument: String) -> Bool {
+  if argument.isEmpty { return false }
+  let chars: Set<Character> = Set("\t \"&'()*<>\\`^|\n")
+  return argument.firstIndex(where: { chars.contains($0) }) != argument.endIndex
+}
+
+private func quoteArgument(_ argument: String) -> String {
+#if os(Windows)
+  var unquoted: Substring = argument[...]
+  var quoted: String = "\""
+  while !unquoted.isEmpty {
+    guard let firstNonBS = unquoted.firstIndex(where: { $0 != "\\" }) else {
+      // The rest of the string is backslashes. Escape all of them and exit.
+      (0 ..< (2 * unquoted.count)).forEach { _ in quoted += "\\" }
+      break
+    }
+
+    let bsCount = unquoted.distance(from: unquoted.startIndex, to: firstNonBS)
+    if unquoted[firstNonBS] == "\"" {
+      // This is an embedded quote. Escape all preceding backslashes, then
+      // add one additional backslash to escape the quote.
+      (0 ..< (2 * bsCount + 1)).forEach { _ in quoted += "\\" }
+      quoted += "\""
+    } else {
+      // This is just a normal character. Don't escape any of the preceding
+      // backslashes, just append them as they are and then append the
+      // character.
+      (0 ..< bsCount).forEach { _ in quoted += "\\" }
+      quoted += "\(unquoted[firstNonBS])"
+    }
+
+    unquoted = unquoted.dropFirst(bsCount + 1)
+  }
+  return quoted + "\""
+#else
+  return "'" + argument + "'"
+#endif
+}
+
+
 private var testInputsPath: AbsolutePath {
   get throws {
     var root: AbsolutePath = try AbsolutePath(validating: #file)
@@ -1652,7 +1692,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       let deps =
         try dependencyOracle.getImports(workingDirectory: path,
                                         moduleAliases: ["Car": "Bar"],
-                                        commandLine: scannerCommand,
+                                        commandLine: scannerCommand.map { if argumentNeedsQuoting($0) { quoteArgument($0) } else { $0 }},
                                         diagnostics: &scanDiagnostics)
 
       XCTAssertTrue(deps.imports.contains("Bar"))
@@ -1884,7 +1924,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       var scanDiagnostics: [ScannerDiagnosticPayload] = []
       let dependencyGraph =
           try dependencyOracle.getDependencies(workingDirectory: path,
-                                               commandLine: scannerCommand,
+                                               commandLine: scannerCommand.map { if argumentNeedsQuoting($0) { quoteArgument($0) } else { $0 } },
                                                diagnostics: &scanDiagnostics)
 
       let fooDependencyInfo = try XCTUnwrap(dependencyGraph.modules[.swiftPrebuiltExternal("Foo")])
@@ -1935,7 +1975,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       var scanDiagnostics: [ScannerDiagnosticPayload] = []
       let imports =
         try dependencyOracle.getImports(workingDirectory: path,
-                                        commandLine: scannerCommand,
+                                        commandLine: scannerCommand.map { if argumentNeedsQuoting($0) { quoteArgument($0) } else { $0 } },
                                         diagnostics: &scanDiagnostics)
       let expectedImports = ["C", "E", "G", "Swift", "SwiftOnoneSupport"]
       // Dependnig on how recent the platform we are running on, the _Concurrency module may or may not be present.
@@ -2042,7 +2082,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       var scanDiagnostics: [ScannerDiagnosticPayload] = []
       let _ =
           try dependencyOracle.getDependencies(workingDirectory: path,
-                                               commandLine: scannerCommand,
+                                               commandLine: scannerCommand.map { if argumentNeedsQuoting($0) { quoteArgument($0) } else { $0 } },
                                                diagnostics: &scanDiagnostics)
       XCTAssertEqual(scanDiagnostics.count, 5)
       let diags = try XCTUnwrap(scanDiagnostics)
@@ -2113,7 +2153,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
       var scanDiagnostics: [ScannerDiagnosticPayload] = []
       let _ =
           try dependencyOracle.getDependencies(workingDirectory: path,
-                                               commandLine: scannerCommand,
+                                               commandLine: scannerCommand.map { if argumentNeedsQuoting($0) { quoteArgument($0) } else { $0 } },
                                                diagnostics: &scanDiagnostics)
       XCTAssertEqual(scanDiagnostics.count, 2)
       let diags = try XCTUnwrap(scanDiagnostics)
@@ -2292,7 +2332,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
           var scanDiagnostics: [ScannerDiagnosticPayload] = []
           let dependencyGraph =
             try dependencyOracle.getDependencies(workingDirectory: path,
-                                                 commandLine: iterationCommand,
+                                                 commandLine: iterationCommand.map { if argumentNeedsQuoting($0) { quoteArgument($0) } else { $0 } },
                                                  diagnostics: &scanDiagnostics)
 
           // The _Concurrency and _StringProcessing modules are automatically
@@ -2445,7 +2485,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
         do {
           let _ =
             try dependencyOracle.getDependencies(workingDirectory: path,
-                                                 commandLine: scannerCommands[scanIndex],
+                                                 commandLine: scannerCommands[scanIndex].map { if argumentNeedsQuoting($0) { quoteArgument($0) } else { $0 } },
                                                  diagnostics: &scanDiagnostics[scanIndex])
         } catch {
           XCTFail("Unexpected error: \(error)")
@@ -2620,7 +2660,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
         var scanDiagnostics: [ScannerDiagnosticPayload] = []
         let dependencyGraph =
           try dependencyOracle.getDependencies(workingDirectory: path,
-                                               commandLine: scannerCommand,
+                                               commandLine: scannerCommand.map { if argumentNeedsQuoting($0) { quoteArgument($0) } else { $0 } },
                                                diagnostics: &scanDiagnostics)
         let serializer = DOTModuleDependencyGraphSerializer(dependencyGraph)
 
