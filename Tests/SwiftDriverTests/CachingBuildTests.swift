@@ -237,7 +237,7 @@ final class CachingBuildTests: XCTestCase {
                                      "-import-objc-header", bridgingHeaderpath.nativePathString(escaped: false),
                                      main.nativePathString(escaped: false)] + sdkArgumentsForTesting)
       let jobs = try driver.planBuild()
-      let dependencyGraph = try driver.scanModuleDependencies()
+      let dependencyGraph = try XCTUnwrap(driver.intermoduleDependencyGraph)
       let mainModuleInfo = try dependencyGraph.moduleInfo(of: .swift("testCachingBuildJobs"))
       guard case .swift(_) = mainModuleInfo.details else {
         XCTFail("Main module does not have Swift details field")
@@ -496,8 +496,7 @@ final class CachingBuildTests: XCTestCase {
       }
 
       let jobs = try driver.planBuild()
-      // Figure out which Triples to use.
-      let dependencyGraph = try driver.scanModuleDependencies()
+      let dependencyGraph = try XCTUnwrap(driver.intermoduleDependencyGraph)
       let mainModuleInfo = try dependencyGraph.moduleInfo(of: .swift("testExplicitModuleVerifyInterfaceJobs"))
       guard case .swift(_) = mainModuleInfo.details else {
         XCTFail("Main module does not have Swift details field")

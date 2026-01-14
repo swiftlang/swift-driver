@@ -694,8 +694,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                      main.nativePathString(escaped: false)] + sdkArgumentsForTesting)
 
       let jobs = try driver.planBuild()
-      // Figure out which Triples to use.
-      let dependencyGraph = try driver.scanModuleDependencies()
+      let dependencyGraph = try XCTUnwrap(driver.intermoduleDependencyGraph)
       let mainModuleInfo = try dependencyGraph.moduleInfo(of: .swift("testExplicitModuleBuildJobs"))
 
       guard case .swift(let mainModuleDetails) = mainModuleInfo.details else {
@@ -848,8 +847,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                      "-register-module-dependency", "G",
                                      "-emit-loaded-module-trace",
                                      main.nativePathString(escaped: false)] + sdkArgumentsForTesting)
-      let dependencyGraph = try driver.scanModuleDependencies()
       let jobs = try driver.planBuild()
+      let dependencyGraph = try XCTUnwrap(driver.intermoduleDependencyGraph)
       // E and G SHOULD be in the dependency graph (registered for scanning)
       XCTAssertTrue(dependencyGraph.modules.keys.contains(.swift("E")),
                     "Module E should be in dependency graph when registered via -register-module-dependency")
@@ -1069,8 +1068,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
         throw XCTSkip("-typecheck-module-from-interface doesn't support explicit build.")
       }
       let jobs = try driver.planBuild()
-      // Figure out which Triples to use.
-      let dependencyGraph = try driver.scanModuleDependencies()
+      let dependencyGraph = try XCTUnwrap(driver.intermoduleDependencyGraph)
       let mainModuleInfo = try dependencyGraph.moduleInfo(of: .swift("testExplicitModuleVerifyInterfaceJobs"))
       guard case .swift(_) = mainModuleInfo.details else {
         XCTFail("Main module does not have Swift details field")
@@ -1227,8 +1225,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                      "-pch-output-dir", pchOutputDir.nativePathString(escaped: false),
                                      main.nativePathString(escaped: false)] + sdkArgumentsForTesting)
       let jobs = try driver.planBuild()
-      // Figure out which Triples to use.
-      let dependencyGraph = try driver.scanModuleDependencies()
+      let dependencyGraph = try XCTUnwrap(driver.intermoduleDependencyGraph)
       let mainModuleInfo = try dependencyGraph.moduleInfo(of: .swift("testExplicitModuleBuildPCHOutputJobs"))
       guard case .swift(_) = mainModuleInfo.details else {
         XCTFail("Main module does not have Swift details field")
@@ -1368,7 +1365,6 @@ final class ExplicitModuleBuildTests: XCTestCase {
       // XCTAssertJobInvocationMatches(interpretJob, .flag("-disable-implicit-swift-modules"))
       XCTAssertJobInvocationMatches(interpretJob, .flag("-Xcc"), .flag("-fno-implicit-modules"))
 
-      // Figure out which Triples to use.
       let dependencyGraph = try driver.scanModuleDependencies()
       let mainModuleInfo = try dependencyGraph.moduleInfo(of: .swift("testExplicitModuleBuildJobs"))
       guard case .swift(_) = mainModuleInfo.details else {
