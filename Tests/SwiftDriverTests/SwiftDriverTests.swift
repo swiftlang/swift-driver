@@ -4129,6 +4129,26 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+
+  func testDebugModulePath() throws {
+    do {
+      var driver = try Driver(args: ["swiftc", "-target", "arm64-unknown-macos26", "-g", "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      let compileJob = try plannedJobs.findJob(.compile)
+      // This needs to be "foo.swiftmodule", not the unmerged "foo-1.swiftmodule".
+      XCTAssertJobInvocationMatches(compileJob, .flag("-debug-module-path"), .path(try .temporary(RelativePath(validating: "foo")).replacingExtension(with: .swiftModule)))
+    }
+    // Unfortunately this depends on dsymutil.
+    #if os(macOS)
+    do {
+      var driver = try Driver(args: ["swiftc", "-target", "arm64-unknown-macos26", "-g", "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      let compileJob = try plannedJobs.findJob(.compile)
+      XCTAssertJobInvocationMatches(compileJob, .flag("-debug-module-path"), .path(try .temporary(RelativePath(validating: "foo")).replacingExtension(with: .swiftModule)))
+    }
+  #endif
+  }
+
   func testModuleWrapJob() throws {
     // FIXME: These tests will fail when run on macOS, because
     // swift-autolink-extract is not present
