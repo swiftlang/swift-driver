@@ -3322,6 +3322,25 @@ final class ExplicitModuleBuildTests: XCTestCase {
     }
   }
 
+  func testIgnoreScannerPrefixMapping() throws {
+    try withTemporaryDirectory { path in
+      let main = path.appending(component: "testScannerPrefixMap.swift")
+      let mockSDKPath: AbsolutePath =
+        try testInputsPath.appending(component: "mock-sdk.sdk")
+      try localFileSystem.writeFileContents(main, bytes: "import Swift\n")
+      var driver = try Driver(args: ["swiftc", main.pathString, "-c",
+                                     "-sdk", mockSDKPath.nativePathString(escaped: false),
+                                     "-g", "-explicit-module-build", "-O",
+                                     "-scanner-prefix-map-sdk", "/^sdk",
+                                     "-scanner-prefix-map-toolchain", "/^toolchain",
+                                    ])
+      let _ = try driver.planBuild()
+      XCTAssertTrue(driver.diagnosticEngine.diagnostics.contains {
+        $0.behavior == .warning && $0.message.text == "ignore '-scanner-prefix-*' options that cannot be used without compilation caching"
+      })
+    }
+  }
+
   func testABICheckWhileBuildingPrebuiltModule() throws {
     func checkABICheckingJob(_ job: Job) throws {
       XCTAssertEqual(job.kind, .compareABIBaseline)
