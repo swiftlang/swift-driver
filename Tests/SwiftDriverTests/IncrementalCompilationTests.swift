@@ -156,9 +156,6 @@ final class IncrementalCompilationTests: XCTestCase {
     if driver.isFrontendArgSupported(.moduleLoadMode) {
       self.extraExplicitBuildArgs = ["-Xfrontend", "-module-load-mode", "-Xfrontend", "prefer-interface"]
     }
-
-    // Disable incremental tests on windows due to very different module setup.
-    try XCTSkipIf(driver.targetTriple.isWindows, "https://github.com/swiftlang/swift-driver/issues/2029")
   }
 
   deinit {
@@ -773,14 +770,10 @@ extension IncrementalCompilationTests {
 // MARK: - Explicit compilation caching incremental tests
 extension IncrementalCompilationTests {
   func testIncrementalCompilationCaching() throws {
-#if os(Windows)
-    throw XCTSkip("caching not supported on windows")
-#else
     let driver = try Driver(args: ["swiftc"])
     guard driver.isFeatureSupported(.compilation_caching) else {
       throw XCTSkip("caching not supported")
     }
-#endif
     let extraArguments = ["-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: true), "-O", "-parse-stdlib"]
     replace(contentsOf: "other", with: "import O;")
     // Simplified initial build.
