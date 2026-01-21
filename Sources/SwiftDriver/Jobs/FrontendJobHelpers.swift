@@ -1107,6 +1107,7 @@ extension Driver {
   }
 
   public mutating func addPathOption(option: Option, path: VirtualPath, to commandLine: inout [Job.ArgTemplate], remap: Bool = true) throws {
+    assert(option.kind != .commaJoined && option.kind != .multiArg)
     let needRemap = remap && isCachingEnabled && option.attributes.contains(.argumentIsPath) &&
                     !option.attributes.contains(.cacheInvariant)
     let commandPath = needRemap ? remapPath(path) : path
@@ -1117,6 +1118,16 @@ extension Driver {
       commandLine.appendFlag(option)
       commandLine.appendPath(commandPath)
     }
+  }
+
+  public mutating func addPathOptions(option: Option, paths: [VirtualPath], to commandLine: inout [Job.ArgTemplate], remap: Bool = true) throws {
+    assert(option.kind == .commaJoined || option.kind == .multiArg)
+    let commandPaths = paths.map {
+      let needRemap = remap && isCachingEnabled && option.attributes.contains(.argumentIsPath) &&
+      !option.attributes.contains(.cacheInvariant)
+      return needRemap ? remapPath($0).name : $0.name
+    }
+    commandLine.appendFlag(option.spelling + commandPaths.joined(separator: ","))
   }
 
   /// Helper function to add last argument with path to command-line.
