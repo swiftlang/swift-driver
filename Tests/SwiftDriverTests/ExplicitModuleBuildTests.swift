@@ -265,11 +265,6 @@ final class ExplicitModuleBuildTests: XCTestCase {
     }
   }
 
-  private func pathMatchesSwiftModule(path: VirtualPath, _ name: String) -> Bool {
-    return path.basenameWithoutExt.starts(with: "\(name)-") &&
-           path.extension! == FileType.swiftModule.rawValue
-  }
-
   /// Test generation of explicit module build jobs for dependency modules when the driver
   /// is invoked with -explicit-module-build
   func testBridgingHeaderDeps() throws {
@@ -727,67 +722,42 @@ final class ExplicitModuleBuildTests: XCTestCase {
         }
 
         // Swift dependencies
-        if outputFilePath.extension != nil,
-           outputFilePath.extension! == FileType.swiftModule.rawValue {
-          if pathMatchesSwiftModule(path: outputFilePath, "A") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .swift("A"),
+        if let outputFileExtension = outputFilePath.extension,
+           outputFileExtension == FileType.swiftModule.rawValue {
+          switch outputFilePath.basename.split(separator: "-").first {
+          case let .some(module) where ["A", "E", "G"].contains(module):
+            try checkExplicitModuleBuildJob(job: job, moduleId: .swift(String(module)),
                                             dependencyGraph: dependencyGraph)
-          } else if pathMatchesSwiftModule(path: outputFilePath, "E") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .swift("E"),
+          case let .some(module) where ["Swift", "SwiftOnoneSupport"].contains(module):
+            try checkExplicitModuleBuildJob(job: job, moduleId: .swift(String(module)),
                                             dependencyGraph: dependencyGraph)
-          } else if pathMatchesSwiftModule(path: outputFilePath, "G") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .swift("G"),
-                                            dependencyGraph: dependencyGraph)
-          } else if pathMatchesSwiftModule(path: outputFilePath, "Swift") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .swift("Swift"),
-                                            dependencyGraph: dependencyGraph)
-          } else if pathMatchesSwiftModule(path: outputFilePath, "SwiftOnoneSupport") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .swift("SwiftOnoneSupport"),
-                                            dependencyGraph: dependencyGraph)
+          default:
+            break
           }
         // Clang Dependencies
         } else if let outputExtension = outputFilePath.extension,
                   outputExtension == FileType.pcm.rawValue {
-          let relativeOutputPathFileName = outputFilePath.basename
-          if relativeOutputPathFileName.starts(with: "A-") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("A"),
+          switch outputFilePath.basename.split(separator: "-").first {
+          case let .some(module) where ["A", "B", "C", "D", "G", "F"].contains(module):
+            try checkExplicitModuleBuildJob(job: job, moduleId: .clang(String(module)),
                                             dependencyGraph: dependencyGraph)
-          } else if relativeOutputPathFileName.starts(with: "B-") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("B"),
+          case let .some(module) where ["SwiftShims", "_SwiftConcurrencyShims", "_Builtin_stdint"].contains(module):
+            try checkExplicitModuleBuildJob(job: job, moduleId: .clang(String(module)),
                                             dependencyGraph: dependencyGraph)
-          } else if relativeOutputPathFileName.starts(with: "C-") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("C"),
+          case let .some(module) where ["vcruntime", "SAL"].contains(module):
+            guard hostTriple.isWindows else {
+              return XCTFail("Unexpected module dependency build job output: \(outputFilePath)")
+            }
+            try checkExplicitModuleBuildJob(job: job, moduleId: .clang(String(module)),
                                             dependencyGraph: dependencyGraph)
-          } else if relativeOutputPathFileName.starts(with: "D-") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("D"),
+          case let .some(module) where module == "X":
+            guard hostTriple.isMacOSX,
+                  hostTriple.version(for: .macOS) < Triple.Version(11, 0, 0) else {
+              return XCTFail("Unexpected module dependency build job output: \(outputFilePath)")
+            }
+            try checkExplicitModuleBuildJob(job: job, moduleId: .clang(String(module)),
                                             dependencyGraph: dependencyGraph)
-          } else if relativeOutputPathFileName.starts(with: "G-") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("G"),
-                                            dependencyGraph: dependencyGraph)
-          } else if relativeOutputPathFileName.starts(with: "F-") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("F"),
-                                            dependencyGraph: dependencyGraph)
-          } else if relativeOutputPathFileName.starts(with: "SwiftShims-") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("SwiftShims"),
-                                            dependencyGraph: dependencyGraph)
-          } else if relativeOutputPathFileName.starts(with: "_SwiftConcurrencyShims-") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("_SwiftConcurrencyShims"),
-                                            dependencyGraph: dependencyGraph)
-          } else if relativeOutputPathFileName.starts(with: "_Builtin_stdint-") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("_Builtin_stdint"),
-                                            dependencyGraph: dependencyGraph)
-          } else if relativeOutputPathFileName.starts(with: "vcruntime-") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("vcruntime"),
-                                            dependencyGraph: dependencyGraph)
-          } else if relativeOutputPathFileName.starts(with: "SAL-") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("SAL"),
-                                            dependencyGraph: dependencyGraph)
-          } else if hostTriple.isMacOSX,
-             hostTriple.version(for: .macOS) < Triple.Version(11, 0, 0),
-             relativeOutputPathFileName.starts(with: "X-") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("X"),
-                                            dependencyGraph: dependencyGraph)
-          } else {
+          default:
             XCTFail("Unexpected module dependency build job output: \(outputFilePath)")
           }
         } else {
@@ -1088,68 +1058,33 @@ final class ExplicitModuleBuildTests: XCTestCase {
         let outputFilePath = job.outputs[0].file
 
         // Swift dependencies
-        if outputFilePath.extension != nil,
-           outputFilePath.extension! == FileType.swiftModule.rawValue {
-          if pathMatchesSwiftModule(path: outputFilePath, "A") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .swift("A"),
+        if let outputFileExtension = outputFilePath.extension,
+            outputFileExtension == FileType.swiftModule.rawValue {
+          switch outputFilePath.basename.split(separator: "-").first {
+          case let .some(module) where ["A", "E", "G"].contains(module):
+            try checkExplicitModuleBuildJob(job: job, moduleId: .swift(String(module)),
                                             dependencyGraph: dependencyGraph)
-          } else if pathMatchesSwiftModule(path: outputFilePath, "E") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .swift("E"),
+          case let .some(module) where ["Swift", "_Concurrency", "_StringProcessing", "SwiftOnoneSupport"].contains(module):
+            try checkExplicitModuleBuildJob(job: job, moduleId: .swift(String(module)),
                                             dependencyGraph: dependencyGraph)
-          } else if pathMatchesSwiftModule(path: outputFilePath, "G") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .swift("G"),
-                                            dependencyGraph: dependencyGraph)
-          } else if pathMatchesSwiftModule(path: outputFilePath, "Swift") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .swift("Swift"),
-                                            dependencyGraph: dependencyGraph)
-          } else if pathMatchesSwiftModule(path: outputFilePath, "_Concurrency") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .swift("_Concurrency"),
-                                            dependencyGraph: dependencyGraph)
-          } else if pathMatchesSwiftModule(path: outputFilePath, "_StringProcessing") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .swift("_StringProcessing"),
-                                            dependencyGraph: dependencyGraph)
-          } else if pathMatchesSwiftModule(path: outputFilePath, "SwiftOnoneSupport") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .swift("SwiftOnoneSupport"),
-                                            dependencyGraph: dependencyGraph)
+          default:
+            break
           }
         // Clang Dependencies
         } else if let outputExtension = outputFilePath.extension,
                   outputExtension == FileType.pcm.rawValue {
-          let relativeOutputPathFileName = outputFilePath.basename
-          if relativeOutputPathFileName.starts(with: "A-") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("A"),
+          switch outputFilePath.basename.split(separator: "-").first {
+          case let .some(module) where ["A", "B", "C", "D", "G", "F"].contains(module):
+            try checkExplicitModuleBuildJob(job: job, moduleId: .clang(String(module)),
                                             dependencyGraph: dependencyGraph)
-          } else if relativeOutputPathFileName.starts(with: "B-") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("B"),
+          case let .some(module) where ["SwiftShims", "_SwiftConcurrencyShims", "_Builtin_stdint"].contains(module):
+            try checkExplicitModuleBuildJob(job: job, moduleId: .clang(String(module)),
                                             dependencyGraph: dependencyGraph)
-          } else if relativeOutputPathFileName.starts(with: "C-") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("C"),
+          case let .some(module) where ["vcruntime", "SAL"].contains(module):
+            guard driver.targetTriple.isWindows else { fallthrough }
+            try checkExplicitModuleBuildJob(job: job, moduleId: .clang(String(module)),
                                             dependencyGraph: dependencyGraph)
-          } else if relativeOutputPathFileName.starts(with: "D-") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("D"),
-                                            dependencyGraph: dependencyGraph)
-          } else if relativeOutputPathFileName.starts(with: "G-") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("G"),
-                                            dependencyGraph: dependencyGraph)
-          } else if relativeOutputPathFileName.starts(with: "F-") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("F"),
-                                            dependencyGraph: dependencyGraph)
-          } else if relativeOutputPathFileName.starts(with: "SwiftShims-") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("SwiftShims"),
-                                            dependencyGraph: dependencyGraph)
-          } else if relativeOutputPathFileName.starts(with: "_SwiftConcurrencyShims-") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("_SwiftConcurrencyShims"),
-                                            dependencyGraph: dependencyGraph)
-          } else if relativeOutputPathFileName.starts(with: "_Builtin_stdint-") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("_Builtin_stdint"),
-                                            dependencyGraph: dependencyGraph)
-          } else if relativeOutputPathFileName.starts(with: "vcruntime-") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("vcruntime"),
-                                            dependencyGraph: dependencyGraph)
-          } else if relativeOutputPathFileName.starts(with: "SAL-") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("SAL"),
-                                            dependencyGraph: dependencyGraph)
-          } else {
+          default:
             XCTFail("Unexpected module dependency build job output: \(outputFilePath)")
           }
         } else {
@@ -1237,68 +1172,33 @@ final class ExplicitModuleBuildTests: XCTestCase {
         let outputFilePath = job.outputs[0].file
 
         // Swift dependencies
-        if outputFilePath.extension != nil,
-           outputFilePath.extension! == FileType.swiftModule.rawValue {
-          if pathMatchesSwiftModule(path: outputFilePath, "A") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .swift("A"),
+        if let outputFileExtension = outputFilePath.extension,
+            outputFileExtension == FileType.swiftModule.rawValue {
+          switch outputFilePath.basename.split(separator: "-").first {
+          case let .some(module) where ["A", "E", "G"].contains(module):
+            try checkExplicitModuleBuildJob(job: job, moduleId: .swift(String(module)),
                                             dependencyGraph: dependencyGraph)
-          } else if pathMatchesSwiftModule(path: outputFilePath, "E") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .swift("E"),
+          case let .some(module) where ["Swift", "_Concurrency", "_StringProcessing", "SwiftOnoneSupport"].contains(module):
+            try checkExplicitModuleBuildJob(job: job, moduleId: .swift(String(module)),
                                             dependencyGraph: dependencyGraph)
-          } else if pathMatchesSwiftModule(path: outputFilePath, "G") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .swift("G"),
-                                            dependencyGraph: dependencyGraph)
-          } else if pathMatchesSwiftModule(path: outputFilePath, "Swift") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .swift("Swift"),
-                                            dependencyGraph: dependencyGraph)
-          } else if pathMatchesSwiftModule(path: outputFilePath, "_Concurrency") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .swift("_Concurrency"),
-                                            dependencyGraph: dependencyGraph)
-          } else if pathMatchesSwiftModule(path: outputFilePath, "_StringProcessing") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .swift("_StringProcessing"),
-                                            dependencyGraph: dependencyGraph)
-          } else if pathMatchesSwiftModule(path: outputFilePath, "SwiftOnoneSupport") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .swift("SwiftOnoneSupport"),
-                                            dependencyGraph: dependencyGraph)
+          default:
+            break
           }
         // Clang Dependencies
         } else if let outputExtension = outputFilePath.extension,
                   outputExtension == FileType.pcm.rawValue {
-          let relativeOutputPathFileName = outputFilePath.basename
-          if relativeOutputPathFileName.starts(with: "A-") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("A"),
+          switch outputFilePath.basename.split(separator: "-").first {
+          case let .some(module) where ["A", "B", "C", "D", "G", "F"].contains(module):
+            try checkExplicitModuleBuildJob(job: job, moduleId: .clang(String(module)),
                                             dependencyGraph: dependencyGraph)
-          } else if relativeOutputPathFileName.starts(with: "B-") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("B"),
+          case let .some(module) where ["SwiftShims", "_SwiftConcurrencyShims", "_Builtin_stdint"].contains(module):
+            try checkExplicitModuleBuildJob(job: job, moduleId: .clang(String(module)),
                                             dependencyGraph: dependencyGraph)
-          } else if relativeOutputPathFileName.starts(with: "C-") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("C"),
+          case let .some(module) where ["vcruntime", "SAL"].contains(module):
+            guard driver.targetTriple.isWindows else { fallthrough }
+            try checkExplicitModuleBuildJob(job: job, moduleId: .clang(String(module)),
                                             dependencyGraph: dependencyGraph)
-          } else if relativeOutputPathFileName.starts(with: "D-") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("D"),
-                                            dependencyGraph: dependencyGraph)
-          } else if relativeOutputPathFileName.starts(with: "G-") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("G"),
-                                            dependencyGraph: dependencyGraph)
-          } else if relativeOutputPathFileName.starts(with: "F-") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("F"),
-                                            dependencyGraph: dependencyGraph)
-          } else if relativeOutputPathFileName.starts(with: "SwiftShims-") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("SwiftShims"),
-                                            dependencyGraph: dependencyGraph)
-          } else if relativeOutputPathFileName.starts(with: "_SwiftConcurrencyShims-") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("_SwiftConcurrencyShims"),
-                                            dependencyGraph: dependencyGraph)
-          } else if relativeOutputPathFileName.starts(with: "_Builtin_stdint-") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("_Builtin_stdint"),
-                                            dependencyGraph: dependencyGraph)
-          } else if relativeOutputPathFileName.starts(with: "vcruntime-") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("vcruntime"),
-                                            dependencyGraph: dependencyGraph)
-          } else if relativeOutputPathFileName.starts(with: "SAL-") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("SAL"),
-                                            dependencyGraph: dependencyGraph)
-          } else {
+          default:
             XCTFail("Unexpected module dependency build job output: \(outputFilePath)")
           }
         // Bridging header
@@ -1377,53 +1277,33 @@ final class ExplicitModuleBuildTests: XCTestCase {
         XCTAssertEqual(job.outputs.count, 1)
         let outputFilePath = job.outputs[0].file
         // Swift dependencies
-        if outputFilePath.extension != nil,
-           outputFilePath.extension! == FileType.swiftModule.rawValue {
-          if pathMatchesSwiftModule(path: outputFilePath, "A") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .swift("A"),
+        if let outputFileExtension = outputFilePath.extension,
+            outputFileExtension == FileType.swiftModule.rawValue {
+          switch outputFilePath.basename.split(separator: "-").first {
+          case let .some(module) where ["A"].contains(module):
+            try checkExplicitModuleBuildJob(job: job, moduleId: .swift(String(module)),
                                             dependencyGraph: dependencyGraph)
-          } else if pathMatchesSwiftModule(path: outputFilePath, "Swift") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .swift("Swift"),
+          case let .some(module) where ["Swift", "_Concurrency", "_StringProcessing", "SwiftOnoneSupport"].contains(module):
+            try checkExplicitModuleBuildJob(job: job, moduleId: .swift(String(module)),
                                             dependencyGraph: dependencyGraph)
-          } else if pathMatchesSwiftModule(path: outputFilePath, "_Concurrency") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .swift("_Concurrency"),
-                                            dependencyGraph: dependencyGraph)
-          } else if pathMatchesSwiftModule(path: outputFilePath, "_StringProcessing") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .swift("_StringProcessing"),
-                                            dependencyGraph: dependencyGraph)
-          } else if pathMatchesSwiftModule(path: outputFilePath, "SwiftOnoneSupport") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .swift("SwiftOnoneSupport"),
-                                            dependencyGraph: dependencyGraph)
+          default:
+            break
           }
         // Clang Dependencies
-        } else if outputFilePath.extension != nil,
-                  outputFilePath.extension! == FileType.pcm.rawValue {
-          let relativeOutputPathFileName = outputFilePath.basename
-          if relativeOutputPathFileName.starts(with: "A-") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("A"),
+        } else if let outputFileExtension = outputFilePath.extension,
+                  outputFileExtension == FileType.pcm.rawValue {
+          switch outputFilePath.basename.split(separator: "-").first {
+          case let .some(module) where ["A", "B", "C"].contains(module):
+            try checkExplicitModuleBuildJob(job: job, moduleId: .clang(String(module)),
                                             dependencyGraph: dependencyGraph)
-          } else if relativeOutputPathFileName.starts(with: "B-") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("B"),
+          case let .some(module) where ["SwiftShims", "_SwiftConcurrencyShims", "_Builtin_stdint"].contains(module):
+            try checkExplicitModuleBuildJob(job: job, moduleId: .clang(String(module)),
                                             dependencyGraph: dependencyGraph)
-          } else if relativeOutputPathFileName.starts(with: "C-") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("C"),
+          case let .some(module) where ["vcruntime", "SAL"].contains(module):
+            guard driver.targetTriple.isWindows else { fallthrough }
+            try checkExplicitModuleBuildJob(job: job, moduleId: .clang(String(module)),
                                             dependencyGraph: dependencyGraph)
-          } else if relativeOutputPathFileName.starts(with: "SwiftShims-") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("SwiftShims"),
-                                            dependencyGraph: dependencyGraph)
-          } else if relativeOutputPathFileName.starts(with: "_SwiftConcurrencyShims-") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("_SwiftConcurrencyShims"),
-                                            dependencyGraph: dependencyGraph)
-          } else if relativeOutputPathFileName.starts(with: "_Builtin_stdint-") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("_Builtin_stdint"),
-                                            dependencyGraph: dependencyGraph)
-          } else if relativeOutputPathFileName.starts(with: "vcruntime-") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("vcruntime"),
-                                            dependencyGraph: dependencyGraph)
-          } else if relativeOutputPathFileName.starts(with: "SAL-") {
-            try checkExplicitModuleBuildJob(job: job, moduleId: .clang("SAL"),
-                                            dependencyGraph: dependencyGraph)
-          } else {
+          default:
             XCTFail("Unexpected module dependency build job output: \(outputFilePath)")
           }
         } else {

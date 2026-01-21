@@ -205,11 +205,6 @@ final class CachingBuildTests: XCTestCase {
 #endif
   }
 
-  private func pathMatchesSwiftModule(path: VirtualPath, _ name: String) -> Bool {
-    return path.basenameWithoutExt.starts(with: "\(name)-") &&
-           path.extension! == FileType.swiftModule.rawValue
-  }
-
   func testCachingBuildJobs() throws {
     let (stdlibPath, shimsPath, _, hostTriple) = try getDriverArtifactsForScanning()
     try withTemporaryDirectory { path in
@@ -249,73 +244,36 @@ final class CachingBuildTests: XCTestCase {
         let outputFilePath = job.outputs[0].file
 
         // Swift dependencies
-        if outputFilePath.extension != nil,
-           outputFilePath.extension! == FileType.swiftModule.rawValue {
-          if pathMatchesSwiftModule(path: outputFilePath, "A") {
-            try checkCachingBuildJob(job: job, moduleId: .swift("A"),
+        if let outputExtension = outputFilePath.extension,
+            outputExtension == FileType.swiftModule.rawValue {
+          switch outputFilePath.basename.split(separator: "-").first {
+          case let .some(module) where ["A", "E", "G"].contains(module):
+            try checkCachingBuildJob(job: job, moduleId: .swift(String(module)),
                                      dependencyGraph: dependencyGraph)
-          } else if pathMatchesSwiftModule(path: outputFilePath, "E") {
-            try checkCachingBuildJob(job: job, moduleId: .swift("E"),
+          case let .some(module) where ["Swift", "_Concurrency", "_StringProcessing", "SwiftOnoneSupport"].contains(module):
+            try checkCachingBuildJob(job: job, moduleId: .swift(String(module)),
                                      dependencyGraph: dependencyGraph)
-          } else if pathMatchesSwiftModule(path: outputFilePath, "G") {
-            try checkCachingBuildJob(job: job, moduleId: .swift("G"),
-                                     dependencyGraph: dependencyGraph)
-          } else if pathMatchesSwiftModule(path: outputFilePath, "Swift") {
-            try checkCachingBuildJob(job: job, moduleId: .swift("Swift"),
-                                     dependencyGraph: dependencyGraph)
-          } else if pathMatchesSwiftModule(path: outputFilePath, "_Concurrency") {
-            try checkCachingBuildJob(job: job, moduleId: .swift("_Concurrency"),
-                                     dependencyGraph: dependencyGraph)
-          } else if pathMatchesSwiftModule(path: outputFilePath, "_StringProcessing") {
-            try checkCachingBuildJob(job: job, moduleId: .swift("_StringProcessing"),
-                                     dependencyGraph: dependencyGraph)
-          } else if pathMatchesSwiftModule(path: outputFilePath, "SwiftOnoneSupport") {
-            try checkCachingBuildJob(job: job, moduleId: .swift("SwiftOnoneSupport"),
-                                     dependencyGraph: dependencyGraph)
+          default:
+            break
           }
         // Clang Dependencies
         } else if let outputExtension = outputFilePath.extension,
                   outputExtension == FileType.pcm.rawValue {
-          let relativeOutputPathFileName = outputFilePath.basename
-          if relativeOutputPathFileName.starts(with: "A-") {
-            try checkCachingBuildJob(job: job, moduleId: .clang("A"),
+          switch outputFilePath.basename.split(separator: "-").first {
+          case let .some(module) where ["A", "B", "C", "G", "D", "F"].contains(module):
+            try checkCachingBuildJob(job: job, moduleId: .clang(String(module)),
                                      dependencyGraph: dependencyGraph)
-          }
-          else if relativeOutputPathFileName.starts(with: "B-") {
-            try checkCachingBuildJob(job: job, moduleId: .clang("B"),
+          case let .some(module) where ["SwiftShims", "_SwiftConcurrencyShims"].contains(module):
+            try checkCachingBuildJob(job: job, moduleId: .clang(String(module)),
                                      dependencyGraph: dependencyGraph)
-          }
-          else if relativeOutputPathFileName.starts(with: "C-") {
-            try checkCachingBuildJob(job: job, moduleId: .clang("C"),
-                                     dependencyGraph: dependencyGraph)
-          }
-          else if relativeOutputPathFileName.starts(with: "G-") {
-            try checkCachingBuildJob(job: job, moduleId: .clang("G"),
-                                     dependencyGraph: dependencyGraph)
-          }
-          else if relativeOutputPathFileName.starts(with: "D-") {
-            try checkCachingBuildJob(job: job, moduleId: .clang("D"),
-                                     dependencyGraph: dependencyGraph)
-          }
-          else if relativeOutputPathFileName.starts(with: "F-") {
-            try checkCachingBuildJob(job: job, moduleId: .clang("F"),
-                                     dependencyGraph: dependencyGraph)
-          }
-          else if relativeOutputPathFileName.starts(with: "SwiftShims-") {
-            try checkCachingBuildJob(job: job, moduleId: .clang("SwiftShims"),
-                                     dependencyGraph: dependencyGraph)
-          }
-          else if relativeOutputPathFileName.starts(with: "_SwiftConcurrencyShims-") {
-            try checkCachingBuildJob(job: job, moduleId: .clang("_SwiftConcurrencyShims"),
-                                     dependencyGraph: dependencyGraph)
-          }
-          else if hostTriple.isMacOSX,
-             hostTriple.version(for: .macOS) < Triple.Version(11, 0, 0),
-             relativeOutputPathFileName.starts(with: "X-") {
+          case "X":
+            guard hostTriple.isMacOSX,
+               hostTriple.version(for: .macOS) >= Triple.Version(11, 0, 0) else {
+              fallthrough
+            }
             try checkCachingBuildJob(job: job, moduleId: .clang("X"),
                                      dependencyGraph: dependencyGraph)
-          }
-          else {
+          default:
             XCTFail("Unexpected module dependency build job output: \(outputFilePath)")
           }
         } else {
@@ -517,67 +475,29 @@ final class CachingBuildTests: XCTestCase {
         let outputFilePath = job.outputs[0].file
 
         // Swift dependencies
-        if outputFilePath.extension != nil,
-           outputFilePath.extension! == FileType.swiftModule.rawValue {
-          if pathMatchesSwiftModule(path: outputFilePath, "A") {
-            try checkCachingBuildJob(job: job, moduleId: .swift("A"),
+        if let outputExtension = outputFilePath.extension,
+            outputExtension == FileType.swiftModule.rawValue {
+          switch outputFilePath.basename.split(separator: "-").first {
+          case let .some(module) where ["A", "E", "G"].contains(module):
+            try checkCachingBuildJob(job: job, moduleId: .swift(String(module)),
                                      dependencyGraph: dependencyGraph)
-          } else if pathMatchesSwiftModule(path: outputFilePath, "E") {
-            try checkCachingBuildJob(job: job, moduleId: .swift("E"),
+          case let .some(module) where ["Swift", "_Concurrency", "_StringProcessing", "SwiftOnoneSupport"].contains(module):
+            try checkCachingBuildJob(job: job, moduleId: .swift(String(module)),
                                      dependencyGraph: dependencyGraph)
-          } else if pathMatchesSwiftModule(path: outputFilePath, "G") {
-            try checkCachingBuildJob(job: job, moduleId: .swift("G"),
-                                     dependencyGraph: dependencyGraph)
-          } else if pathMatchesSwiftModule(path: outputFilePath, "Swift") {
-            try checkCachingBuildJob(job: job, moduleId: .swift("Swift"),
-                                     dependencyGraph: dependencyGraph)
-          } else if pathMatchesSwiftModule(path: outputFilePath, "_Concurrency") {
-            try checkCachingBuildJob(job: job, moduleId: .swift("_Concurrency"),
-                                     dependencyGraph: dependencyGraph)
-          } else if pathMatchesSwiftModule(path: outputFilePath, "_StringProcessing") {
-            try checkCachingBuildJob(job: job, moduleId: .swift("_StringProcessing"),
-                                     dependencyGraph: dependencyGraph)
-          } else if pathMatchesSwiftModule(path: outputFilePath, "SwiftOnoneSupport") {
-            try checkCachingBuildJob(job: job, moduleId: .swift("SwiftOnoneSupport"),
-                                     dependencyGraph: dependencyGraph)
+          default:
+            break
           }
         // Clang Dependencies
         } else if let outputExtension = outputFilePath.extension,
                   outputExtension == FileType.pcm.rawValue {
-          let relativeOutputPathFileName = outputFilePath.basename
-          if relativeOutputPathFileName.starts(with: "A-") {
-            try checkCachingBuildJob(job: job, moduleId: .clang("A"),
+          switch outputFilePath.basename.split(separator: "-").first {
+          case let .some(module) where ["A", "B", "C", "D", "G", "F"].contains(module):
+            try checkCachingBuildJob(job: job, moduleId: .clang(String(module)),
                                      dependencyGraph: dependencyGraph)
-          }
-          else if relativeOutputPathFileName.starts(with: "B-") {
-            try checkCachingBuildJob(job: job, moduleId: .clang("B"),
+          case let .some(module) where ["SwiftShims", "_SwiftConcurrencyShims"].contains(module):
+            try checkCachingBuildJob(job: job, moduleId: .clang(String(module)),
                                      dependencyGraph: dependencyGraph)
-          }
-          else if relativeOutputPathFileName.starts(with: "C-") {
-            try checkCachingBuildJob(job: job, moduleId: .clang("C"),
-                                     dependencyGraph: dependencyGraph)
-          }
-          else if relativeOutputPathFileName.starts(with: "D-") {
-            try checkCachingBuildJob(job: job, moduleId: .clang("D"),
-                                     dependencyGraph: dependencyGraph)
-          }
-          else if relativeOutputPathFileName.starts(with: "G-") {
-            try checkCachingBuildJob(job: job, moduleId: .clang("G"),
-                                     dependencyGraph: dependencyGraph)
-          }
-          else if relativeOutputPathFileName.starts(with: "F-") {
-            try checkCachingBuildJob(job: job, moduleId: .clang("F"),
-                                     dependencyGraph: dependencyGraph)
-          }
-          else if relativeOutputPathFileName.starts(with: "SwiftShims-") {
-            try checkCachingBuildJob(job: job, moduleId: .clang("SwiftShims"),
-                                     dependencyGraph: dependencyGraph)
-          }
-          else if relativeOutputPathFileName.starts(with: "_SwiftConcurrencyShims-") {
-            try checkCachingBuildJob(job: job, moduleId: .clang("_SwiftConcurrencyShims"),
-                                     dependencyGraph: dependencyGraph)
-          }
-          else {
+          default:
             XCTFail("Unexpected module dependency build job output: \(outputFilePath)")
           }
         } else {
