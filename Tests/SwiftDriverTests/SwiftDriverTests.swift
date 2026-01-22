@@ -1122,6 +1122,17 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssert(compileJob.commandLine.contains(.flag("ABIMod")))
   }
 
+  func testAllowableClient() throws {
+    var driver = try Driver(
+      args: ["swiftc", "foo.swift", "-allowable-client", "Foo", "-allowable-client", "Bar"]
+    )
+    let jobs = try driver.planBuild()
+    let compileJob = try jobs.findJob(.compile)
+    XCTAssert(compileJob.commandLine.contains(.flag("-allowable-client")))
+    XCTAssert(compileJob.commandLine.contains(.flag("Foo")))
+    XCTAssert(compileJob.commandLine.contains(.flag("Bar")))
+  }
+
   func testPublicModuleName() throws {
     var driver = try Driver(
       args: ["swiftc", "foo.swift", "-public-module-name", "PublicFacing"]

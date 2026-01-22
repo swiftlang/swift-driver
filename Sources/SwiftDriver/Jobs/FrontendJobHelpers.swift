@@ -220,6 +220,7 @@ extension Driver {
     try commandLine.appendLast(.warnImplicitOverrides, from: &parsedOptions)
     try commandLine.appendLast(.warnSoftDeprecated, from: &parsedOptions)
     try commandLine.appendLast(.typoCorrectionLimit, from: &parsedOptions)
+    try commandLine.appendAll(.allowableClient, from: &parsedOptions)
     try commandLine.appendLast(.enableAppExtension, from: &parsedOptions)
     try commandLine.appendLast(.enableLibraryEvolution, from: &parsedOptions)
     try commandLine.appendLast(.enableTesting, from: &parsedOptions)
