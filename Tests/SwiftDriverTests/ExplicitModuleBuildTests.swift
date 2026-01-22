@@ -744,7 +744,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
           case let .some(module) where ["SwiftShims", "_SwiftConcurrencyShims", "_Builtin_stdint"].contains(module):
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang(String(module)),
                                             dependencyGraph: dependencyGraph)
-          case let .some(module) where ["vcruntime", "SAL"].contains(module):
+          case let .some(module) where ["SAL", "_Builtin_intrinsics", "_Builtin_stddef", "_stdlib", "_malloc", "corecrt", "vcruntime"].contains(module):
             guard hostTriple.isWindows else {
               return XCTFail("Unexpected module dependency build job output: \(outputFilePath)")
             }
@@ -1080,7 +1080,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
           case let .some(module) where ["SwiftShims", "_SwiftConcurrencyShims", "_Builtin_stdint"].contains(module):
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang(String(module)),
                                             dependencyGraph: dependencyGraph)
-          case let .some(module) where ["vcruntime", "SAL"].contains(module):
+          case let .some(module) where ["SAL", "_Builtin_intrinsics", "_Builtin_stddef", "_stdlib", "_malloc", "corecrt", "vcruntime"].contains(module):
             guard driver.targetTriple.isWindows else { fallthrough }
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang(String(module)),
                                             dependencyGraph: dependencyGraph)
@@ -1194,7 +1194,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
           case let .some(module) where ["SwiftShims", "_SwiftConcurrencyShims", "_Builtin_stdint"].contains(module):
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang(String(module)),
                                             dependencyGraph: dependencyGraph)
-          case let .some(module) where ["vcruntime", "SAL"].contains(module):
+          case let .some(module) where ["SAL", "_Builtin_intrinsics", "_Builtin_stddef", "_stdlib", "_malloc", "corecrt", "vcruntime"].contains(module):
             guard driver.targetTriple.isWindows else { fallthrough }
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang(String(module)),
                                             dependencyGraph: dependencyGraph)
@@ -1299,7 +1299,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
           case let .some(module) where ["SwiftShims", "_SwiftConcurrencyShims", "_Builtin_stdint"].contains(module):
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang(String(module)),
                                             dependencyGraph: dependencyGraph)
-          case let .some(module) where ["vcruntime", "SAL"].contains(module):
+          case let .some(module) where ["SAL", "_Builtin_intrinsics", "_Builtin_stddef", "_stdlib", "_malloc", "corecrt", "vcruntime"].contains(module):
             guard driver.targetTriple.isWindows else { fallthrough }
             try checkExplicitModuleBuildJob(job: job, moduleId: .clang(String(module)),
                                             dependencyGraph: dependencyGraph)
@@ -2154,8 +2154,6 @@ final class ExplicitModuleBuildTests: XCTestCase {
       if hostTriple.isMacOSX,
          hostTriple.version(for: .macOS) < Triple.Version(11, 0, 0) {
         expectedNumberOfDependencies = 13
-      } else if driver.targetTriple.isWindows {
-        expectedNumberOfDependencies = 14
       } else {
         expectedNumberOfDependencies = 12
       }
@@ -2175,23 +2173,18 @@ final class ExplicitModuleBuildTests: XCTestCase {
                                                  commandLine: iterationCommand,
                                                  diagnostics: &scanDiagnostics)
 
-          // The _Concurrency and _StringProcessing modules are automatically
-          // imported in newer versions of the Swift compiler. If they happened to
-          // be provided, adjust our expectations accordingly.
-          let hasConcurrencyModule = dependencyGraph.modules.keys.contains {
-            $0.moduleName == "_Concurrency"
-          }
-          let hasConcurrencyShimsModule = dependencyGraph.modules.keys.contains {
-            $0.moduleName == "_SwiftConcurrencyShims"
-          }
-          let hasStringProcessingModule = dependencyGraph.modules.keys.contains {
-            $0.moduleName == "_StringProcessing"
-          }
           let adjustedExpectedNumberOfDependencies =
               expectedNumberOfDependencies +
-              (hasConcurrencyModule ? 1 : 0) +
-              (hasConcurrencyShimsModule ? 1 : 0) +
-              (hasStringProcessingModule ? 1 : 0)
+              Set(dependencyGraph.modules.keys.map(\.moduleName))
+                  .intersection(Set(
+                    // The _Concurrency and _StringProcessing modules are automatically
+                    // imported in newer versions of the Swift compiler. If they happened
+                    // to be provided, adjust our expectations accordingly.
+                    ["_Concurrency", "_SwiftConcurrencyShims", "_StringProcessing"] +
+                    // Windows Specific - these are imported on Windows hosts through `SwiftShims`.
+                    ["SAL", "_Builtin_intrinsics", "_Builtin_stddef", "_stdlib", "_malloc", "corecrt", "vcruntime"]
+                  ))
+                  .count
 
           if (dependencyGraph.modules.count != adjustedExpectedNumberOfDependencies) {
             lock.lock()

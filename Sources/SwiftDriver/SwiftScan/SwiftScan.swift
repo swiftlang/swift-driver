@@ -259,10 +259,6 @@ private extension String {
   }
 
   @_spi(Testing) public var supportsCaching : Bool {
-#if os(Windows)
-    // Caching is currently not supported on Windows hosts.
-    return false
-#else
     return api.swiftscan_cas_options_create != nil &&
            api.swiftscan_cas_options_dispose != nil &&
            api.swiftscan_cas_options_set_ondisk_path != nil &&
@@ -276,18 +272,12 @@ private extension String {
            api.swiftscan_swift_textual_detail_get_module_cache_key != nil &&
            api.swiftscan_swift_binary_detail_get_module_cache_key != nil &&
            api.swiftscan_clang_detail_get_module_cache_key != nil
-#endif
   }
 
   @_spi(Testing) public var supportsCASSizeManagement : Bool {
-#if os(Windows)
-    // CAS is currently not supported on Windows hosts.
-    return false
-#else
     return api.swiftscan_cas_get_ondisk_size != nil &&
            api.swiftscan_cas_set_ondisk_size_limit != nil &&
            api.swiftscan_cas_prune_ondisk_data != nil
-#endif
   }
 
   @_spi(Testing) public var supportsBridgingHeaderPCHCommand : Bool {

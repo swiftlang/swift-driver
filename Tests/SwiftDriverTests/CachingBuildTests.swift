@@ -196,13 +196,9 @@ final class CachingBuildTests: XCTestCase {
 
     // If the toolchain doesn't support caching, skip directly.
     let driver = try Driver(args: ["swiftc"])
-#if os(Windows)
-    throw XCTSkip("caching not supported on windows")
-#else
     guard driver.isFeatureSupported(.compilation_caching) else {
       throw XCTSkip("caching not supported")
     }
-#endif
   }
 
   func testCachingBuildJobs() throws {
@@ -266,10 +262,16 @@ final class CachingBuildTests: XCTestCase {
           case let .some(module) where ["SwiftShims", "_SwiftConcurrencyShims"].contains(module):
             try checkCachingBuildJob(job: job, moduleId: .clang(String(module)),
                                      dependencyGraph: dependencyGraph)
+          case let .some(module) where ["SAL", "_Builtin_intrinsics", "_Builtin_stddef", "_stdlib", "_malloc", "corecrt", "vcruntime"].contains(module):
+            guard hostTriple.isWindows else {
+              return XCTFail("Unexpected module dependency build job output: \(outputFilePath)")
+            }
+            try checkCachingBuildJob(job: job, moduleId: .clang(String(module)),
+                                     dependencyGraph: dependencyGraph)
           case "X":
             guard hostTriple.isMacOSX,
                hostTriple.version(for: .macOS) >= Triple.Version(11, 0, 0) else {
-              fallthrough
+              return XCTFail("Unexpected module dependency build job output: \(outputFilePath)")
             }
             try checkCachingBuildJob(job: job, moduleId: .clang("X"),
                                      dependencyGraph: dependencyGraph)
@@ -278,7 +280,8 @@ final class CachingBuildTests: XCTestCase {
           }
         } else {
           switch (outputFilePath) {
-            case .relative(try RelativePath(validating: "testCachingBuildJobs")):
+            case .relative(try RelativePath(validating: "testCachingBuildJobs")),
+                 .relative(try RelativePath(validating: "testCachingBuildJobs.exe")):
               XCTAssertTrue(driver.isExplicitMainModuleJob(job: job))
               XCTAssertEqual(job.kind, .link)
             case .absolute(let path):
@@ -497,12 +500,17 @@ final class CachingBuildTests: XCTestCase {
           case let .some(module) where ["SwiftShims", "_SwiftConcurrencyShims"].contains(module):
             try checkCachingBuildJob(job: job, moduleId: .clang(String(module)),
                                      dependencyGraph: dependencyGraph)
+          case let .some(module) where ["SAL", "_Builtin_intrinsics", "_Builtin_stddef", "_stdlib", "_malloc", "corecrt", "vcruntime"].contains(module):
+            guard driver.hostTriple.isWindows else { fallthrough }
+            try checkCachingBuildJob(job: job, moduleId: .clang(String(module)),
+                                     dependencyGraph: dependencyGraph)
           default:
             XCTFail("Unexpected module dependency build job output: \(outputFilePath)")
           }
         } else {
           switch (outputFilePath) {
-            case .relative(try RelativePath(validating: "testExplicitModuleVerifyInterfaceJobs")):
+            case .relative(try RelativePath(validating: "testExplicitModuleVerifyInterfaceJobs")),
+                 .relative(try RelativePath(validating: "testExplicitModuleVerifyInterfaceJobs.exe")):
               XCTAssertTrue(driver.isExplicitMainModuleJob(job: job))
               XCTAssertEqual(job.kind, .link)
             case .absolute(let path):
@@ -707,8 +715,6 @@ final class CachingBuildTests: XCTestCase {
       if driver.hostTriple.isMacOSX,
          driver.hostTriple.version(for: .macOS) < Triple.Version(11, 0, 0) {
         expectedNumberOfDependencies = 13
-      } else if driver.targetTriple.isWindows {
-        expectedNumberOfDependencies = 15
       } else {
         expectedNumberOfDependencies = 12
       }
@@ -728,23 +734,18 @@ final class CachingBuildTests: XCTestCase {
                                                  commandLine: iterationCommand,
                                                  diagnostics: &scanDiagnostics)
 
-          // The _Concurrency and _StringProcessing modules are automatically
-          // imported in newer versions of the Swift compiler. If they happened to
-          // be provided, adjust our expectations accordingly.
-          let hasConcurrencyModule = dependencyGraph.modules.keys.contains {
-            $0.moduleName == "_Concurrency"
-          }
-          let hasConcurrencyShimsModule = dependencyGraph.modules.keys.contains {
-            $0.moduleName == "_SwiftConcurrencyShims"
-          }
-          let hasStringProcessingModule = dependencyGraph.modules.keys.contains {
-            $0.moduleName == "_StringProcessing"
-          }
           let adjustedExpectedNumberOfDependencies =
               expectedNumberOfDependencies +
-              (hasConcurrencyModule ? 1 : 0) +
-              (hasConcurrencyShimsModule ? 1 : 0) +
-              (hasStringProcessingModule ? 1 : 0)
+              Set(dependencyGraph.modules.keys.map(\.moduleName))
+                  .intersection(Set(
+                    // The _Concurrency and _StringProcessing modules are automatically
+                    // imported in newer versions of the Swift compiler. If they happened
+                    // to be provided, adjust our expectations accordingly.
+                    ["_Concurrency", "_SwiftConcurrencyShims", "_StringProcessing"] +
+                    // Windows Specific - these are imported on Windows hosts through `SwiftShims`.
+                    ["SAL", "_Builtin_intrinsics", "_Builtin_stddef", "_stdlib", "_malloc", "corecrt", "vcruntime"]
+                  ))
+                  .count
 
           if (dependencyGraph.modules.count != adjustedExpectedNumberOfDependencies) {
             lock.lock()
@@ -754,8 +755,7 @@ final class CachingBuildTests: XCTestCase {
             }
             lock.unlock()
           }
-          XCTAssertTrue(dependencyGraph.modules.count ==
-                        adjustedExpectedNumberOfDependencies)
+          XCTAssertEqual(dependencyGraph.modules.count, adjustedExpectedNumberOfDependencies)
         } catch {
           XCTFail("Unexpected error: \(error)")
         }
@@ -786,6 +786,10 @@ final class CachingBuildTests: XCTestCase {
   }
 
   func testDependencyScanningPathRemap() throws {
+    #if os(Windows)
+    try XCTSkipIf(true, "Skipping due to improper path mapping handling.")
+    #endif
+
     // Create a simple test case.
     try withTemporaryDirectory { path in
       let main = path.appending(component: "testDependencyScanning.swift")
@@ -830,7 +834,11 @@ final class CachingBuildTests: XCTestCase {
 
       XCTAssertTrue(scannerCommand.contains("-scanner-prefix-map-paths"))
       XCTAssertTrue(scannerCommand.contains(try testInputsPath.description))
+#if os(Windows)
+      XCTAssertTrue(scannerCommand.contains("\\^src"))
+#else
       XCTAssertTrue(scannerCommand.contains("/^src"))
+#endif
 
       let jobs = try driver.planBuild()
       for job in jobs {
