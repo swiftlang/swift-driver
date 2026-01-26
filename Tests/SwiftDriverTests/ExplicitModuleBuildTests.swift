@@ -697,7 +697,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
         return
       }
 
-      if try driver.interModuleDependencyOracle.supportsSeparateImportOnlyDependencise() {
+      if try driver.interModuleDependencyOracle.supportsSeparateImportOnlyDependencies() {
           let directImportedDependencies = try XCTUnwrap(mainModuleDetails.sourceImportDependencies)
         XCTAssertFalse(directImportedDependencies.contains(.swift("A")))
         XCTAssertFalse(directImportedDependencies.contains(.clang("D")))

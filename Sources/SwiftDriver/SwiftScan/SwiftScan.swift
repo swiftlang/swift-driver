@@ -254,7 +254,7 @@ private extension String {
     return api.swiftscan_swift_textual_detail_get_swift_overlay_dependencies != nil
   }
 
-  @_spi(Testing) public var supportsSeparateImportOnlyDependencise: Bool {
+  @_spi(Testing) public var supportsSeparateImportOnlyDependencies: Bool {
     return api.swiftscan_swift_textual_detail_get_swift_source_import_module_dependencies != nil
   }
 
