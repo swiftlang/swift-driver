@@ -569,6 +569,11 @@ extension Driver {
       commandLine.appendFlag("-frontend-parseable-output")
     }
 
+    if let protocolsList = parsedOptions.getLastArgument(.constGatherProtocolsList)?.asSingle {
+      let path = try VirtualPath(path: protocolsList)
+      try addPathOption(option: .constGatherProtocolsFile, path: path, to: &commandLine, remap: jobNeedPathRemap)
+    }
+
     // If explicit auto-linking is enabled, ensure that compiler tasks do not produce
     // auto-link load commands in resulting object files.
     if parsedOptions.hasArgument(.explicitAutoLinking) {

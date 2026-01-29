@@ -1550,20 +1550,24 @@ final class SwiftDriverTests: XCTestCase {
   func testEmitConstValues() throws {
     do { // Just single files
       var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "baz.swift",
+                                     "-const-gather-protocols-list", "protocols.json",
                                      "-module-name", "Foo", "-emit-const-values"])
       let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
       XCTAssertEqual(plannedJobs.count, 4)
 
       XCTAssertEqual(plannedJobs[0].kind, .compile)
       XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-emit-const-values-path"))
+      XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-const-gather-protocols-file"))
       XCTAssertTrue(plannedJobs[0].outputs.contains(where: { $0.type == .swiftConstValues }))
 
       XCTAssertEqual(plannedJobs[1].kind, .compile)
       XCTAssertJobInvocationMatches(plannedJobs[1], .flag("-emit-const-values-path"))
+      XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-const-gather-protocols-file"))
       XCTAssertTrue(plannedJobs[1].outputs.contains(where: { $0.type == .swiftConstValues }))
 
       XCTAssertEqual(plannedJobs[2].kind, .compile)
       XCTAssertJobInvocationMatches(plannedJobs[2], .flag("-emit-const-values-path"))
+      XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-const-gather-protocols-file"))
       XCTAssertTrue(plannedJobs[2].outputs.contains(where: { $0.type == .swiftConstValues }))
 
       XCTAssertEqual(plannedJobs[3].kind, .link)
