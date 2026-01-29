@@ -3822,6 +3822,354 @@ final class SwiftDriverTests: XCTestCase {
     try checkSupplementaryOutputFileMap(format: "bitstream", .bitstreamOptimizationRecord)
   }
 
+  func testOptimizationRecordWithOutputFileMap() throws {
+    try withTemporaryDirectory { path in
+      let outputFileMap = path.appending(component: "outputFileMap.json")
+      let file1 = path.appending(component: "file1.swift")
+      let file2 = path.appending(component: "file2.swift")
+      let optRecord1 = path.appending(component: "file1.opt.yaml")
+      let optRecord2 = path.appending(component: "file2.opt.yaml")
+
+      let ofm = OutputFileMap(entries: [
+        try VirtualPath.intern(path: file1.pathString): [
+          .object: try VirtualPath.intern(path: path.appending(component: "file1.o").pathString),
+          .yamlOptimizationRecord: try VirtualPath.intern(path: optRecord1.pathString)
+        ],
+        try VirtualPath.intern(path: file2.pathString): [
+          .object: try VirtualPath.intern(path: path.appending(component: "file2.o").pathString),
+          .yamlOptimizationRecord: try VirtualPath.intern(path: optRecord2.pathString)
+        ]
+      ])
+      try ofm.store(fileSystem: localFileSystem, file: outputFileMap)
+
+      try localFileSystem.writeFileContents(file1) { $0.send("func foo() {}") }
+      try localFileSystem.writeFileContents(file2) { $0.send("func bar() {}") }
+
+      // Test primary file mode with output file map containing optimization record entries
+      var driver = try Driver(args: [
+        "swiftc", "-save-optimization-record",
+        "-output-file-map", outputFileMap.pathString,
+        "-c", file1.pathString, file2.pathString
+      ])
+      let plannedJobs = try driver.planBuild()
+      let compileJobs = plannedJobs.filter { $0.kind == .compile }
+
+      XCTAssertEqual(compileJobs.count, 2, "Should have two compile jobs in primary file mode")
+
+      for (index, compileJob) in compileJobs.enumerated() {
+        XCTAssertTrue(compileJob.commandLine.contains(.flag("-save-optimization-record-path")),
+                      "Compile job \(index) should have -save-optimization-record-path flag")
+
+        if let primaryFileIndex = compileJob.commandLine.firstIndex(of: .flag("-primary-file")),
+           primaryFileIndex + 1 < compileJob.commandLine.count {
+          let primaryFile = compileJob.commandLine[primaryFileIndex + 1]
+
+          if let optRecordIndex = compileJob.commandLine.firstIndex(of: .flag("-save-optimization-record-path")),
+             optRecordIndex + 1 < compileJob.commandLine.count {
+            let optRecordPath = compileJob.commandLine[optRecordIndex + 1]
+
+            if case .path(let primaryPath) = primaryFile, case .path(let optPath) = optRecordPath {
+              if primaryPath == .absolute(file1) {
+                XCTAssertEqual(optPath, .absolute(optRecord1),
+                              "Compile job with file1.swift as primary should use file1.opt.yaml from output file map")
+              } else if primaryPath == .absolute(file2) {
+                XCTAssertEqual(optPath, .absolute(optRecord2),
+                              "Compile job with file2.swift as primary should use file2.opt.yaml from output file map")
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  func testOptimizationRecordPartialFileMapCoverage() throws {
+    try withTemporaryDirectory { path in
+      let outputFileMap = path.appending(component: "outputFileMap.json")
+      let file1 = path.appending(component: "file1.swift")
+      let file2 = path.appending(component: "file2.swift")
+      let optRecord1 = path.appending(component: "file1.opt.yaml")
+
+      let ofm = OutputFileMap(entries: [
+        try VirtualPath.intern(path: file1.pathString): [
+          .object: try VirtualPath.intern(path: path.appending(component: "file1.o").pathString),
+          .yamlOptimizationRecord: try VirtualPath.intern(path: optRecord1.pathString)
+        ],
+        try VirtualPath.intern(path: file2.pathString): [
+          .object: try VirtualPath.intern(path: path.appending(component: "file2.o").pathString)
+        ]
+      ])
+      try ofm.store(fileSystem: localFileSystem, file: outputFileMap)
+
+      try localFileSystem.writeFileContents(file1) { $0.send("func foo() {}") }
+      try localFileSystem.writeFileContents(file2) { $0.send("func bar() {}") }
+
+      // Test primary file mode with partial file map coverage
+      var driver = try Driver(args: [
+        "swiftc", "-save-optimization-record",
+        "-output-file-map", outputFileMap.pathString,
+        "-c", file1.pathString, file2.pathString
+      ])
+      let plannedJobs = try driver.planBuild()
+      let compileJobs = plannedJobs.filter { $0.kind == .compile }
+
+      XCTAssertEqual(compileJobs.count, 2, "Should have two compile jobs in primary file mode")
+
+      // file1 should use the path from the file map, file2 should use a derived path
+      for compileJob in compileJobs {
+        if let primaryFileIndex = compileJob.commandLine.firstIndex(of: .flag("-primary-file")),
+           primaryFileIndex + 1 < compileJob.commandLine.count {
+          let primaryFile = compileJob.commandLine[primaryFileIndex + 1]
+
+          if case .path(let primaryPath) = primaryFile {
+            if primaryPath == .absolute(file1) {
+              XCTAssertTrue(compileJob.commandLine.contains(.flag("-save-optimization-record-path")),
+                            "file1 compile job should have -save-optimization-record-path flag")
+              if let optRecordIndex = compileJob.commandLine.firstIndex(of: .flag("-save-optimization-record-path")),
+                 optRecordIndex + 1 < compileJob.commandLine.count,
+                 case .path(let optPath) = compileJob.commandLine[optRecordIndex + 1] {
+                XCTAssertEqual(optPath, .absolute(optRecord1),
+                              "file1 should use the optimization record path from the file map")
+              }
+            } else if primaryPath == .absolute(file2) {
+              XCTAssertTrue(compileJob.commandLine.contains(.flag("-save-optimization-record-path")),
+                            "file2 compile job should have -save-optimization-record-path flag")
+              if let optRecordIndex = compileJob.commandLine.firstIndex(of: .flag("-save-optimization-record-path")),
+                 optRecordIndex + 1 < compileJob.commandLine.count,
+                 case .path(let optPath) = compileJob.commandLine[optRecordIndex + 1] {
+                XCTAssertNotEqual(optPath, .absolute(optRecord1),
+                                  "file2 should not use file1's optimization record path")
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  func testOptimizationRecordPathUserProvidedPath() throws {
+    // Test single file with explicit path (primary file mode)
+    do {
+      var driver = try Driver(args: [
+        "swiftc", "-save-optimization-record", "-save-optimization-record-path", "/tmp/test.opt.yaml",
+        "-c", "test.swift"
+      ])
+      let plannedJobs = try driver.planBuild()
+      let compileJob = try XCTUnwrap(plannedJobs.first { $0.kind == .compile })
+
+      XCTAssertTrue(compileJob.commandLine.contains(.path(VirtualPath.absolute(try AbsolutePath(validating: "/tmp/test.opt.yaml")))))
+      XCTAssertTrue(compileJob.commandLine.contains(.flag("-save-optimization-record-path")))
+    }
+  }
+
+  func testOptimizationRecordMultiThreadedWMOInsufficientPaths() throws {
+    // Test error when multi-threaded WMO has insufficient explicit paths
+    var driver = try Driver(args: [
+      "swiftc", "-wmo", "-num-threads", "2", "-save-optimization-record",
+      "-save-optimization-record-path", "/tmp/single.opt.yaml",
+      "-c", "file1.swift", "file2.swift"
+    ])
+
+    XCTAssertThrowsError(try driver.planBuild())
+
+    XCTAssertTrue(driver.diagnosticEngine.diagnostics.contains(where: {
+      $0.message.text.contains("multi-threaded whole-module optimization requires one '-save-optimization-record-path' per source file")
+    }))
+  }
+
+  func testOptimizationRecordMultiThreadedWMOWithExplicitPaths() throws {
+    var driver = try Driver(args: [
+      "swiftc", "-wmo", "-num-threads", "2", "-save-optimization-record",
+      "-save-optimization-record-path", "/tmp/file1.opt.yaml",
+      "-save-optimization-record-path", "/tmp/file2.opt.yaml",
+      "-c", "file1.swift", "file2.swift"
+    ])
+
+    let plannedJobs = try driver.planBuild()
+    let compileJob = try XCTUnwrap(plannedJobs.first { $0.kind == .compile })
+
+    XCTAssertTrue(compileJob.commandLine.contains(.path(VirtualPath.absolute(try AbsolutePath(validating: "/tmp/file1.opt.yaml")))),
+                  "Command line should contain file1.opt.yaml path")
+    XCTAssertTrue(compileJob.commandLine.contains(.path(VirtualPath.absolute(try AbsolutePath(validating: "/tmp/file2.opt.yaml")))),
+                  "Command line should contain file2.opt.yaml path")
+  }
+
+  func testOptimizationRecordMultiThreadedWMODerivedPaths() throws {
+    // Test optimization record paths for multi-threaded WMO when
+    // -save-optimization-record is specified without explicit paths or file map entries
+    var driver = try Driver(args: [
+      "swiftc", "-wmo", "-num-threads", "2", "-save-optimization-record",
+      "-c", "file1.swift", "file2.swift"
+    ])
+
+    let plannedJobs = try driver.planBuild()
+    let compileJob = try XCTUnwrap(plannedJobs.first { $0.kind == .compile })
+
+    // With multiple optimization records, the driver uses a supplementary output file map
+    XCTAssertTrue(compileJob.commandLine.contains(.flag("-supplementary-output-file-map")),
+                  "Should use supplementary output file map for derived per-file optimization record paths")
+
+    let outFileMap = try XCTUnwrap(compileJob.commandLine.supplementaryOutputFilemap,
+                                   "Should have supplementary output file map")
+
+    var hasFile1OptRecord = false
+    var hasFile2OptRecord = false
+
+    for (inputHandle, outputs) in outFileMap.entries {
+      let inputPath = VirtualPath.lookup(inputHandle).name
+      if inputPath.contains("file1.swift") {
+        hasFile1OptRecord = outputs.keys.contains { $0.isOptimizationRecord }
+      }
+      if inputPath.contains("file2.swift") {
+        hasFile2OptRecord = outputs.keys.contains { $0.isOptimizationRecord }
+      }
+    }
+
+    XCTAssertTrue(hasFile1OptRecord, "Should derive optimization record path for file1.swift")
+    XCTAssertTrue(hasFile2OptRecord, "Should derive optimization record path for file2.swift")
+  }
+
+  func testOptimizationRecordMultiThreadedWMOWithCompleteFileMap() throws {
+    // Test that multi-threaded WMO with complete file map coverage works
+    try withTemporaryDirectory { path in
+      let outputFileMap = path.appending(component: "outputFileMap.json")
+      let file1 = path.appending(component: "file1.swift")
+      let file2 = path.appending(component: "file2.swift")
+      let optRecord1 = path.appending(component: "file1.opt.yaml")
+      let optRecord2 = path.appending(component: "file2.opt.yaml")
+
+      let ofm = OutputFileMap(entries: [
+        try VirtualPath.intern(path: file1.pathString): [
+          .object: try VirtualPath.intern(path: path.appending(component: "file1.o").pathString),
+          .yamlOptimizationRecord: try VirtualPath.intern(path: optRecord1.pathString)
+        ],
+        try VirtualPath.intern(path: file2.pathString): [
+          .object: try VirtualPath.intern(path: path.appending(component: "file2.o").pathString),
+          .yamlOptimizationRecord: try VirtualPath.intern(path: optRecord2.pathString)
+        ]
+      ])
+      try ofm.store(fileSystem: localFileSystem, file: outputFileMap)
+
+      try localFileSystem.writeFileContents(file1) { $0.send("func foo() {}") }
+      try localFileSystem.writeFileContents(file2) { $0.send("func bar() {}") }
+
+      var driver = try Driver(args: [
+        "swiftc", "-wmo", "-num-threads", "2", "-save-optimization-record",
+        "-output-file-map", outputFileMap.pathString,
+        "-c", file1.pathString, file2.pathString
+      ])
+
+      let plannedJobs = try driver.planBuild()
+      let compileJob = try XCTUnwrap(plannedJobs.first { $0.kind == .compile })
+
+      XCTAssertTrue(compileJob.commandLine.contains(.flag("-supplementary-output-file-map")),
+                    "Should use supplementary output file map for file map entries")
+    }
+  }
+
+  func testOptimizationRecordSingleThreadedWMOModuleLevelEntry() throws {
+    // Test module-level entry for single-threaded WMO
+    try withTemporaryDirectory { path in
+      let outputFileMap = path.appending(component: "outputFileMap.json")
+      let file1 = path.appending(component: "file1.swift")
+      let file2 = path.appending(component: "file2.swift")
+      let moduleLevelOptRecord = path.appending(component: "module.opt.yaml")
+
+      // Output file map with module-level entry (empty path key)
+      let ofm = OutputFileMap(entries: [
+        try VirtualPath.intern(path: ""): [
+          .yamlOptimizationRecord: try VirtualPath.intern(path: moduleLevelOptRecord.pathString)
+        ],
+        try VirtualPath.intern(path: file1.pathString): [
+          .object: try VirtualPath.intern(path: path.appending(component: "file1.o").pathString)
+        ],
+        try VirtualPath.intern(path: file2.pathString): [
+          .object: try VirtualPath.intern(path: path.appending(component: "file2.o").pathString)
+        ]
+      ])
+      try ofm.store(fileSystem: localFileSystem, file: outputFileMap)
+
+      try localFileSystem.writeFileContents(file1) { $0.send("func foo() {}") }
+      try localFileSystem.writeFileContents(file2) { $0.send("func bar() {}") }
+
+      var driver = try Driver(args: [
+        "swiftc", "-wmo", "-save-optimization-record",
+        "-output-file-map", outputFileMap.pathString,
+        "-c", file1.pathString, file2.pathString
+      ])
+
+      let plannedJobs = try driver.planBuild()
+      let compileJob = try XCTUnwrap(plannedJobs.first { $0.kind == .compile })
+
+      XCTAssertTrue(compileJob.commandLine.contains(.path(VirtualPath.absolute(moduleLevelOptRecord))),
+                    "Should use module-level optimization record path for single-threaded WMO")
+    }
+  }
+
+  func testOptimizationRecordSingleThreadedWMODerivedPath() throws {
+    // Test that single-threaded WMO with just -save-optimization-record derives a module-level path
+    var driver = try Driver(args: [
+      "swiftc", "-wmo", "-save-optimization-record",
+      "-c", "file1.swift", "file2.swift"
+    ])
+
+    let plannedJobs = try driver.planBuild()
+    let compileJob = try XCTUnwrap(plannedJobs.first { $0.kind == .compile })
+
+    // Should have -save-optimization-record-path flag with auto-generated path
+    XCTAssertTrue(compileJob.commandLine.contains(.flag("-save-optimization-record-path")),
+                  "Should have -save-optimization-record-path flag")
+
+    if let flagIndex = compileJob.commandLine.firstIndex(of: .flag("-save-optimization-record-path")),
+       flagIndex + 1 < compileJob.commandLine.count {
+      switch compileJob.commandLine[flagIndex + 1] {
+      case .path:
+        break
+      default:
+        XCTFail("Expected path argument after -save-optimization-record-path flag")
+      }
+    } else {
+      XCTFail("Could not find -save-optimization-record-path flag and path")
+    }
+  }
+
+  func testOptimizationRecordWarningWithExplicitPathAndFileMap() throws {
+    // Test that warning is emitted when both explicit -save-optimization-record-path
+    // and output file map entries exist for optimization records
+    try withTemporaryDirectory { path in
+      let outputFileMap = path.appending(component: "outputFileMap.json")
+      let file1 = path.appending(component: "file1.swift")
+      let file2 = path.appending(component: "file2.swift")
+
+      let ofm = OutputFileMap(entries: [
+        try VirtualPath.intern(path: file1.pathString): [
+          .object: try VirtualPath.intern(path: path.appending(component: "file1.o").pathString),
+          .yamlOptimizationRecord: try VirtualPath.intern(path: path.appending(component: "file1.opt.yaml").pathString)
+        ],
+        try VirtualPath.intern(path: file2.pathString): [
+          .object: try VirtualPath.intern(path: path.appending(component: "file2.o").pathString),
+          .yamlOptimizationRecord: try VirtualPath.intern(path: path.appending(component: "file2.opt.yaml").pathString)
+        ]
+      ])
+      try ofm.store(fileSystem: localFileSystem, file: outputFileMap)
+
+      try localFileSystem.writeFileContents(file1) { $0.send("func foo() {}") }
+      try localFileSystem.writeFileContents(file2) { $0.send("func bar() {}") }
+
+      var driver = try Driver(args: [
+        "swiftc", "-save-optimization-record-path", "/tmp/explicit.opt.yaml",
+        "-output-file-map", outputFileMap.pathString,
+        "-c", file1.pathString, file2.pathString
+      ])
+
+      _ = try driver.planBuild()
+
+      XCTAssertTrue(driver.diagnosticEngine.diagnostics.contains(where: {
+        $0.message.text.contains("ignoring '-save-optimization-record-path' because output file map contains optimization record entries")
+      }), "Should warn when both explicit path and file map entries exist")
+    }
+  }
+
   func testUpdateCode() throws {
     do {
       var driver = try Driver(args: [

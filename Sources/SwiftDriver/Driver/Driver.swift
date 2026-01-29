@@ -256,6 +256,11 @@ public struct Driver {
   /// When > 0, the number of threads to use in a multithreaded build.
   @_spi(Testing) public let numThreads: Int
 
+  /// Whether this is single-threaded whole module optimization mode.
+  var isSingleThreadedWMO: Bool {
+    return !compilerMode.usesPrimaryFileInputs && numThreads < 2
+  }
+
   /// The specified maximum number of parallel jobs to execute.
   @_spi(Testing) public let numParallelJobs: Int?
 
