@@ -203,6 +203,11 @@ extension GenericUnixToolchain {
         commandLine.appendPath(rsrc.appending(components: platform, architecture, "swiftrt.o"))
       }
 
+      // Embedded Wasm binaries don't have compatible compiler-rt or C stdlib available, turn it off by default.
+      if isEmbeddedEnabled && (targetTriple.arch == .wasm32 || targetTriple.arch == .wasm64) {
+        commandLine.appendFlag("-nostdlib")
+      }
+
       // If we are linking statically, we need to add all
       // dependencies to a library search group to resolve
       // potential circular dependencies
