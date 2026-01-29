@@ -387,6 +387,10 @@ extension Driver {
       try commandLine.appendLast(.clangBuildSessionFile, from: &parsedOptions)
     }
 
+    if isFrontendArgSupported(.emitClangHeaderMinAccess) {
+      try commandLine.appendLast(.emitClangHeaderMinAccess, from: &parsedOptions)
+    }
+
     if isFrontendArgSupported(.enableBuiltinModule) {
       try commandLine.appendLast(.enableBuiltinModule, from: &parsedOptions)
     }
