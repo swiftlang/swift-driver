@@ -35,6 +35,9 @@ public enum DarwinPlatform: Hashable {
   /// visionOS, corresponding to the `visionos` OS name.
   case visionOS(EnvironmentWithoutCatalyst)
 
+  /// Firmware, corresponding to the `firmware` OS name.
+  case Firmware
+
   /// The most general form of environment information attached to a
   /// `DarwinPlatform`.
   ///
@@ -82,6 +85,9 @@ public enum DarwinPlatform: Hashable {
     case .visionOS:
       guard let withoutCatalyst = environment.withoutCatalyst else { return nil }
       return .visionOS(withoutCatalyst)
+    case .Firmware:
+      guard environment == .device else { return nil }
+      return .Firmware
     }
   }
 
@@ -107,6 +113,8 @@ public enum DarwinPlatform: Hashable {
       return "visionOS"
     case .visionOS(.simulator):
       return "visionOS Simulator"
+    case .Firmware:
+      return "Firmware"
     }
   }
 
@@ -134,6 +142,8 @@ public enum DarwinPlatform: Hashable {
       return "xros"
     case .visionOS(.simulator):
       return "xrsimulator"
+    default:
+      fatalError("Unsupported Darwin platform \(self)")
     }
   }
 
@@ -160,6 +170,8 @@ public enum DarwinPlatform: Hashable {
       return "xros"
     case .visionOS(.simulator):
       return "xros-simulator"
+    default:
+      fatalError("Unsupported Darwin platform \(self)")
     }
   }
 
@@ -187,6 +199,8 @@ public enum DarwinPlatform: Hashable {
       return "xros"
     case .visionOS(.simulator):
       return "xrossim"
+    default:
+      fatalError("Unsupported Darwin platform \(self)")
     }
   }
 }
@@ -223,6 +237,8 @@ extension Triple {
       return _watchOSVersion
     case .visionOS:
       return _visionOSVersion
+    case .Firmware:
+      return _FirmwareVersion
     }
   }
 
@@ -251,6 +267,8 @@ extension Triple {
       return .tvOS(makeEnvironment())
     case .visionos:
       return .visionOS(makeEnvironment())
+    case .firmware:
+      return isAppleFirmware ? .Firmware : nil
     default:
       return nil
     }
@@ -310,6 +328,8 @@ extension Triple {
       return _watchOSVersion
     case .visionOS(_):
       return _visionOSVersion
+    case .Firmware:
+      return _FirmwareVersion
     }
   }
 
@@ -321,7 +341,7 @@ extension Triple {
     guard let os else {
       return osName
     }
-    if os.isDarwin {
+    if isDarwin {
       return "darwin"
     }
 
@@ -344,7 +364,7 @@ extension Triple {
     switch os {
     case nil:
       fatalError("unknown OS")
-    case .darwin, .macosx, .ios, .tvos, .watchos, .visionos:
+    case .darwin, .macosx, .ios, .tvos, .watchos, .visionos, .firmware:
       guard let darwinPlatform = darwinPlatform else {
         fatalError("unsupported darwin platform kind?")
       }
@@ -458,6 +478,8 @@ extension Triple {
         return watchOS
       case .visionOS:
         return visionOS
+      case .Firmware:
+        return .availableInAllVersions
       }
     }
   }
