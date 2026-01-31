@@ -716,10 +716,6 @@ final class ExplicitModuleBuildTests: XCTestCase {
       for job in jobs {
         XCTAssertEqual(job.outputs.count, 1)
         let outputFilePath = job.outputs[0].file
-        if job.kind == .compile && driver.isFrontendArgSupported(.debugModulePath) {
-          XCTAssertTrue(job.commandLine.contains(subsequence: ["-debug-module-path", try toPathOption("testExplicitModuleBuildJobs.swiftmodule")]))
-
-        }
 
         // Swift dependencies
         if let outputFileExtension = outputFilePath.extension,
@@ -778,6 +774,38 @@ final class ExplicitModuleBuildTests: XCTestCase {
               XCTFail("Unexpected module dependency build job output: \(outputFilePath)")
           }
         }
+      }
+    }
+  }
+
+  /// Test the -debug-module-path option in expilicit builds.
+  func testExplicitModuleBuildDebugModulePath() throws {
+    let (stdlibPath, shimsPath, _, _) = try getDriverArtifactsForScanning()
+    try withTemporaryDirectory { path in
+      let main = path.appending(component: "testExplicitModuleBuildJobs.swift")
+      try localFileSystem.writeFileContents(main, bytes:
+        """
+        import C;
+        """
+      )
+
+      let swiftModuleInterfacesPath: AbsolutePath =
+          try testInputsPath.appending(component: "ExplicitModuleBuilds")
+                            .appending(component: "Swift")
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+      var driver = try Driver(args: ["swiftc",
+                                     "-g",
+                                     "-I", swiftModuleInterfacesPath.nativePathString(escaped: false),
+                                     "-I", stdlibPath.nativePathString(escaped: false),
+                                     "-I", shimsPath.nativePathString(escaped: false),
+                                     "-explicit-module-build",
+                                     "-disable-implicit-concurrency-module-import",
+                                     "-disable-implicit-string-processing-module-import",
+                                     main.nativePathString(escaped: false)] + sdkArgumentsForTesting)
+      guard driver.isFrontendArgSupported(.debugModulePath) else { return }
+      let jobs = try driver.planBuild()
+      try jobs.filter { $0.kind == .compile }.forEach { job in
+          XCTAssertTrue(job.commandLine.contains(subsequence: ["-debug-module-path", try toPathOption("testExplicitModuleBuildJobs.swiftmodule")]))
       }
     }
   }
@@ -1100,24 +1128,6 @@ final class ExplicitModuleBuildTests: XCTestCase {
               let baseName = "testExplicitModuleVerifyInterfaceJobs"
               XCTAssertTrue(matchTemporary(outputFilePath, basename: baseName, fileExtension: "o") ||
                             matchTemporary(outputFilePath, basename: baseName, fileExtension: "autolink"))
-            if outputFilePath.extension == FileType.object.rawValue && driver.isFrontendArgSupported(.debugModulePath) {
-              // Check that this is an absolute path pointing to the temporary directory.
-              var found : Bool = false
-              for arg in job.commandLine {
-                if !found && arg == "-debug-module-path" {
-                  found = true
-                } else if found {
-                  if case let .path(vpath) = arg {
-                    XCTAssertTrue(vpath.isTemporary)
-                    XCTAssertTrue(vpath.extension == FileType.swiftModule.rawValue)
-                  } else {
-                    XCTFail("argument is not a path")
-                  }
-                    break
-                }
-              }
-              XCTAssertTrue(found)
-            }
             default:
               XCTFail("Unexpected module dependency build job output: \(outputFilePath)")
           }
