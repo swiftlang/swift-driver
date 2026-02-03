@@ -178,14 +178,6 @@ private func checkCachingBuildJobDependencies(job: Job,
       case .clang(let clangDependencyDetails):
         try validateClangCommandLineDependency(dependencyId, dependencyInfo, clangDependencyDetails)
     }
-
-    // Ensure all transitive dependencies got added as well.
-    for transitiveDependencyId in dependencyInfo.allDependencies {
-      try checkCachingBuildJobDependencies(job: job,
-                                           moduleInfo: try dependencyGraph.moduleInfo(of: transitiveDependencyId),
-                                           dependencyGraph: dependencyGraph)
-
-    }
   }
 }
 
