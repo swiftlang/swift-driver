@@ -713,8 +713,13 @@ extension Driver {
 
     /// Process inputs for supplementary output generation (SIL/IR/opt-records)
     func processInputsForSupplementaryOutput(inputs: [TypedVirtualPath], outputType: FileType, flag: String, directory: String?) throws {
-      // For single-threaded WMO with optimization records, prefer module-level entry if it exists
-      if isSingleThreadedWMO && outputType.isOptimizationRecord {
+      // - SIL: Always use module-level in WMO (both single and multi-threaded WMO produce one SIL file)
+      // - LLVM IR & opt-records: Only in single-threaded WMO (multi-threaded produces per-file outputs)
+      let shouldCheckModuleLevel = !compilerMode.usesPrimaryFileInputs &&
+                                    (outputType == .sil ||
+                                     (isSingleThreadedWMO && (outputType == .llvmIR || outputType.isOptimizationRecord)))
+
+      if shouldCheckModuleLevel {
         let emptyPathHandle = try VirtualPath.intern(path: "")
         if let moduleLevelPath = outputFileMap?.entries[emptyPathHandle]?[outputType] {
           flaggedInputOutputPairs.append((flag: flag, input: nil, output: TypedVirtualPath(file: moduleLevelPath, type: outputType)))
