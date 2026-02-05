@@ -725,6 +725,27 @@ extension Driver {
           flaggedInputOutputPairs.append((flag: flag, input: nil, output: TypedVirtualPath(file: moduleLevelPath, type: outputType)))
           return
         }
+
+        // If we have a directory option e.g -sil-output-dir generate module-level path
+        if let directory = directory, (outputType == .sil || outputType == .llvmIR) {
+          let filename = "\(moduleOutputInfo.name).\(outputType.extension)"
+          let modulePath = try VirtualPath(path: directory).appending(component: filename)
+          flaggedInputOutputPairs.append((flag: flag, input: nil, output: TypedVirtualPath(file: modulePath.intern(), type: outputType)))
+          return
+        }
+
+        if parsedOptions.hasArgument(.saveTemps), (outputType == .sil || outputType == .llvmIR) {
+          let hasPerFileEntries = inputs.contains { input in
+            (try? outputFileMap?.existingOutput(inputFile: input.fileHandle, outputType: outputType)) != nil
+          }
+
+          if !hasPerFileEntries {
+            let filename = "\(moduleOutputInfo.name).\(outputType.extension)"
+            let modulePath = try VirtualPath(path: ".").appending(component: filename)
+            flaggedInputOutputPairs.append((flag: flag, input: nil, output: TypedVirtualPath(file: modulePath.intern(), type: outputType)))
+            return
+          }
+        }
       }
 
       for inputFile in inputs {
