@@ -816,6 +816,102 @@ final class SwiftDriverTests: XCTestCase {
       }
     }
 
+  func testModuleLevelSilOutputInWMO() throws {
+    do {
+      let checkDriver = try Driver(args: ["swiftc", "foo.swift"])
+      guard Driver.isOptionFound("-sil-output-path", allOpts: checkDriver.supportedFrontendFlags) else {
+        throw XCTSkip("Skipping: frontend does not support -sil-output-path")
+      }
+    }
+
+    // Test 1: Single-threaded WMO
+    // In WMO, there's only one SIL file for the entire module, so it should use the "" key
+    try withTemporaryDirectory { path in
+      let outputFileMap = path.appending(component: "outputFileMap.json")
+      let foo = path.appending(component: "foo.swift")
+      let bar = path.appending(component: "bar.swift")
+      let moduleSil = path.appending(component: "TestModule.sil")
+      let fooLL = path.appending(component: "foo.ll")
+      let barLL = path.appending(component: "bar.ll")
+
+      let ofm = OutputFileMap(entries: [
+        try VirtualPath.intern(path: ""): [
+          .sil: try VirtualPath.intern(path: moduleSil.pathString)
+        ],
+        try VirtualPath.intern(path: foo.pathString): [
+          .object: try VirtualPath.intern(path: path.appending(component: "foo.o").pathString),
+          .llvmIR: try VirtualPath.intern(path: fooLL.pathString)
+        ],
+        try VirtualPath.intern(path: bar.pathString): [
+          .object: try VirtualPath.intern(path: path.appending(component: "bar.o").pathString),
+          .llvmIR: try VirtualPath.intern(path: barLL.pathString)
+        ]
+      ])
+      try ofm.store(fileSystem: localFileSystem, file: outputFileMap)
+
+      try localFileSystem.writeFileContents(foo) { $0.send("func foo() {}") }
+      try localFileSystem.writeFileContents(bar) { $0.send("func bar() {}") }
+
+      var driver = try Driver(args: [
+        "swiftc", foo.pathString, bar.pathString, "-emit-object", "-wmo",
+        "-output-file-map", outputFileMap.pathString, "-save-temps"
+      ])
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(plannedJobs.count, 1)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+      XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-sil-output-path")))
+      XCTAssertTrue(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: moduleSil.pathString))))
+
+      XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-ir-output-path")))
+      XCTAssertTrue(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: barLL.pathString))))
+    }
+
+    // Test 2: Multi-threaded WMO
+    // Even with multiple threads, there's still only one SIL file, so it should use the "" key
+    try withTemporaryDirectory { path in
+      let outputFileMap = path.appending(component: "outputFileMap.json")
+      let foo = path.appending(component: "foo.swift")
+      let bar = path.appending(component: "bar.swift")
+      let moduleSil = path.appending(component: "TestModule.sil")
+      let fooLL = path.appending(component: "foo.ll")
+      let barLL = path.appending(component: "bar.ll")
+
+      let ofm = OutputFileMap(entries: [
+        try VirtualPath.intern(path: ""): [
+          .sil: try VirtualPath.intern(path: moduleSil.pathString)
+        ],
+        try VirtualPath.intern(path: foo.pathString): [
+          .object: try VirtualPath.intern(path: path.appending(component: "foo.o").pathString),
+          .llvmIR: try VirtualPath.intern(path: fooLL.pathString)
+        ],
+        try VirtualPath.intern(path: bar.pathString): [
+          .object: try VirtualPath.intern(path: path.appending(component: "bar.o").pathString),
+          .llvmIR: try VirtualPath.intern(path: barLL.pathString)
+        ]
+      ])
+      try ofm.store(fileSystem: localFileSystem, file: outputFileMap)
+
+      try localFileSystem.writeFileContents(foo) { $0.send("func foo() {}") }
+      try localFileSystem.writeFileContents(bar) { $0.send("func bar() {}") }
+
+      var driver = try Driver(args: [
+        "swiftc", foo.pathString, bar.pathString, "-emit-object", "-wmo", "-num-threads", "2",
+        "-output-file-map", outputFileMap.pathString, "-save-temps"
+      ])
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(plannedJobs.count, 1)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+      XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-sil-output-path")))
+      XCTAssertTrue(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: moduleSil.pathString))))
+
+      XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-ir-output-path")))
+      XCTAssertTrue(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: fooLL.pathString))))
+      XCTAssertTrue(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: barLL.pathString))))
+    }
+  }
+
   func testDebugSettings() throws {
     try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-emit-module") { driver in
       XCTAssertNil(driver.debugInfo.level)
