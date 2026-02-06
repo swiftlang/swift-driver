@@ -114,7 +114,11 @@ extension WebAssemblyToolchain {
       }
       commandLine.append(contentsOf: inputFiles)
 
-      if let path = targetInfo.sdkPath?.path {
+      // Prefer -sysroot as the native sysroot path if provided.
+      if let sysroot = parsedOptions.getLastArgument(.sysroot)?.asSingle {
+        commandLine.appendFlag("--sysroot")
+        try commandLine.appendPath(VirtualPath(path: sysroot))
+      } else if let path = targetInfo.sdkPath?.path {
         commandLine.appendFlag("--sysroot")
         commandLine.appendPath(VirtualPath.lookup(path))
       }
