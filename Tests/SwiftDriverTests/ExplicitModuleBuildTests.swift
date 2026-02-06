@@ -96,14 +96,6 @@ private func checkExplicitModuleBuildJobDependencies(job: Job,
       case .clang(let clangDependencyDetails):
         validateClangCommandLineDependency(dependencyId, dependencyInfo, clangDependencyDetails)
     }
-
-    // Ensure all transitive dependencies got added as well.
-    for transitiveDependencyId in dependencyInfo.allDependencies {
-      try checkExplicitModuleBuildJobDependencies(job: job,
-                                                  moduleInfo: try dependencyGraph.moduleInfo(of: transitiveDependencyId),
-                                                  dependencyGraph: dependencyGraph)
-
-    }
   }
 }
 
