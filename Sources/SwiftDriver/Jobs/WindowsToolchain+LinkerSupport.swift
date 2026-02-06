@@ -50,7 +50,7 @@ extension WindowsToolchain {
       // for now, which supports the behavior via a flag.
       // TODO: Once we've changed coverage to no longer rely on emitting
       // duplicate weak symbols (rdar://131295678), we can remove this.
-      if parsedOptions.hasArgument(.profileGenerate) { return true }
+      if needsInstrumentedProfile(from: &parsedOptions) { return true }
 
       return false
     }()
@@ -228,11 +228,12 @@ extension WindowsToolchain {
       commandLine.appendFlag("-fsanitize=\(sanitize)")
     }
 
-    if parsedOptions.contains(.profileGenerate) {
+    if needsInstrumentedProfile(from: &parsedOptions) {
       assert(bForceLLD,
              "LLD is currently required for profiling (rdar://131295678)")
 
-      commandLine.appendFlag("-fprofile-generate")
+      commandLine.appendFlags(mapInstrumentationTypeToClangArgs(from: &parsedOptions))
+
       // FIXME(rdar://131295678): Currently profiling requires the ability to
       // emit duplicate weak symbols. Assume we're using lld and pass
       // `-lld-allow-duplicate-weak` to enable this behavior.
