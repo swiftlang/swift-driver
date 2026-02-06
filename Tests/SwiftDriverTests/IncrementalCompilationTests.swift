@@ -770,6 +770,9 @@ extension IncrementalCompilationTests {
 // MARK: - Explicit compilation caching incremental tests
 extension IncrementalCompilationTests {
   func testIncrementalCompilationCaching() throws {
+#if os(Windows)
+    throw XCTSkip("CAS cannot be removed on windows when test is running")
+#endif
     let driver = try Driver(args: ["swiftc"])
     guard driver.isFeatureSupported(.compilation_caching) else {
       throw XCTSkip("caching not supported")
