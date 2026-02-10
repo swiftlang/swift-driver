@@ -152,6 +152,7 @@ final class IncrementalCompilationTests: XCTestCase {
       }
     }
 
+    Thread.sleep(forTimeInterval: 1)
     let driver = try! Driver(args: ["swiftc"])
     if driver.isFrontendArgSupported(.moduleLoadMode) {
       self.extraExplicitBuildArgs = ["-Xfrontend", "-module-load-mode", "-Xfrontend", "prefer-interface"]
@@ -770,6 +771,9 @@ extension IncrementalCompilationTests {
 // MARK: - Explicit compilation caching incremental tests
 extension IncrementalCompilationTests {
   func testIncrementalCompilationCaching() throws {
+#if os(Windows)
+    throw XCTSkip("CAS cannot be removed on windows when test is running")
+#endif
     let driver = try Driver(args: ["swiftc"])
     guard driver.isFeatureSupported(.compilation_caching) else {
       throw XCTSkip("caching not supported")
