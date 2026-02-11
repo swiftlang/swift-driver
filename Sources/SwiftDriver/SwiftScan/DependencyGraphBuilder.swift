@@ -361,9 +361,9 @@ internal extension SwiftScan {
     guard let dataPtr = string_ref.data else {
       throw DependencyScanningError.invalidStringPtr
     }
-    return String(bytesNoCopy: UnsafeMutableRawPointer(mutating: dataPtr),
-                  length: string_ref.length,
-                  encoding: String.Encoding.utf8, freeWhenDone: false)!
+    let bufferPtr = UnsafeBufferPointer(start: dataPtr.assumingMemoryBound(to: UInt8.self),
+                                        count: string_ref.length)
+    return String(decoding: bufferPtr, as: UTF8.self)
   }
 
   /// Convert a `swiftscan_string_set_t` reference to a Swift `[String]`, assuming the individual string references
@@ -388,6 +388,20 @@ internal extension SwiftScan {
       result.insert(try toSwiftString(stringRef))
     }
     return result
+  }
+}
+
+@_spi(Testing) public extension SwiftScan {
+  /// Testing utility to validate conversion of valid/invalid
+  /// byte streams into `String`s. Avoids exposing conversion API which depend
+  /// on implementation-only imports.
+  func roundTripBytesToSwiftScanStringRef(bytes: [UInt8]) throws -> String {
+    try bytes.withUnsafeBufferPointer { buffer in
+      var stringRef: swiftscan_string_ref_t = swiftscan_string_ref_t()
+      stringRef.data = UnsafeRawPointer(buffer.baseAddress)
+      stringRef.length = buffer.count
+      return try toSwiftString(stringRef)
+    }
   }
 }
 
