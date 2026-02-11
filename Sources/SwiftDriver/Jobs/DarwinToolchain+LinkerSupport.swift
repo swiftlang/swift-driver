@@ -13,6 +13,7 @@
 import SwiftOptions
 
 import struct TSCBasic.AbsolutePath
+import class TSCBasic.DiagnosticsEngine
 import struct TSCBasic.RelativePath
 
 extension DarwinToolchain {
@@ -59,7 +60,8 @@ extension DarwinToolchain {
     shouldUseInputFileList: Bool,
     lto: LTOKind?,
     sanitizers: Set<Sanitizer>,
-    targetInfo: FrontendTargetInfo
+    targetInfo: FrontendTargetInfo,
+    diagnosticsEngine: DiagnosticsEngine
   ) throws -> ResolvedTool {
     // Set up for linking.
     let linkerTool: Tool
@@ -99,6 +101,20 @@ extension DarwinToolchain {
                         commandLine: &commandLine,
                         inputs: inputs,
                         linkerOutputType: linkerOutputType)
+
+    case .relocatableObject:
+      linkerTool = .dynamicLinker
+      commandLine.appendFlag("-r")
+      try addLinkInputs(shouldUseInputFileList: shouldUseInputFileList,
+                        commandLine: &commandLine,
+                        inputs: inputs,
+                        linkerOutputType: linkerOutputType)
+      try addDynamicLinkerFlags(targetInfo: targetInfo,
+                                parsedOptions: &parsedOptions,
+                                commandLine: &commandLine,
+                                sanitizers: sanitizers,
+                                linkerOutputType: linkerOutputType,
+                                lto: lto)
     }
 
     // Add the output

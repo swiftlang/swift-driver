@@ -140,7 +140,8 @@ public protocol Toolchain {
     shouldUseInputFileList: Bool,
     lto: LTOKind?,
     sanitizers: Set<Sanitizer>,
-    targetInfo: FrontendTargetInfo
+    targetInfo: FrontendTargetInfo,
+    diagnosticsEngine: DiagnosticsEngine
   ) throws -> ResolvedTool
 
   /// Returns the runtime library name for a given sanitizer (or nil if the sanitizer does not have a runtime library)

@@ -72,7 +72,7 @@ public final class WebAssemblyToolchain: Toolchain {
     switch type {
     case .executable:
       return moduleName
-    case .dynamicLibrary:
+    case .dynamicLibrary, .relocatableObject:
       // Wasm doesn't support dynamic libraries yet, but we'll report the error later.
       return ""
     case .staticLibrary:

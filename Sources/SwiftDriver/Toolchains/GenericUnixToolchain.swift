@@ -76,6 +76,7 @@ public final class GenericUnixToolchain: Toolchain {
     case .executable: return moduleName
     case .dynamicLibrary: return "lib\(moduleName).so"
     case .staticLibrary: return "lib\(moduleName).a"
+    case .relocatableObject: return "\(moduleName).o"
     }
   }
 

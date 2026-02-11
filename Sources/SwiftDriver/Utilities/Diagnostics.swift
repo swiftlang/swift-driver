@@ -19,6 +19,10 @@ extension Diagnostic.Message {
     .error("-static may not be used with -emit-executable")
   }
 
+  static func error_relocatable_object_unsupported(platform: String) -> Diagnostic.Message {
+    .error("emitting a relocatable object is unsupported when targeting \(platform)")
+  }
+
   static func error_update_code_not_supported(in mode: CompilerMode) -> Diagnostic.Message {
     .error("using '-update-code' in \(mode) mode is not supported")
   }

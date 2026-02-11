@@ -2456,6 +2456,10 @@ extension Driver {
         linkerOutputType = parsedOptions.hasArgument(.static) ? .staticLibrary : .dynamicLibrary
         compilerOutputType = objectLikeFileType
 
+      case .emitRelocatableObject:
+        linkerOutputType = .relocatableObject
+        compilerOutputType = objectLikeFileType
+
       case .emitObject, .c:
         compilerOutputType = objectLikeFileType
 

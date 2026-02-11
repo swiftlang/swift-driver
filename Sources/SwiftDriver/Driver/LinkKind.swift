@@ -20,6 +20,9 @@ public enum LinkOutputType {
 
   /// A static library (e.g., .a or .lib)
   case staticLibrary
+
+  /// A relocatable object file.
+  case relocatableObject
 }
 
 /// Describes the kind of link-time-optimization we expect to perform.

@@ -113,6 +113,7 @@ public final class DarwinToolchain: Toolchain {
     case .executable: return moduleName
     case .dynamicLibrary: return "lib\(moduleName).dylib"
     case .staticLibrary: return "lib\(moduleName).a"
+    case .relocatableObject: return "\(moduleName).o"
     }
   }
 

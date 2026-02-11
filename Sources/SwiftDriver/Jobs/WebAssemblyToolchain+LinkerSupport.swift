@@ -15,6 +15,7 @@ import SwiftOptions
 import func TSCBasic.lookupExecutablePath
 import protocol TSCBasic.FileSystem
 import struct TSCBasic.AbsolutePath
+import class TSCBasic.DiagnosticsEngine
 
 extension WebAssemblyToolchain {
   public func addPlatformSpecificLinkerArgs(
@@ -26,7 +27,8 @@ extension WebAssemblyToolchain {
     shouldUseInputFileList: Bool,
     lto: LTOKind?,
     sanitizers: Set<Sanitizer>,
-    targetInfo: FrontendTargetInfo
+    targetInfo: FrontendTargetInfo,
+    diagnosticsEngine: DiagnosticsEngine
   ) throws -> ResolvedTool {
     let targetTriple = targetInfo.target.triple
     switch linkerOutputType {
@@ -224,6 +226,10 @@ extension WebAssemblyToolchain {
 
       commandLine.append(contentsOf: inputs.lazy.filter { $0.type != .autolink }.map { .path($0.file) })
       return try resolvedTool(.staticLinker(lto))
+
+    case .relocatableObject:
+      diagnosticsEngine.emit(.error_relocatable_object_unsupported(platform: "WebAssembly"))
+      throw Driver.ErrorDiagnostics.emitted
     }
   }
 }

@@ -2920,6 +2920,59 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testLinkingRelocatableObjects() throws {
+    var env = ProcessEnv.block
+    env["SWIFT_DRIVER_TESTS_ENABLE_EXEC_PATH_FALLBACK"] = "1"
+    env["SWIFT_DRIVER_SWIFT_AUTOLINK_EXTRACT_EXEC"] = "/garbage/swift-autolink-extract"
+    env["SWIFT_DRIVER_DSYMUTIL_EXEC"] = "/garbage/dsymutil"
+
+    let commonArgs = ["swiftc", "foo.o", "bar.o",  "-module-name", "Test"]
+
+    do {
+      var driver = try Driver(args: commonArgs + ["-emit-relocatable-object", "-target", "x86_64-apple-macosx10.15"], env: env)
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(1, plannedJobs.count)
+      let linkJob = plannedJobs[0]
+      XCTAssertEqual(linkJob.kind, .link)
+
+      let cmd = linkJob.commandLine
+      XCTAssertTrue(cmd.contains(.flag("-r")))
+      XCTAssertTrue(cmd.contains(.flag("--target=x86_64-apple-macosx10.15")))
+      XCTAssertEqual(linkJob.outputs[0].file, try toPath("Test.o"))
+
+      XCTAssertFalse(cmd.contains(.flag("-static")))
+      XCTAssertFalse(cmd.contains(.flag("-shared")))
+    }
+
+    do {
+      var driver = try Driver(args: commonArgs + ["-emit-relocatable-object", "-target", "x86_64-unknown-linux-gnu"], env: env)
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(1, plannedJobs.count)
+      let linkJob = plannedJobs[0]
+      XCTAssertEqual(linkJob.kind, .link)
+
+      let cmd = linkJob.commandLine
+      XCTAssertTrue(cmd.contains(.flag("-r")))
+      XCTAssertTrue(cmd.contains(.flag("--target=x86_64-unknown-linux-gnu")))
+      XCTAssertEqual(linkJob.outputs[0].file, try toPath("Test.o"))
+
+      XCTAssertFalse(cmd.contains(.flag("-static")))
+      XCTAssertFalse(cmd.contains(.flag("-shared")))
+    }
+
+    try assertDriverDiagnostics(args: commonArgs + ["-emit-relocatable-object", "-target", "x86_64-unknown-windows-msvc"]) { driver, results in
+      XCTAssertThrowsError(try driver.planBuild())
+      results.expect(.error("emitting a relocatable object is unsupported when targeting Windows"))
+    }
+
+    try assertDriverDiagnostics(args: commonArgs + ["-emit-relocatable-object", "-target", "wasm32-unknown-wasi"]) { driver, results in
+      XCTAssertThrowsError(try driver.planBuild())
+      results.expect(.error("emitting a relocatable object is unsupported when targeting WebAssembly"))
+    }
+  }
+
   func testWebAssemblyUnsupportedFeatures() throws {
     var env = ProcessEnv.block
     env["SWIFT_DRIVER_SWIFT_AUTOLINK_EXTRACT_EXEC"] = "/garbage/swift-autolink-extract"

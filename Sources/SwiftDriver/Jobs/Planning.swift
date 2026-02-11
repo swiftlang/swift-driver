@@ -683,7 +683,7 @@ extension Driver {
     else { return }
 
     switch linkerOutputType {
-    case .none, .some(.staticLibrary):
+    case .none, .some(.staticLibrary), .some(.relocatableObject):
       // Cannot generate a dSYM bundle for a non-image target.
       return
 

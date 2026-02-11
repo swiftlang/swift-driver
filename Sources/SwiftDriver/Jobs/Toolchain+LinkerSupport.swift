@@ -172,13 +172,15 @@ extension DarwinToolchain {
       commandLine.appendPath(path)
     }
 
-    let rpaths = StdlibRpathRule(
-      parsedOptions: &parsedOptions,
-      targetInfo: targetInfo
-    )
-    for path in try rpaths.paths(runtimeLibraryPaths: runtimePaths) {
-      commandLine.appendFlag("-rpath")
-      commandLine.appendPath(path)
+    if linkerOutputType != .relocatableObject {
+      let rpaths = StdlibRpathRule(
+        parsedOptions: &parsedOptions,
+        targetInfo: targetInfo
+      )
+      for path in try rpaths.paths(runtimeLibraryPaths: runtimePaths) {
+        commandLine.appendFlag("-rpath")
+        commandLine.appendPath(path)
+      }
     }
   }
 

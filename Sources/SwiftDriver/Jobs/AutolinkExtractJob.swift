@@ -24,7 +24,7 @@ extension Driver {
         fallthrough
 
       case .elf:
-        return lto == nil && linkerOutputType != nil
+        return lto == nil && linkerOutputType != nil && linkerOutputType != .relocatableObject
 
       default:
         return false
