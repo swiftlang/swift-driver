@@ -111,6 +111,8 @@ extension WindowsToolchain.ToolchainValidationError {
     case .executable: return "\(moduleName).exe"
     case .dynamicLibrary: return "\(moduleName).dll"
     case .staticLibrary: return "lib\(moduleName).lib"
+    // Unsupported
+    case .relocatableObject: return ""
     }
   }
 

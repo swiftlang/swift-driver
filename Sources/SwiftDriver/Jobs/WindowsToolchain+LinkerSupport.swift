@@ -14,6 +14,7 @@ import SwiftOptions
 
 import func TSCBasic.lookupExecutablePath
 import struct TSCBasic.AbsolutePath
+import class TSCBasic.DiagnosticsEngine
 
 private func architecture(for triple: Triple) -> String {
   // The concept of a "major" arch name only applies to Linux triples
@@ -37,7 +38,8 @@ extension WindowsToolchain {
                                             shouldUseInputFileList: Bool,
                                             lto: LTOKind?,
                                             sanitizers: Set<Sanitizer>,
-                                            targetInfo: FrontendTargetInfo)
+                                            targetInfo: FrontendTargetInfo,
+                                            diagnosticsEngine: DiagnosticsEngine)
     throws -> ResolvedTool {
     // Check to see whether we need to use lld as the linker.
     let bForceLLD: Bool = {
@@ -118,6 +120,9 @@ extension WindowsToolchain {
       commandLine.appendFlag("-shared")
     case .executable:
       break
+    case .relocatableObject:
+      diagnosticsEngine.emit(.error_relocatable_object_unsupported(platform: "Windows"))
+      throw Driver.ErrorDiagnostics.emitted
     }
 
     if let arg = parsedOptions.getLastArgument(.toolsDirectory) {
