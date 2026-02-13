@@ -4353,6 +4353,17 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testEmitSymbolGraphShortenModuleNames() throws {
+    do {
+      let root = localFileSystem.currentWorkingDirectory!.appending(components: "foo", "bar")
+
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-emit-symbol-graph", "-emit-symbol-graph-dir", "/foo/bar/", "-symbol-graph-shorten-output-names"])
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+
+      XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-symbol-graph-shorten-output-names"))
+    }
+  }
+
   func testEmitModuleSeparately() throws {
     var envVars = ProcessEnv.block
     envVars["SWIFT_DRIVER_LD_EXEC"] = ld.nativePathString(escaped: false)
