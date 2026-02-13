@@ -307,7 +307,7 @@ extension GenericUnixToolchain {
         }
       }
 
-      if parsedOptions.hasArgument(.profileGenerate) {
+      if needsInstrumentedProfile(from: &parsedOptions) {
         let environment = (targetTriple.environment == .android) ? "-android" : ""
         let libProfile = VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
           .appending(components: "clang", "lib", targetTriple.osNameUnversioned,
