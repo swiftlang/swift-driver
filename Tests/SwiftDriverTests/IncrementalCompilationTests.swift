@@ -152,13 +152,11 @@ final class IncrementalCompilationTests: XCTestCase {
       }
     }
 
+    Thread.sleep(forTimeInterval: 1)
     let driver = try! Driver(args: ["swiftc"])
     if driver.isFrontendArgSupported(.moduleLoadMode) {
       self.extraExplicitBuildArgs = ["-Xfrontend", "-module-load-mode", "-Xfrontend", "prefer-interface"]
     }
-
-    // Disable incremental tests on windows due to very different module setup.
-    try XCTSkipIf(driver.targetTriple.isWindows, "https://github.com/swiftlang/swift-driver/issues/2029")
   }
 
   deinit {
@@ -801,13 +799,13 @@ extension IncrementalCompilationTests {
 extension IncrementalCompilationTests {
   func testIncrementalCompilationCaching() throws {
 #if os(Windows)
-    throw XCTSkip("caching not supported on windows")
-#else
+    throw XCTSkip("CAS cannot be removed on windows when test is running")
+#endif
     let driver = try Driver(args: ["swiftc"])
     guard driver.isFeatureSupported(.compilation_caching) else {
       throw XCTSkip("caching not supported")
     }
-#endif
+
     let extraArguments = ["-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: true), "-O", "-parse-stdlib"]
     replace(contentsOf: "other", with: "import O;")
     // Simplified initial build.
@@ -937,13 +935,13 @@ extension IncrementalCompilationTests {
     XCTAssertTrue(mandatoryJobs.isEmpty)
   }
 
-    func testNullBuildNoVerify() throws {
-      let extraArguments = ["-experimental-emit-module-separately", "-emit-module", "-emit-module-interface", "-enable-library-evolution", "-verify-emitted-module-interface"]
-      try buildInitialState(extraArguments: extraArguments)
-      let driver = try checkNullBuild(extraArguments: extraArguments)
-      let mandatoryJobs = try XCTUnwrap(driver.incrementalCompilationState?.mandatoryJobsInOrder)
-      XCTAssertTrue(mandatoryJobs.isEmpty)
-    }
+  func testNullBuildNoVerify() throws {
+    let extraArguments = ["-experimental-emit-module-separately", "-emit-module", "-emit-module-interface", "-enable-library-evolution", "-verify-emitted-module-interface"]
+    try buildInitialState(extraArguments: extraArguments)
+    let driver = try checkNullBuild(extraArguments: extraArguments)
+    let mandatoryJobs = try XCTUnwrap(driver.incrementalCompilationState?.mandatoryJobsInOrder)
+    XCTAssertTrue(mandatoryJobs.isEmpty)
+  }
 
   func testSymlinkModification() throws {
     // Remap

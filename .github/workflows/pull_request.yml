@@ -18,12 +18,12 @@ jobs:
     with:
       linux_os_versions: '["jammy"]'
       linux_pre_build_command: ./.github/scripts/prebuild.sh
-      linux_swift_versions: '["nightly-main", "nightly-6.2"]'
+      linux_swift_versions: '["nightly-main", "nightly-6.3"]'
       windows_swift_versions: '["nightly-main"]'
-      windows_build_command: 'Invoke-Program swift test'
+      windows_build_command: 'Invoke-Program swift test --parallel'
       enable_macos_checks: true
       macos_xcode_versions: "[\"26.0\"]"
-      macos_build_command: swift test
+      macos_build_command: swift test --parallel
 
   soundness:
     name: Soundness

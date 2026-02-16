@@ -228,7 +228,7 @@ public final class MultiJobExecutor {
       case (.abnormal, false):
          isBuildCancelled = true
 #else
-       case (.signalled, _):
+       case (.signalled, false):
          isBuildCancelled = true
 #endif
       default:

@@ -256,6 +256,11 @@ public struct Driver {
   /// When > 0, the number of threads to use in a multithreaded build.
   @_spi(Testing) public let numThreads: Int
 
+  /// Whether this is single-threaded whole module optimization mode.
+  var isSingleThreadedWMO: Bool {
+    return !compilerMode.usesPrimaryFileInputs && numThreads < 2
+  }
+
   /// The specified maximum number of parallel jobs to execute.
   @_spi(Testing) public let numParallelJobs: Int?
 
@@ -299,28 +304,28 @@ public struct Driver {
   let scannerPrefixMapSDK: AbsolutePath?
   let scannerPrefixMapToolchain: AbsolutePath?
   lazy var prefixMapping: [(AbsolutePath, AbsolutePath)] = {
+    guard isFrontendArgSupported(.cacheReplayPrefixMap) else {
+      return []
+    }
     var mapping: [(AbsolutePath, AbsolutePath)] = scannerPrefixMap.map {
       return ($0.key, $0.value)
     }
-    do {
-      guard isFrontendArgSupported(.cacheReplayPrefixMap) else {
-        return []
-      }
-      if let sdkMapping = scannerPrefixMapSDK,
-         let sdkPath = absoluteSDKPath {
-        mapping.append((sdkPath, sdkMapping))
-      }
-      if let toolchainMapping = scannerPrefixMapToolchain {
-        let toolchainPath = try toolchain.executableDir.parentDirectory // usr
-                                                       .parentDirectory // toolchain
-        mapping.append((toolchainPath, toolchainMapping))
-      }
-      // The mapping needs to be sorted so the mapping is determinisitic.
-      // The sorting order is reversed so /tmp/tmp is preferred over /tmp in remapping.
-      return mapping.sorted { $0.0 > $1.0 }
-    } catch {
-      return mapping.sorted { $0.0 > $1.0 }
+    if let sdkMapping = scannerPrefixMapSDK,
+       let sdkPath = absoluteSDKPath {
+      mapping.append((sdkPath, sdkMapping))
     }
+    if let toolchainMapping = scannerPrefixMapToolchain,
+       let toolchainPath = try? toolchain.executableDir.parentDirectory   // usr
+                                                       .parentDirectory { // toolchain
+      mapping.append((toolchainPath, toolchainMapping))
+    }
+    guard mapping.isEmpty || isCachingEnabled else {
+      diagnosticEngine.emit(.warning("ignore '-scanner-prefix-*' options that cannot be used without compilation caching"))
+      return []
+    }
+    // The mapping needs to be sorted so the mapping is determinisitic.
+    // The sorting order is reversed so /tmp/tmp is preferred over /tmp in remapping.
+    return mapping.sorted { $0.0 > $1.0 }
   }()
 
   /// Code & data for incremental compilation. Nil if not running in incremental mode.
@@ -2754,12 +2759,17 @@ extension Driver {
       // Support is determined by existence of the sanitizer library.
       // FIXME: Should we do this? This prevents cross-compiling with sanitizers
       //        enabled.
-      var sanitizerSupported = try toolchain.runtimeLibraryExists(
-        for: stableAbi ? .address_stable_abi : sanitizer,
-        targetInfo: targetInfo,
-        parsedOptions: &parsedOptions,
-        isShared: sanitizer != .fuzzer && !stableAbi
-      )
+      var sanitizerSupported = true
+
+      // memtag-stack sanitizer doesn't have a runtime library
+      if sanitizer.hasRuntimeLibrary {
+        sanitizerSupported = try toolchain.runtimeLibraryExists(
+          for: stableAbi ? .address_stable_abi : sanitizer,
+          targetInfo: targetInfo,
+          parsedOptions: &parsedOptions,
+          isShared: sanitizer != .fuzzer && !stableAbi
+        )
+      }
 
       if sanitizer == .thread {
         // TSAN is unavailable on Windows
@@ -2808,6 +2818,16 @@ extension Driver {
       diagnosticEngine.emit(
         .error_argument_not_allowed_with(
           arg: "-sanitize=thread",
+          other: "-sanitize=address"
+        )
+      )
+    }
+
+    // Address and memtag-stack sanitizers can not be enabled concurrently.
+    if set.contains(.memtag_stack) && set.contains(.address) {
+      diagnosticEngine.emit(
+        .error_argument_not_allowed_with(
+          arg: "-sanitize=memtag-stack",
           other: "-sanitize=address"
         )
       )
@@ -3528,7 +3548,7 @@ extension Driver {
 extension Triple {
   @_spi(Testing) public func toolchainType(_ diagnosticsEngine: DiagnosticsEngine) throws -> Toolchain.Type {
     switch os {
-    case .darwin, .macosx, .ios, .tvos, .watchos, .visionos:
+    case .darwin, .macosx, .ios, .tvos, .watchos, .visionos, .firmware:
       return DarwinToolchain.self
     case .linux:
       return GenericUnixToolchain.self

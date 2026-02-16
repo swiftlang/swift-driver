@@ -131,11 +131,11 @@ public class InterModuleDependencyOracle {
     return swiftScan.supportsImportInfos
   }
 
-  @_spi(Testing) public func supportsSeparateImportOnlyDependencise() throws -> Bool {
+  @_spi(Testing) public func supportsSeparateImportOnlyDependencies() throws -> Bool {
     guard let swiftScan = swiftScanLibInstance else {
       fatalError("Attempting to query supported scanner API with no scanner instance.")
     }
-    return swiftScan.supportsSeparateImportOnlyDependencise
+    return swiftScan.supportsSeparateImportOnlyDependencies
   }
 
   public func getOrCreateCAS(pluginPath: AbsolutePath?, onDiskPath: AbsolutePath?, pluginOptions: [(String, String)]) throws -> SwiftScanCAS {

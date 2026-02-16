@@ -264,12 +264,42 @@ extension Driver {
     // -save-optimization-record and -save-optimization-record= have different meanings.
     // In this case, we specifically want to pass the EQ variant to the frontend
     // to control the output type of optimization remarks (YAML or bitstream).
+    try commandLine.appendLast(.saveOptimizationRecord, from: &parsedOptions)
     try commandLine.appendLast(.saveOptimizationRecordEQ, from: &parsedOptions)
     try commandLine.appendLast(.saveOptimizationRecordPasses, from: &parsedOptions)
 
     let inputsGeneratingCodeCount = primaryInputs.isEmpty
       ? inputs.count
       : primaryInputs.count
+
+    let hasOptRecordFileMapEntries = outputFileMap?.hasEntries(for: optimizationRecordFileType ?? .yamlOptimizationRecord) ?? false
+
+    // If explicit paths are provided, need one path per input file
+    let optRecordPathCount = parsedOptions.arguments(for: .saveOptimizationRecordPath).count
+
+    if !compilerMode.usesPrimaryFileInputs && numThreads > 1 && inputs.count > 1 &&
+       optRecordPathCount > 0 && optRecordPathCount < inputs.count && !hasOptRecordFileMapEntries {
+      diagnosticEngine.emit(.error_single_opt_record_path_with_multi_threaded_wmo)
+      throw ErrorDiagnostics.emitted
+    }
+
+    // If we have N explicit optimization record paths for N files, collect them
+    var explicitOptRecordPaths: [VirtualPath.Handle]? = nil
+    if optRecordPathCount == inputs.count && !hasOptRecordFileMapEntries {
+      let allPaths = parsedOptions.arguments(for: .saveOptimizationRecordPath)
+
+      // In multi-threaded WMO, all paths go to the single job
+      if !compilerMode.usesPrimaryFileInputs && numThreads > 1 {
+        for optPath in allPaths {
+          commandLine.appendFlag(.saveOptimizationRecordPath)
+          try commandLine.appendPath(VirtualPath(path: optPath.argument.asSingle))
+        }
+      }
+      // In non-WMO mode, collect paths to pass to addFrontendSupplementaryOutputArguments
+      else if compilerMode.usesPrimaryFileInputs {
+        explicitOptRecordPaths = try allPaths.map { try VirtualPath(path: $0.argument.asSingle).intern() }
+      }
+    }
 
     outputs += try addFrontendSupplementaryOutputArguments(
       commandLine: &commandLine,
@@ -280,7 +310,8 @@ extension Driver {
       moduleOutputPaths: self.moduleOutputPaths,
       includeModuleTracePath: emitModuleTrace,
       indexFilePaths: indexFilePaths,
-      allInputs: inputs)
+      allInputs: inputs,
+      explicitOptRecordPaths: explicitOptRecordPaths)
 
     // Forward migrator flags.
     try commandLine.appendLast(.apiDiffDataFile, from: &parsedOptions)

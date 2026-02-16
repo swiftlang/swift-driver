@@ -251,7 +251,7 @@ private extension SwiftScan {
     }
 
     let sourceImportedDependencies: [ModuleDependencyId]?
-    if supportsSeparateImportOnlyDependencise,
+    if supportsSeparateImportOnlyDependencies,
        let encodedImportedDepsRef = api.swiftscan_swift_textual_detail_get_swift_source_import_module_dependencies(moduleDetailsRef) {
       let encodedImportedDepsendencies = try toSwiftStringArray(encodedImportedDepsRef.pointee)
       sourceImportedDependencies =
