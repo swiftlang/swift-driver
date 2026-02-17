@@ -331,7 +331,7 @@ extension Driver {
     if let compileJob = try addSingleCompileJobs(addJob: addJobBeforeCompiles,
                              addJobOutputs: addJobOutputs,
                              pchCompileJob: pchCompileJob,
-                             emitModuleTrace: loadedModuleTracePath != nil,
+                             emitModuleTrace: !loadedModuleTraceEmittedByScanner && loadedModuleTracePath != nil,
                              explicitModulePlanner: explicitModulePlanner) {
       try addPostModuleFilesJobs(compileJob)
     }
@@ -395,7 +395,7 @@ extension Driver {
     explicitModulePlanner: ExplicitDependencyBuildPlanner?)
   throws {
     let loadedModuleTraceInputIndex = inputFiles.firstIndex(where: {
-      $0.type.isPartOfSwiftCompilation && loadedModuleTracePath != nil
+      $0.type.isPartOfSwiftCompilation && !loadedModuleTraceEmittedByScanner && loadedModuleTracePath != nil
     })
     for (index, input) in inputFiles.enumerated() {
       // Only emit a loaded module trace from the first frontend job.
