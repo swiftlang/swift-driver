@@ -39,17 +39,20 @@ extension IncrementalCompilationState {
     fileprivate let explicitModulePlanner: ExplicitDependencyBuildPlanner?
 
     fileprivate let jobCreatingPch: Job?
+    fileprivate let jobEmitModule: Job?
     fileprivate let reporter: Reporter?
 
     init(skippedCompileJobs: [TypedVirtualPath: Job],
          _ moduleDependencyGraph: ModuleDependencyGraph,
          _ jobCreatingPch: Job?,
+         _ jobEmitModule: Job?,
          _ driver: inout Driver,
          _ explicitModulePlanner: ExplicitDependencyBuildPlanner?) {
       self.skippedCompileJobs = skippedCompileJobs
       self.moduleDependencyGraph = moduleDependencyGraph
       self.reporter = moduleDependencyGraph.info.reporter
       self.jobCreatingPch = jobCreatingPch
+      self.jobEmitModule = jobEmitModule
       self.driver = driver
       self.explicitModulePlanner = explicitModulePlanner
     }
@@ -73,6 +76,7 @@ extension IncrementalCompilationState.ProtectedState {
       .map {try driver.formBatchedJobs($0,
                                        showJobLifecycle: driver.showJobLifecycle,
                                        jobCreatingPch: jobCreatingPch,
+                                       jobEmitModule: jobEmitModule,
                                        explicitModulePlanner: explicitModulePlanner)}
   }
 

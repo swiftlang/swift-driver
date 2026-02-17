@@ -58,8 +58,7 @@ extension Driver {
     kind: Job.Kind,
     bridgingHeaderHandling: BridgingHeaderHandling = .precompiled,
     explicitModulePlanner: ExplicitDependencyBuildPlanner? = nil,
-    forVariantEmitModule: Bool = false,
-    forObject: Bool = false
+    forVariantEmitModule: Bool = false
   ) throws {
     // Only pass -target to the REPL or immediate modes if it was explicitly
     // specified on the command line.
@@ -107,14 +106,6 @@ extension Driver {
       }
     } else {
       jobNeedPathRemap = false
-    }
-
-    if isPlanJobForExplicitModule && forObject && isFrontendArgSupported(.debugModulePath),
-       let explicitModulePlanner {
-      let mainModule = explicitModulePlanner.dependencyGraph.mainModule
-      let pathHandle = moduleOutputInfo.output?.outputPath ?? mainModule.modulePath.path
-      let path = VirtualPath.lookup(pathHandle)
-      try addPathOption(option: .debugModulePath, path: path, to: &commandLine, remap: jobNeedPathRemap)
     }
 
     // Check if dependency scanner has put the job into direct clang cc1 mode.
@@ -306,7 +297,6 @@ extension Driver {
     }
     try commandLine.appendAll(.D, from: &parsedOptions)
     try commandLine.appendAll(.debugPrefixMap, .coveragePrefixMap, .filePrefixMap, from: &parsedOptions)
-    try commandLine.appendLast(.debugModulePath, from: &parsedOptions)
     try commandLine.appendAllArguments(.Xfrontend, from: &parsedOptions)
     try commandLine.appendLast(.warnConcurrency, from: &parsedOptions)
     if isFrontendArgSupported(.noAllocations) {
