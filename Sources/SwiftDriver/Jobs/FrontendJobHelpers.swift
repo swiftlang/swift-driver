@@ -1138,6 +1138,7 @@ extension Driver {
     try commandLine.appendLast(.symbolGraphPrettyPrint, from: &parsedOptions)
     try commandLine.appendLast(.symbolGraphSkipSynthesizedMembers, from: &parsedOptions)
     try commandLine.appendLast(.symbolGraphSkipInheritedDocs, from: &parsedOptions)
+    try commandLine.appendLast(.symbolGraphShortenOutputNames, from: &parsedOptions)
   }
 
   mutating func addEntry(_ entries: inout [VirtualPath.Handle: [FileType: VirtualPath.Handle]], input: TypedVirtualPath?, output: TypedVirtualPath) throws {
