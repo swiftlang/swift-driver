@@ -147,6 +147,7 @@ extension Option {
   public static let defineDisabledAvailabilityDomain: Option = Option("-define-disabled-availability-domain", .separate, attributes: [.helpHidden, .frontend, .noInteractive], metaVar: "<domain>", helpText: "Defines a custom availability domain that is unavailable at compile time")
   public static let defineDynamicAvailabilityDomain: Option = Option("-define-dynamic-availability-domain", .separate, attributes: [.helpHidden, .frontend, .noInteractive], metaVar: "<domain>", helpText: "Defines a custom availability domain that can be enabled or disabled at runtime")
   public static let defineEnabledAvailabilityDomain: Option = Option("-define-enabled-availability-domain", .separate, attributes: [.helpHidden, .frontend, .noInteractive], metaVar: "<domain>", helpText: "Defines a custom availability domain that is available at compile time")
+  public static let dependencyOnlyImport: Option = Option("-dependency-only-import", .separate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Import the module as a dependency only")
   public static let dependencyScanCachePath: Option = Option("-dependency-scan-cache-path", .separate, attributes: [.frontend, .noDriver], helpText: "The path to output the dependency scanner's internal state.")
   public static let dependencyScanSerializeDiagnosticsPath: Option = Option("-dependency-scan-serialize-diagnostics-path", .separate, attributes: [.argumentIsPath, .supplementaryOutput], metaVar: "<path>", helpText: "Emit a serialized diagnostics file for the dependency scanning task to <path>")
   public static let deprecatedIntegratedRepl: Option = Option("-deprecated-integrated-repl", .flag, attributes: [.frontend, .noBatch], group: .modes)
@@ -271,6 +272,7 @@ extension Option {
   public static let disableRequirementMachineLoopNormalization: Option = Option("-disable-requirement-machine-loop-normalization", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable stronger minimization algorithm, for debugging only")
   public static let disableRequirementMachineReuse: Option = Option("-disable-requirement-machine-reuse", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable re-use of requirement machines for minimization, for debugging only")
   public static let disableRoundTripDebugTypes: Option = Option("-disable-round-trip-debug-types", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disables verification of debug info mangling")
+  public static let disableSafeInteropWrappers: Option = Option("-disable-safe-interop-wrappers", .flag, attributes: [.helpHidden, .frontend, .synthesizeInterface], helpText: "Disable safe interop wrapper generation and bounds attribute parsing")
   public static let disableSandbox: Option = Option("-disable-sandbox", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Disable using the sandbox when executing subprocesses")
   public static let disableSendingArgsAndResultsWithRegionIsolation: Option = Option("-disable-sending-args-and-results-with-region-based-isolation", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable sending args and results when region-based isolation is enabled. Only enabled with asserts")
   public static let disableSilOpaqueValues: Option = Option("-disable-sil-opaque-values", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable SIL Opaque Values")
@@ -508,7 +510,6 @@ extension Option {
   public static let enableObjcInterop: Option = Option("-enable-objc-interop", .flag, attributes: [.helpHidden, .frontend, .noDriver, .moduleInterface], helpText: "Enable Objective-C interop code generation and config directives")
   public static let enableObjectiveCProtocolSymbolicReferences: Option = Option("-enable-objective-c-protocol-symbolic-references", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable objective-c protocol symbolic references")
   public static let enableOnlyOneDependencyFile: Option = Option("-enable-only-one-dependency-file", .flag, attributes: [.doesNotAffectIncrementalBuild], helpText: "Enables incremental build optimization that only produces one dependencies file")
-  public static let enableOperatorDesignatedTypes: Option = Option("-enable-operator-designated-types", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable operator designated types")
   public static let enableOssaModules: Option = Option("-enable-ossa-modules", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Obsolete. This option is ignored")
   public static let enablePackMetadataStackPromotion: Option = Option("-enable-pack-metadata-stack-promotion=", .joined, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "true|false", helpText: "Whether to skip heapifying stack metadata packs when possible.")
   public static let enablePackMetadataStackPromotionNoArg: Option = Option("-enable-pack-metadata-stack-promotion", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Skip heapifying stack metadata packs when possible.")
@@ -891,9 +892,13 @@ extension Option {
   public static let skipInheritedDocs: Option = Option("-skip-inherited-docs", .flag, attributes: [.helpHidden, .frontend, .noInteractive, .supplementaryOutput], helpText: "Skip emitting doc comments for members inherited through classes or default implementations")
   public static let skipProtocolImplementations: Option = Option("-skip-protocol-implementations", .flag, attributes: [.helpHidden, .frontend, .noInteractive, .supplementaryOutput], helpText: "Skip emitting symbols that are implementations of protocol requirements or inherited from protocol extensions")
   public static let skipSynthesizedMembers: Option = Option("-skip-synthesized-members", .flag, attributes: [.noDriver], helpText: "Skip members inherited through classes or default implementations")
+  public static let solverDisableOptimizeOperatorDefaults: Option = Option("-solver-disable-optimize-operator-defaults", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable experimental optimization to sometimes skip operators in protocol extensions")
+  public static let solverDisablePerformanceHacks: Option = Option("-solver-disable-performance-hacks", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable various constraint solver performance optimizations that have been subsumed by subsequent improvements")
   public static let solverDisablePreparedOverloads: Option = Option("-solver-disable-prepared-overloads", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable experimental prepared overloads optimization")
   public static let solverDisablePruneDisjunctions: Option = Option("-solver-disable-prune-disjunctions", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable experimental disjunction pruning algorithm for lookahead in the solver")
   public static let solverDisableSplitter: Option = Option("-solver-disable-splitter", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable the component splitter phase of expression type checking")
+  public static let solverEnableOptimizeOperatorDefaults: Option = Option("-solver-enable-optimize-operator-defaults", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental optimization to sometimes skip operators in protocol extensions")
+  public static let solverEnablePerformanceHacks: Option = Option("-solver-enable-performance-hacks", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enble various constraint solver performance optimizations that have been subsumed by subsequent improvements")
   public static let solverEnablePreparedOverloads: Option = Option("-solver-enable-prepared-overloads", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental prepared overloads optimization")
   public static let solverEnablePruneDisjunctions: Option = Option("-solver-enable-prune-disjunctions", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental disjunction pruning algorithm for lookahead in the solver")
   public static let solverExpressionTimeThresholdEQ: Option = Option("-solver-expression-time-threshold=", .joined, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Expression type checking timeout, in seconds")
@@ -934,6 +939,7 @@ extension Option {
   public static let sysroot: Option = Option("-sysroot", .separate, attributes: [.frontend, .synthesizeInterface, .argumentIsPath], metaVar: "<sysroot>", helpText: "Native Platform sysroot")
   public static let S: Option = Option("-S", .flag, alias: Option.emitAssembly, attributes: [.frontend, .noInteractive], group: .modes)
   public static let tabWidth: Option = Option("-tab-width", .separate, attributes: [.noInteractive, .noBatch], metaVar: "<n>", helpText: "Width of tab character.", group: .codeFormatting)
+  public static let targetArchVariant: Option = Option("-target-arch-variant", .separate, attributes: [.frontend, .noInteractive, .moduleWrap, .synthesizeInterface, .moduleInterface], metaVar: "<arch-variant>", helpText: "Generate code for an additional arch/slice variant of the target architectureinto fat mach-o binaries")
   public static let targetCpu: Option = Option("-target-cpu", .separate, attributes: [.frontend, .moduleInterface], helpText: "Generate code for a particular CPU variant")
   public static let minInliningTargetVersion: Option = Option("-target-min-inlining-version", .separate, attributes: [.frontend, .moduleInterface], helpText: "Require inlinable code with no '@available' attribute to back-deploy to this version of the '-target' OS")
   public static let targetSdkName: Option = Option("-target-sdk-name", .separate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Canonical name of the target SDK used for compilation")
@@ -1162,6 +1168,7 @@ extension Option {
       Option.defineDisabledAvailabilityDomain,
       Option.defineDynamicAvailabilityDomain,
       Option.defineEnabledAvailabilityDomain,
+      Option.dependencyOnlyImport,
       Option.dependencyScanCachePath,
       Option.dependencyScanSerializeDiagnosticsPath,
       Option.deprecatedIntegratedRepl,
@@ -1286,6 +1293,7 @@ extension Option {
       Option.disableRequirementMachineLoopNormalization,
       Option.disableRequirementMachineReuse,
       Option.disableRoundTripDebugTypes,
+      Option.disableSafeInteropWrappers,
       Option.disableSandbox,
       Option.disableSendingArgsAndResultsWithRegionIsolation,
       Option.disableSilOpaqueValues,
@@ -1523,7 +1531,6 @@ extension Option {
       Option.enableObjcInterop,
       Option.enableObjectiveCProtocolSymbolicReferences,
       Option.enableOnlyOneDependencyFile,
-      Option.enableOperatorDesignatedTypes,
       Option.enableOssaModules,
       Option.enablePackMetadataStackPromotion,
       Option.enablePackMetadataStackPromotionNoArg,
@@ -1906,9 +1913,13 @@ extension Option {
       Option.skipInheritedDocs,
       Option.skipProtocolImplementations,
       Option.skipSynthesizedMembers,
+      Option.solverDisableOptimizeOperatorDefaults,
+      Option.solverDisablePerformanceHacks,
       Option.solverDisablePreparedOverloads,
       Option.solverDisablePruneDisjunctions,
       Option.solverDisableSplitter,
+      Option.solverEnableOptimizeOperatorDefaults,
+      Option.solverEnablePerformanceHacks,
       Option.solverEnablePreparedOverloads,
       Option.solverEnablePruneDisjunctions,
       Option.solverExpressionTimeThresholdEQ,
@@ -1949,6 +1960,7 @@ extension Option {
       Option.sysroot,
       Option.S,
       Option.tabWidth,
+      Option.targetArchVariant,
       Option.targetCpu,
       Option.minInliningTargetVersion,
       Option.targetSdkName,

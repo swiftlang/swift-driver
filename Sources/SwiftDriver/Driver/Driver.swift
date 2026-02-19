@@ -364,6 +364,12 @@ public struct Driver {
   /// Enable bridging header chaining.
   let bridgingHeaderChaining: Bool
 
+  /// If loaded module trace is emitted by scanner.
+  lazy var loadedModuleTraceEmittedByScanner: Bool = {
+    // check to see if -dependency-only-import flag is supported.
+    isFrontendArgSupported(.dependencyOnlyImport) && parsedOptions.hasArgument(.driverExplicitModuleBuild)
+  }()
+
   /// The directory to emit PCH file.
   lazy var bridgingPrecompiledHeaderOutputDir: VirtualPath? = {
     return try? computePrecompiledBridgingHeaderDir(&parsedOptions,

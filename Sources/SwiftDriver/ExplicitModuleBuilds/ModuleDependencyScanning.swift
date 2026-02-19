@@ -149,7 +149,11 @@ public extension Driver {
     // without causing it to be implicitly imported in compilation tasks
     for moduleNameArg in parsedOptions.arguments(for: .registerModuleDependency) {
       let moduleName = moduleNameArg.argument.asSingle
-      commandLine.appendFlag(.importModule)
+      if isFrontendArgSupported(.dependencyOnlyImport) {
+        commandLine.appendFlag(.dependencyOnlyImport)
+      } else {
+        commandLine.appendFlag(.importModule)
+      }
       commandLine.appendFlag(moduleName)
     }
 
@@ -204,6 +208,12 @@ public extension Driver {
     if let depScanSerializedDiagnosticsPath = dependencyScanSerializedDiagnosticsPath {
       commandLine.appendFlag("-serialize-diagnostics-path")
       commandLine.appendPath(VirtualPath.lookup(depScanSerializedDiagnosticsPath))
+    }
+
+    // loadedModuleTrace file.
+    if loadedModuleTraceEmittedByScanner, let tracePath = loadedModuleTracePath {
+      commandLine.appendFlag(.emitLoadedModuleTracePath)
+      commandLine.appendPath(VirtualPath.lookup(tracePath))
     }
 
     // Pass on the input files
