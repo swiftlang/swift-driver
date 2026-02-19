@@ -90,6 +90,9 @@ public struct FrontendTargetInfo: Codable {
     /// The triple used for module names.
     let moduleTriple: Triple
 
+    /// The least valid pointer value for the target.
+    let leastValidPointerValue: Int
+
     /// The version of the Swift runtime that is present in the runtime
     /// environment of the target.
     var swiftRuntimeCompatibilityVersion: SwiftVersion?
