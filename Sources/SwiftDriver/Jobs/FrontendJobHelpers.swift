@@ -109,12 +109,15 @@ extension Driver {
       jobNeedPathRemap = false
     }
 
-    if isPlanJobForExplicitModule && forObject && isFrontendArgSupported(.debugModulePath),
-       let explicitModulePlanner {
-      let mainModule = explicitModulePlanner.dependencyGraph.mainModule
-      let pathHandle = moduleOutputInfo.output?.outputPath ?? mainModule.modulePath.path
-      let path = VirtualPath.lookup(pathHandle)
-      try addPathOption(option: .debugModulePath, path: path, to: &commandLine, remap: jobNeedPathRemap)
+    // Add the -debug-module-path option to the compile job.
+    // If modulePathHandle is nil, this build doesn't produce a Swift module.
+    if forObject && isFrontendArgSupported(.debugModulePath),
+       var modulePathHandle = moduleOutputInfo.output?.outputPath {
+      // Recompute the module path based on the module name, because this is effectively passing the output
+      // of the module merge action which depends on the compile action.
+      let moduleBase : VirtualPath = VirtualPath.lookup(modulePathHandle).parentDirectory.appending(component: moduleOutputInfo.name)
+      modulePathHandle = try moduleBase.replacingExtension(with: .swiftModule).intern()
+      try addPathOption(option: .debugModulePath, path: VirtualPath.lookup(modulePathHandle), to: &commandLine, remap: jobNeedPathRemap)
     }
 
     // Check if dependency scanner has put the job into direct clang cc1 mode.
