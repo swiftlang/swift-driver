@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import CSwiftScan
 @_spi(Testing) import SwiftDriver
 import SwiftDriverExecution
 import TSCBasic
@@ -846,6 +847,70 @@ final class ExplicitModuleBuildTests: XCTestCase {
                      "Module E should not be loaded in the final compilation since it's not imported")
       XCTAssertFalse(jsonString.contains("\"name\":\"G\""),
                      "Module G should not be loaded in the final compilation since it's not imported")
+
+    }
+  }
+
+  func testInvalidUTF8InStringRef() throws {
+    let (_, _, toolchain, _) = try getDriverArtifactsForScanning()
+    let invalidBytes: [UInt8] = [0x48, 0x65, 0x6C, 0x6C, 0x6F, 0x80, 0xFF]  // "Hello" + invalid UTF8
+    let swiftScanLibPath = try XCTUnwrap(toolchain.lookupSwiftScanLib())
+    if localFileSystem.exists(swiftScanLibPath) {
+      let swiftScanInstance = try SwiftScan(dylib: swiftScanLibPath)
+      let result = try swiftScanInstance.roundTripBytesToSwiftScanStringRef(bytes: invalidBytes)
+      XCTAssertEqual(result, "Hello��")
+    }
+  }
+
+  // Ensure invalid UTF-8 content in diagnostic text does not crash the driver
+  func testInvalidUTF8PathDiagnostic() throws {
+    let (stdlibPath, shimsPath, toolchain, hostTriple) = try getDriverArtifactsForScanning()
+    let dependencyOracle = InterModuleDependencyOracle()
+    let scanLibPath = try XCTUnwrap(toolchain.lookupSwiftScanLib())
+    try dependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
+    guard try dependencyOracle.supportsPerScanDiagnostics() else {
+      throw XCTSkip("libSwiftScan does not support diagnostics queries.")
+    }
+
+    try withTemporaryDirectory { path in
+      let main = path.appending(component: "testInvalidUTF8PathDiagnostic.swift")
+      // "import " + invalid UTF-8 + "Module"
+      let bytes: [UInt8] = [
+          0x69, 0x6D, 0x70, 0x6F, 0x72, 0x74, 0x20,   // "import "
+          0x80, 0x81, 0x82,                           // invalid UTF-8
+          0x4D, 0x6F, 0x64, 0x75, 0x6C, 0x65,         // "Module"
+          0x0A                                        // newline
+      ]
+      try localFileSystem.writeFileContents(main, bytes: ByteString(bytes))
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+      var driver = try Driver(args: ["swiftc",
+                                     "-I", stdlibPath.nativePathString(escaped: false),
+                                     "-I", shimsPath.nativePathString(escaped: false),
+                                     "-explicit-module-build",
+                                     "-working-directory", path.nativePathString(escaped: false),
+                                     "-disable-clang-target",
+                                     main.nativePathString(escaped: false)] + sdkArgumentsForTesting)
+      let resolver = try ArgsResolver(fileSystem: localFileSystem)
+      var scannerCommand = try driver.dependencyScannerInvocationCommand().1.map { try resolver.resolve($0) }
+      if scannerCommand.first == "-frontend" {
+        scannerCommand.removeFirst()
+      }
+      var scanDiagnostics: [ScannerDiagnosticPayload] = []
+      let _ =
+          try dependencyOracle.getDependencies(workingDirectory: path,
+                                               commandLine: scannerCommand,
+                                               diagnostics: &scanDiagnostics)
+      let diags = try XCTUnwrap(scanDiagnostics)
+      XCTAssertEqual(diags.count, 3)
+      let errUTF = diags[0]
+      XCTAssertTrue(errUTF.message.starts(with: "invalid UTF-8 found in source file"))
+      XCTAssertEqual(errUTF.severity, .error)
+      let errDiag = diags[1]
+      XCTAssertTrue(errDiag.message.starts(with: "unable to resolve module dependency"))
+      XCTAssertEqual(errDiag.severity, .error)
+      let noteDiag = diags[2]
+      XCTAssertTrue(noteDiag.message.starts(with: "a dependency of main module"))
+      XCTAssertEqual(noteDiag.severity, .note)
 
     }
   }
