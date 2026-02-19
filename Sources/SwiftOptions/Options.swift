@@ -843,6 +843,7 @@ extension Option {
   public static let remarkLoadingModule: Option = Option("-Rmodule-loading", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Emit remarks about loaded module")
   public static let remarkModuleRecovery: Option = Option("-Rmodule-recovery", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Emit remarks about contextual inconsistencies in loaded modules")
   public static let remarkModuleSerialization: Option = Option("-Rmodule-serialization", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Emit remarks about module serialization")
+  public static let RpassAnalysisEQ: Option = Option("-Rpass-analysis=", .joined, attributes: [.frontend], helpText: "Report transformation analysis from optimization passes whose name matches the given POSIX regular expression")
   public static let RpassMissedEQ: Option = Option("-Rpass-missed=", .joined, attributes: [.frontend], helpText: "Report missed transformations by optimization passes whose name matches the given POSIX regular expression")
   public static let RpassEQ: Option = Option("-Rpass=", .joined, attributes: [.frontend], helpText: "Report performed transformations by optimization passes whose name matches the given POSIX regular expression")
   public static let remarkSkipExplicitInterfaceBuild: Option = Option("-Rskip-explicit-interface-build", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Emit a remark if an explicit module interface invocation has an early exit because the expected output is up-to-date")
@@ -1858,6 +1859,7 @@ extension Option {
       Option.remarkLoadingModule,
       Option.remarkModuleRecovery,
       Option.remarkModuleSerialization,
+      Option.RpassAnalysisEQ,
       Option.RpassMissedEQ,
       Option.RpassEQ,
       Option.remarkSkipExplicitInterfaceBuild,
