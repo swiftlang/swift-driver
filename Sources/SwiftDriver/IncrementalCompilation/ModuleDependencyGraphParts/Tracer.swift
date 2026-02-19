@@ -86,6 +86,15 @@ extension ModuleDependencyGraph.Tracer {
 
     // If this use also provides something, follow it
     for use in graph.nodeFinder.uses(of: definition) {
+      if (definition.key.aspect == .interface) {
+        // .swift or .swiftmodule
+        if case .sourceFileProvide(name: _) = definition.key.designator {
+          if use.keyAndFingerprint.fingerprint != nil {
+            // When a file changed, do not affect nodes that have a fingerprint and have not changed.
+            continue
+          }
+        }
+      }
       collectNextPreviouslyUntracedDependent(of: use)
     }
     traceDeparture(pathLengthAfterArrival);
