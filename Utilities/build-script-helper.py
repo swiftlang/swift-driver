@@ -524,10 +524,13 @@ def cmake_build(args, swiftc_exec, cmake_args, swift_flags, source_path,
   """Configure with CMake and build with Ninja"""
   if args.sysroot:
     swift_flags.append('-sdk %s' % args.sysroot)
+
+  cmake_build_type = 'Debug' if args.configuration == 'debug' else 'Release'
+
   cmd = [
     args.cmake_bin, '-G', 'Ninja',
     '-DCMAKE_MAKE_PROGRAM=%s' % args.ninja_bin,
-    '-DCMAKE_BUILD_TYPE:=Release',
+    '-DCMAKE_BUILD_TYPE:=%s' % cmake_build_type,
     '-DCMAKE_Swift_FLAGS=' + ' '.join(swift_flags),
     '-DCMAKE_Swift_COMPILER:=%s' % (swiftc_exec),
   ] + cmake_args + [source_path]
