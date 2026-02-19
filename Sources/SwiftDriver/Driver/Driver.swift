@@ -3108,53 +3108,31 @@ extension Driver {
     diagnosticsEngine: DiagnosticsEngine,
     env: ProcessEnvironmentBlock
   ) -> VirtualPath? {
-    var sdkPath: String?
-
-    if let arg = parsedOptions.getLastArgument(.sdk) {
-      sdkPath = arg.asSingle
-    } else if let SDKROOT = env["SDKROOT"] {
-      sdkPath = SDKROOT
-    } else if compilerMode == .immediate || compilerMode == .repl {
-      // In immediate modes, query the toolchain for a default SDK.
-      sdkPath = try? toolchain.defaultSDKPath(targetTriple)?.pathString
+    guard let sdkPath = parsedOptions.getLastArgument(.sdk)?.asSingle ??
+                      env["SDKROOT"] ??
+                      // In immediate modes, query the toolchain for a default SDK.
+                      ([.immediate, .repl].contains(compilerMode) ? try? toolchain.defaultSDKPath(targetTriple)?.pathString : nil),
+          !sdkPath.isEmpty else {
+      return nil
     }
-
-    // An empty string explicitly clears the SDK.
-    if sdkPath == "" {
-      sdkPath = nil
-    }
-
-    // Delete trailing /.
-    sdkPath = sdkPath.map { $0.count > 1 && $0.last == "/" ? String($0.dropLast()) : $0 }
 
     // Validate the SDK if we found one.
-    if let sdkPath = sdkPath {
-      let path: VirtualPath
+    let path: VirtualPath = .absolute(.init(URL(fileURLWithPath: sdkPath).absoluteURL.path))
 
-      // FIXME: TSC should provide a better utility for this.
-      if let absPath = try? AbsolutePath(validating: sdkPath) {
-        path = .absolute(absPath)
-      } else if let relPath = try? RelativePath(validating: sdkPath) {
-        path = .relative(relPath)
-      } else {
-        diagnosticsEngine.emit(.warning_no_such_sdk(sdkPath))
-        return nil
-      }
-
-      if (try? fileSystem.exists(path)) != true {
-        diagnosticsEngine.emit(.warning_no_such_sdk(sdkPath))
-      } else if (targetTriple?.isDarwin ?? (defaultToolchainType == DarwinToolchain.self)) {
-        if isSDKTooOld(sdkPath: path, fileSystem: fileSystem,
-                       diagnosticsEngine: diagnosticsEngine) {
-          diagnosticsEngine.emit(.error_sdk_too_old(sdkPath))
-          return nil
-        }
-      }
-
+    guard FileManager.default.fileExists(atPath: path.description) else {
+      diagnosticsEngine.emit(.warning_no_such_sdk(path.description))
       return path
     }
 
-    return nil
+    if targetTriple?.isDarwin ?? (defaultToolchainType == DarwinToolchain.self) {
+      if isSDKTooOld(sdkPath: path, fileSystem: fileSystem,
+                     diagnosticsEngine: diagnosticsEngine) {
+        diagnosticsEngine.emit(.error_sdk_too_old(path.description))
+        return nil
+      }
+    }
+
+    return path
   }
 }
 

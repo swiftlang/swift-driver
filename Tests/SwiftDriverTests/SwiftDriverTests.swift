@@ -8053,7 +8053,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(compileJob.kind, .compile)
       try XCTAssertJobInvocationMatches(compileJob, .flag("-primary-file"), toPathOption("foo.swift", isRelative: true))
       try XCTAssertJobInvocationMatches(compileJob, .flag("-resource-dir"), toPathOption("relresourcepath", isRelative: true))
-      try XCTAssertJobInvocationMatches(compileJob, .flag("-sdk"), toPathOption("relsdkpath", isRelative: true))
+      try XCTAssertJobInvocationMatches(compileJob, .flag("-sdk"), .path(.absolute(.init(URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent("relsdkpath").path))))
     }
 
     do {
