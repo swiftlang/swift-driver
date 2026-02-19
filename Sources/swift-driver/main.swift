@@ -155,30 +155,49 @@ do {
   // FIXME: The following check should be at the end of Driver.init, but current
   // usage of the DiagnosticVerifier in tests makes this difficult.
   guard !driver.diagnosticEngine.hasErrors else {
+    printToStderr("DRIVER EXTRA VERBOSE HAD ERRORS")
     throw Driver.ErrorDiagnostics.emitted
   }
 
+  printToStderr("DRIVER EXTRA VERBOSE STARTING PLANNING")
   let jobs = try driver.planBuild()
+  printToStderr("DRIVER EXTRA VERBOSE FINISHED PLANNING")
 
   // Planning may result in further errors emitted
   // due to dependency scanning failures.
   guard !driver.diagnosticEngine.hasErrors else {
+    printToStderr("DRIVER EXTRA VERBOSE HAD ERRORS")
     throw Driver.ErrorDiagnostics.emitted
   }
 
+  printToStderr("DRIVER EXTRA VERBOSE RUNNING JOBS")
   try driver.run(jobs: jobs)
+  printToStderr("DRIVER EXTRA VERBOSE FINISHED JOBS")
 
   if driver.diagnosticEngine.hasErrors {
+    printToStderr("DRIVER EXTRA VERBOSE HAD ERRORS")
     exit(getExitCode(EXIT_FAILURE))
   }
 
+  printToStderr("DRIVER EXTRA VERBOSE SUCCESS")
   exit(getExitCode(0))
 } catch let diagnosticData as DiagnosticData {
+  printToStderr("DRIVER EXTRA VERBOSE IN CATCH FOR DIAGNOSTIC EMISSION")
   diagnosticsEngine.emit(.error(diagnosticData))
   exit(getExitCode(EXIT_FAILURE))
 } catch Driver.ErrorDiagnostics.emitted {
+  printToStderr("DRIVER EXTRA VERBOSE IN CATCH FOR ALREADY EMITTED DIAGNOSTICS")
   exit(getExitCode(EXIT_FAILURE))
 } catch {
-  print("error: \(error)")
+  printToStderr("DRIVER EXTRA VERBOSE IN CATCH FOR OTHER ERROR")
+  printToStderr("error: \(error)")
   exit(getExitCode(EXIT_FAILURE))
+}
+
+import var TSCBasic.stderrStream
+func printToStderr(_ message: String) {
+  Driver.stdErrQueue.sync {
+    stderrStream.send(message + "\n")
+    stderrStream.flush()
+  }
 }
