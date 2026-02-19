@@ -5403,6 +5403,11 @@ final class SwiftDriverTests: XCTestCase {
       $1.expect(.error(Driver.Error.missingProfilingData(try toPath("profile.profdata").name)))
     }
 
+    try assertDriverDiagnostics(args: ["swiftc", "foo.swift", "-ir-profile-generate", "-profile-use=profile.profdata"]) {
+      $1.expect(.error(Driver.Error.conflictingOptions(.irProfileGenerate, .profileUse)))
+      $1.expect(.error(Driver.Error.missingProfilingData(try toPath("profile.profdata").name)))
+    }
+
     try assertDriverDiagnostics(args: ["swiftc", "foo.swift", "-profile-sample-use=profile1.profdata", "-profile-use=profile2.profdata"]) {
       $1.expect(.error(Driver.Error.conflictingOptions(.profileUse, .profileSampleUse)))
       $1.expect(.error(Driver.Error.missingProfilingData(try toPath("profile1.profdata").name)))
@@ -5410,6 +5415,10 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     try assertDriverDiagnostics(args: ["swiftc", "foo.swift", "-profile-use=profile.profdata"]) {
+      $1.expect(.error(Driver.Error.missingProfilingData(try toPath("profile.profdata").name)))
+    }
+
+    try assertDriverDiagnostics(args: ["swiftc", "foo.swift", "-ir-profile-use=profile.profdata"]) {
       $1.expect(.error(Driver.Error.missingProfilingData(try toPath("profile.profdata").name)))
     }
 
@@ -5431,6 +5440,45 @@ final class SwiftDriverTests: XCTestCase {
         $1.expect(.error(Driver.Error.missingProfilingData(path.appending(component: "profile.profdata,profile2.profdata").pathString)))
       }
     }
+
+    try assertDriverDiagnostics(args: ["swiftc", "foo.swift", "-profile-generate", "-ir-profile-generate"]) {
+      $1.expect(.error(Driver.Error.conflictingOptions(.profileGenerate, .irProfileGenerate)))
+    }
+
+    try withTemporaryDirectory { directoryPath in
+      try assertDriverDiagnostics(args: ["swiftc", "foo.swift", "-profile-generate", "-ir-profile-generate=\(directoryPath)"]) {
+        $1.expect(.error(Driver.Error.conflictingOptions(.profileGenerate, .irProfileGenerateEQ)))
+      }
+    }
+
+    try assertDriverDiagnostics(args: ["swiftc", "foo.swift", "-ir-profile-generate", "-cs-profile-generate"]) {
+      $1.expect(.error(Driver.Error.conflictingOptions(.irProfileGenerate, .csProfileGenerate)))
+    }
+
+    try withTemporaryDirectory { directoryPath in
+      try assertDriverDiagnostics(args: ["swiftc", "foo.swift", "-ir-profile-generate", "-cs-profile-generate=\(directoryPath)"]) {
+        $1.expect(.error(Driver.Error.conflictingOptions(.irProfileGenerate, .csProfileGenerateEQ)))
+      }
+    }
+
+    try withTemporaryDirectory { directoryPath in
+      try assertDriverDiagnostics(args: ["swiftc", "foo.swift", "-ir-profile-generate=\(directoryPath)", "-cs-profile-generate=\(directoryPath)"]) {
+        $1.expect(.error(Driver.Error.conflictingOptions(.irProfileGenerateEQ, .csProfileGenerateEQ)))
+      }
+    }
+
+    try withTemporaryDirectory { directoryPath in
+      try assertDriverDiagnostics(args: ["swiftc", "foo.swift", "-cs-profile-generate", "-cs-profile-generate=\(directoryPath)"]) {
+        $1.expect(.error(Driver.Error.conflictingOptions(.csProfileGenerate, .csProfileGenerateEQ)))
+      }
+    }
+
+    try withTemporaryDirectory { directoryPath in
+      try assertDriverDiagnostics(args: ["swiftc", "foo.swift", "-ir-profile-generate", "-ir-profile-generate=\(directoryPath)"]) {
+        $1.expect(.error(Driver.Error.conflictingOptions(.irProfileGenerate, .irProfileGenerateEQ)))
+      }
+    }
+
   }
 
   func testProfileSampleUseFrontendFlags() throws {
@@ -5653,6 +5701,760 @@ final class SwiftDriverTests: XCTestCase {
       let linkCmds = plannedJobs[1].commandLine
       XCTAssertTrue(linkCmds.contains(.flag("-fuse-ld=lld")))
       XCTAssertFalse(linkCmds.contains(.flag("-lld-allow-duplicate-weak")))
+    }
+  }
+
+  func testIRProfileLinkerArgs() throws {
+    var envVars = ProcessEnv.block
+    envVars["SWIFT_DRIVER_LD_EXEC"] = ld.nativePathString(escaped: false)
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-ir-profile-generate", "-target", "x86_64-apple-macosx10.9", "test.swift"],
+                              env: envVars)
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+      XCTAssertEqual(plannedJobs[1].kind, .link)
+      XCTAssert(plannedJobs[1].commandLine.contains(.flag("-fprofile-generate")))
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-ir-profile-generate", "-target", "x86_64-apple-ios7.1-simulator", "test.swift"],
+                              env: envVars)
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+      XCTAssertEqual(plannedJobs[1].kind, .link)
+      XCTAssert(plannedJobs[1].commandLine.contains(.flag("-fprofile-generate")))
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-ir-profile-generate", "-target", "arm64-apple-ios7.1", "test.swift"],
+                              env: envVars)
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+      XCTAssertEqual(plannedJobs[1].kind, .link)
+      XCTAssert(plannedJobs[1].commandLine.contains(.flag("-fprofile-generate")))
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-ir-profile-generate", "-target", "x86_64-apple-tvos9.0-simulator", "test.swift"],
+                              env: envVars)
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+      XCTAssertEqual(plannedJobs[1].kind, .link)
+      XCTAssert(plannedJobs[1].commandLine.contains(.flag("-fprofile-generate")))
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-ir-profile-generate", "-target", "arm64-apple-tvos9.0", "test.swift"],
+                              env: envVars)
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+      XCTAssertEqual(plannedJobs[1].kind, .link)
+      XCTAssert(plannedJobs[1].commandLine.contains(.flag("-fprofile-generate")))
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-ir-profile-generate", "-target", "i386-apple-watchos2.0-simulator", "test.swift"],
+                              env: envVars)
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+      XCTAssertEqual(plannedJobs[1].kind, .link)
+      XCTAssert(plannedJobs[1].commandLine.contains(.flag("-fprofile-generate")))
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-ir-profile-generate", "-target", "armv7k-apple-watchos2.0", "test.swift"],
+                              env: envVars)
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+      XCTAssertEqual(plannedJobs[1].kind, .link)
+      XCTAssert(plannedJobs[1].commandLine.contains(.flag("-fprofile-generate")))
+    }
+
+    // FIXME: This will fail when run on macOS, because
+    // swift-autolink-extract is not present
+    #if os(Linux) || os(Android) || os(Windows)
+    for triple in ["aarch64-unknown-linux-android", "x86_64-unknown-linux-gnu"] {
+      var driver = try Driver(args: ["swiftc", "-ir-profile-generate", "-target", triple, "test.swift"])
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+
+      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+      XCTAssertEqual(plannedJobs[1].kind, .link)
+      if triple == "aarch64-unknown-linux-android" {
+        XCTAssert(plannedJobs[1].commandLine.containsPathWithBasename("libclang_rt.profile-aarch64-android.a"))
+      } else {
+        XCTAssert(plannedJobs[1].commandLine.containsPathWithBasename("libclang_rt.profile-x86_64.a"))
+      }
+      XCTAssert(plannedJobs[1].commandLine.contains { $0 == .flag("-u__llvm_profile_runtime") })
+    }
+    #endif
+
+    // -ir-profile-generate should add libclang_rt.profile for WebAssembly targets
+    try withTemporaryDirectory { resourceDir in
+      try localFileSystem.writeFileContents(resourceDir.appending(components: "wasi", "static-executable-args.lnk")) {
+        $0.send("garbage")
+      }
+
+      var env = ProcessEnv.block
+      env["SWIFT_DRIVER_SWIFT_AUTOLINK_EXTRACT_EXEC"] = "//bin/swift-autolink-extract"
+
+      for triple in ["wasm32-unknown-wasi", "wasm32-unknown-wasip1-threads"] {
+        var driver = try Driver(args: [
+          "swiftc", "-ir-profile-generate", "-target", triple, "test.swift",
+          "-resource-dir", resourceDir.pathString
+        ], env: env)
+        let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+
+        XCTAssertEqual(plannedJobs.count, 2)
+        XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+        XCTAssertEqual(plannedJobs[1].kind, .link)
+        XCTAssert(plannedJobs[1].commandLine.containsPathWithBasename("libclang_rt.profile-wasm32.a"))
+      }
+    }
+
+    for explicitUseLd in [true, false] {
+      var args = ["swiftc", "-ir-profile-generate", "-target", "x86_64-unknown-windows-msvc", "test.swift"]
+      if explicitUseLd {
+        // Explicitly passing '-use-ld=lld' should still result in '-lld-allow-duplicate-weak'.
+        args.append("-use-ld=lld")
+      }
+      var driver = try Driver(args: args)
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+      XCTAssertEqual(plannedJobs[1].kind, .link)
+
+      let linkCmds = plannedJobs[1].commandLine
+
+      // rdar://131295678 - Make sure we force the use of lld and pass
+      // '-lld-allow-duplicate-weak'.
+      XCTAssert(linkCmds.contains(.flag("-fuse-ld=lld")))
+      XCTAssert(linkCmds.contains([.flag("-Xlinker"), .flag("-lld-allow-duplicate-weak")]))
+    }
+
+    // rdar://131295678 - Make sure we force the use of lld and pass
+    // '-lld-allow-duplicate-weak' even if the user requests something else.
+    do {
+      var driver = try Driver(args: ["swiftc", "-ir-profile-generate", "-use-ld=link", "-target", "x86_64-unknown-windows-msvc", "test.swift"])
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+      XCTAssertEqual(plannedJobs[1].kind, .link)
+
+      let linkCmds = plannedJobs[1].commandLine
+
+      XCTAssertFalse(linkCmds.contains(.flag("-fuse-ld=link")))
+      XCTAssertTrue(linkCmds.contains(.flag("-fuse-ld=lld")))
+      XCTAssertTrue(linkCmds.contains(.flag("-lld-allow-duplicate-weak")))
+    }
+
+    do {
+      // If we're not building for profiling, don't add '-lld-allow-duplicate-weak'.
+      var driver = try Driver(args: ["swiftc", "-use-ld=lld", "-target", "x86_64-unknown-windows-msvc", "test.swift"])
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+      XCTAssertEqual(plannedJobs[1].kind, .link)
+
+      let linkCmds = plannedJobs[1].commandLine
+      XCTAssertTrue(linkCmds.contains(.flag("-fuse-ld=lld")))
+      XCTAssertFalse(linkCmds.contains(.flag("-lld-allow-duplicate-weak")))
+    }
+  }
+
+  func testIRProfileEqLinkerArgs() throws {
+    var envVars = ProcessEnv.block
+    envVars["SWIFT_DRIVER_LD_EXEC"] = ld.nativePathString(escaped: false)
+    try withTemporaryDirectory { directoryPath in
+      do {
+        var driver = try Driver(args: ["swiftc", "-ir-profile-generate=\(directoryPath)", "-target", "x86_64-apple-macosx10.9", "test.swift"],
+                                env: envVars)
+        let plannedJobs = try driver.planBuild()
+
+        XCTAssertEqual(plannedJobs.count, 2)
+        XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+        XCTAssertEqual(plannedJobs[1].kind, .link)
+        XCTAssert(plannedJobs[1].commandLine.contains(.flag("-fprofile-generate=\(directoryPath)")))
+      }
+
+      do {
+        var driver = try Driver(args: ["swiftc", "-ir-profile-generate=\(directoryPath)", "-target", "x86_64-apple-ios7.1-simulator", "test.swift"],
+                                env: envVars)
+        let plannedJobs = try driver.planBuild()
+
+        XCTAssertEqual(plannedJobs.count, 2)
+        XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+        XCTAssertEqual(plannedJobs[1].kind, .link)
+        XCTAssert(plannedJobs[1].commandLine.contains(.flag("-fprofile-generate=\(directoryPath)")))
+      }
+
+      do {
+        var driver = try Driver(args: ["swiftc", "-ir-profile-generate=\(directoryPath)", "-target", "arm64-apple-ios7.1", "test.swift"],
+                                env: envVars)
+        let plannedJobs = try driver.planBuild()
+
+        XCTAssertEqual(plannedJobs.count, 2)
+        XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+        XCTAssertEqual(plannedJobs[1].kind, .link)
+        XCTAssert(plannedJobs[1].commandLine.contains(.flag("-fprofile-generate=\(directoryPath)")))
+      }
+
+      do {
+        var driver = try Driver(args: ["swiftc", "-ir-profile-generate=\(directoryPath)", "-target", "x86_64-apple-tvos9.0-simulator", "test.swift"],
+                                env: envVars)
+        let plannedJobs = try driver.planBuild()
+
+        XCTAssertEqual(plannedJobs.count, 2)
+        XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+        XCTAssertEqual(plannedJobs[1].kind, .link)
+        XCTAssert(plannedJobs[1].commandLine.contains(.flag("-fprofile-generate=\(directoryPath)")))
+      }
+
+      do {
+        var driver = try Driver(args: ["swiftc", "-ir-profile-generate=\(directoryPath)", "-target", "arm64-apple-tvos9.0", "test.swift"],
+                                env: envVars)
+        let plannedJobs = try driver.planBuild()
+
+        XCTAssertEqual(plannedJobs.count, 2)
+        XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+        XCTAssertEqual(plannedJobs[1].kind, .link)
+        XCTAssert(plannedJobs[1].commandLine.contains(.flag("-fprofile-generate=\(directoryPath)")))
+      }
+
+      do {
+        var driver = try Driver(args: ["swiftc", "-ir-profile-generate=\(directoryPath)", "-target", "i386-apple-watchos2.0-simulator", "test.swift"],
+                                env: envVars)
+        let plannedJobs = try driver.planBuild()
+
+        XCTAssertEqual(plannedJobs.count, 2)
+        XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+        XCTAssertEqual(plannedJobs[1].kind, .link)
+        XCTAssert(plannedJobs[1].commandLine.contains(.flag("-fprofile-generate=\(directoryPath)")))
+      }
+
+      do {
+        var driver = try Driver(args: ["swiftc", "-ir-profile-generate=\(directoryPath)", "-target", "armv7k-apple-watchos2.0", "test.swift"],
+                                env: envVars)
+        let plannedJobs = try driver.planBuild()
+
+        XCTAssertEqual(plannedJobs.count, 2)
+        XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+        XCTAssertEqual(plannedJobs[1].kind, .link)
+        XCTAssert(plannedJobs[1].commandLine.contains(.flag("-fprofile-generate=\(directoryPath)")))
+      }
+
+      // FIXME: This will fail when run on macOS, because
+      // swift-autolink-extract is not present
+      #if os(Linux) || os(Android) || os(Windows)
+      for triple in ["aarch64-unknown-linux-android", "x86_64-unknown-linux-gnu"] {
+        var driver = try Driver(args: ["swiftc", "-ir-profile-generate=\(directoryPath)", "-target", triple, "test.swift"])
+        let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+
+        XCTAssertEqual(plannedJobs.count, 2)
+        XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+        XCTAssertEqual(plannedJobs[1].kind, .link)
+        if triple == "aarch64-unknown-linux-android" {
+          XCTAssert(plannedJobs[1].commandLine.containsPathWithBasename("libclang_rt.profile-aarch64-android.a"))
+        } else {
+          XCTAssert(plannedJobs[1].commandLine.containsPathWithBasename("libclang_rt.profile-x86_64.a"))
+        }
+        XCTAssert(plannedJobs[1].commandLine.contains { $0 == .flag("-u__llvm_profile_runtime") })
+      }
+      #endif
+
+      // -ir-profile-generate should add libclang_rt.profile for WebAssembly targets
+      try withTemporaryDirectory { resourceDir in
+        try localFileSystem.writeFileContents(resourceDir.appending(components: "wasi", "static-executable-args.lnk")) {
+          $0.send("garbage")
+        }
+
+        var env = ProcessEnv.block
+        env["SWIFT_DRIVER_SWIFT_AUTOLINK_EXTRACT_EXEC"] = "//bin/swift-autolink-extract"
+
+        for triple in ["wasm32-unknown-wasi", "wasm32-unknown-wasip1-threads"] {
+          var driver = try Driver(args: [
+            "swiftc", "-ir-profile-generate=\(directoryPath)", "-target", triple, "test.swift",
+            "-resource-dir", resourceDir.pathString
+          ], env: env)
+          let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+
+          XCTAssertEqual(plannedJobs.count, 2)
+          XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+          XCTAssertEqual(plannedJobs[1].kind, .link)
+          XCTAssert(plannedJobs[1].commandLine.containsPathWithBasename("libclang_rt.profile-wasm32.a"))
+        }
+      }
+
+      for explicitUseLd in [true, false] {
+        var args = ["swiftc", "-ir-profile-generate=\(directoryPath)", "-target", "x86_64-unknown-windows-msvc", "test.swift"]
+        if explicitUseLd {
+          // Explicitly passing '-use-ld=lld' should still result in '-lld-allow-duplicate-weak'.
+          args.append("-use-ld=lld")
+        }
+        var driver = try Driver(args: args)
+        let plannedJobs = try driver.planBuild()
+
+        XCTAssertEqual(plannedJobs.count, 2)
+        XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+        XCTAssertEqual(plannedJobs[1].kind, .link)
+
+        let linkCmds = plannedJobs[1].commandLine
+
+        // rdar://131295678 - Make sure we force the use of lld and pass
+        // '-lld-allow-duplicate-weak'.
+        XCTAssert(linkCmds.contains(.flag("-fuse-ld=lld")))
+        XCTAssert(linkCmds.contains([.flag("-Xlinker"), .flag("-lld-allow-duplicate-weak")]))
+      }
+
+      // rdar://131295678 - Make sure we force the use of lld and pass
+      // '-lld-allow-duplicate-weak' even if the user requests something else.
+      do {
+        var driver = try Driver(args: ["swiftc", "-ir-profile-generate=\(directoryPath)", "-use-ld=link", "-target", "x86_64-unknown-windows-msvc", "test.swift"])
+        let plannedJobs = try driver.planBuild()
+
+        XCTAssertEqual(plannedJobs.count, 2)
+        XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+        XCTAssertEqual(plannedJobs[1].kind, .link)
+
+        let linkCmds = plannedJobs[1].commandLine
+
+        XCTAssertFalse(linkCmds.contains(.flag("-fuse-ld=link")))
+        XCTAssertTrue(linkCmds.contains(.flag("-fuse-ld=lld")))
+        XCTAssertTrue(linkCmds.contains(.flag("-lld-allow-duplicate-weak")))
+      }
+
+      do {
+        // If we're not building for profiling, don't add '-lld-allow-duplicate-weak'.
+        var driver = try Driver(args: ["swiftc", "-use-ld=lld", "-target", "x86_64-unknown-windows-msvc", "test.swift"])
+        let plannedJobs = try driver.planBuild()
+
+        XCTAssertEqual(plannedJobs.count, 2)
+        XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+        XCTAssertEqual(plannedJobs[1].kind, .link)
+
+        let linkCmds = plannedJobs[1].commandLine
+        XCTAssertTrue(linkCmds.contains(.flag("-fuse-ld=lld")))
+        XCTAssertFalse(linkCmds.contains(.flag("-lld-allow-duplicate-weak")))
+      }
+    }
+  }
+
+  func testCSProfileLinkerArgs() throws {
+    var envVars = ProcessEnv.block
+    envVars["SWIFT_DRIVER_LD_EXEC"] = ld.nativePathString(escaped: false)
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-cs-profile-generate", "-target", "x86_64-apple-macosx10.9", "test.swift"],
+                              env: envVars)
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+      XCTAssertEqual(plannedJobs[1].kind, .link)
+      XCTAssert(plannedJobs[1].commandLine.contains(.flag("-fcs-profile-generate")))
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-cs-profile-generate", "-target", "x86_64-apple-ios7.1-simulator", "test.swift"],
+                              env: envVars)
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+      XCTAssertEqual(plannedJobs[1].kind, .link)
+      XCTAssert(plannedJobs[1].commandLine.contains(.flag("-fcs-profile-generate")))
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-cs-profile-generate", "-target", "arm64-apple-ios7.1", "test.swift"],
+                              env: envVars)
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+      XCTAssertEqual(plannedJobs[1].kind, .link)
+      XCTAssert(plannedJobs[1].commandLine.contains(.flag("-fcs-profile-generate")))
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-cs-profile-generate", "-target", "x86_64-apple-tvos9.0-simulator", "test.swift"],
+                              env: envVars)
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+      XCTAssertEqual(plannedJobs[1].kind, .link)
+      XCTAssert(plannedJobs[1].commandLine.contains(.flag("-fcs-profile-generate")))
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-cs-profile-generate", "-target", "arm64-apple-tvos9.0", "test.swift"],
+                              env: envVars)
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+      XCTAssertEqual(plannedJobs[1].kind, .link)
+      XCTAssert(plannedJobs[1].commandLine.contains(.flag("-fcs-profile-generate")))
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-cs-profile-generate", "-target", "i386-apple-watchos2.0-simulator", "test.swift"],
+                              env: envVars)
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+      XCTAssertEqual(plannedJobs[1].kind, .link)
+      XCTAssert(plannedJobs[1].commandLine.contains(.flag("-fcs-profile-generate")))
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-cs-profile-generate", "-target", "armv7k-apple-watchos2.0", "test.swift"],
+                              env: envVars)
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+      XCTAssertEqual(plannedJobs[1].kind, .link)
+      XCTAssert(plannedJobs[1].commandLine.contains(.flag("-fcs-profile-generate")))
+    }
+
+    // FIXME: This will fail when run on macOS, because
+    // swift-autolink-extract is not present
+    #if os(Linux) || os(Android) || os(Windows)
+    for triple in ["aarch64-unknown-linux-android", "x86_64-unknown-linux-gnu"] {
+      var driver = try Driver(args: ["swiftc", "-cs-profile-generate", "-target", triple, "test.swift"])
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+
+      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+      XCTAssertEqual(plannedJobs[1].kind, .link)
+      if triple == "aarch64-unknown-linux-android" {
+        XCTAssert(plannedJobs[1].commandLine.containsPathWithBasename("libclang_rt.profile-aarch64-android.a"))
+      } else {
+        XCTAssert(plannedJobs[1].commandLine.containsPathWithBasename("libclang_rt.profile-x86_64.a"))
+      }
+      XCTAssert(plannedJobs[1].commandLine.contains { $0 == .flag("-u__llvm_profile_runtime") })
+    }
+    #endif
+
+    // -cs-profile-generate should add libclang_rt.profile for WebAssembly targets
+    try withTemporaryDirectory { resourceDir in
+      try localFileSystem.writeFileContents(resourceDir.appending(components: "wasi", "static-executable-args.lnk")) {
+        $0.send("garbage")
+      }
+
+      var env = ProcessEnv.block
+      env["SWIFT_DRIVER_SWIFT_AUTOLINK_EXTRACT_EXEC"] = "//bin/swift-autolink-extract"
+
+      for triple in ["wasm32-unknown-wasi", "wasm32-unknown-wasip1-threads"] {
+        var driver = try Driver(args: [
+          "swiftc", "-cs-profile-generate", "-target", triple, "test.swift",
+          "-resource-dir", resourceDir.pathString
+        ], env: env)
+        let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+
+        XCTAssertEqual(plannedJobs.count, 2)
+        XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+        XCTAssertEqual(plannedJobs[1].kind, .link)
+        XCTAssert(plannedJobs[1].commandLine.containsPathWithBasename("libclang_rt.profile-wasm32.a"))
+      }
+    }
+
+    for explicitUseLd in [true, false] {
+      var args = ["swiftc", "-cs-profile-generate", "-target", "x86_64-unknown-windows-msvc", "test.swift"]
+      if explicitUseLd {
+        // Explicitly passing '-use-ld=lld' should still result in '-lld-allow-duplicate-weak'.
+        args.append("-use-ld=lld")
+      }
+      var driver = try Driver(args: args)
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+      XCTAssertEqual(plannedJobs[1].kind, .link)
+
+      let linkCmds = plannedJobs[1].commandLine
+
+      // rdar://131295678 - Make sure we force the use of lld and pass
+      // '-lld-allow-duplicate-weak'.
+      XCTAssert(linkCmds.contains(.flag("-fuse-ld=lld")))
+      XCTAssert(linkCmds.contains([.flag("-Xlinker"), .flag("-lld-allow-duplicate-weak")]))
+    }
+
+    // rdar://131295678 - Make sure we force the use of lld and pass
+    // '-lld-allow-duplicate-weak' even if the user requests something else.
+    do {
+      var driver = try Driver(args: ["swiftc", "-cs-profile-generate", "-use-ld=link", "-target", "x86_64-unknown-windows-msvc", "test.swift"])
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+      XCTAssertEqual(plannedJobs[1].kind, .link)
+
+      let linkCmds = plannedJobs[1].commandLine
+
+      XCTAssertFalse(linkCmds.contains(.flag("-fuse-ld=link")))
+      XCTAssertTrue(linkCmds.contains(.flag("-fuse-ld=lld")))
+      XCTAssertTrue(linkCmds.contains(.flag("-lld-allow-duplicate-weak")))
+    }
+
+    do {
+      // If we're not building for profiling, don't add '-lld-allow-duplicate-weak'.
+      var driver = try Driver(args: ["swiftc", "-use-ld=lld", "-target", "x86_64-unknown-windows-msvc", "test.swift"])
+      let plannedJobs = try driver.planBuild()
+
+      XCTAssertEqual(plannedJobs.count, 2)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+      XCTAssertEqual(plannedJobs[1].kind, .link)
+
+      let linkCmds = plannedJobs[1].commandLine
+      XCTAssertTrue(linkCmds.contains(.flag("-fuse-ld=lld")))
+      XCTAssertFalse(linkCmds.contains(.flag("-lld-allow-duplicate-weak")))
+    }
+  }
+
+  func testCSEqProfileLinkerArgs() throws {
+    var envVars = ProcessEnv.block
+    envVars["SWIFT_DRIVER_LD_EXEC"] = ld.nativePathString(escaped: false)
+    try withTemporaryDirectory { directoryPath in
+      do {
+        var driver = try Driver(args: ["swiftc", "-cs-profile-generate=\(directoryPath)", "-target", "x86_64-apple-macosx10.9", "test.swift"],
+                                env: envVars)
+        let plannedJobs = try driver.planBuild()
+
+        XCTAssertEqual(plannedJobs.count, 2)
+        XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+        XCTAssertEqual(plannedJobs[1].kind, .link)
+        XCTAssert(plannedJobs[1].commandLine.contains(.flag("-fcs-profile-generate=\(directoryPath)")))
+      }
+
+      do {
+        var driver = try Driver(args: ["swiftc", "-cs-profile-generate=\(directoryPath)", "-target", "x86_64-apple-ios7.1-simulator", "test.swift"],
+                                env: envVars)
+        let plannedJobs = try driver.planBuild()
+
+        XCTAssertEqual(plannedJobs.count, 2)
+        XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+        XCTAssertEqual(plannedJobs[1].kind, .link)
+        XCTAssert(plannedJobs[1].commandLine.contains(.flag("-fcs-profile-generate=\(directoryPath)")))
+      }
+
+      do {
+        var driver = try Driver(args: ["swiftc", "-cs-profile-generate=\(directoryPath)", "-target", "arm64-apple-ios7.1", "test.swift"],
+                                env: envVars)
+        let plannedJobs = try driver.planBuild()
+
+        XCTAssertEqual(plannedJobs.count, 2)
+        XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+        XCTAssertEqual(plannedJobs[1].kind, .link)
+        XCTAssert(plannedJobs[1].commandLine.contains(.flag("-fcs-profile-generate=\(directoryPath)")))
+      }
+
+      do {
+        var driver = try Driver(args: ["swiftc", "-cs-profile-generate=\(directoryPath)", "-target", "x86_64-apple-tvos9.0-simulator", "test.swift"],
+                                env: envVars)
+        let plannedJobs = try driver.planBuild()
+
+        XCTAssertEqual(plannedJobs.count, 2)
+        XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+        XCTAssertEqual(plannedJobs[1].kind, .link)
+        XCTAssert(plannedJobs[1].commandLine.contains(.flag("-fcs-profile-generate=\(directoryPath)")))
+      }
+
+      do {
+        var driver = try Driver(args: ["swiftc", "-cs-profile-generate=\(directoryPath)", "-target", "arm64-apple-tvos9.0", "test.swift"],
+                                env: envVars)
+        let plannedJobs = try driver.planBuild()
+
+        XCTAssertEqual(plannedJobs.count, 2)
+        XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+        XCTAssertEqual(plannedJobs[1].kind, .link)
+        XCTAssert(plannedJobs[1].commandLine.contains(.flag("-fcs-profile-generate=\(directoryPath)")))
+      }
+
+      do {
+        var driver = try Driver(args: ["swiftc", "-cs-profile-generate=\(directoryPath)", "-target", "i386-apple-watchos2.0-simulator", "test.swift"],
+                                env: envVars)
+        let plannedJobs = try driver.planBuild()
+
+        XCTAssertEqual(plannedJobs.count, 2)
+        XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+        XCTAssertEqual(plannedJobs[1].kind, .link)
+        XCTAssert(plannedJobs[1].commandLine.contains(.flag("-fcs-profile-generate=\(directoryPath)")))
+      }
+
+      do {
+        var driver = try Driver(args: ["swiftc", "-cs-profile-generate=\(directoryPath)", "-target", "armv7k-apple-watchos2.0", "test.swift"],
+                                env: envVars)
+        let plannedJobs = try driver.planBuild()
+
+        XCTAssertEqual(plannedJobs.count, 2)
+        XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+        XCTAssertEqual(plannedJobs[1].kind, .link)
+        XCTAssert(plannedJobs[1].commandLine.contains(.flag("-fcs-profile-generate=\(directoryPath)")))
+      }
+
+      // FIXME: This will fail when run on macOS, because
+      // swift-autolink-extract is not present
+      #if os(Linux) || os(Android) || os(Windows)
+      for triple in ["aarch64-unknown-linux-android", "x86_64-unknown-linux-gnu"] {
+        var driver = try Driver(args: ["swiftc", "-cs-profile-generate=\(directoryPath)", "-target", triple, "test.swift"])
+        let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+
+        XCTAssertEqual(plannedJobs.count, 2)
+        XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+        XCTAssertEqual(plannedJobs[1].kind, .link)
+        if triple == "aarch64-unknown-linux-android" {
+          XCTAssert(plannedJobs[1].commandLine.containsPathWithBasename("libclang_rt.profile-aarch64-android.a"))
+        } else {
+          XCTAssert(plannedJobs[1].commandLine.containsPathWithBasename("libclang_rt.profile-x86_64.a"))
+        }
+        XCTAssert(plannedJobs[1].commandLine.contains { $0 == .flag("-u__llvm_profile_runtime") })
+      }
+      #endif
+
+      // -cs-profile-generate=<directory> should add libclang_rt.profile for WebAssembly targets
+      try withTemporaryDirectory { resourceDir in
+        try localFileSystem.writeFileContents(resourceDir.appending(components: "wasi", "static-executable-args.lnk")) {
+          $0.send("garbage")
+        }
+
+        var env = ProcessEnv.block
+        env["SWIFT_DRIVER_SWIFT_AUTOLINK_EXTRACT_EXEC"] = "//bin/swift-autolink-extract"
+
+        for triple in ["wasm32-unknown-wasi", "wasm32-unknown-wasip1-threads"] {
+          var driver = try Driver(args: [
+            "swiftc", "-cs-profile-generate=\(directoryPath)", "-target", triple, "test.swift",
+            "-resource-dir", resourceDir.pathString
+          ], env: env)
+          let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+
+          XCTAssertEqual(plannedJobs.count, 2)
+          XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+          XCTAssertEqual(plannedJobs[1].kind, .link)
+          XCTAssert(plannedJobs[1].commandLine.containsPathWithBasename("libclang_rt.profile-wasm32.a"))
+        }
+      }
+
+      for explicitUseLd in [true, false] {
+        var args = ["swiftc", "-cs-profile-generate=\(directoryPath)", "-target", "x86_64-unknown-windows-msvc", "test.swift"]
+        if explicitUseLd {
+          // Explicitly passing '-use-ld=lld' should still result in '-lld-allow-duplicate-weak'.
+          args.append("-use-ld=lld")
+        }
+        var driver = try Driver(args: args)
+        let plannedJobs = try driver.planBuild()
+
+        XCTAssertEqual(plannedJobs.count, 2)
+        XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+        XCTAssertEqual(plannedJobs[1].kind, .link)
+
+        let linkCmds = plannedJobs[1].commandLine
+
+        // rdar://131295678 - Make sure we force the use of lld and pass
+        // '-lld-allow-duplicate-weak'.
+        XCTAssert(linkCmds.contains(.flag("-fuse-ld=lld")))
+        XCTAssert(linkCmds.contains([.flag("-Xlinker"), .flag("-lld-allow-duplicate-weak")]))
+      }
+
+      // rdar://131295678 - Make sure we force the use of lld and pass
+      // '-lld-allow-duplicate-weak' even if the user requests something else.
+      do {
+        var driver = try Driver(args: ["swiftc", "-cs-profile-generate=\(directoryPath)", "-use-ld=link", "-target", "x86_64-unknown-windows-msvc", "test.swift"])
+        let plannedJobs = try driver.planBuild()
+
+        XCTAssertEqual(plannedJobs.count, 2)
+        XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+        XCTAssertEqual(plannedJobs[1].kind, .link)
+
+        let linkCmds = plannedJobs[1].commandLine
+
+        XCTAssertFalse(linkCmds.contains(.flag("-fuse-ld=link")))
+        XCTAssertTrue(linkCmds.contains(.flag("-fuse-ld=lld")))
+        XCTAssertTrue(linkCmds.contains(.flag("-lld-allow-duplicate-weak")))
+      }
+
+      do {
+        // If we're not building for profiling, don't add '-lld-allow-duplicate-weak'.
+        var driver = try Driver(args: ["swiftc", "-use-ld=lld", "-target", "x86_64-unknown-windows-msvc", "test.swift"])
+        let plannedJobs = try driver.planBuild()
+
+        XCTAssertEqual(plannedJobs.count, 2)
+        XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+        XCTAssertEqual(plannedJobs[1].kind, .link)
+
+        let linkCmds = plannedJobs[1].commandLine
+        XCTAssertTrue(linkCmds.contains(.flag("-fuse-ld=lld")))
+        XCTAssertFalse(linkCmds.contains(.flag("-lld-allow-duplicate-weak")))
+      }
     }
   }
 
