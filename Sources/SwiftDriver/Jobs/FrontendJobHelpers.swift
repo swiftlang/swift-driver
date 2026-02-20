@@ -196,10 +196,17 @@ extension Driver {
       }
     }
 
-    // TODO: Can we drop all search paths for compile jobs for explicit module build?
-    try addAllArgumentsWithPath(.I, .Isystem, to: &commandLine, remap: jobNeedPathRemap)
-    try addAllArgumentsWithPath(.F, .Fsystem, to: &commandLine, remap: jobNeedPathRemap)
-    try addAllArgumentsWithPath(.vfsoverlay, to: &commandLine, remap: jobNeedPathRemap)
+    // If caching is enabled and this is planning arguments for a job where prefix map can be applied,
+    // do not include search path options like include paths, vfsoverlay or module cache path since swift-frontend does not
+    // need to perform searching in those jobs.
+    // TODO: Can the options be dropped from all explicit module builds?
+    if !enableCaching || !jobNeedPathRemap {
+      try addAllArgumentsWithPath(.I, .Isystem, to: &commandLine, remap: jobNeedPathRemap)
+      try addAllArgumentsWithPath(.F, .Fsystem, to: &commandLine, remap: jobNeedPathRemap)
+      try addAllArgumentsWithPath(.vfsoverlay, to: &commandLine, remap: jobNeedPathRemap)
+
+      try commandLine.appendLast(.moduleCachePath, from: &parsedOptions)
+    }
 
     if let gccToolchain = parsedOptions.getLastArgument(.gccToolchain) {
         appendXccFlag("--gcc-toolchain=\(gccToolchain.asSingle)")
@@ -233,7 +240,6 @@ extension Driver {
       }
     }
     try commandLine.appendLast(.importUnderlyingModule, from: &parsedOptions)
-    try commandLine.appendLast(.moduleCachePath, from: &parsedOptions)
     try commandLine.appendLast(.moduleLinkName, from: &parsedOptions)
     try commandLine.appendLast(.moduleAbiName, from: &parsedOptions)
     try commandLine.appendLast(.nostdimport, from: &parsedOptions)
