@@ -244,7 +244,6 @@ extension Option {
   public static let disableModuleSelectorsInModuleInterface: Option = Option("-disable-module-selectors-in-module-interface", .flag, attributes: [.frontend, .noInteractive], helpText: "When emitting module interface files, do not use module selectors to avoid name collisions")
   public static let disableModulesValidateSystemHeaders: Option = Option("-disable-modules-validate-system-headers", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable validating system headers in the Clang importer")
   public static let disableNamedLazyImportAsMemberLoading: Option = Option("-disable-named-lazy-import-as-member-loading", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Import all of a type's import-as-member globals together, as Swift 5.10 and earlier did; temporary workaround for modules that are sensitive to this change")
-  public static let disableNamedLazyMemberLoading: Option = Option("-disable-named-lazy-member-loading", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable per-name lazy member loading (obsolete)")
   public static let disableNewLlvmPassManager: Option = Option("-disable-new-llvm-pass-manager", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable the new llvm pass manager")
   public static let disableNewOperatorLookup: Option = Option("-disable-new-operator-lookup", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable the new operator decl and precedencegroup lookup behavior")
   public static let disableNonfrozenEnumExhaustivityDiagnostics: Option = Option("-disable-nonfrozen-enum-exhaustivity-diagnostics", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Allow switches over non-frozen enums without catch-all cases")
@@ -671,7 +670,7 @@ extension Option {
   public static let json_: Option = Option("--json", .flag, alias: Option.json, attributes: [.noDriver], helpText: "Print output in JSON format.")
   public static let j: Option = Option("-j", .joinedOrSeparate, attributes: [.doesNotAffectIncrementalBuild], metaVar: "<n>", helpText: "Number of commands to execute in parallel")
   public static let LEQ: Option = Option("-L=", .joined, alias: Option.L, attributes: [.frontend, .doesNotAffectIncrementalBuild, .argumentIsPath], group: .linkerOption)
-  public static let languageMode: Option = Option("-language-mode", .separate, alias: Option.swiftVersion, attributes: [.frontend, .synthesizeInterface, .moduleInterface], metaVar: "<mode>", helpText: "Interpret input according to a specific Swift language mode")
+  public static let languageMode: Option = Option("-language-mode", .separate, attributes: [.frontend, .synthesizeInterface, .moduleInterface], metaVar: "<mode>", helpText: "Interpret input according to a specific Swift language mode")
   public static let ldPath: Option = Option("-ld-path=", .joined, attributes: [.helpHidden, .doesNotAffectIncrementalBuild, .argumentIsPath], helpText: "Specifies the path to the linker to be used")
   public static let libc: Option = Option("-libc", .separate, attributes: [], helpText: "libc runtime library to use")
   public static let libraryLevelEQ: Option = Option("-library-level=", .joined, alias: Option.libraryLevel, attributes: [.helpHidden, .frontend, .moduleInterface], metaVar: "<level>")
@@ -892,11 +891,13 @@ extension Option {
   public static let skipInheritedDocs: Option = Option("-skip-inherited-docs", .flag, attributes: [.helpHidden, .frontend, .noInteractive, .supplementaryOutput], helpText: "Skip emitting doc comments for members inherited through classes or default implementations")
   public static let skipProtocolImplementations: Option = Option("-skip-protocol-implementations", .flag, attributes: [.helpHidden, .frontend, .noInteractive, .supplementaryOutput], helpText: "Skip emitting symbols that are implementations of protocol requirements or inherited from protocol extensions")
   public static let skipSynthesizedMembers: Option = Option("-skip-synthesized-members", .flag, attributes: [.noDriver], helpText: "Skip members inherited through classes or default implementations")
+  public static let solverDisableCrashOnValidSalvage: Option = Option("-solver-disable-crash-on-valid-salvage", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Accept valid solutions in diagnostic mode")
   public static let solverDisableOptimizeOperatorDefaults: Option = Option("-solver-disable-optimize-operator-defaults", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable experimental optimization to sometimes skip operators in protocol extensions")
   public static let solverDisablePerformanceHacks: Option = Option("-solver-disable-performance-hacks", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable various constraint solver performance optimizations that have been subsumed by subsequent improvements")
   public static let solverDisablePreparedOverloads: Option = Option("-solver-disable-prepared-overloads", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable experimental prepared overloads optimization")
   public static let solverDisablePruneDisjunctions: Option = Option("-solver-disable-prune-disjunctions", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable experimental disjunction pruning algorithm for lookahead in the solver")
   public static let solverDisableSplitter: Option = Option("-solver-disable-splitter", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable the component splitter phase of expression type checking")
+  public static let solverEnableCrashOnValidSalvage: Option = Option("-solver-enable-crash-on-valid-salvage", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Reject valid solutions in diagnostic mode")
   public static let solverEnableOptimizeOperatorDefaults: Option = Option("-solver-enable-optimize-operator-defaults", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental optimization to sometimes skip operators in protocol extensions")
   public static let solverEnablePerformanceHacks: Option = Option("-solver-enable-performance-hacks", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enble various constraint solver performance optimizations that have been subsumed by subsequent improvements")
   public static let solverEnablePreparedOverloads: Option = Option("-solver-enable-prepared-overloads", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental prepared overloads optimization")
@@ -927,7 +928,7 @@ extension Option {
   public static let swiftModuleFile: Option = Option("-swift-module-file=", .joined, attributes: [.frontend, .noDriver], metaVar: "<name>=<path>", helpText: "Specify Swift module input explicitly built from textual interface")
   public static let swiftOnly: Option = Option("-swift-only", .flag, attributes: [.noDriver], helpText: "Only include APIs defined from Swift source")
   public static let swiftOnly_: Option = Option("--swift-only", .flag, alias: Option.swiftOnly, attributes: [.noDriver], helpText: "Only include APIs defined from Swift source")
-  public static let swiftVersion: Option = Option("-swift-version", .separate, attributes: [.frontend, .synthesizeInterface, .moduleInterface], metaVar: "<vers>", helpText: "Interpret input according to a specific Swift language version number")
+  public static let swiftVersion: Option = Option("-swift-version", .separate, alias: Option.languageMode, attributes: [.helpHidden, .frontend, .synthesizeInterface, .moduleInterface], metaVar: "<vers>", helpText: "Interpret input according to a specific Swift language version number")
   public static let switchCheckingInvocationThresholdEQ: Option = Option("-switch-checking-invocation-threshold=", .joined, attributes: [.helpHidden, .frontend, .noDriver])
   public static let symbolGraphAllowAvailabilityPlatforms: Option = Option("-symbol-graph-allow-availability-platforms", .separate, attributes: [.helpHidden, .frontend, .noInteractive, .supplementaryOutput], metaVar: "<platforms>", helpText: "Restrict availability metadata to the given platforms, e.g. 'macOS,Swift'")
   public static let symbolGraphBlockAvailabilityPlatforms: Option = Option("-symbol-graph-block-availability-platforms", .separate, attributes: [.helpHidden, .frontend, .noInteractive, .supplementaryOutput], metaVar: "<platforms>", helpText: "Remove the given platforms from symbol graph availability metadata, e.g. 'macOS,Swift'")
@@ -1265,7 +1266,6 @@ extension Option {
       Option.disableModuleSelectorsInModuleInterface,
       Option.disableModulesValidateSystemHeaders,
       Option.disableNamedLazyImportAsMemberLoading,
-      Option.disableNamedLazyMemberLoading,
       Option.disableNewLlvmPassManager,
       Option.disableNewOperatorLookup,
       Option.disableNonfrozenEnumExhaustivityDiagnostics,
@@ -1913,11 +1913,13 @@ extension Option {
       Option.skipInheritedDocs,
       Option.skipProtocolImplementations,
       Option.skipSynthesizedMembers,
+      Option.solverDisableCrashOnValidSalvage,
       Option.solverDisableOptimizeOperatorDefaults,
       Option.solverDisablePerformanceHacks,
       Option.solverDisablePreparedOverloads,
       Option.solverDisablePruneDisjunctions,
       Option.solverDisableSplitter,
+      Option.solverEnableCrashOnValidSalvage,
       Option.solverEnableOptimizeOperatorDefaults,
       Option.solverEnablePerformanceHacks,
       Option.solverEnablePreparedOverloads,
