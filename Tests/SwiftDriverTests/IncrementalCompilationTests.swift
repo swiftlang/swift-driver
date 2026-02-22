@@ -363,6 +363,33 @@ extension IncrementalCompilationTests {
     XCTAssertFalse(mandatoryJobInputs.contains("other.swift"))
   }
 
+  // Source file timestamps updated but contents are the same, with file-hashing emit-module job should be skipped
+  func testNullBuildNoEmitModuleWithHashing() throws {
+    let extraArguments = ["-experimental-emit-module-separately", "-emit-module", "-enable-incremental-file-hashing"]
+    try buildInitialState(extraArguments: extraArguments)
+    touch("main")
+    touch("other")
+    touch(try AbsolutePath(validating: explicitSwiftDependenciesPath.appending(component: "E.swiftinterface").pathString))
+    let driver = try doABuildWithoutExpectations(arguments: commonArgs + extraArguments + (try XCTUnwrap(Driver.sdkArgumentsForTesting())))
+    let mandatoryJobs = try XCTUnwrap(driver.incrementalCompilationState?.mandatoryJobsInOrder)
+    let mandatoryJobInputs = mandatoryJobs.flatMap { $0.inputs }.map { $0.file.basename }
+    XCTAssertFalse(mandatoryJobs.contains { $0.kind == .emitModule }, "emit-module should be skipped when using hashes and content unchanged")
+    XCTAssertFalse(mandatoryJobInputs.contains("main.swift"))
+    XCTAssertFalse(mandatoryJobInputs.contains("other.swift"))
+  }
+
+  // Source file updated, emit-module job should not be skipped regardless of file-hashing
+  func testEmitModuleWithHashingWhenContentChanges() throws {
+    let extraArguments = ["-experimental-emit-module-separately", "-emit-module", "-enable-incremental-file-hashing"]
+    try buildInitialState(extraArguments: extraArguments)
+    replace(contentsOf: "main", with: "let foo = 2")
+    let driver = try doABuildWithoutExpectations(arguments: commonArgs + extraArguments + (try XCTUnwrap(Driver.sdkArgumentsForTesting())))
+    let mandatoryJobs = try XCTUnwrap(driver.incrementalCompilationState?.mandatoryJobsInOrder)
+    let mandatoryJobInputs = mandatoryJobs.flatMap { $0.inputs }.map { $0.file.basename }
+    XCTAssertTrue(mandatoryJobs.contains { $0.kind == .emitModule }, "emit-module should run when using hashes and content has changed")
+    XCTAssertTrue(mandatoryJobInputs.contains("main.swift"))
+  }
+
   // External deps timestamp updated but contents are the same, and file-hashing is explicitly disabled
   func testExplicitIncrementalBuildExternalDepsWithoutHashing() throws {
     replace(contentsOf: "other", with: "import E;let bar = foo")
