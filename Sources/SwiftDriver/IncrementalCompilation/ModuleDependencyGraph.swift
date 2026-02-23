@@ -1401,6 +1401,30 @@ extension ModuleDependencyGraph {
             }
           }
         }
+        if graph.nodeFinder.enableExperimatalExternalDependenciesHashOptimization {
+          var hasWrittenAllExternalDependentNodes = false
+          for key in graph.nodeFinder.externalDependencies {
+            serializer.stream.writeRecord(serializer.abbreviations[.dependsOnNode]!) {
+              $0.append(RecordID.dependsOnNode)
+              write(key: key, to: &$0)
+            }
+            
+            for use in graph.nodeFinder.externalDependentNodes {
+              guard let useID = serializer.nodeIDs[use] else {
+                fatalError("Node ID was not registered! \(use)")
+              }
+
+              serializer.stream.writeRecord(serializer.abbreviations[.useIDNode]!) {
+                $0.append(RecordID.useIDNode)
+                $0.append(UInt32(useID))
+              }
+              if hasWrittenAllExternalDependentNodes {
+                break
+              }
+            }
+            hasWrittenAllExternalDependentNodes = true
+          }
+        }
         for fingerprintedExternalDependency in graph.fingerprintedExternalDependencies {
           graph.currencyCache.ensureHash(fingerprintedExternalDependency.externalDependency)
           serializer.stream.writeRecord(serializer.abbreviations[.externalDepNode]!, {
