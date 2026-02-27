@@ -577,7 +577,9 @@ extension Driver {
 
     if let protocolsList = parsedOptions.getLastArgument(.constGatherProtocolsList)?.asSingle {
       let path = try VirtualPath(path: protocolsList)
-      try addPathOption(option: .constGatherProtocolsFile, path: path, to: &commandLine, remap: jobNeedPathRemap)
+      // Before the compiler supports proper const gather protocol list, the path cannot be prefix mapped.
+      let shouldPrefixMap = jobNeedPathRemap && isFrontendArgSupported(.constGatherProtocolsList)
+      try addPathOption(option: .constGatherProtocolsFile, path: path, to: &commandLine, remap: shouldPrefixMap)
     }
 
     // If explicit auto-linking is enabled, ensure that compiler tasks do not produce
