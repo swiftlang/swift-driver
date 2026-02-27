@@ -1985,6 +1985,10 @@ extension Driver {
         stdoutStream.send("\(arguments.map { $0.spm_shellEscaped() }.joined(separator: " "))\n")
         stdoutStream.flush()
       }
+      // This call never returns, so the defer block above cannot run.
+      if !parsedOptions.hasArgument(.saveTemps) && !toolExecutionDelegate.anyJobHadAbnormalExit {
+        try? executor.resolver.removeTemporaryDirectory()
+      }
       try executor.execute(job: inPlaceJob,
                            forceResponseFiles: forceResponseFiles,
                            recordedInputMetadata: recordedInputMetadata)
