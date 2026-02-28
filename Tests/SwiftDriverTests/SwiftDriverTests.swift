@@ -624,17 +624,51 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     // Test directory options with WMO (whole module optimization)
+    // In single-threaded WMO: SIL and IR both generate module-level outputs (one per module)
     do {
       var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-emit-object", "-wmo", "-sil-output-dir", "/tmp/sil-output", "-ir-output-dir", "/tmp/ir-output"])
       let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
       XCTAssertEqual(plannedJobs.count, 1)
       XCTAssertEqual(plannedJobs[0].kind, .compile)
 
-      // In WMO mode, should generate output for all input files
-      try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-sil-output-path"), .path(.absolute(.init(validating: "/tmp/sil-output/foo.sil"))))
-      try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-sil-output-path"), .path(.absolute(.init(validating: "/tmp/sil-output/bar.sil"))))
+      try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-sil-output-path"), .path(.absolute(.init(validating: "/tmp/sil-output/main.sil"))))
+      try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-ir-output-path"), .path(.absolute(.init(validating: "/tmp/ir-output/main.ll"))))
+    }
+
+    // Test directory options with multi-threaded WMO
+    // In multi-threaded WMO: SIL is module-level, but IR is per-file
+    do {
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-emit-object", "-wmo", "-num-threads", "2", "-sil-output-dir", "/tmp/sil-output", "-ir-output-dir", "/tmp/ir-output"])
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(plannedJobs.count, 1)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+      try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-sil-output-path"), .path(.absolute(.init(validating: "/tmp/sil-output/main.sil"))))
       try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-ir-output-path"), .path(.absolute(.init(validating: "/tmp/ir-output/foo.ll"))))
       try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-ir-output-path"), .path(.absolute(.init(validating: "/tmp/ir-output/bar.ll"))))
+    }
+
+    // Test -save-temps with single-threaded WMO
+    do {
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-emit-object", "-wmo", "-save-temps"])
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(plannedJobs.count, 1)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+      try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-sil-output-path"), .path(try VirtualPath(path: ".").appending(component: "main.sil")))
+      try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-ir-output-path"), .path(try VirtualPath(path: ".").appending(component: "main.ll")))
+    }
+
+    // Test -save-temps with multi-threaded WMO
+    do {
+      var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-emit-object", "-wmo", "-num-threads", "2", "-save-temps"])
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(plannedJobs.count, 1)
+      XCTAssertEqual(plannedJobs[0].kind, .compile)
+
+      try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-sil-output-path"), .path(try VirtualPath(path: ".").appending(component: "main.sil")))
+      try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-ir-output-path"), .path(try VirtualPath(path: ".").appending(component: "foo.ll")))
+      try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-ir-output-path"), .path(try VirtualPath(path: ".").appending(component: "bar.ll")))
     }
   }
 
@@ -648,18 +682,20 @@ final class SwiftDriverTests: XCTestCase {
       }
     }
 
-    // Test SIL and IR output file maps in WMO mode
+    // In single-threaded WMO, use the "" (module-level) key for SIL and IR
     try withTemporaryDirectory { dir in
       let fileMapFile = dir.appending(component: "file-map-file")
       let outputMapContents: ByteString = """
         {
+          "": {
+            "sil": "/tmp/build/module.sil",
+            "llvm-ir": "/tmp/build/module.ll"
+          },
           "foo.swift": {
-            "sil": "/tmp/build/foo_custom.sil",
-            "llvm-ir": "/tmp/build/foo_custom.ll"
+            "object": "/tmp/build/foo.o"
           },
           "bar.swift": {
-            "sil": "/tmp/build/bar_custom.sil",
-            "llvm-ir": "/tmp/build/bar_custom.ll"
+            "object": "/tmp/build/bar.o"
           }
         }
         """
@@ -671,11 +707,9 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs.count, 1)
       XCTAssertEqual(plannedJobs[0].kind, .compile)
 
-      // In WMO mode with file maps, should generate SIL/IR files at specified paths
-      try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-sil-output-path"), .path(.absolute(.init(validating: "/tmp/build/foo_custom.sil"))))
-      try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-sil-output-path"), .path(.absolute(.init(validating: "/tmp/build/bar_custom.sil"))))
-      try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-ir-output-path"), .path(.absolute(.init(validating: "/tmp/build/foo_custom.ll"))))
-      try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-ir-output-path"), .path(.absolute(.init(validating: "/tmp/build/bar_custom.ll"))))
+      // Single-threaded WMO: module-level SIL and IR
+      try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-sil-output-path"), .path(.absolute(.init(validating: "/tmp/build/module.sil"))))
+      try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-ir-output-path"), .path(.absolute(.init(validating: "/tmp/build/module.ll"))))
     }
 
     // Test single-file compilation with file maps
@@ -711,16 +745,19 @@ final class SwiftDriverTests: XCTestCase {
       try XCTAssertJobInvocationMatches(plannedJobs[1], .flag("-ir-output-path"), .path(.absolute(.init(validating: "/tmp/build/bar_single.ll"))))
     }
 
-    // Test partial file map (only some files have SIL/IR entries)
+    // Test partial file map with WMO (only some output types specified in module-level entry)
     try withTemporaryDirectory { dir in
       let fileMapFile = dir.appending(component: "file-map-file")
       let outputMapContents: ByteString = """
         {
+          "": {
+            "sil": "/tmp/build/partial_module.sil"
+          },
           "foo.swift": {
-            "sil": "/tmp/build/foo_partial.sil"
+            "object": "/tmp/build/foo.o"
           },
           "bar.swift": {
-            "llvm-ir": "/tmp/build/bar_partial.ll"
+            "object": "/tmp/build/bar.o"
           }
         }
         """
@@ -733,18 +770,23 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs[0].kind, .compile)
 
       // Should only generate files for entries that exist in the file map
-      try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-sil-output-path"), .path(.absolute(.init(validating: "/tmp/build/foo_partial.sil"))))
-      try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-ir-output-path"), .path(.absolute(.init(validating: "/tmp/build/bar_partial.ll"))))
+      try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-sil-output-path"), .path(.absolute(.init(validating: "/tmp/build/partial_module.sil"))))
     }
 
-    // Test that file maps work alongside directory options (file maps should take precedence)
+    // Test that file maps work alongside directory options (file map module-level entry takes precedence)
     try withTemporaryDirectory { dir in
       let fileMapFile = dir.appending(component: "file-map-file")
       let outputMapContents: ByteString = """
         {
+          "": {
+            "sil": "/tmp/build/map_precedence.sil",
+            "llvm-ir": "/tmp/build/map_precedence.ll"
+          },
           "foo.swift": {
-            "sil": "/tmp/build/foo_precedence.sil",
-            "llvm-ir": "/tmp/build/foo_precedence.ll"
+            "object": "/tmp/build/foo.o"
+          },
+          "bar.swift": {
+            "object": "/tmp/build/bar.o"
           }
         }
         """
@@ -758,13 +800,9 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertEqual(plannedJobs.count, 1)
       XCTAssertEqual(plannedJobs[0].kind, .compile)
 
-      // foo.swift should use file map paths (precedence over directory options)
-      try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-sil-output-path"), .path(.absolute(.init(validating: "/tmp/build/foo_precedence.sil"))))
-      try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-ir-output-path"), .path(.absolute(.init(validating: "/tmp/build/foo_precedence.ll"))))
-
-      // bar.swift should fall back to directory options
-      try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-sil-output-path"), .path(.absolute(.init(validating: "/tmp/dir-output/bar.sil"))))
-      try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-ir-output-path"), .path(.absolute(.init(validating: "/tmp/dir-output/bar.ll"))))
+      // File map module-level entry should take precedence over directory options
+      try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-sil-output-path"), .path(.absolute(.init(validating: "/tmp/build/map_precedence.sil"))))
+      try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-ir-output-path"), .path(.absolute(.init(validating: "/tmp/build/map_precedence.ll"))))
     }
 
     // Ensure file maps without SIL/IR entries don't generate spurious flags
@@ -907,6 +945,180 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: moduleSil.pathString))))
 
       XCTAssertTrue(plannedJobs[0].commandLine.contains(.flag("-ir-output-path")))
+      XCTAssertTrue(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: fooLL.pathString))))
+      XCTAssertTrue(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: barLL.pathString))))
+    }
+  }
+
+  func testMixedOutputMapPrecedenceInWMO() throws {
+    // Test that when output file maps contain both module-level and per-file entries,
+    // the driver correctly picks the appropriate entries based on compilation mode
+    do {
+      let checkDriver = try Driver(args: ["swiftc", "foo.swift"])
+      guard Driver.isOptionFound("-sil-output-path", allOpts: checkDriver.supportedFrontendFlags) else {
+        throw XCTSkip("Skipping: frontend does not support -sil-output-path")
+      }
+      guard Driver.isOptionFound("-ir-output-path", allOpts: checkDriver.supportedFrontendFlags) else {
+        throw XCTSkip("Skipping: frontend does not support -ir-output-path")
+      }
+    }
+
+    // Test 1: Single-threaded WMO with mixed SIL entries
+    // Should prefer module-level entry because SIL is always module-level in WMO
+    try withTemporaryDirectory { path in
+      let outputFileMap = path.appending(component: "outputFileMap.json")
+      let foo = path.appending(component: "foo.swift")
+      let bar = path.appending(component: "bar.swift")
+      let moduleSil = path.appending(component: "module.sil")
+      let fooSil = path.appending(component: "foo.sil")
+      let barSil = path.appending(component: "bar.sil")
+
+      let ofm = OutputFileMap(entries: [
+        try VirtualPath.intern(path: ""): [
+          .sil: try VirtualPath.intern(path: moduleSil.pathString)
+        ],
+        try VirtualPath.intern(path: foo.pathString): [
+          .object: try VirtualPath.intern(path: path.appending(component: "foo.o").pathString),
+          .sil: try VirtualPath.intern(path: fooSil.pathString)
+        ],
+        try VirtualPath.intern(path: bar.pathString): [
+          .object: try VirtualPath.intern(path: path.appending(component: "bar.o").pathString),
+          .sil: try VirtualPath.intern(path: barSil.pathString)
+        ]
+      ])
+      try ofm.store(fileSystem: localFileSystem, file: outputFileMap)
+
+      try localFileSystem.writeFileContents(foo) { $0.send("func foo() {}") }
+      try localFileSystem.writeFileContents(bar) { $0.send("func bar() {}") }
+
+      var driver = try Driver(args: [
+        "swiftc", foo.pathString, bar.pathString, "-emit-object", "-wmo",
+        "-output-file-map", outputFileMap.pathString
+      ])
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(plannedJobs.count, 1)
+
+      XCTAssertTrue(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: moduleSil.pathString))))
+      XCTAssertFalse(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: fooSil.pathString))))
+      XCTAssertFalse(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: barSil.pathString))))
+    }
+
+    // Test 2: Single-threaded WMO with mixed IR entries
+    // Should prefer module-level entry because IR is module-level in single-threaded WMO
+    try withTemporaryDirectory { path in
+      let outputFileMap = path.appending(component: "outputFileMap.json")
+      let foo = path.appending(component: "foo.swift")
+      let bar = path.appending(component: "bar.swift")
+      let moduleLL = path.appending(component: "module.ll")
+      let fooLL = path.appending(component: "foo.ll")
+      let barLL = path.appending(component: "bar.ll")
+
+      let ofm = OutputFileMap(entries: [
+        try VirtualPath.intern(path: ""): [
+          .llvmIR: try VirtualPath.intern(path: moduleLL.pathString)
+        ],
+        try VirtualPath.intern(path: foo.pathString): [
+          .object: try VirtualPath.intern(path: path.appending(component: "foo.o").pathString),
+          .llvmIR: try VirtualPath.intern(path: fooLL.pathString)
+        ],
+        try VirtualPath.intern(path: bar.pathString): [
+          .object: try VirtualPath.intern(path: path.appending(component: "bar.o").pathString),
+          .llvmIR: try VirtualPath.intern(path: barLL.pathString)
+        ]
+      ])
+      try ofm.store(fileSystem: localFileSystem, file: outputFileMap)
+
+      try localFileSystem.writeFileContents(foo) { $0.send("func foo() {}") }
+      try localFileSystem.writeFileContents(bar) { $0.send("func bar() {}") }
+
+      var driver = try Driver(args: [
+        "swiftc", foo.pathString, bar.pathString, "-emit-object", "-wmo",
+        "-output-file-map", outputFileMap.pathString
+      ])
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(plannedJobs.count, 1)
+
+      XCTAssertTrue(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: moduleLL.pathString))))
+      XCTAssertFalse(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: fooLL.pathString))))
+      XCTAssertFalse(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: barLL.pathString))))
+    }
+
+    // Test 3: Multi-threaded WMO with mixed SIL entries
+    // Should still prefer module-level entry because SIL is always module-level in WMO
+    try withTemporaryDirectory { path in
+      let outputFileMap = path.appending(component: "outputFileMap.json")
+      let foo = path.appending(component: "foo.swift")
+      let bar = path.appending(component: "bar.swift")
+      let moduleSil = path.appending(component: "module.sil")
+      let fooSil = path.appending(component: "foo.sil")
+      let barSil = path.appending(component: "bar.sil")
+
+      let ofm = OutputFileMap(entries: [
+        try VirtualPath.intern(path: ""): [
+          .sil: try VirtualPath.intern(path: moduleSil.pathString)
+        ],
+        try VirtualPath.intern(path: foo.pathString): [
+          .object: try VirtualPath.intern(path: path.appending(component: "foo.o").pathString),
+          .sil: try VirtualPath.intern(path: fooSil.pathString)
+        ],
+        try VirtualPath.intern(path: bar.pathString): [
+          .object: try VirtualPath.intern(path: path.appending(component: "bar.o").pathString),
+          .sil: try VirtualPath.intern(path: barSil.pathString)
+        ]
+      ])
+      try ofm.store(fileSystem: localFileSystem, file: outputFileMap)
+
+      try localFileSystem.writeFileContents(foo) { $0.send("func foo() {}") }
+      try localFileSystem.writeFileContents(bar) { $0.send("func bar() {}") }
+
+      var driver = try Driver(args: [
+        "swiftc", foo.pathString, bar.pathString, "-emit-object", "-wmo", "-num-threads", "2",
+        "-output-file-map", outputFileMap.pathString
+      ])
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(plannedJobs.count, 1)
+
+      XCTAssertTrue(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: moduleSil.pathString))))
+      XCTAssertFalse(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: fooSil.pathString))))
+      XCTAssertFalse(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: barSil.pathString))))
+    }
+
+    // Test 4: Multi-threaded WMO with mixed IR entries
+    // Should prefer per-file entries because IR is per-file in multi-threaded WMO
+    try withTemporaryDirectory { path in
+      let outputFileMap = path.appending(component: "outputFileMap.json")
+      let foo = path.appending(component: "foo.swift")
+      let bar = path.appending(component: "bar.swift")
+      let moduleLL = path.appending(component: "module.ll")
+      let fooLL = path.appending(component: "foo.ll")
+      let barLL = path.appending(component: "bar.ll")
+
+      let ofm = OutputFileMap(entries: [
+        try VirtualPath.intern(path: ""): [
+          .llvmIR: try VirtualPath.intern(path: moduleLL.pathString)
+        ],
+        try VirtualPath.intern(path: foo.pathString): [
+          .object: try VirtualPath.intern(path: path.appending(component: "foo.o").pathString),
+          .llvmIR: try VirtualPath.intern(path: fooLL.pathString)
+        ],
+        try VirtualPath.intern(path: bar.pathString): [
+          .object: try VirtualPath.intern(path: path.appending(component: "bar.o").pathString),
+          .llvmIR: try VirtualPath.intern(path: barLL.pathString)
+        ]
+      ])
+      try ofm.store(fileSystem: localFileSystem, file: outputFileMap)
+
+      try localFileSystem.writeFileContents(foo) { $0.send("func foo() {}") }
+      try localFileSystem.writeFileContents(bar) { $0.send("func bar() {}") }
+
+      var driver = try Driver(args: [
+        "swiftc", foo.pathString, bar.pathString, "-emit-object", "-wmo", "-num-threads", "2",
+        "-output-file-map", outputFileMap.pathString
+      ])
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(plannedJobs.count, 1)
+
+      XCTAssertFalse(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: moduleLL.pathString))))
       XCTAssertTrue(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: fooLL.pathString))))
       XCTAssertTrue(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: barLL.pathString))))
     }
