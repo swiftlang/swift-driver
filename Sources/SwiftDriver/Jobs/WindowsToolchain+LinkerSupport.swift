@@ -192,7 +192,12 @@ extension WindowsToolchain {
                           .appending(components: targetTriple.platformName() ?? "",
                                      architecture(for: targetTriple))
       }
-      commandLine.appendPath(rsrc.appending(component: "swiftrt.obj"))
+
+      if parsedOptions.hasArgument(.staticStdlib) {
+          commandLine.appendPath(rsrc.appending(component: "swiftrtT.obj"))
+      } else {
+          commandLine.appendPath(rsrc.appending(component: "swiftrt.obj"))
+      }
     }
 
     commandLine.append(contentsOf: inputs.compactMap { (input: TypedVirtualPath) -> Job.ArgTemplate? in

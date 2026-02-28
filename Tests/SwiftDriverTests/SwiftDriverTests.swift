@@ -8694,6 +8694,21 @@ final class SwiftDriverTests: XCTestCase {
       env["SDKROOT"] = SDKROOT.nativePathString(escaped: false)
 
       var driver = try Driver(args: [
+        "swiftc", "-emit-library", "-o", "library.dll", "library.obj", "-static-stdlib",
+      ], env: env)
+      let jobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(jobs.count, 1)
+      let job = jobs.first!
+      XCTAssertEqual(job.kind, .link)
+      XCTAssertJobInvocationMatches(job, .path(.absolute(SDKROOT.appending(components: "usr", "lib", "swift", platform, arch, "swiftrtT.obj"))))
+      XCTAssertFalse(job.commandLine.contains(.path(.absolute(SDKROOT.appending(components: "usr", "lib", "swift", platform, arch, "swiftrt.obj")))))
+    }
+
+    do {
+      var env = ProcessEnv.block
+      env["SDKROOT"] = SDKROOT.nativePathString(escaped: false)
+
+      var driver = try Driver(args: [
         "swiftc", "-emit-library", "-o", "library.dll", "library.obj", "-nostartfiles",
       ], env: env)
       let jobs = try driver.planBuild().removingAutolinkExtractJobs()
