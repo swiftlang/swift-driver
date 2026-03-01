@@ -87,6 +87,7 @@ extension IncrementalCompilationState.FirstWaveComputer {
                   jobsInPhases.compileJobs.map { ($0.primaryInputs[0], $0) })
     let buildRecord = self.moduleDependencyGraph.buildRecord
     let jobCreatingPch = jobsInPhases.beforeCompiles.first { $0.kind == .generatePCH }
+    let jobEmitModule = jobsInPhases.beforeCompiles.first { $0.kind == .emitModule }
 
     func everythingIsMandatory()
       throws -> (initiallySkippedCompileJobs: [TypedVirtualPath: Job],
@@ -105,6 +106,7 @@ extension IncrementalCompilationState.FirstWaveComputer {
         mandatoryCompileJobsInOrder,
         showJobLifecycle: showJobLifecycle,
         jobCreatingPch: jobCreatingPch,
+        jobEmitModule: jobEmitModule,
         explicitModulePlanner: explicitModulePlanner)
 
       moduleDependencyGraph.setPhase(to: .buildingAfterEachCompilation)
@@ -135,6 +137,7 @@ extension IncrementalCompilationState.FirstWaveComputer {
       mandatoryCompileJobsInOrder,
       showJobLifecycle: showJobLifecycle,
       jobCreatingPch: jobCreatingPch,
+      jobEmitModule: jobEmitModule,
       explicitModulePlanner: explicitModulePlanner)
 
     // In the case where there are no compilation jobs to run on this build (no source-files were changed),
@@ -352,7 +355,7 @@ extension IncrementalCompilationState.FirstWaveComputer {
       let inputInfo = outOfDateBuildRecord.inputInfos[input.file]
       let previousCompilationStatus = inputInfo?.status ?? .newlyAdded
       let previousModTime = inputInfo?.previousModTime
-      let previousHash = inputInfo?.hash 
+      let previousHash = inputInfo?.hash
 
       assert(metadata.hash != nil || !useHashes)
 

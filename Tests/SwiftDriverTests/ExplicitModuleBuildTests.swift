@@ -708,9 +708,8 @@ final class ExplicitModuleBuildTests: XCTestCase {
       for job in jobs {
         XCTAssertEqual(job.outputs.count, 1)
         let outputFilePath = job.outputs[0].file
-        if job.kind == .compile && driver.isFrontendArgSupported(.debugModulePath) {
+        if job.kind == .compile && driver.isFeatureSupported(.debug_info_explicit_dependency) {
           XCTAssertTrue(job.commandLine.contains(subsequence: ["-debug-module-path", try toPathOption("testExplicitModuleBuildJobs.swiftmodule")]))
-
         }
 
         // Swift dependencies
@@ -1092,7 +1091,7 @@ final class ExplicitModuleBuildTests: XCTestCase {
               let baseName = "testExplicitModuleVerifyInterfaceJobs"
               XCTAssertTrue(matchTemporary(outputFilePath, basename: baseName, fileExtension: "o") ||
                             matchTemporary(outputFilePath, basename: baseName, fileExtension: "autolink"))
-            if outputFilePath.extension == FileType.object.rawValue && driver.isFrontendArgSupported(.debugModulePath) {
+            if outputFilePath.extension == FileType.object.rawValue && driver.isFeatureSupported(.debug_info_explicit_dependency) {
               // Check that this is an absolute path pointing to the temporary directory.
               var found : Bool = false
               for arg in job.commandLine {
