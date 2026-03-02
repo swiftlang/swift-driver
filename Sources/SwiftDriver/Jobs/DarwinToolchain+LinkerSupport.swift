@@ -218,8 +218,13 @@ extension DarwinToolchain {
       commandLine.appendFlag("-fembed-bitcode=marker")
     }
 
-    // Add the SDK path
-    if let sdkPath = targetInfo.sdkPath?.path {
+    // Add the sysroot: explicit -sysroot takes precedence, then SDK path
+    // This allows using a different sysroot for C/C++ libraries while using
+    // a different SDK for Swift runtime libraries
+    if let sysroot = parsedOptions.getLastArgument(.sysroot)?.asSingle {
+      commandLine.appendFlag("--sysroot")
+      try commandLine.appendPath(VirtualPath(path: sysroot))
+    } else if let sdkPath = targetInfo.sdkPath?.path {
       commandLine.appendFlag("--sysroot")
       commandLine.appendPath(VirtualPath.lookup(sdkPath))
     }

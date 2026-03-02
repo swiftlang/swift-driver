@@ -6112,6 +6112,97 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testDarwinSysrootFlag() throws {
+    var envVars = ProcessEnv.block
+    envVars["SWIFT_DRIVER_LD_EXEC"] = ld.nativePathString(escaped: false)
+
+    try withTemporaryDirectory { tmpDir in
+      // Create an SDK directory with SDKSettings.json
+      let sdk = tmpDir.appending(component: "MacOSX10.15.sdk")
+      try localFileSystem.createDirectory(sdk, recursive: true)
+      try localFileSystem.writeFileContents(sdk.appending(component: "SDKSettings.json"), bytes:
+        """
+        {
+          "Version":"10.15",
+          "CanonicalName": "macosx10.15"
+        }
+        """
+      )
+
+      // Create a custom sysroot directory
+      let customSysroot = tmpDir.appending(component: "CustomSysroot")
+      try localFileSystem.createDirectory(customSysroot, recursive: true)
+
+      // Test 1: Explicit -sysroot should be passed to frontend (clang-importer)
+      do {
+        var driver = try Driver(args: ["swiftc",
+                                       "-target", "x86_64-apple-macosx10.14",
+                                       "-sdk", sdk.pathString,
+                                       "-sysroot", customSysroot.pathString,
+                                       "test.swift"], env: envVars)
+        let jobs = try driver.planBuild()
+
+        // Check frontend job (compile)
+        let frontendJob = jobs.first(where: { $0.kind == .compile })
+        XCTAssertNotNil(frontendJob)
+        XCTAssertJobInvocationMatches(frontendJob!, .flag("-sysroot"))
+        XCTAssertTrue(frontendJob!.commandLine.containsPathWithBasename(customSysroot.basename))
+      }
+
+      // Test 2: Explicit -sysroot should be passed to linker
+      do {
+        var driver = try Driver(args: ["swiftc",
+                                       "-target", "x86_64-apple-macosx10.14",
+                                       "-sdk", sdk.pathString,
+                                       "-sysroot", customSysroot.pathString,
+                                       "test.swift"], env: envVars)
+        let jobs = try driver.planBuild()
+
+        // Check linker job
+        let linkJob = jobs.first(where: { $0.kind == .link })
+        XCTAssertNotNil(linkJob)
+        XCTAssertJobInvocationMatches(linkJob!, .flag("--sysroot"))
+        XCTAssertTrue(linkJob!.commandLine.containsPathWithBasename(customSysroot.basename))
+      }
+
+      // Test 3: Without explicit -sysroot, linker should use SDK path as sysroot
+      do {
+        var driver = try Driver(args: ["swiftc",
+                                       "-target", "x86_64-apple-macosx10.14",
+                                       "-sdk", sdk.pathString,
+                                       "test.swift"], env: envVars)
+        let jobs = try driver.planBuild()
+
+        // Check linker job defaults to SDK path
+        let linkJob = jobs.first(where: { $0.kind == .link })
+        XCTAssertNotNil(linkJob)
+        XCTAssertJobInvocationMatches(linkJob!, .flag("--sysroot"))
+        XCTAssertTrue(linkJob!.commandLine.containsPathWithBasename(sdk.basename))
+      }
+
+      // Test 4: Without explicit -sysroot, frontend should NOT have -sysroot flag
+      do {
+        var driver = try Driver(args: ["swiftc",
+                                       "-target", "x86_64-apple-macosx10.14",
+                                       "-sdk", sdk.pathString,
+                                       "test.swift"], env: envVars)
+        let jobs = try driver.planBuild()
+
+        // Check frontend job should not have -sysroot
+        let frontendJob = jobs.first(where: { $0.kind == .compile })
+        XCTAssertNotNil(frontendJob)
+        // Frontend should not have -sysroot when not explicitly provided
+        let hasSysroot = frontendJob!.commandLine.contains { arg in
+          if case .flag(let flag) = arg {
+            return flag == "-sysroot"
+          }
+          return false
+        }
+        XCTAssertFalse(hasSysroot)
+      }
+    }
+  }
+
   func testDSYMGeneration() throws {
     let commonArgs = [
       "swiftc", "foo.swift", "bar.swift",
