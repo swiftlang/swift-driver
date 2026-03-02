@@ -186,8 +186,9 @@ extension GenericUnixToolchain {
 
       if !isEmbeddedEnabled && !parsedOptions.hasArgument(.nostartfiles) {
         let rsrc: VirtualPath
-        // Prefer the swiftrt.o runtime file from the SDK if it's specified.
-        if let sdk = targetInfo.sdkPath {
+        // Prefer the swiftrt.o runtime file from the SDK, if it's specified
+        // with a separate C/C++ sysroot.
+        if let sdk = targetInfo.sdkPath, parsedOptions.hasArgument(.sysroot) {
           let swiftDir: String
           if staticStdlib || staticExecutable {
             swiftDir = "swift_static"
