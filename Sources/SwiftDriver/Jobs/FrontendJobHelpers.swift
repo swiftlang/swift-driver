@@ -315,6 +315,9 @@ extension Driver {
     if isFrontendArgSupported(.compilerAssertions) {
       try commandLine.appendLast(.compilerAssertions, from: &parsedOptions)
     }
+    if isFrontendArgSupported(.oslogStringSectionName) {
+      try commandLine.appendLast(.oslogStringSectionName, from: &parsedOptions)
+    }
     try commandLine.appendAll(.enableExperimentalFeature,
                               .disableExperimentalFeature,
                               .enableUpcomingFeature,
