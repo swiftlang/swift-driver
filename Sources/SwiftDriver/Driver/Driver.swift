@@ -2521,6 +2521,9 @@ extension Driver {
       case .scanDependencies:
         compilerOutputType = .jsonDependencies
 
+      case .emitSupportedArguments, .emitSupportedFeatures:
+        compilerOutputType = .jsonCompilerFeatures
+
       default:
         fatalError("unhandled output mode option \(outputOption)")
       }
