@@ -751,6 +751,7 @@ extension Option {
   public static let Onone: Option = Option("-Onone", .flag, attributes: [.frontend, .moduleInterface], helpText: "Compile without any optimization", group: .O)
   public static let Oplayground: Option = Option("-Oplayground", .flag, attributes: [.helpHidden, .frontend, .moduleInterface], helpText: "Compile with optimizations appropriate for a playground", group: .O)
   public static let Osize: Option = Option("-Osize", .flag, attributes: [.frontend, .moduleInterface], helpText: "Compile with optimizations and target small code size", group: .O)
+  public static let oslogStringSectionName: Option = Option("-oslog-string-section-name", .separate, attributes: [.frontend], metaVar: "<section-name>", helpText: "Section name to use for OSLog string literals. Defaults to '__TEXT,__oslogstring',cstring_literals")
   public static let Ounchecked: Option = Option("-Ounchecked", .flag, attributes: [.frontend, .moduleInterface], helpText: "Compile with optimizations and remove runtime safety checks", group: .O)
   public static let outputDir: Option = Option("-output-dir", .separate, attributes: [.noDriver, .argumentIsPath], metaVar: "<dir>", helpText: "Output directory")
   public static let outputFileMapEQ: Option = Option("-output-file-map=", .joined, alias: Option.outputFileMap, attributes: [.noInteractive, .argumentIsPath])
@@ -891,17 +892,21 @@ extension Option {
   public static let skipInheritedDocs: Option = Option("-skip-inherited-docs", .flag, attributes: [.helpHidden, .frontend, .noInteractive, .supplementaryOutput], helpText: "Skip emitting doc comments for members inherited through classes or default implementations")
   public static let skipProtocolImplementations: Option = Option("-skip-protocol-implementations", .flag, attributes: [.helpHidden, .frontend, .noInteractive, .supplementaryOutput], helpText: "Skip emitting symbols that are implementations of protocol requirements or inherited from protocol extensions")
   public static let skipSynthesizedMembers: Option = Option("-skip-synthesized-members", .flag, attributes: [.noDriver], helpText: "Skip members inherited through classes or default implementations")
+  public static let solverDisableBindingOptimizations: Option = Option("-solver-disable-binding-optimizations", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable experimental optimizations to speed up type variable binding")
   public static let solverDisableCrashOnValidSalvage: Option = Option("-solver-disable-crash-on-valid-salvage", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Accept valid solutions in diagnostic mode")
   public static let solverDisableOptimizeOperatorDefaults: Option = Option("-solver-disable-optimize-operator-defaults", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable experimental optimization to sometimes skip operators in protocol extensions")
   public static let solverDisablePerformanceHacks: Option = Option("-solver-disable-performance-hacks", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable various constraint solver performance optimizations that have been subsumed by subsequent improvements")
   public static let solverDisablePreparedOverloads: Option = Option("-solver-disable-prepared-overloads", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable experimental prepared overloads optimization")
   public static let solverDisablePruneDisjunctions: Option = Option("-solver-disable-prune-disjunctions", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable experimental disjunction pruning algorithm for lookahead in the solver")
   public static let solverDisableSplitter: Option = Option("-solver-disable-splitter", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable the component splitter phase of expression type checking")
+  public static let solverDisableTransitiveConformance: Option = Option("-solver-disable-transitive-conformance", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable transitive conformance constraint optimization")
+  public static let solverEnableBindingOptimizations: Option = Option("-solver-enable-binding-optimizations", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental optimizations to speed up type variable binding")
   public static let solverEnableCrashOnValidSalvage: Option = Option("-solver-enable-crash-on-valid-salvage", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Reject valid solutions in diagnostic mode")
   public static let solverEnableOptimizeOperatorDefaults: Option = Option("-solver-enable-optimize-operator-defaults", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental optimization to sometimes skip operators in protocol extensions")
   public static let solverEnablePerformanceHacks: Option = Option("-solver-enable-performance-hacks", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enble various constraint solver performance optimizations that have been subsumed by subsequent improvements")
   public static let solverEnablePreparedOverloads: Option = Option("-solver-enable-prepared-overloads", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental prepared overloads optimization")
   public static let solverEnablePruneDisjunctions: Option = Option("-solver-enable-prune-disjunctions", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental disjunction pruning algorithm for lookahead in the solver")
+  public static let solverEnableTransitiveConformance: Option = Option("-solver-enable-transitive-conformance", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable transitive conformance constraint optimization")
   public static let solverExpressionTimeThresholdEQ: Option = Option("-solver-expression-time-threshold=", .joined, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Expression type checking timeout, in seconds")
   public static let solverMemoryThresholdEQ: Option = Option("-solver-memory-threshold=", .joined, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Set the upper bound for memory consumption, in bytes, by the constraint solver")
   public static let solverScopeThresholdEQ: Option = Option("-solver-scope-threshold=", .joined, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Expression type checking scope limit")
@@ -1773,6 +1778,7 @@ extension Option {
       Option.Onone,
       Option.Oplayground,
       Option.Osize,
+      Option.oslogStringSectionName,
       Option.Ounchecked,
       Option.outputDir,
       Option.outputFileMapEQ,
@@ -1913,17 +1919,21 @@ extension Option {
       Option.skipInheritedDocs,
       Option.skipProtocolImplementations,
       Option.skipSynthesizedMembers,
+      Option.solverDisableBindingOptimizations,
       Option.solverDisableCrashOnValidSalvage,
       Option.solverDisableOptimizeOperatorDefaults,
       Option.solverDisablePerformanceHacks,
       Option.solverDisablePreparedOverloads,
       Option.solverDisablePruneDisjunctions,
       Option.solverDisableSplitter,
+      Option.solverDisableTransitiveConformance,
+      Option.solverEnableBindingOptimizations,
       Option.solverEnableCrashOnValidSalvage,
       Option.solverEnableOptimizeOperatorDefaults,
       Option.solverEnablePerformanceHacks,
       Option.solverEnablePreparedOverloads,
       Option.solverEnablePruneDisjunctions,
+      Option.solverEnableTransitiveConformance,
       Option.solverExpressionTimeThresholdEQ,
       Option.solverMemoryThresholdEQ,
       Option.solverScopeThresholdEQ,
