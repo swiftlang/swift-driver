@@ -728,6 +728,13 @@ extension Driver {
       )
     }
 
+    if parsedOptions.hasArgument(.emitSupportedArguments, .emitSupportedFeatures) {
+      return try toolchain.emitSupportedCompilerFeaturesJob(
+        requiresInPlaceExecution: true,
+        swiftCompilerPrefixArgs: swiftCompilerPrefixArgs
+      )
+    }
+
     if parsedOptions.hasArgument(.version) || parsedOptions.hasArgument(.version_) {
       return Job(
         moduleName: moduleOutputInfo.name,

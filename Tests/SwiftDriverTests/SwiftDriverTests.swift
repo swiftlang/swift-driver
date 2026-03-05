@@ -6770,6 +6770,17 @@ final class SwiftDriverTests: XCTestCase {
     XCTAssertJobInvocationMatches(job, .flag("-print-supported-features"))
   }
 
+  func testEmitSupportedArguments() throws {
+    var driver = try Driver(args: ["swiftc", "-emit-supported-arguments"])
+
+    let plannedJobs = try driver.planBuild()
+    XCTAssertEqual(plannedJobs.count, 1)
+    let job = plannedJobs[0]
+    XCTAssertEqual(job.kind, .emitSupportedFeatures)
+    XCTAssertJobInvocationMatches(job, .flag("-frontend"))
+    XCTAssertJobInvocationMatches(job, .flag("-emit-supported-features"))
+  }
+
   func testPrintOutputFileMap() throws {
     try withTemporaryDirectory { path in
       // Replace the error stream with one we capture here.
