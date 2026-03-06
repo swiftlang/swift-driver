@@ -3560,7 +3560,7 @@ extension Triple {
       return GenericUnixToolchain.self
     case .freeBSD, .haiku, .openbsd:
       return GenericUnixToolchain.self
-    case .wasi:
+    case .wasi, .emscripten:
       return WebAssemblyToolchain.self
     case .win32:
       return WindowsToolchain.self

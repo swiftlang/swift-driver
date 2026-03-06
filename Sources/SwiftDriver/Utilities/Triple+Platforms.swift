@@ -404,6 +404,8 @@ extension Triple {
       return "haiku"
     case .wasi:
       return "wasi"
+    case .emscripten:
+      return "emscripten"
     case .noneOS:
       return nil
 
@@ -411,7 +413,7 @@ extension Triple {
     // Triple updates
     case .ananas, .cloudABI, .dragonFly, .fuchsia, .kfreebsd, .lv2, .netbsd,
          .solaris, .minix, .rtems, .nacl, .cnk, .aix, .cuda, .nvcl, .amdhsa,
-         .elfiamcu, .mesa3d, .contiki, .amdpal, .hermitcore, .hurd, .emscripten:
+         .elfiamcu, .mesa3d, .contiki, .amdpal, .hermitcore, .hurd:
       return nil
     }
   }
