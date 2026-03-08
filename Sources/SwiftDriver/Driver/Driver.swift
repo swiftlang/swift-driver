@@ -3666,6 +3666,12 @@ extension Driver {
                                        compilerExecutableDir: compilerExecutableDir,
                                        toolDirectory: toolDir)
 
+    // Pass the target triple to WebAssemblyToolchain for output filename decisions
+    if let wasmToolchain = toolchain as? WebAssemblyToolchain,
+       let target = explicitTarget {
+      wasmToolchain.targetTriple = target
+    }
+
     let frontendOverride = try FrontendOverride(&parsedOptions, diagnosticsEngine)
     return (toolchain, frontendOverride.prefixArgs)
   }

@@ -2902,6 +2902,35 @@ final class SwiftDriverTests: XCTestCase {
     }
 
     do {
+      // Emscripten executable linking — uses emcc -s settings instead of -Xlinker
+      try withTemporaryDirectory { path in
+        try localFileSystem.writeFileContents(path.appending(components: "emscripten", "static-executable-args.lnk")) {
+          $0.send("garbage")
+        }
+        var driver = try Driver(args: commonArgs + ["-emit-executable", "-Ounchecked",
+                                                    "-target", "wasm32-unknown-emscripten",
+                                                    "-resource-dir", path.pathString], env: env)
+        let plannedJobs = try driver.planBuild()
+        let linkJob = plannedJobs.last!
+        let cmd = linkJob.commandLine
+
+        // emcc should NOT get -Xlinker flags
+        XCTAssertFalse(cmd.contains(.flag("-Xlinker")))
+
+        // Linker flags should use emcc -s settings
+        XCTAssertTrue(cmd.contains(.flag("-sGLOBAL_BASE=4096")))
+        XCTAssertTrue(cmd.contains(.flag("-sTABLE_BASE=4096")))
+        XCTAssertTrue(cmd.contains(.flag("-sSTACK_SIZE=\(128 * 1024)")))
+        XCTAssertTrue(cmd.contains(.flag("-O3")))
+        XCTAssertEqual(linkJob.outputs[0].file, try toPath("Test.js"))
+
+        // emcc manages its own target and sysroot
+        XCTAssertFalse(cmd.contains(subsequence: ["-target", "wasm32-unknown-emscripten"]))
+        XCTAssertFalse(cmd.contains(.flag("--sysroot")))
+      }
+    }
+
+    do {
       // -sysroot is preferred over -sdk as the sysroot passed to the clang linker
       try withTemporaryDirectory { path in
         try localFileSystem.writeFileContents(path.appending(components: "wasi", "static-executable-args.lnk")) {

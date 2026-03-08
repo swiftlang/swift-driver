@@ -60,6 +60,8 @@ public final class WebAssemblyToolchain: Toolchain {
 
   public let dummyForTestingObjectFormat = Triple.ObjectFormat.wasm
 
+  public var targetTriple: Triple?
+
   public init(env: ProcessEnvironmentBlock, executor: DriverExecutor, fileSystem: FileSystem = localFileSystem, compilerExecutableDir: AbsolutePath? = nil, toolDirectory: AbsolutePath? = nil) {
     self.env = env
     self.executor = executor
@@ -71,6 +73,9 @@ public final class WebAssemblyToolchain: Toolchain {
   public func makeLinkerOutputFilename(moduleName: String, type: LinkOutputType) -> String {
     switch type {
     case .executable:
+      if targetTriple?.os == .emscripten {
+        return "\(moduleName).js"
+      }
       return moduleName
     case .dynamicLibrary:
       // Wasm doesn't support dynamic libraries yet, but we'll report the error later.

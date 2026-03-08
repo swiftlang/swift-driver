@@ -33,50 +33,71 @@ extension WebAssemblyToolchain {
     case .dynamicLibrary:
       throw Error.dynamicLibrariesUnsupportedForTarget(targetTriple.triple)
     case .executable:
-      if !targetTriple.triple.isEmpty {
-        commandLine.appendFlag("-target")
-        commandLine.appendFlag(targetTriple.triple)
-      }
+      let isEmscripten = targetTriple.os == .emscripten
 
-      // Select the linker to use.
-      if let linkerArg = parsedOptions.getLastArgument(.useLd)?.asSingle {
-        commandLine.appendFlag("-fuse-ld=\(linkerArg)")
-      }
+      // emcc already targets Emscripten, so skip --target and linker selection flags.
+      if !isEmscripten {
+        if !targetTriple.triple.isEmpty {
+          commandLine.appendFlag("-target")
+          commandLine.appendFlag(targetTriple.triple)
+        }
 
-      if let arg = parsedOptions.getLastArgument(.ldPath)?.asSingle {
-        commandLine.append(.joinedOptionAndPath("--ld-path=", try VirtualPath(path: arg)))
+        // Select the linker to use.
+        if let linkerArg = parsedOptions.getLastArgument(.useLd)?.asSingle {
+          commandLine.appendFlag("-fuse-ld=\(linkerArg)")
+        }
+
+        if let arg = parsedOptions.getLastArgument(.ldPath)?.asSingle {
+          commandLine.append(.joinedOptionAndPath("--ld-path=", try VirtualPath(path: arg)))
+        }
       }
 
       // Configure the toolchain.
       //
-      // By default use the system `clang` to perform the link.  We use `clang` for
-      // the driver here because we do not wish to select a particular C++ runtime.
-      // Furthermore, until C++ interop is enabled, we cannot have a dependency on
-      // C++ code from pure Swift code.  If linked libraries are C++ based, they
-      // should properly link C++.  In the case of static linking, the user can
-      // explicitly specify the C++ runtime to link against.  This is particularly
-      // important for platforms like android where as it is a Linux platform, the
-      // default C++ runtime is `libstdc++` which is unsupported on the target but
-      // as the builds are usually cross-compiled from Linux, libstdc++ is going to
-      // be present.  This results in linking the wrong version of libstdc++
-      // generating invalid binaries.  It is also possible to use different C++
-      // runtimes than the default C++ runtime for the platform (e.g. libc++ on
-      // Windows rather than msvcprt).  When C++ interop is enabled, we will need to
-      // surface this via a driver flag.  For now, opt for the simpler approach of
-      // just using `clang` and avoid a dependency on the C++ runtime.
-      var clangPath = try getToolPath(.clang)
-      if let toolsDirPath = parsedOptions.getLastArgument(.toolsDirectory) {
-        // FIXME: What if this isn't an absolute path?
-        let toolsDir = try AbsolutePath(validating: toolsDirPath.asSingle)
-
-        // If there is a clang in the toolchain folder, use that instead.
-        if let tool = lookupExecutablePath(filename: "clang", searchPaths: [toolsDir]) {
-          clangPath = tool
+      // For Emscripten targets, use `emcc` (the Emscripten compiler driver) as the
+      // linker. emcc wraps wasm-ld and also generates JavaScript runtime glue.
+      //
+      // For other WebAssembly targets (WASI etc), use `clang` to perform the link.
+      // We use `clang` for the driver here because we do not wish to select a
+      // particular C++ runtime. Furthermore, until C++ interop is enabled, we
+      // cannot have a dependency on C++ code from pure Swift code. If linked
+      // libraries are C++ based, they should properly link C++. In the case of
+      // static linking, the user can explicitly specify the C++ runtime to link
+      // against. This is particularly important for platforms like android where as
+      // it is a Linux platform, the default C++ runtime is `libstdc++` which is
+      // unsupported on the target but as the builds are usually cross-compiled from
+      // Linux, libstdc++ is going to be present. This results in linking the wrong
+      // version of libstdc++ generating invalid binaries. It is also possible to
+      // use different C++ runtimes than the default C++ runtime for the platform
+      // (e.g. libc++ on Windows rather than msvcprt). When C++ interop is enabled,
+      // we will need to surface this via a driver flag. For now, opt for the simpler
+      // approach of just using `clang` and avoid a dependency on the C++ runtime.
+      var linkerPath: AbsolutePath
+      if isEmscripten {
+        linkerPath = try lookup(executable: "emcc")
+        if let toolsDirPath = parsedOptions.getLastArgument(.toolsDirectory) {
+          let toolsDir = try AbsolutePath(validating: toolsDirPath.asSingle)
+          if let tool = lookupExecutablePath(filename: "emcc", searchPaths: [toolsDir]) {
+            linkerPath = tool
+          }
+          commandLine.appendFlag("-B")
+          commandLine.appendPath(toolsDir)
         }
+      } else {
+        linkerPath = try getToolPath(.clang)
+        if let toolsDirPath = parsedOptions.getLastArgument(.toolsDirectory) {
+          // FIXME: What if this isn't an absolute path?
+          let toolsDir = try AbsolutePath(validating: toolsDirPath.asSingle)
 
-        // Look for binutils in the toolchain folder.
-        commandLine.appendFlag("-B")
-        commandLine.appendPath(toolsDir)
+          // If there is a clang in the toolchain folder, use that instead.
+          if let tool = lookupExecutablePath(filename: "clang", searchPaths: [toolsDir]) {
+            linkerPath = tool
+          }
+
+          // Look for binutils in the toolchain folder.
+          commandLine.appendFlag("-B")
+          commandLine.appendPath(toolsDir)
+        }
       }
 
       guard !parsedOptions.hasArgument(.noStaticStdlib, .noStaticExecutable) else {
@@ -114,13 +135,16 @@ extension WebAssemblyToolchain {
       }
       commandLine.append(contentsOf: inputFiles)
 
-      // Prefer -sysroot as the native sysroot path if provided.
-      if let sysroot = parsedOptions.getLastArgument(.sysroot)?.asSingle {
-        commandLine.appendFlag("--sysroot")
-        try commandLine.appendPath(VirtualPath(path: sysroot))
-      } else if let path = targetInfo.sdkPath?.path {
-        commandLine.appendFlag("--sysroot")
-        commandLine.appendPath(VirtualPath.lookup(path))
+      // emcc manages its own sysroot, so skip --sysroot for Emscripten.
+      if !isEmscripten {
+        // Prefer -sysroot as the native sysroot path if provided.
+        if let sysroot = parsedOptions.getLastArgument(.sysroot)?.asSingle {
+          commandLine.appendFlag("--sysroot")
+          try commandLine.appendPath(VirtualPath(path: sysroot))
+        } else if let path = targetInfo.sdkPath?.path {
+          commandLine.appendFlag("--sysroot")
+          commandLine.appendPath(VirtualPath.lookup(path))
+        }
       }
 
       // Add the runtime library link paths.
@@ -135,7 +159,9 @@ extension WebAssemblyToolchain {
         let embeddedLibrariesPath: VirtualPath = runtimeResourcePath.appending(
           components: "embedded", targetTriple.triple
         )
-        commandLine.append(.flag("-Xlinker"))
+        if !isEmscripten {
+          commandLine.append(.flag("-Xlinker"))
+        }
         commandLine.append(.joinedOptionAndPath("-L", embeddedLibrariesPath))
       } else {
         // Link the standard library and dependencies.
@@ -153,8 +179,10 @@ extension WebAssemblyToolchain {
         commandLine.appendFlag(optArg)
       }
 
-      // Explicitly pass the target to the linker
-      commandLine.appendFlag("--target=\(targetTriple.triple)")
+      // Explicitly pass the target to the linker (not needed for emcc)
+      if !isEmscripten {
+        commandLine.appendFlag("--target=\(targetTriple.triple)")
+      }
 
       // WebAssembly doesn't reserve low addresses as its ABI. But without
       // "extra inhabitants" of the pointer representation, runtime performance
@@ -165,18 +193,31 @@ extension WebAssemblyToolchain {
       // synchronized with `SWIFT_ABI_WASM32_LEAST_VALID_POINTER` defined in
       // apple/swift's runtime library.
       let SWIFT_ABI_WASM32_LEAST_VALID_POINTER = 4096
-      commandLine.appendFlag(.Xlinker)
-      commandLine.appendFlag("--global-base=\(SWIFT_ABI_WASM32_LEAST_VALID_POINTER)")
-      commandLine.appendFlag(.Xlinker)
-      commandLine.appendFlag("--table-base=\(SWIFT_ABI_WASM32_LEAST_VALID_POINTER)")
+      if isEmscripten {
+        // Use emcc settings instead of raw wasm-ld flags. Setting
+        // -sGLOBAL_BASE prevents emcc from auto-enabling --stack-first,
+        // which would place the stack at address 0 and violate Swift's
+        // assumption that addresses below LEAST_VALID_POINTER are unused.
+        commandLine.appendFlag("-sGLOBAL_BASE=\(SWIFT_ABI_WASM32_LEAST_VALID_POINTER)")
+        commandLine.appendFlag("-sTABLE_BASE=\(SWIFT_ABI_WASM32_LEAST_VALID_POINTER)")
+      } else {
+        commandLine.appendFlag(.Xlinker)
+        commandLine.appendFlag("--global-base=\(SWIFT_ABI_WASM32_LEAST_VALID_POINTER)")
+        commandLine.appendFlag(.Xlinker)
+        commandLine.appendFlag("--table-base=\(SWIFT_ABI_WASM32_LEAST_VALID_POINTER)")
+      }
 
       // Set slightly higher than the default (64K) stack size so that basic
       // workflows like Swift Testing can run within this limited stack space.
       let SWIFT_WASM_DEFAULT_STACK_SIZE = 1024 * 128
-      commandLine.appendFlag(.Xlinker)
-      commandLine.appendFlag("-z")
-      commandLine.appendFlag(.Xlinker)
-      commandLine.appendFlag("stack-size=\(SWIFT_WASM_DEFAULT_STACK_SIZE)")
+      if isEmscripten {
+        commandLine.appendFlag("-sSTACK_SIZE=\(SWIFT_WASM_DEFAULT_STACK_SIZE)")
+      } else {
+        commandLine.appendFlag(.Xlinker)
+        commandLine.appendFlag("-z")
+        commandLine.appendFlag(.Xlinker)
+        commandLine.appendFlag("stack-size=\(SWIFT_WASM_DEFAULT_STACK_SIZE)")
+      }
 
       // Delegate to Clang for sanitizers. It will figure out the correct linker
       // options.
@@ -220,7 +261,7 @@ extension WebAssemblyToolchain {
         // This should be the last option, for convenience in checking output.
       commandLine.appendFlag(.o)
       commandLine.appendPath(outputFile)
-      return try resolvedTool(.clang, pathOverride: clangPath)
+      return try resolvedTool(.clang, pathOverride: linkerPath)
     case .staticLibrary:
       // We're using 'ar' as a linker
       commandLine.appendFlag("crs")
