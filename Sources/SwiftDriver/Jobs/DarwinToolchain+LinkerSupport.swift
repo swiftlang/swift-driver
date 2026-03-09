@@ -258,9 +258,7 @@ extension DarwinToolchain {
       fileSystem: fileSystem
     )
 
-    if parsedOptions.hasArgument(.profileGenerate) {
-      commandLine.appendFlag("-fprofile-generate")
-    }
+    commandLine.appendFlags(mapInstrumentationTypeToClangArgs(from: &parsedOptions))
 
     // These custom arguments should be right before the object file at the
     // end.
