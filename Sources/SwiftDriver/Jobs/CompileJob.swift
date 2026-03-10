@@ -231,6 +231,7 @@ extension Driver {
                            outputType: FileType?,
                            addJobOutputs: ([TypedVirtualPath]) -> Void,
                            pchCompileJob: Job?,
+                           emitModuleJob: Job?,
                            emitModuleTrace: Bool,
                            produceCacheKey: Bool,
                            explicitModulePlanner: ExplicitDependencyBuildPlanner?)
@@ -323,8 +324,7 @@ extension Driver {
     }
 
     try addCommonFrontendOptions(commandLine: &commandLine, inputs: &inputs, kind: .compile,
-                                 explicitModulePlanner: explicitModulePlanner, forVariantEmitModule: false,
-                                 forObject: outputType == .object)
+                                 explicitModulePlanner: explicitModulePlanner, forVariantEmitModule: false)
     try addRuntimeLibraryFlags(commandLine: &commandLine)
 
     if Driver.canDoCrossModuleOptimization(parsedOptions: &parsedOptions) &&
@@ -358,6 +358,25 @@ extension Driver {
       for primaryOutput in primaryOutputs {
         commandLine.appendFlag(.o)
         commandLine.appendPath(primaryOutput.file)
+      }
+    }
+
+    // Add swiftmodule info to compile job for debug info generation.
+    if isFeatureSupported(.debug_info_explicit_dependency), outputType?.isAfterLLVM ?? false, let explicitModulePlanner = explicitModulePlanner {
+      if enableCaching {
+        if let cacheKey = emitModuleJob?.outputCacheKeys.first?.value {
+          commandLine.appendFlag(.debugModulePath)
+          commandLine.appendFlag(cacheKey)
+        } else {
+          assert(emitModuleJob == nil, "planned a emitModuleJob but do not have a cache key")
+          if outputs.contains(where: { $0.type == .swiftModule }) {
+            commandLine.appendFlag(.debugModuleSelfKey)
+          }
+        }
+      } else {
+        let path = moduleOutputInfo.output?.outputPath ?? explicitModulePlanner.dependencyGraph.mainModule.modulePath.path
+        commandLine.appendFlag(.debugModulePath)
+        commandLine.appendPath(VirtualPath.lookup(path))
       }
     }
 

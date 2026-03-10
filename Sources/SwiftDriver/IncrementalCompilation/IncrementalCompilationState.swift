@@ -75,7 +75,8 @@ public final class IncrementalCompilationState {
     self.protectedState = ProtectedState(
       skippedCompileJobs: firstWave.initiallySkippedCompileJobs,
       initialState.graph,
-      jobsInPhases.allJobs.first(where: {$0.kind == .generatePCH}),
+      jobsInPhases.beforeCompiles.first {$0.kind == .generatePCH},
+      jobsInPhases.beforeCompiles.first {$0.kind == .emitModule},
       &driver,
       explicitModulePlanner)
     self.mandatoryJobsInOrder = firstWave.mandatoryJobsInOrder

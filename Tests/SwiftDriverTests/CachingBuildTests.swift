@@ -943,7 +943,7 @@ final class CachingBuildTests: XCTestCase {
       let bridgingHeaderpath: AbsolutePath =
           cHeadersPath.appending(component: "Bridging.h")
       let dependencyOracle = InterModuleDependencyOracle()
-      var driver = try Driver(args: ["swiftc",
+      var driver = try Driver(args: ["swiftc", "-g",
                                      "-I", cHeadersPath.nativePathString(escaped: false),
                                      "-I", swiftModuleInterfacesPath.nativePathString(escaped: false),
                                      "-explicit-module-build", "-Rcache-compile-job", "-incremental",
@@ -955,6 +955,13 @@ final class CachingBuildTests: XCTestCase {
                                      main.nativePathString(escaped: false)] + sdkArgumentsForTesting,
                               interModuleDependencyOracle: dependencyOracle)
       let jobs = try driver.planBuild()
+
+      if driver.isFeatureSupported(.debug_info_explicit_dependency) {
+        let _ = jobs.filter{ $0.kind == .compile }.map {
+          XCTAssertTrue($0.commandLine.contains("-debug-module-path"))
+        }
+      }
+
       try driver.run(jobs: jobs)
       XCTAssertFalse(driver.diagnosticEngine.hasErrors)
 

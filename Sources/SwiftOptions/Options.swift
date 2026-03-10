@@ -132,8 +132,9 @@ extension Option {
   public static let debugInverseRequirements: Option = Option("-debug-inverse-requirements", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Print real requirements in -debug-generic-signatures output")
   public static let debugMapping: Option = Option("-debug-mapping", .flag, attributes: [.noDriver], helpText: "Dumping information for debug purposes")
   public static let debugMapping_: Option = Option("--debug-mapping", .flag, alias: Option.debugMapping, attributes: [.noDriver], helpText: "Dumping information for debug purposes")
-  public static let debugModulePathEQ: Option = Option("-debug-module-path=", .joined, alias: Option.debugModulePath, attributes: [.frontend])
-  public static let debugModulePath: Option = Option("-debug-module-path", .separate, attributes: [.frontend], helpText: "Path to this module's binary swiftmodule artifact (required by debug info)")
+  public static let debugModulePathEQ: Option = Option("-debug-module-path=", .joined, alias: Option.debugModulePath, attributes: [.frontend, .argumentIsPath])
+  public static let debugModulePath: Option = Option("-debug-module-path", .separate, attributes: [.frontend, .argumentIsPath], helpText: "Path or cache key to this module's binary swiftmodule artifact (required by debug info)")
+  public static let debugModuleSelfKey: Option = Option("-debug-module-self-key", .flag, attributes: [.frontend], helpText: "Embeded the key of current job in debug info generation (required by debug info)")
   public static let debugPrefixMap: Option = Option("-debug-prefix-map", .separate, attributes: [.frontend], metaVar: "<prefix=replacement>", helpText: "Remap source paths in debug info")
   public static let debugRequirementMachine: Option = Option("-debug-requirement-machine=", .joined, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Fine-grained debug output from the generics implementation")
   public static let debugTimeExpressionTypeChecking: Option = Option("-debug-time-expression-type-checking", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Dumps the time it takes to type-check each expression")
@@ -897,11 +898,13 @@ extension Option {
   public static let solverDisablePreparedOverloads: Option = Option("-solver-disable-prepared-overloads", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable experimental prepared overloads optimization")
   public static let solverDisablePruneDisjunctions: Option = Option("-solver-disable-prune-disjunctions", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable experimental disjunction pruning algorithm for lookahead in the solver")
   public static let solverDisableSplitter: Option = Option("-solver-disable-splitter", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable the component splitter phase of expression type checking")
+  public static let solverDisableTransitiveConformance: Option = Option("-solver-disable-transitive-conformance", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable transitive conformance constraint optimization")
   public static let solverEnableCrashOnValidSalvage: Option = Option("-solver-enable-crash-on-valid-salvage", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Reject valid solutions in diagnostic mode")
   public static let solverEnableOptimizeOperatorDefaults: Option = Option("-solver-enable-optimize-operator-defaults", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental optimization to sometimes skip operators in protocol extensions")
   public static let solverEnablePerformanceHacks: Option = Option("-solver-enable-performance-hacks", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enble various constraint solver performance optimizations that have been subsumed by subsequent improvements")
   public static let solverEnablePreparedOverloads: Option = Option("-solver-enable-prepared-overloads", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental prepared overloads optimization")
   public static let solverEnablePruneDisjunctions: Option = Option("-solver-enable-prune-disjunctions", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental disjunction pruning algorithm for lookahead in the solver")
+  public static let solverEnableTransitiveConformance: Option = Option("-solver-enable-transitive-conformance", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable transitive conformance constraint optimization")
   public static let solverExpressionTimeThresholdEQ: Option = Option("-solver-expression-time-threshold=", .joined, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Expression type checking timeout, in seconds")
   public static let solverMemoryThresholdEQ: Option = Option("-solver-memory-threshold=", .joined, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Set the upper bound for memory consumption, in bytes, by the constraint solver")
   public static let solverScopeThresholdEQ: Option = Option("-solver-scope-threshold=", .joined, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Expression type checking scope limit")
@@ -1156,6 +1159,7 @@ extension Option {
       Option.debugMapping_,
       Option.debugModulePathEQ,
       Option.debugModulePath,
+      Option.debugModuleSelfKey,
       Option.debugPrefixMap,
       Option.debugRequirementMachine,
       Option.debugTimeExpressionTypeChecking,
@@ -1919,11 +1923,13 @@ extension Option {
       Option.solverDisablePreparedOverloads,
       Option.solverDisablePruneDisjunctions,
       Option.solverDisableSplitter,
+      Option.solverDisableTransitiveConformance,
       Option.solverEnableCrashOnValidSalvage,
       Option.solverEnableOptimizeOperatorDefaults,
       Option.solverEnablePerformanceHacks,
       Option.solverEnablePreparedOverloads,
       Option.solverEnablePruneDisjunctions,
+      Option.solverEnableTransitiveConformance,
       Option.solverExpressionTimeThresholdEQ,
       Option.solverMemoryThresholdEQ,
       Option.solverScopeThresholdEQ,
