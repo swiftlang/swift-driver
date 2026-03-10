@@ -30,6 +30,9 @@ public enum Sanitizer: String, Hashable {
   ///         it's distributed exactly the same as the sanitizers.
   case fuzzer
 
+  /// libFuzzer integration without linking the runtime library
+  case fuzzerNoLink = "fuzzer-no-link"
+
   /// Scudo hardened allocator
   case scudo
 
@@ -38,7 +41,7 @@ public enum Sanitizer: String, Hashable {
 
   /// Does this sanitizer have a runtime library
   var hasRuntimeLibrary: Bool {
-    if self == .memtag_stack {
+    if self == .memtag_stack || self == .fuzzerNoLink {
       return false
     }
     return true
@@ -52,6 +55,7 @@ public enum Sanitizer: String, Hashable {
     case .thread: return "tsan"
     case .undefinedBehavior: return "ubsan"
     case .fuzzer: return "fuzzer"
+    case .fuzzerNoLink: return nil
     case .scudo: return "scudo"
     case .memtag_stack: return nil
     }

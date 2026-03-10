@@ -3477,6 +3477,16 @@ final class SwiftDriverTests: XCTestCase {
       // No runtime for memtag-stack - thus no linker arg required
     }
 
+    do {
+      // fuzzer-no-link sanitizer
+      var driver = try Driver(args: commonArgs + ["-sanitize=fuzzer-no-link"])
+      let jobs = try driver.planBuild().removingAutolinkExtractJobs()
+
+      XCTAssertEqual(jobs.count, 3)
+      XCTAssertJobInvocationMatches(jobs[0], .flag("-sanitize=fuzzer-no-link"))
+      // No runtime for fuzzer-no-link - thus no linker arg required
+    }
+
     // FIXME: This test will fail when run on macOS, because the driver uses
     //        the existence of the runtime support libraries to determine if
     //        a sanitizer is supported. Until we allow cross-compiling with
