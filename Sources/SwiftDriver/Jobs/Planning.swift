@@ -98,8 +98,7 @@ extension Driver {
     } else {
       batchedJobs = try formBatchedJobs(jobsInPhases.allJobs,
                                         showJobLifecycle: showJobLifecycle,
-                                        jobCreatingPch: jobsInPhases.beforeCompiles.first { $0.kind == .generatePCH },
-                                        jobEmitModule: jobsInPhases.beforeCompiles.first { $0.kind == .emitModule },
+                                        jobCreatingPch: jobsInPhases.allJobs.first(where: {$0.kind == .generatePCH}),
                                         explicitModulePlanner: explicitModulePlanner)
     }
 
@@ -338,10 +337,9 @@ extension Driver {
     }
 
     // Emit-module-separately
-    let emitModuleJob = try addEmitModuleJob(addJobBeforeCompiles: addJobBeforeCompiles,
-                                             pchCompileJob: pchCompileJob,
-                                             explicitModulePlanner: explicitModulePlanner)
-    if let emitModuleJob = emitModuleJob {
+    if let emitModuleJob = try addEmitModuleJob(addJobBeforeCompiles: addJobBeforeCompiles,
+                                                pchCompileJob: pchCompileJob,
+                                                explicitModulePlanner: explicitModulePlanner) {
       try addPostModuleFilesJobs(emitModuleJob)
 
       try addWrapJobOrMergeOutputs(
@@ -356,7 +354,6 @@ extension Driver {
       addLinkerInput: addLinkerInput,
       addJobOutputs: addJobOutputs,
       pchCompileJob: pchCompileJob,
-      emitModuleJob: emitModuleJob,
       explicitModulePlanner: explicitModulePlanner)
 
     try addAutolinkExtractJob(linkerInputs: linkerInputs,
@@ -383,7 +380,6 @@ extension Driver {
                                  outputType: compilerOutputType,
                                  addJobOutputs: addJobOutputs,
                                  pchCompileJob: pchCompileJob,
-                                 emitModuleJob: nil,
                                  emitModuleTrace: emitModuleTrace,
                                  produceCacheKey: true,
                                  explicitModulePlanner: explicitModulePlanner)
@@ -396,7 +392,6 @@ extension Driver {
     addLinkerInput: (TypedVirtualPath) -> Void,
     addJobOutputs: ([TypedVirtualPath]) -> Void,
     pchCompileJob: Job?,
-    emitModuleJob: Job?,
     explicitModulePlanner: ExplicitDependencyBuildPlanner?)
   throws {
     let loadedModuleTraceInputIndex = inputFiles.firstIndex(where: {
@@ -410,7 +405,6 @@ extension Driver {
         addLinkerInput: addLinkerInput,
         addJobOutputs: addJobOutputs,
         pchCompileJob: pchCompileJob,
-        emitModuleJob: emitModuleJob,
         emitModuleTrace: index == loadedModuleTraceInputIndex,
         explicitModulePlanner: explicitModulePlanner)
     }
@@ -422,7 +416,6 @@ extension Driver {
     addLinkerInput: (TypedVirtualPath) -> Void,
     addJobOutputs: ([TypedVirtualPath]) -> Void,
     pchCompileJob: Job?,
-    emitModuleJob: Job?,
     emitModuleTrace: Bool,
     explicitModulePlanner: ExplicitDependencyBuildPlanner?
   ) throws
@@ -437,13 +430,12 @@ extension Driver {
       // built separately.
       let canSkipIfOnlyModule = compilerOutputType == .swiftModule && emitModuleSeparately
       try createAndAddCompileJob(primaryInput: input,
-                                 emitModuleTrace: emitModuleTrace,
-                                 canSkipIfOnlyModule: canSkipIfOnlyModule,
-                                 pchCompileJob: pchCompileJob,
-                                 emitModuleJob: emitModuleJob,
-                                 addCompileJob: addCompileJob,
-                                 addJobOutputs: addJobOutputs,
-                                 explicitModulePlanner: explicitModulePlanner)
+                                      emitModuleTrace: emitModuleTrace,
+                                      canSkipIfOnlyModule: canSkipIfOnlyModule,
+                                      pchCompileJob: pchCompileJob,
+                                      addCompileJob: addCompileJob,
+                                      addJobOutputs: addJobOutputs,
+                                      explicitModulePlanner: explicitModulePlanner)
 
     case .object, .autolink, .llvmBitcode, .tbd:
       if linkerOutputType != nil {
@@ -471,7 +463,6 @@ extension Driver {
     emitModuleTrace: Bool,
     canSkipIfOnlyModule: Bool,
     pchCompileJob: Job?,
-    emitModuleJob: Job?,
     addCompileJob: (Job) -> Void,
     addJobOutputs: ([TypedVirtualPath]) -> Void,
     explicitModulePlanner: ExplicitDependencyBuildPlanner?
@@ -485,7 +476,6 @@ extension Driver {
                                  outputType: compilerOutputType,
                                  addJobOutputs: addJobOutputs,
                                  pchCompileJob: pchCompileJob,
-                                 emitModuleJob: emitModuleJob,
                                  emitModuleTrace: emitModuleTrace,
                                  produceCacheKey: !compilerMode.isBatchCompile,
                                  explicitModulePlanner: explicitModulePlanner)
@@ -853,7 +843,7 @@ extension Driver {
   ///
   /// So, in order to avoid making jobs and rebatching, the code would have to just get outputs for each
   /// compilation. But `compileJob` intermixes the output computation with other stuff.
-  mutating func formBatchedJobs(_ jobs: [Job], showJobLifecycle: Bool, jobCreatingPch: Job?, jobEmitModule: Job?,
+  mutating func formBatchedJobs(_ jobs: [Job], showJobLifecycle: Bool, jobCreatingPch: Job?,
                                 explicitModulePlanner: ExplicitDependencyBuildPlanner?) throws -> [Job] {
     guard compilerMode.isBatchCompile else {
       // Don't even go through the logic so as to not print out confusing
@@ -908,7 +898,6 @@ extension Driver {
                             outputType: compilerOutputType,
                             addJobOutputs: {_ in },
                             pchCompileJob: jobCreatingPch,
-                            emitModuleJob: jobEmitModule,
                             emitModuleTrace: constituentsEmittedModuleTrace,
                             produceCacheKey: true,
                             explicitModulePlanner: explicitModulePlanner)

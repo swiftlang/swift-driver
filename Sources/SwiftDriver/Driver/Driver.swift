@@ -658,7 +658,6 @@ public struct Driver {
   public enum KnownCompilerFeature: String {
     case emit_abi_descriptor = "emit-abi-descriptor"
     case compilation_caching = "compilation-caching"
-    case debug_info_explicit_dependency = "debug-info-explicit-dependency"
   }
 
   lazy var sdkPath: VirtualPath? = {
