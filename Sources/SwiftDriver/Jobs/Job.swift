@@ -60,6 +60,9 @@ public struct Job: Codable, Equatable, Hashable {
     /// Represents a joined option+path combo.
     case joinedOptionAndPath(String, VirtualPath)
 
+    /// Represents a comma-joined option with multiple paths (e.g., `-option/path1,/path2`).
+    case commaJoinedOptionAndPaths(String, [VirtualPath])
+
     /// Represents a list of arguments squashed together and passed as a single argument.
     case squashedArgumentList(option: String, args: [ArgTemplate])
   }
@@ -321,10 +324,14 @@ extension Job.Kind {
 
 extension Job.ArgTemplate: Codable {
   private enum CodingKeys: String, CodingKey {
-    case flag, path, responseFilePath, joinedOptionAndPath, squashedArgumentList
+    case flag, path, responseFilePath, joinedOptionAndPath, commaJoinedOptionAndPaths, squashedArgumentList
 
     enum JoinedOptionAndPathCodingKeys: String, CodingKey {
       case option, path
+    }
+
+    enum CommaJoinedOptionAndPathsCodingKeys: String, CodingKey {
+      case option, paths
     }
 
     enum SquashedArgumentListCodingKeys: String, CodingKey {
@@ -350,6 +357,12 @@ extension Job.ArgTemplate: Codable {
         forKey: .joinedOptionAndPath)
       try keyedContainer.encode(option, forKey: .option)
       try keyedContainer.encode(path, forKey: .path)
+    case let .commaJoinedOptionAndPaths(option, paths):
+      var keyedContainer = container.nestedContainer(
+        keyedBy: CodingKeys.CommaJoinedOptionAndPathsCodingKeys.self,
+        forKey: .commaJoinedOptionAndPaths)
+      try keyedContainer.encode(option, forKey: .option)
+      try keyedContainer.encode(paths, forKey: .paths)
     case .squashedArgumentList(option: let option, args: let args):
       var keyedContainer = container.nestedContainer(
         keyedBy: CodingKeys.SquashedArgumentListCodingKeys.self,
@@ -383,6 +396,12 @@ extension Job.ArgTemplate: Codable {
         forKey: .joinedOptionAndPath)
       self = .joinedOptionAndPath(try keyedValues.decode(String.self, forKey: .option),
                                   try keyedValues.decode(VirtualPath.self, forKey: .path))
+    case .commaJoinedOptionAndPaths:
+      let keyedValues = try values.nestedContainer(
+        keyedBy: CodingKeys.CommaJoinedOptionAndPathsCodingKeys.self,
+        forKey: .commaJoinedOptionAndPaths)
+      self = .commaJoinedOptionAndPaths(try keyedValues.decode(String.self, forKey: .option),
+                                        try keyedValues.decode([VirtualPath].self, forKey: .paths))
     case .squashedArgumentList:
       let keyedValues = try values.nestedContainer(
         keyedBy: CodingKeys.SquashedArgumentListCodingKeys.self,

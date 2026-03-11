@@ -128,6 +128,11 @@ public final class ArgsResolver {
     case let .joinedOptionAndPath(option, path):
       return option + (try resolve(.path(path)))
 
+    case let .commaJoinedOptionAndPaths(option, paths):
+      return try option + paths.map {
+        try resolve(.path($0))
+      }.joined(separator: ",")
+
     case let .squashedArgumentList(option: option, args: args):
       return try option + args.map {
         try resolve($0)

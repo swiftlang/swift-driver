@@ -861,6 +861,79 @@ final class CachingBuildTests: XCTestCase {
     }
   }
 
+  func testCommaJoinedPathRemapping() throws {
+    #if os(Windows)
+    try XCTSkipIf(true, "Skipping due to improper path mapping handling.")
+    #endif
+
+    try withTemporaryDirectory { path in
+      let main = path.appending(component: "testCommaJoinedPathRemapping.swift")
+      try localFileSystem.writeFileContents(main) {
+        $0.send("import C;")
+        $0.send("import E;")
+        $0.send("import G;")
+      }
+
+      // Create dummy profdata files so the driver doesn't emit missing data errors.
+      let profdata1 = path.appending(component: "prof1.profdata")
+      let profdata2 = path.appending(component: "prof2.profdata")
+      try localFileSystem.writeFileContents(profdata1, bytes: .init())
+      try localFileSystem.writeFileContents(profdata2, bytes: .init())
+
+      let cHeadersPath: AbsolutePath =
+          try testInputsPath.appending(component: "ExplicitModuleBuilds")
+                            .appending(component: "CHeaders")
+      let swiftModuleInterfacesPath: AbsolutePath =
+          try testInputsPath.appending(component: "ExplicitModuleBuilds")
+                            .appending(component: "Swift")
+      let casPath = path.appending(component: "cas")
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+      let dependencyOracle = InterModuleDependencyOracle()
+      var driver = try Driver(args: ["swiftc",
+                                     "-I", cHeadersPath.nativePathString(escaped: false),
+                                     "-I", swiftModuleInterfacesPath.nativePathString(escaped: false),
+                                     "-g", "-explicit-module-build",
+                                     "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: false),
+                                     "-working-directory", path.nativePathString(escaped: false),
+                                     "-disable-clang-target",
+                                     "-scanner-prefix-map-paths", path.nativePathString(escaped: false), "/^tmp",
+                                     "-profile-use=" + profdata1.nativePathString(escaped: false) + "," + profdata2.nativePathString(escaped: false),
+                                     main.nativePathString(escaped: false)] + sdkArgumentsForTesting,
+                              interModuleDependencyOracle: dependencyOracle)
+      guard driver.isFrontendArgSupported(.scannerPrefixMapPaths) else {
+        throw XCTSkip("frontend doesn't support prefix map")
+      }
+      let scanLibPath = try XCTUnwrap(driver.getSwiftScanLibPath())
+      try dependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
+      let resolver = try ArgsResolver(fileSystem: localFileSystem)
+
+      let jobs = try driver.planBuild()
+      for job in jobs {
+        if !job.kind.supportCaching {
+          continue
+        }
+        let command = try job.commandLine.map { try resolver.resolve($0) }
+        // Check that -profile-use= paths are remapped and don't contain the original temp path.
+        for arg in command {
+          if arg.hasPrefix("-profile-use=") {
+            let paths = String(arg.dropFirst("-profile-use=".count))
+            for profilePath in paths.split(separator: ",") {
+              XCTAssertTrue(profilePath.starts(with: "/^tmp"),
+                            "Expected remapped profile path, got: \(profilePath)")
+            }
+          }
+        }
+        // Verify no unremapped temp paths appear (except -cas-path).
+        for i in 0..<command.count {
+          if i >= 2 && command[i - 2] == "-cache-replay-prefix-map" { continue }
+          XCTAssertFalse(command[i] != casPath.description && command[i].starts(with: path.description),
+                         "Found unremapped path: \(command[i])")
+        }
+      }
+      XCTAssertFalse(driver.diagnosticEngine.hasErrors)
+    }
+  }
+
   func testCacheIncrementalBuildPlan() throws {
     try withTemporaryDirectory { path in
       try localFileSystem.changeCurrentWorkingDirectory(to: path)
