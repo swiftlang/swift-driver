@@ -434,7 +434,8 @@ extension Driver {
 
       assert(input.type.isPartOfSwiftCompilation)
       // We can skip the compile jobs if all we want is a module when it's
-      // built separately.
+      // built separately, unless we need per-file outputs like const values
+      // that only compile jobs can produce.
       let canSkipIfOnlyModule = compilerOutputType == .swiftModule && emitModuleSeparately
       try createAndAddCompileJob(primaryInput: input,
                                  emitModuleTrace: emitModuleTrace,
@@ -478,7 +479,7 @@ extension Driver {
   )  throws {
     // We can skip the compile jobs if all we want is a module when it's
     // built separately.
-    if parsedOptions.hasArgument(.driverExplicitModuleBuild), canSkipIfOnlyModule { return }
+    if canSkipIfOnlyModule { return }
     // If we are in the batch mode, the constructed jobs here will be batched
     // later. There is no need to produce cache key for the job.
     let compile = try compileJob(primaryInputs: [primaryInput],

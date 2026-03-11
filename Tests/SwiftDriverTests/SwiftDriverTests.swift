@@ -2026,7 +2026,7 @@ final class SwiftDriverTests: XCTestCase {
                                       "-output-file-map", outputFileMap.description])
       let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
 
-      XCTAssertEqual(plannedJobs.count, 3)
+      XCTAssertEqual(plannedJobs.count, 1)
       XCTAssertEqual(plannedJobs[0].kind, .emitModule)
       try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-serialize-diagnostics-path"), .path(.absolute(.init(validating: "/build/Foo-test.dia"))))
     }
@@ -2051,7 +2051,7 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertTrue(driver.diagnosticEngine.diagnostics.isEmpty)
 
       // Test the output path is correct for GeneratePCH job.
-      XCTAssertEqual(plannedJobs.count, 4)
+      XCTAssertEqual(plannedJobs.count, 2)
       XCTAssertEqual(plannedJobs[0].kind, .generatePCH)
       try XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-o"), .path(.absolute(.init(validating: "/build/Foo-bridging-header.pch"))))
 
@@ -3911,7 +3911,7 @@ final class SwiftDriverTests: XCTestCase {
       var driver = try Driver(args: ["swiftc", "-module-name=ThisModule", "main.swift", "multi-threaded.swift", "-emit-module", "-o", "test.swiftmodule", "-experimental-emit-module-separately"])
       let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
 
-      XCTAssertEqual(plannedJobs.count, 3)
+      XCTAssertEqual(plannedJobs.count, 1)
 
       XCTAssertEqual(plannedJobs[0].kind, .emitModule)
       XCTAssertJobInvocationMatches(plannedJobs[0], .flag("-emit-abi-descriptor-path"))
@@ -4636,8 +4636,8 @@ final class SwiftDriverTests: XCTestCase {
       // -experimental-emit-module-separately.
       var driver = try Driver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-experimental-emit-module-separately"])
       let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
-      XCTAssertEqual(plannedJobs.count, 3)
-      XCTAssertEqual(Set(plannedJobs.map { $0.kind }), Set([.emitModule, .compile]))
+      XCTAssertEqual(plannedJobs.count, 1)
+      XCTAssertEqual(plannedJobs[0].kind, .emitModule)
       XCTAssertTrue(plannedJobs[0].tool.name.contains("swift"))
       XCTAssertEqual(plannedJobs[0].outputs.count, driver.targetTriple.isDarwin ? 4 : 3)
       XCTAssertEqual(plannedJobs[0].outputs[0].file, .absolute(try .init(validating: rebase("Test.swiftmodule", at: root))))
