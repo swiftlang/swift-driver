@@ -2005,6 +2005,85 @@ func getStdlibShimsPaths(_ driver: Driver) throws -> (AbsolutePath, AbsolutePath
     }
   }
 
+  @Test func explicitSwiftModuleFileWithScanDeps() async throws {
+    try await withTemporaryDirectory { path in
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+      let (stdLibPath, shimsPath, _, _) = try getDriverArtifactsForScanning()
+
+      let explicitInputsDir = path.appending(component: "ExplicitInputs")
+      try localFileSystem.createDirectory(explicitInputsDir)
+      let srcBar = path.appending(component: "bar.swift")
+      let moduleBarPath = explicitInputsDir.appending(component: "BarInput.swiftmodule")
+      let moduleBarPathStr = moduleBarPath.nativePathString(escaped: false)
+      try localFileSystem.writeFileContents(srcBar, bytes: "public class KlassBar {}")
+
+      // Create BarInput.swiftmodule in a directory not on the -I search path
+      var barDriver = try TestDriver(
+        args: [
+          "swiftc",
+          "-Xcc", "-Xclang", "-Xcc", "-fbuiltin-headers-in-system-modules",
+          "-explicit-module-build",
+          "-working-directory", path.nativePathString(escaped: false),
+          srcBar.nativePathString(escaped: false),
+          "-module-name", "Bar",
+          "-emit-module",
+          "-emit-module-path", moduleBarPathStr,
+          "-module-cache-path", path.nativePathString(escaped: false),
+          "-I", stdLibPath.nativePathString(escaped: false),
+          "-I", shimsPath.nativePathString(escaped: false),
+        ] + sdkArgumentsForTesting
+      )
+
+      let barJobs = try await barDriver.planBuild()
+      try await barDriver.run(jobs: barJobs)
+      #expect(!barDriver.diagnosticEngine.hasErrors)
+      #expect(localFileSystem.exists(moduleBarPath))
+
+      let srcFoo = path.appending(component: "Foo.swift")
+      try localFileSystem.writeFileContents(
+        srcFoo,
+        bytes:
+          """
+          import Bar
+          public func run() -> Bar.KlassBar? { return nil }
+          """
+      )
+
+      var fooDriver = try TestDriver(
+        args: [
+          "swiftc",
+          "-Xcc", "-Xclang", "-Xcc", "-fbuiltin-headers-in-system-modules",
+          "-explicit-module-build",
+          "-working-directory", path.nativePathString(escaped: false),
+          srcFoo.nativePathString(escaped: false),
+          "-module-name", "Foo",
+          "-emit-module",
+          "-swift-module-file=Bar=\(moduleBarPathStr)",
+          "-module-cache-path", path.nativePathString(escaped: false),
+          "-I", stdLibPath.nativePathString(escaped: false),
+          "-I", shimsPath.nativePathString(escaped: false),
+        ] + sdkArgumentsForTesting
+      )
+
+      let scannerJob = try fooDriver.dependencyScanningJob()
+      #expect(scannerJob.commandLine.contains(.flag("-swift-module-file=Bar=\(moduleBarPathStr)")))
+
+      let fooJobs = try await fooDriver.planBuild()
+      let dependencyGraph = try #require(fooDriver.intermoduleDependencyGraph)
+      let barInfo = try #require(dependencyGraph.modules[.swiftPrebuiltExternal("Bar")])
+      #expect(VirtualPath.lookup(barInfo.modulePath.path) == .absolute(moduleBarPath))
+
+      let fooEmitModuleJobs = fooJobs.filter { $0.kind == .emitModule }
+      #expect(fooEmitModuleJobs.count == 1)
+      let fooEmitModuleJob = try #require(fooEmitModuleJobs.first)
+      #expect(!fooEmitModuleJob.commandLine.joinedUnresolvedArguments.contains("-swift-module-file="))
+      #expect(fooEmitModuleJob.inputs.contains(TypedVirtualPath(file: VirtualPath.absolute(moduleBarPath).intern(), type: .swiftModule)))
+
+      try await fooDriver.run(jobs: fooJobs)
+      #expect(!fooDriver.diagnosticEngine.hasErrors)
+    }
+  }
+
   @Test(.requireFrontendArgSupport(.moduleAlias)) func moduleAliasingInterfaceWithScanDeps() async throws {
     try await withTemporaryDirectory { path in
       let swiftModuleInterfacesPath: AbsolutePath =
