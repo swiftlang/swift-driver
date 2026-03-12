@@ -1416,6 +1416,37 @@ import Testing
     }
   }
 
+  @Test func explicitSwiftModuleFileInput() async throws {
+    // Compilation
+    do {
+      var driver = try TestDriver(args: ["swiftc", "-swift-module-file=Foo=/tmp/FooInput.swiftmodule", "foo.swift"])
+      let plannedJobs = try await driver.planBuild().removingAutolinkExtractJobs()
+      #expect(plannedJobs.count == 2)
+      let compileJob = plannedJobs[0]
+      expectJobInvocationMatches(
+        compileJob,
+        .flag("-swift-module-file=Foo=/tmp/FooInput.swiftmodule")
+      )
+    }
+    // Explicit build (only dependency scanning gets this flag)
+    do {
+      var driver = try TestDriver(args: [
+        "swiftc", "-swift-module-file=Foo=/tmp/FooInput.swiftmodule", "foo.swift",
+        "-explicit-module-build",
+      ])
+      let plannedJobs = try await driver.planBuild().removingAutolinkExtractJobs()
+      let compileJobs = plannedJobs.filter({ $0.kind == .compile })
+      #expect(compileJobs.count == 1)
+      let compileJob = compileJobs[0]
+      #expect(!compileJob.commandLine.joinedUnresolvedArguments.contains("-swift-module-file="))
+      let scannerJob = try driver.dependencyScanningJob()
+      expectJobInvocationMatches(
+        scannerJob,
+        .flag("-swift-module-file=Foo=/tmp/FooInput.swiftmodule")
+      )
+    }
+  }
+
   @Test func embeddedSwiftOptions() async throws {
     var env = ProcessEnv.block
     env["SWIFT_DRIVER_SWIFT_AUTOLINK_EXTRACT_EXEC"] = "/garbage/swift-autolink-extract"
