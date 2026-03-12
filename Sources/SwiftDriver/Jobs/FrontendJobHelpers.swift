@@ -328,6 +328,12 @@ extension Driver {
         .experimentalClangImporterDirectCc1Scan, from: &parsedOptions)
     }
 
+    // For explicitly-built modules, only forward -swift-module-file= to the scanning action,
+    // for implicitly-built modules, forward it to all compilation tasks.
+    if (isPlanJobForExplicitModule && kind == .scanDependencies) || !isPlanJobForExplicitModule {
+      try commandLine.appendAll(.swiftModuleFileEQ, from: &parsedOptions)
+    }
+
     // Expand the -experimental-hermetic-seal-at-link flag
     if parsedOptions.hasArgument(.experimentalHermeticSealAtLink) {
       commandLine.appendFlag("-enable-llvm-vfe")
