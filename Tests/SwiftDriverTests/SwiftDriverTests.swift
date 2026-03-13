@@ -9468,7 +9468,7 @@ private extension Array where Element == Job.ArgTemplate {
       switch $0 {
       case let .path(path):
         return path.basename == basename
-      case .flag, .responseFilePath, .joinedOptionAndPath, .squashedArgumentList:
+      case .flag, .responseFilePath, .joinedOptionAndPath, .commaJoinedOptionAndPaths, .squashedArgumentList:
         return false
       }
     }

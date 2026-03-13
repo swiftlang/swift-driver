@@ -244,11 +244,11 @@ extension Driver {
     try commandLine.appendLast(.suppressRemarks, from: &parsedOptions)
     try commandLine.appendLast(.suppressWarnings, from: &parsedOptions)
     try commandLine.appendLast(.profileGenerate, from: &parsedOptions)
-    try commandLine.appendLast(.profileUse, from: &parsedOptions)
+    try addLastArgumentWithPath(.profileUse, to: &commandLine, remap: jobNeedPathRemap)
     try commandLine.appendLast(.profileCoverageMapping, from: &parsedOptions)
     try commandLine.appendLast(.debugInfoForProfiling, from: &parsedOptions)
     if parsedOptions.hasArgument(.profileSampleUse) {
-        try commandLine.appendLast(.profileSampleUse, from: &parsedOptions)
+        try addLastArgumentWithPath(.profileSampleUse, to: &commandLine, remap: jobNeedPathRemap)
         // Use LLVM's "profi" to infer missing sample data from the profile.
         commandLine.appendFlag(.Xllvm)
         commandLine.appendFlag("-sample-profile-use-profi")
@@ -1250,15 +1250,23 @@ extension Driver {
   }
 
   public mutating func addPathOption(_ option: ParsedOption, to commandLine: inout [Job.ArgTemplate], remap: Bool = true) throws {
-    let path = try VirtualPath(path: option.argument.asSingle)
-    try addPathOption(option: option.option, path: path, to: &commandLine, remap: remap)
+    if option.option.kind == .commaJoined || option.option.kind == .multiArg {
+      let paths = try option.argument.asMultiple.map { try VirtualPath(path: $0) }
+      try addPathOptions(option: option.option, paths: paths, to: &commandLine, remap: remap)
+    } else {
+      let path = try VirtualPath(path: option.argument.asSingle)
+      try addPathOption(option: option.option, path: path, to: &commandLine, remap: remap)
+    }
+  }
+
+  private mutating func needsPathRemapping(for option: Option, remap: Bool) -> Bool {
+    remap && isCachingEnabled && option.attributes.contains(.argumentIsPath) &&
+    !option.attributes.contains(.cacheInvariant)
   }
 
   public mutating func addPathOption(option: Option, path: VirtualPath, to commandLine: inout [Job.ArgTemplate], remap: Bool = true) throws {
     assert(option.kind != .commaJoined && option.kind != .multiArg)
-    let needRemap = remap && isCachingEnabled && option.attributes.contains(.argumentIsPath) &&
-                    !option.attributes.contains(.cacheInvariant)
-    let commandPath = needRemap ? remapPath(path) : path
+    let commandPath = needsPathRemapping(for: option, remap: remap) ? remapPath(path) : path
     if option.kind == .joined {
       commandLine.append(.joinedOptionAndPath(option.spelling, commandPath))
     } else {
@@ -1270,12 +1278,17 @@ extension Driver {
 
   public mutating func addPathOptions(option: Option, paths: [VirtualPath], to commandLine: inout [Job.ArgTemplate], remap: Bool = true) throws {
     assert(option.kind == .commaJoined || option.kind == .multiArg)
-    let commandPaths = paths.map {
-      let needRemap = remap && isCachingEnabled && option.attributes.contains(.argumentIsPath) &&
-      !option.attributes.contains(.cacheInvariant)
-      return needRemap ? remapPath($0).name : $0.name
+    let needRemap = needsPathRemapping(for: option, remap: remap)
+    if option.kind == .commaJoined {
+      let commandPaths = paths.map { needRemap ? remapPath($0) : $0 }
+      commandLine.append(.commaJoinedOptionAndPaths(option.spelling, commandPaths))
+    } else {
+      commandLine.appendFlag(option)
+      for path in paths {
+        let commandPath = needRemap ? remapPath(path) : path
+        commandLine.appendPath(commandPath)
+      }
     }
-    commandLine.appendFlag(option.spelling + commandPaths.joined(separator: ","))
   }
 
   /// Helper function to add last argument with path to command-line.

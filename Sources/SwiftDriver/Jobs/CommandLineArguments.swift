@@ -190,6 +190,8 @@ extension Array where Element == Job.ArgTemplate {
         return "@\(path.name.spm_shellEscaped())"
       case let .joinedOptionAndPath(option, path):
         return option.spm_shellEscaped() + path.name.spm_shellEscaped()
+      case let .commaJoinedOptionAndPaths(option, paths):
+        return (option + paths.map(\.name).joined(separator: ",")).spm_shellEscaped()
       case let .squashedArgumentList(option, args):
         return (option + args.joinedUnresolvedArguments).spm_shellEscaped()
       }
@@ -207,6 +209,8 @@ extension Array where Element == Job.ArgTemplate {
         return "@\(path.name)"
       case let .joinedOptionAndPath(option, path):
         return option + path.name
+      case let .commaJoinedOptionAndPaths(option, paths):
+        return option + paths.map(\.name).joined(separator: ",")
       case let .squashedArgumentList(option, args):
         return option + args.joinedUnresolvedArguments
       }
