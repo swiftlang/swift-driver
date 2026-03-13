@@ -892,6 +892,7 @@ extension Option {
   public static let skipInheritedDocs: Option = Option("-skip-inherited-docs", .flag, attributes: [.helpHidden, .frontend, .noInteractive, .supplementaryOutput], helpText: "Skip emitting doc comments for members inherited through classes or default implementations")
   public static let skipProtocolImplementations: Option = Option("-skip-protocol-implementations", .flag, attributes: [.helpHidden, .frontend, .noInteractive, .supplementaryOutput], helpText: "Skip emitting symbols that are implementations of protocol requirements or inherited from protocol extensions")
   public static let skipSynthesizedMembers: Option = Option("-skip-synthesized-members", .flag, attributes: [.noDriver], helpText: "Skip members inherited through classes or default implementations")
+  public static let solverDisableBindingOptimizations: Option = Option("-solver-disable-binding-optimizations", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable experimental optimizations to speed up type variable binding")
   public static let solverDisableCrashOnValidSalvage: Option = Option("-solver-disable-crash-on-valid-salvage", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Accept valid solutions in diagnostic mode")
   public static let solverDisableOptimizeOperatorDefaults: Option = Option("-solver-disable-optimize-operator-defaults", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable experimental optimization to sometimes skip operators in protocol extensions")
   public static let solverDisablePerformanceHacks: Option = Option("-solver-disable-performance-hacks", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable various constraint solver performance optimizations that have been subsumed by subsequent improvements")
@@ -899,6 +900,7 @@ extension Option {
   public static let solverDisablePruneDisjunctions: Option = Option("-solver-disable-prune-disjunctions", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable experimental disjunction pruning algorithm for lookahead in the solver")
   public static let solverDisableSplitter: Option = Option("-solver-disable-splitter", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable the component splitter phase of expression type checking")
   public static let solverDisableTransitiveConformance: Option = Option("-solver-disable-transitive-conformance", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable transitive conformance constraint optimization")
+  public static let solverEnableBindingOptimizations: Option = Option("-solver-enable-binding-optimizations", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental optimizations to speed up type variable binding")
   public static let solverEnableCrashOnValidSalvage: Option = Option("-solver-enable-crash-on-valid-salvage", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Reject valid solutions in diagnostic mode")
   public static let solverEnableOptimizeOperatorDefaults: Option = Option("-solver-enable-optimize-operator-defaults", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental optimization to sometimes skip operators in protocol extensions")
   public static let solverEnablePerformanceHacks: Option = Option("-solver-enable-performance-hacks", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enble various constraint solver performance optimizations that have been subsumed by subsequent improvements")
@@ -928,7 +930,7 @@ extension Option {
   public static let suppressWarnings: Option = Option("-suppress-warnings", .flag, attributes: [.frontend], helpText: "Suppress all warnings")
   public static let swiftAsyncFramePointerEQ: Option = Option("-swift-async-frame-pointer=", .joined, attributes: [.helpHidden, .frontend, .noDriver], helpText: "One of 'auto', 'always' or 'never'")
   public static let swiftModuleCrossImport: Option = Option("-swift-module-cross-import", .multiArg, attributes: [.frontend, .noDriver], metaVar: "<moduleName> <crossImport.swiftoverlay>", helpText: "Specify the cross import module", numArgs: 2)
-  public static let swiftModuleFile: Option = Option("-swift-module-file=", .joined, attributes: [.frontend, .noDriver], metaVar: "<name>=<path>", helpText: "Specify Swift module input explicitly built from textual interface")
+  public static let swiftModuleFileEQ: Option = Option("-swift-module-file=", .joined, attributes: [.frontend, .argumentIsPath], metaVar: "<name>=<path>", helpText: "Specify Swift module dependency input explicitly")
   public static let swiftOnly: Option = Option("-swift-only", .flag, attributes: [.noDriver], helpText: "Only include APIs defined from Swift source")
   public static let swiftOnly_: Option = Option("--swift-only", .flag, alias: Option.swiftOnly, attributes: [.noDriver], helpText: "Only include APIs defined from Swift source")
   public static let swiftVersion: Option = Option("-swift-version", .separate, alias: Option.languageMode, attributes: [.helpHidden, .frontend, .synthesizeInterface, .moduleInterface], metaVar: "<vers>", helpText: "Interpret input according to a specific Swift language version number")
@@ -1917,6 +1919,7 @@ extension Option {
       Option.skipInheritedDocs,
       Option.skipProtocolImplementations,
       Option.skipSynthesizedMembers,
+      Option.solverDisableBindingOptimizations,
       Option.solverDisableCrashOnValidSalvage,
       Option.solverDisableOptimizeOperatorDefaults,
       Option.solverDisablePerformanceHacks,
@@ -1924,6 +1927,7 @@ extension Option {
       Option.solverDisablePruneDisjunctions,
       Option.solverDisableSplitter,
       Option.solverDisableTransitiveConformance,
+      Option.solverEnableBindingOptimizations,
       Option.solverEnableCrashOnValidSalvage,
       Option.solverEnableOptimizeOperatorDefaults,
       Option.solverEnablePerformanceHacks,
@@ -1953,7 +1957,7 @@ extension Option {
       Option.suppressWarnings,
       Option.swiftAsyncFramePointerEQ,
       Option.swiftModuleCrossImport,
-      Option.swiftModuleFile,
+      Option.swiftModuleFileEQ,
       Option.swiftOnly,
       Option.swiftOnly_,
       Option.swiftVersion,

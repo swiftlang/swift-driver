@@ -7893,6 +7893,33 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testExplicitSwiftModuleFileInput() throws {
+    // Compilation
+    do {
+      var driver = try Driver(args: ["swiftc", "-swift-module-file=Foo=/tmp/FooInput.swiftmodule", "foo.swift"])
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      XCTAssertEqual(plannedJobs.count, 2)
+      let compileJob = plannedJobs[0]
+      XCTAssertJobInvocationMatches(compileJob,
+                                    .joinedOptionAndPath("-swift-module-file=",
+                                                         try toPath("Foo=/tmp/FooInput.swiftmodule")))
+    }
+    // Explicit build (only dependency scanning gets this flag)
+    do {
+      var driver = try Driver(args: ["swiftc", "-swift-module-file=Foo=/tmp/FooInput.swiftmodule", "foo.swift",
+                                     "-explicit-module-build"])
+      let plannedJobs = try driver.planBuild().removingAutolinkExtractJobs()
+      let compileJobs = plannedJobs.filter({ $0.kind == .compile })
+      XCTAssertEqual(compileJobs.count, 1)
+      let compileJob = compileJobs[0]
+      XCTAssertFalse(compileJob.commandLine.joinedUnresolvedArguments.contains("-swift-module-file="))
+      let scannerJob = try driver.dependencyScanningJob()
+      XCTAssertJobInvocationMatches(scannerJob,
+                                    .joinedOptionAndPath("-swift-module-file=",
+                                                         try toPath("Foo=/tmp/FooInput.swiftmodule")))
+    }
+  }
+
   func testEmbeddedSwiftOptions() throws {
     var env = ProcessEnv.block
     env["SWIFT_DRIVER_SWIFT_AUTOLINK_EXTRACT_EXEC"] = "/garbage/swift-autolink-extract"
