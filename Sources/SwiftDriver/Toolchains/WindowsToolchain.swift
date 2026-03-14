@@ -91,6 +91,8 @@ extension WindowsToolchain.ToolchainValidationError {
       return try lookup(executable: "llvm-dwarfdump")
     case .swiftHelp:
       return try lookup(executable: "swift-help")
+    case .emcc:
+      return try lookup(executable: "emcc")
     }
   }
 

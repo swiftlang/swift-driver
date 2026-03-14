@@ -74,7 +74,7 @@ extension WebAssemblyToolchain {
       // approach of just using `clang` and avoid a dependency on the C++ runtime.
       var linkerPath: AbsolutePath
       if isEmscripten {
-        linkerPath = try lookup(executable: "emcc")
+        linkerPath = try getToolPath(.emcc)
         if let toolsDirPath = parsedOptions.getLastArgument(.toolsDirectory) {
           let toolsDir = try AbsolutePath(validating: toolsDirPath.asSingle)
           if let tool = lookupExecutablePath(filename: "emcc", searchPaths: [toolsDir]) {

@@ -33,12 +33,13 @@ public enum Tool: Hashable {
   case dwarfdump
   case swiftHelp
   case swiftAPIDigester
+  case emcc
 
   /// Returns a value indicating whether or not the tool supports passing arguments via response
   /// files.
   public func supportsResponseFiles(in toolchain: Toolchain) -> Bool {
     switch self {
-    case .swiftCompiler, .clang, .clangxx, .swiftAutolinkExtract, .swiftAPIDigester:
+    case .swiftCompiler, .clang, .clangxx, .swiftAutolinkExtract, .swiftAPIDigester, .emcc:
       return true
 
     case .dsymutil, .lldb, .dwarfdump, .swiftHelp:
