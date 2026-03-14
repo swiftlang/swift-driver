@@ -2909,13 +2909,27 @@ final class SwiftDriverTests: XCTestCase {
         }
         var driver = try Driver(args: commonArgs + ["-emit-executable", "-Ounchecked",
                                                     "-target", "wasm32-unknown-emscripten",
+                                                    "-Xlinker", "--export=myFunc",
+                                                    "-Xclang-linker", "-resource-dir",
+                                                    "-Xclang-linker", "/fake/clang/dir",
+                                                    "-Xemcc-linker", "-sENVIRONMENT=shell",
+                                                    "-Xemcc-linker", "-sALLOW_MEMORY_GROWTH",
                                                     "-resource-dir", path.pathString], env: env)
         let plannedJobs = try driver.planBuild()
         let linkJob = plannedJobs.last!
         let cmd = linkJob.commandLine
 
-        // emcc should NOT get -Xlinker flags
-        XCTAssertFalse(cmd.contains(.flag("-Xlinker")))
+        // emcc supports -Xlinker for passing flags to wasm-ld
+        XCTAssertTrue(cmd.contains(subsequence: [.flag("-Xlinker"), .flag("--export=myFunc")]))
+        // -Xclang-linker is clang-specific — should NOT be forwarded to emcc
+        XCTAssertFalse(cmd.contains(.flag("-resource-dir")))
+        XCTAssertFalse(cmd.contains(.flag("/fake/clang/dir")))
+
+        // -Xemcc-linker flags appear directly in emcc command (not wrapped in -Xlinker)
+        XCTAssertTrue(cmd.contains(.flag("-sENVIRONMENT=shell")))
+        XCTAssertTrue(cmd.contains(.flag("-sALLOW_MEMORY_GROWTH")))
+        // They must NOT be preceded by -Xlinker (that would forward them to wasm-ld)
+        XCTAssertFalse(cmd.contains(subsequence: [.flag("-Xlinker"), .flag("-sENVIRONMENT=shell")]))
 
         // Linker flags should use emcc -s settings
         XCTAssertTrue(cmd.contains(.flag("-sGLOBAL_BASE=4096")))
@@ -2924,9 +2938,54 @@ final class SwiftDriverTests: XCTestCase {
         XCTAssertTrue(cmd.contains(.flag("-O3")))
         XCTAssertEqual(linkJob.outputs[0].file, try toPath("Test.js"))
 
-        // emcc manages its own target and sysroot
+        // emcc manages its own target, sysroot, and system libraries
         XCTAssertFalse(cmd.contains(subsequence: ["-target", "wasm32-unknown-emscripten"]))
         XCTAssertFalse(cmd.contains(.flag("--sysroot")))
+        XCTAssertFalse(cmd.contains(.flag("-ldlmalloc")))
+        XCTAssertFalse(cmd.contains(.flag("-lstandalonewasm")))
+      }
+    }
+
+    do {
+      // -Xclang-linker should warn for Emscripten targets
+      try withTemporaryDirectory { resourceDir in
+        try localFileSystem.writeFileContents(
+          resourceDir.appending(components: "emscripten", "static-executable-args.lnk")
+        ) { $0.send("garbage") }
+
+        try assertDriverDiagnostics(
+          args: ["swiftc", "-no-color-diagnostics",
+                 "-target", "wasm32-unknown-emscripten",
+                 "-resource-dir", resourceDir.pathString,
+                 "-Xclang-linker", "-resource-dir",
+                 "-Xclang-linker", "/fake/path",
+                 "foo.swift"],
+          env: env
+        ) { driver, verifier in
+          verifier.expect(.warning("'-Xclang-linker -resource-dir' is not supported for Emscripten targets; use '-Xemcc-linker' to pass flags to emcc"))
+          verifier.expect(.warning("'-Xclang-linker /fake/path' is not supported for Emscripten targets; use '-Xemcc-linker' to pass flags to emcc"))
+        }
+      }
+    }
+
+    do {
+      // -Xemcc-linker should warn for non-Emscripten (WASI) targets
+      try withTemporaryDirectory { resourceDir in
+        try localFileSystem.writeFileContents(
+          resourceDir.appending(components: "wasi",
+                                "static-executable-args.lnk")
+        ) { $0.send("garbage") }
+
+        try assertDriverDiagnostics(
+          args: ["swiftc", "-no-color-diagnostics",
+                 "-target", "wasm32-unknown-wasi",
+                 "-resource-dir", resourceDir.pathString,
+                 "-Xemcc-linker", "-sENVIRONMENT=shell",
+                 "foo.swift"],
+          env: env
+        ) { driver, verifier in
+          verifier.expect(.warning("'-Xemcc-linker -sENVIRONMENT=shell' is only supported for Emscripten targets"))
+        }
       }
     }
 
@@ -5792,6 +5851,28 @@ final class SwiftDriverTests: XCTestCase {
           let frontendJobs = try driver.planBuild().removingAutolinkExtractJobs()
           XCTAssertEqual(frontendJobs.count, 2)
           XCTAssertJobInvocationMatches(frontendJobs[1], .flag("-B"), .path(.absolute(tmpDir)))
+        }
+      }
+
+      // Emscripten toolchain — emcc should NOT get -B
+      do {
+        var env = ProcessEnv.block
+        env["SWIFT_DRIVER_SWIFT_AUTOLINK_EXTRACT_EXEC"] = "//bin/swift-autolink-extract"
+        env["SWIFT_DRIVER_EMCC_EXEC"] = "//bin/emcc"
+
+        try withTemporaryDirectory { resourceDir in
+          try localFileSystem.writeFileContents(resourceDir.appending(components: "emscripten", "static-executable-args.lnk")) {
+            $0.send("garbage")
+          }
+          var driver = try Driver(args: ["swiftc",
+                                         "-target", "wasm32-unknown-emscripten",
+                                         "-resource-dir", resourceDir.pathString,
+                                         "-tools-directory", tmpDir.pathString,
+                                         "foo.swift"],
+                                  env: env)
+          let frontendJobs = try driver.planBuild().removingAutolinkExtractJobs()
+          let linkJob = frontendJobs.last!
+          XCTAssertFalse(linkJob.commandLine.contains(.flag("-B")))
         }
       }
     }

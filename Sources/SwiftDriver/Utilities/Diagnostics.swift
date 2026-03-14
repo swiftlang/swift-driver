@@ -190,4 +190,12 @@ extension Diagnostic.Message {
   static var warning_ignoring_opt_record_path_with_file_map: Diagnostic.Message {
     .warning("ignoring '-save-optimization-record-path' because output file map contains optimization record entries")
   }
+
+  static func warning_xclang_linker_unsupported_for_emscripten(_ value: String) -> Diagnostic.Message {
+    .warning("'-Xclang-linker \(value)' is not supported for Emscripten targets; use '-Xemcc-linker' to pass flags to emcc")
+  }
+
+  static func warning_xemcc_linker_unsupported_for_non_emscripten(_ value: String) -> Diagnostic.Message {
+    .warning("'-Xemcc-linker \(value)' is only supported for Emscripten targets")
+  }
 }

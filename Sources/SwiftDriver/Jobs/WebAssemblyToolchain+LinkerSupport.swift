@@ -80,8 +80,8 @@ extension WebAssemblyToolchain {
           if let tool = lookupExecutablePath(filename: "emcc", searchPaths: [toolsDir]) {
             linkerPath = tool
           }
-          commandLine.appendFlag("-B")
-          commandLine.appendPath(toolsDir)
+          // emcc manages its own tool search paths and doesn't support
+          // the -B flag like clang does, so don't forward it.
         }
       } else {
         linkerPath = try getToolPath(.clang)
@@ -256,7 +256,18 @@ extension WebAssemblyToolchain {
         from: &parsedOptions
       )
       addLinkedLibArgs(to: &commandLine, parsedOptions: &parsedOptions)
-      try addExtraClangLinkerArgs(to: &commandLine, parsedOptions: &parsedOptions)
+      if isEmscripten {
+        // emcc supports -Xlinker for passing flags to wasm-ld, but
+        // -Xclang-linker is clang-specific and must not be forwarded.
+        for linkerOpt in parsedOptions.arguments(for: .Xlinker) {
+          commandLine.appendFlag(.Xlinker)
+          commandLine.appendFlag(linkerOpt.argument.asSingle)
+        }
+        // -Xemcc-linker passes arguments directly to emcc.
+        try commandLine.appendAllArguments(.XemccLinker, from: &parsedOptions)
+      } else {
+        try addExtraClangLinkerArgs(to: &commandLine, parsedOptions: &parsedOptions)
+      }
 
         // This should be the last option, for convenience in checking output.
       commandLine.appendFlag(.o)

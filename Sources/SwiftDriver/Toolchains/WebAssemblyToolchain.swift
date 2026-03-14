@@ -13,6 +13,8 @@
 import SwiftOptions
 
 import struct TSCBasic.AbsolutePath
+import struct TSCBasic.Diagnostic
+import class TSCBasic.DiagnosticsEngine
 import protocol TSCBasic.DiagnosticData
 import protocol TSCBasic.FileSystem
 import var TSCBasic.localFileSystem
@@ -165,5 +167,22 @@ public final class WebAssemblyToolchain: Toolchain {
                                                               sdkPath: VirtualPath.Handle?,
                                                               targetInfo: FrontendTargetInfo) throws -> ProcessEnvironmentBlock {
     throw Error.interactiveModeUnsupportedForTarget(targetInfo.target.triple.triple)
+  }
+
+  public func validateArgs(_ parsedOptions: inout ParsedOptions,
+                           targetTriple: Triple, targetVariantTriple: Triple?,
+                           compilerOutputType: FileType?,
+                           diagnosticsEngine: DiagnosticsEngine) throws {
+    if targetTriple.os == .emscripten {
+      for arg in parsedOptions.arguments(for: .XclangLinker) {
+        diagnosticsEngine.emit(
+          .warning_xclang_linker_unsupported_for_emscripten(arg.argument.asSingle))
+      }
+    } else {
+      for arg in parsedOptions.arguments(for: .XemccLinker) {
+        diagnosticsEngine.emit(
+          .warning_xemcc_linker_unsupported_for_non_emscripten(arg.argument.asSingle))
+      }
+    }
   }
 }

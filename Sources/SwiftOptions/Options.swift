@@ -1031,6 +1031,7 @@ extension Option {
   public static let Wwarning: Option = Option("-Wwarning", .separate, attributes: [.helpHidden, .frontend], metaVar: "<diagnostic_group>", helpText: "Treat this warning group as warning", group: .warningTreating)
   public static let Xcc: Option = Option("-Xcc", .separate, attributes: [.frontend, .synthesizeInterface], metaVar: "<arg>", helpText: "Pass <arg> to the C/C++/Objective-C compiler")
   public static let XclangLinker: Option = Option("-Xclang-linker", .separate, attributes: [.helpHidden], metaVar: "<arg>", helpText: "Pass <arg> to Clang when it is used for linking.")
+  public static let XemccLinker: Option = Option("-Xemcc-linker", .separate, attributes: [.helpHidden], metaVar: "<arg>", helpText: "Pass <arg> to emcc when it is used for linking.")
   public static let Xfrontend: Option = Option("-Xfrontend", .separate, attributes: [.helpHidden], metaVar: "<arg>", helpText: "Pass <arg> to the Swift frontend")
   public static let Xlinker: Option = Option("-Xlinker", .separate, attributes: [.doesNotAffectIncrementalBuild], helpText: "Specifies an option which should be passed to the linker")
   public static let Xllvm: Option = Option("-Xllvm", .separate, attributes: [.helpHidden, .frontend], metaVar: "<arg>", helpText: "Pass <arg> to LLVM.")
@@ -2053,6 +2054,7 @@ extension Option {
       Option.Wwarning,
       Option.Xcc,
       Option.XclangLinker,
+      Option.XemccLinker,
       Option.Xfrontend,
       Option.Xlinker,
       Option.Xllvm,
