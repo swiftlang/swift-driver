@@ -132,6 +132,8 @@ public final class WebAssemblyToolchain: Toolchain {
       return try lookup(executable: "swift-help")
     case .swiftAPIDigester:
       return try lookup(executable: "swift-api-digester")
+    case .emcc:
+      return try lookup(executable: "emcc")
     }
   }
 
