@@ -769,6 +769,11 @@ import Testing
           args: commonArgs + [
             "-emit-executable", "-Ounchecked",
             "-target", "wasm32-unknown-emscripten",
+            "-Xlinker", "--export=myFunc",
+            "-Xclang-linker", "-resource-dir",
+            "-Xclang-linker", "/fake/clang/dir",
+            "-Xemcc-linker", "-sENVIRONMENT=shell",
+            "-Xemcc-linker", "-sALLOW_MEMORY_GROWTH",
             "-resource-dir", path.pathString,
           ],
           env: env
@@ -777,8 +782,17 @@ import Testing
         let linkJob = plannedJobs.last!
         let cmd = linkJob.commandLine
 
-        // emcc should NOT get -Xlinker flags
-        #expect(!cmd.contains(.flag("-Xlinker")))
+        // emcc supports -Xlinker for passing flags to wasm-ld
+        #expect(cmd.contains(subsequence: [.flag("-Xlinker"), .flag("--export=myFunc")]))
+        // -Xclang-linker is clang-specific — should NOT be forwarded to emcc
+        #expect(!cmd.contains(.flag("-resource-dir")))
+        #expect(!cmd.contains(.flag("/fake/clang/dir")))
+
+        // -Xemcc-linker flags appear directly in emcc command (not wrapped in -Xlinker)
+        #expect(cmd.contains(.flag("-sENVIRONMENT=shell")))
+        #expect(cmd.contains(.flag("-sALLOW_MEMORY_GROWTH")))
+        // They must NOT be preceded by -Xlinker (that would forward them to wasm-ld)
+        #expect(!cmd.contains(subsequence: [.flag("-Xlinker"), .flag("-sENVIRONMENT=shell")]))
 
         // Linker flags should use emcc -s settings
         #expect(cmd.contains(.flag("-sGLOBAL_BASE=4096")))
@@ -787,9 +801,53 @@ import Testing
         #expect(cmd.contains(.flag("-O3")))
         #expect(try linkJob.outputs[0].file == toPath("Test.js"))
 
-        // emcc manages its own target and sysroot
+        // emcc manages its own target, sysroot, and system libraries
         #expect(!cmd.contains(subsequence: ["-target", "wasm32-unknown-emscripten"]))
         #expect(!cmd.contains(.flag("--sysroot")))
+        #expect(!cmd.contains(.flag("-ldlmalloc")))
+        #expect(!cmd.contains(.flag("-lstandalonewasm")))
+      }
+    }
+
+    do {
+      // -Xclang-linker should warn for Emscripten targets
+      try await withTemporaryDirectory { resourceDir in
+        try localFileSystem.writeFileContents(
+          resourceDir.appending(components: "emscripten", "static-executable-args.lnk")
+        ) { $0.send("garbage") }
+
+        try await assertDriverDiagnostics(
+          args: ["swiftc", "-no-color-diagnostics",
+                 "-target", "wasm32-unknown-emscripten",
+                 "-resource-dir", resourceDir.pathString,
+                 "-Xclang-linker", "-resource-dir",
+                 "-Xclang-linker", "/fake/path",
+                 "foo.swift"],
+          env: env
+        ) { driver, verifier in
+          verifier.expect(.warning("'-Xclang-linker -resource-dir' is not supported for Emscripten targets; use '-Xemcc-linker' to pass flags to emcc"))
+          verifier.expect(.warning("'-Xclang-linker /fake/path' is not supported for Emscripten targets; use '-Xemcc-linker' to pass flags to emcc"))
+        }
+      }
+    }
+
+    do {
+      // -Xemcc-linker should warn for non-Emscripten (WASI) targets
+      try await withTemporaryDirectory { resourceDir in
+        try localFileSystem.writeFileContents(
+          resourceDir.appending(components: "wasi", "static-executable-args.lnk")
+        ) { $0.send("garbage") }
+
+        try await assertDriverDiagnostics(
+          args: ["swiftc", "-no-color-diagnostics",
+                 "-target", "wasm32-unknown-wasi",
+                 "-resource-dir", resourceDir.pathString,
+                 "-Xemcc-linker", "-sENVIRONMENT=shell",
+                 "foo.swift"],
+          env: env
+        ) { driver, verifier in
+          verifier.expect(.warning("'-Xemcc-linker -sENVIRONMENT=shell' is only supported for Emscripten targets"))
+        }
       }
     }
 
