@@ -135,6 +135,9 @@ public enum FileType: String, Hashable, CaseIterable, Codable {
   /// Swift section of the internal wiki.
   case moduleTrace = "trace.json"
 
+  /// Time trace profiling output
+  case timeTrace = "time-trace.json"
+
   /// Indexing data directory
   ///
   /// The extension isn't real, rather this FileType specifies a directory path.
@@ -241,6 +244,9 @@ extension FileType: CustomStringConvertible {
     case .moduleTrace:
       return "module-trace"
 
+    case .timeTrace:
+      return "time-trace"
+
     case .indexData:
       return "index-data"
 
@@ -306,7 +312,7 @@ extension FileType {
          .jsonSwiftArtifacts, .indexUnitOutputPath, .modDepCache, .jsonAPIBaseline,
          .jsonABIBaseline, .swiftConstValues, .jsonAPIDescriptor,
          .moduleSummary, .moduleSemanticInfo, .cachedDiagnostics, .raw_llvmIr,
-         .jsonSupportedFeatures:
+         .jsonSupportedFeatures, .timeTrace:
       return false
     }
   }
@@ -420,6 +426,8 @@ extension FileType {
       return "imported-modules"
     case .moduleTrace:
       return "module-trace"
+    case .timeTrace:
+      return "time-trace"
     case .indexData:
       return "index-data"
     case .yamlOptimizationRecord:
@@ -459,7 +467,7 @@ extension FileType {
     switch self {
     case .swift, .sil, .dependencies, .emitModuleDependencies, .assembly, .ast,
          .raw_sil, .llvmIR,.objcHeader, .autolink, .importedModules, .tbd,
-         .moduleTrace, .yamlOptimizationRecord, .swiftInterface, .privateSwiftInterface, .packageSwiftInterface,
+         .moduleTrace, .timeTrace, .yamlOptimizationRecord, .swiftInterface, .privateSwiftInterface, .packageSwiftInterface,
          .jsonDependencies, .clangModuleMap, .jsonCompilerFeatures, .jsonTargetInfo,
          .jsonSwiftArtifacts, .jsonAPIBaseline, .jsonABIBaseline, .swiftConstValues,
          .jsonAPIDescriptor, .moduleSummary, .moduleSemanticInfo, .cachedDiagnostics,
@@ -483,7 +491,7 @@ extension FileType {
          .autolink, .swiftModule, .swiftDocumentation, .swiftInterface,
          .privateSwiftInterface, .packageSwiftInterface, .swiftSourceInfoFile, .raw_sil, .raw_sib,
          .diagnostics, .emitModuleDiagnostics, .objcHeader, .swiftDeps, .remap,
-         .importedModules, .tbd, .moduleTrace, .indexData, .yamlOptimizationRecord,
+         .importedModules, .tbd, .moduleTrace, .timeTrace, .indexData, .yamlOptimizationRecord,
          .modDepCache, .bitstreamOptimizationRecord, .pcm, .pch, .jsonDependencies,
          .clangModuleMap, .jsonCompilerFeatures, .jsonTargetInfo, .jsonSwiftArtifacts,
          .indexUnitOutputPath, .jsonAPIBaseline, .jsonABIBaseline, .swiftConstValues,
@@ -498,7 +506,7 @@ extension FileType {
     switch self {
     case .swift, .ast, .indexData, .indexUnitOutputPath, .jsonCompilerFeatures, .jsonTargetInfo, .jsonSupportedFeatures:
       return false
-    case .sil, .sib, .image, .object, .dSYM, .dependencies, .autolink, .swiftModule, .swiftDocumentation, .swiftInterface, .privateSwiftInterface, .packageSwiftInterface, .swiftSourceInfoFile, .swiftConstValues, .assembly, .raw_sil, .raw_sib, .llvmIR, .llvmBitcode, .diagnostics, .emitModuleDiagnostics, .emitModuleDependencies, .objcHeader, .swiftDeps, .modDepCache, .remap, .importedModules, .tbd, .jsonDependencies, .jsonSwiftArtifacts, .moduleTrace, .yamlOptimizationRecord, .bitstreamOptimizationRecord, .pcm, .pch, .clangModuleMap, .jsonAPIBaseline, .jsonABIBaseline, .jsonAPIDescriptor, .moduleSummary, .moduleSemanticInfo, .cachedDiagnostics, .raw_llvmIr, .dependencyScanDiagnostics:
+    case .sil, .sib, .image, .object, .dSYM, .dependencies, .autolink, .swiftModule, .swiftDocumentation, .swiftInterface, .privateSwiftInterface, .packageSwiftInterface, .swiftSourceInfoFile, .swiftConstValues, .assembly, .raw_sil, .raw_sib, .llvmIR, .llvmBitcode, .diagnostics, .emitModuleDiagnostics, .emitModuleDependencies, .objcHeader, .swiftDeps, .modDepCache, .remap, .importedModules, .tbd, .jsonDependencies, .jsonSwiftArtifacts, .moduleTrace, .timeTrace, .yamlOptimizationRecord, .bitstreamOptimizationRecord, .pcm, .pch, .clangModuleMap, .jsonAPIBaseline, .jsonABIBaseline, .jsonAPIDescriptor, .moduleSummary, .moduleSemanticInfo, .cachedDiagnostics, .raw_llvmIr, .dependencyScanDiagnostics:
       return true
     }
   }
@@ -517,7 +525,7 @@ extension FileType {
          .dependencies, .emitModuleDependencies, .swiftModule, .dependencyScanDiagnostics,
          .swiftDocumentation, .swiftInterface, .privateSwiftInterface, .packageSwiftInterface,
          .swiftSourceInfoFile, .raw_sil, .raw_sib, .objcHeader, .swiftDeps, .tbd,
-         .moduleTrace, .indexData, .yamlOptimizationRecord,
+         .moduleTrace, .timeTrace, .indexData, .yamlOptimizationRecord,
          .bitstreamOptimizationRecord, .pcm, .pch, .jsonDependencies,
          .jsonAPIBaseline, .jsonABIBaseline, .swiftConstValues, .jsonAPIDescriptor,
          .moduleSummary, .moduleSemanticInfo, .cachedDiagnostics, .raw_llvmIr:

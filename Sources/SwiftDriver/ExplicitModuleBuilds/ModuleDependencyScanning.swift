@@ -55,7 +55,10 @@ extension Diagnostic.Message {
   /// module dependencies.
   mutating func scanModuleDependencies(forVariantModule: Bool = false)
   throws -> InterModuleDependencyGraph {
-    let dependencyGraph = try performDependencyScan(forVariantModule: forVariantModule)
+    let dependencyGraph =
+      try timeTrace?.measure("Dependency Scanning") {
+        try performDependencyScan(forVariantModule: forVariantModule)
+      } ?? performDependencyScan(forVariantModule: forVariantModule)
 
     if parsedOptions.hasArgument(.printPreprocessedExplicitDependencyGraph) {
       try stdoutStream.send(dependencyGraph.toJSONString())
