@@ -250,16 +250,16 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
       // Include the main module name in the trace file name to avoid collisions
       // when multiple targets compile the same dependency module.
       if enableTimeTrace {
-        commandLine.appendFlag("-ftime-trace")
+        commandLine.appendFlag("-time-trace")
         let suffix = mainModuleName.map { "-for-" + $0 } ?? ""
         let traceFileName = (outputModulePath.file.basenameWithoutExt + suffix)
           .appendingFileTypeExtension(.timeTrace)
         let tracePath = outputModulePath.file.parentDirectory
           .appending(component: traceFileName)
-        commandLine.appendFlag("-ftime-trace-path")
+        commandLine.appendFlag("-time-trace-path")
         commandLine.appendPath(tracePath)
         if let granularity = timeTraceGranularity {
-          commandLine.appendFlag("-ftime-trace-granularity")
+          commandLine.appendFlag("-time-trace-granularity")
           commandLine.appendFlag(String(granularity))
         }
       }
@@ -334,16 +334,16 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
       // Include the main module name in the trace file name to avoid collisions
       // when multiple targets compile the same dependency module.
       if enableTimeTrace {
-        commandLine.appendFlag("-ftime-trace")
+        commandLine.appendFlag("-time-trace")
         let suffix = mainModuleName.map { "-for-" + $0 } ?? ""
         let traceFileName = (modulePCMPath.file.basenameWithoutExt + suffix)
           .appendingFileTypeExtension(.timeTrace)
         let tracePath = modulePCMPath.file.parentDirectory
           .appending(component: traceFileName)
-        commandLine.appendFlag("-ftime-trace-path")
+        commandLine.appendFlag("-time-trace-path")
         commandLine.appendPath(tracePath)
         if let granularity = timeTraceGranularity {
-          commandLine.appendFlag("-ftime-trace-granularity")
+          commandLine.appendFlag("-time-trace-granularity")
           commandLine.appendFlag(String(granularity))
         }
       }

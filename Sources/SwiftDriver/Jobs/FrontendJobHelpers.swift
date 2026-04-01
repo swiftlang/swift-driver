@@ -274,7 +274,7 @@ extension Driver {
     try commandLine.appendLast(.traceStatsEvents, from: &parsedOptions)
     try commandLine.appendLast(.profileStatsEvents, from: &parsedOptions)
     try commandLine.appendLast(.profileStatsEntities, from: &parsedOptions)
-    try commandLine.appendLast(.ftimeTraceGranularity, from: &parsedOptions)
+    try commandLine.appendLast(.timeTraceGranularity, from: &parsedOptions)
     try commandLine.appendLast(.solverShrinkUnsolvedThreshold, from: &parsedOptions)
     try commandLine.appendLast(in: .O, from: &parsedOptions)
     try commandLine.appendLast(.RemoveRuntimeAsserts, from: &parsedOptions)
@@ -1002,7 +1002,7 @@ extension Driver {
         outputType: .timeTrace,
         finalOutputPath: timeTraceOutputPath,
         input: input,
-        flag: "-ftime-trace-path")
+        flag: "-time-trace-path")
     }
 
     let optRecordTypeWarning = self.optimizationRecordFileType ?? .yamlOptimizationRecord

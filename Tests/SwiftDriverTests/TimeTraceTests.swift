@@ -43,20 +43,20 @@ final class TimeTraceTests: XCTestCase {
   }
 
   func testTimeTraceDriverProperty() throws {
-    var driver1 = try Driver(args: ["swiftc", "-c", "-ftime-trace", "foo.swift"])
+    var driver1 = try Driver(args: ["swiftc", "-c", "-time-trace", "foo.swift"])
     XCTAssertTrue(driver1.timeTrace.enabled)
     var driver2 = try Driver(args: ["swiftc", "-c", "foo.swift"])
     XCTAssertFalse(driver2.timeTrace.enabled)
   }
 
   func testTimeTracePlanBuild() throws {
-    var driver = try Driver(args: ["swiftc", "-c", "-ftime-trace", "foo.swift"])
+    var driver = try Driver(args: ["swiftc", "-c", "-time-trace", "foo.swift"])
     let _ = try driver.planBuild()
     XCTAssertTrue(driver.timeTrace.hasEvent(named: "Plan Build"))
   }
 
   func testTimeTracePlanSubPhases() throws {
-    var driver = try Driver(args: ["swiftc", "-c", "-ftime-trace", "foo.swift"])
+    var driver = try Driver(args: ["swiftc", "-c", "-time-trace", "foo.swift"])
     let _ = try driver.planBuild()
     XCTAssertTrue(driver.timeTrace.hasEvent(named: "Compute Jobs"))
   }
@@ -65,8 +65,8 @@ final class TimeTraceTests: XCTestCase {
     try withTemporaryDirectory { dir in
       let tracePath = dir.appending(component: "foo.time-trace.json")
       var driver = try Driver(args: [
-        "swiftc", "-c", "-ftime-trace",
-        "-ftime-trace-path", tracePath.pathString,
+        "swiftc", "-c", "-time-trace",
+        "-time-trace-path", tracePath.pathString,
         "foo.swift"
       ])
       let jobs = try driver.planBuild()
@@ -112,7 +112,7 @@ final class TimeTraceTests: XCTestCase {
                                      "-I", stdlibPath.nativePathString(escaped: false),
                                      "-I", shimsPath.nativePathString(escaped: false),
                                      "-explicit-module-build",
-                                     "-ftime-trace",
+                                     "-time-trace",
                                      "-disable-implicit-concurrency-module-import",
                                      "-disable-implicit-string-processing-module-import",
                                      "-import-objc-header", bridgingHeaderpath.nativePathString(escaped: false),
@@ -125,8 +125,8 @@ final class TimeTraceTests: XCTestCase {
 
       for job in interfaceJobs {
         XCTAssertTrue(
-          job.commandLine.contains(.flag("-ftime-trace")),
-          "Expected -ftime-trace in \(job.moduleName) compileModuleFromInterface job command line"
+          job.commandLine.contains(.flag("-time-trace")),
+          "Expected -time-trace in \(job.moduleName) compileModuleFromInterface job command line"
         )
       }
     }

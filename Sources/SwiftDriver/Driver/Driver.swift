@@ -414,7 +414,7 @@ public struct Driver {
   /// Path to the time trace profiling output file.
   let timeTraceOutputPath: VirtualPath.Handle?
 
-  /// Time trace profiler, active when `-ftime-trace` is passed.
+  /// Time trace profiler, active when `-time-trace` is passed.
   public var timeTrace = TimeTrace()
 
   /// Path to the TBD file (text-based dylib).
@@ -1342,8 +1342,8 @@ public struct Driver {
     }
 
     self.timeTraceOutputPath = try Self.computeSupplementaryOutputPath(
-        &parsedOptions, type: .timeTrace, isOutputOptions: [.ftimeTrace],
-        outputPath: .ftimeTracePath,
+        &parsedOptions, type: .timeTrace, isOutputOptions: [.timeTrace],
+        outputPath: .timeTracePath,
         compilerOutputType: compilerOutputType,
         compilerMode: compilerMode,
         emitModuleSeparately: emitModuleSeparately,
@@ -1444,7 +1444,7 @@ public struct Driver {
                               swiftInterfacePath: self.moduleOutputPaths.swiftInterfacePath,
                               diagnosticEngine: diagnosticsEngine)
 
-    self.timeTrace = TimeTrace(enabled: parsedOptions.hasArgument(.ftimeTrace))
+    self.timeTrace = TimeTrace(enabled: parsedOptions.hasArgument(.timeTrace))
 
     try verifyOutputOptions()
   }

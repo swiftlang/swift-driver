@@ -137,10 +137,10 @@ extension Driver {
                                                 supportsScannerPrefixMapPaths:
                                                   isFrontendArgSupported(.scannerPrefixMapPaths),
                                                 enableTimeTrace:
-                                                  parsedOptions.hasArgument(.ftimeTrace),
+                                                  parsedOptions.hasArgument(.timeTrace),
                                                 timeTraceGranularity:
-                                                  parsedOptions.hasArgument(.ftimeTraceGranularity)
-                                                  ? UInt(parsedOptions.getLastArgument(.ftimeTraceGranularity)!.asSingle)
+                                                  parsedOptions.hasArgument(.timeTraceGranularity)
+                                                  ? UInt(parsedOptions.getLastArgument(.timeTraceGranularity)!.asSingle)
                                                   : nil)
     } else {
       return nil

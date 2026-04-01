@@ -18,7 +18,7 @@ import Dispatch
 /// A lightweight time trace profiler for the Swift driver.
 ///
 /// Produces output compatible with LLVM's TimeProfiler JSON format, which can
-/// be viewed in chrome://tracing or Perfetto. When `-ftime-trace` is passed to
+/// be viewed in chrome://tracing or Perfetto. When `-time-trace` is passed to
 /// the driver, events are recorded for key phases (planning, dependency
 /// scanning, job execution) and written to a `.driver.time-trace.json` file
 /// that SwiftPM's `importCompilerTimeTraces` picks up automatically.
