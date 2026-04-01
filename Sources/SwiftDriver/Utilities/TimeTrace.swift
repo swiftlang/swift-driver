@@ -29,20 +29,24 @@ public final class TimeTrace {
     let durationMicroseconds: Int64
   }
 
+  public let enabled: Bool
   private let beginningOfTime: Int64
   private let startNanos: UInt64
   private(set) var events: [Event] = []
   private let pid: Int32
 
-  public init() {
+  public init(enabled: Bool = false) {
+    self.enabled = enabled
     self.beginningOfTime = Int64(Date().timeIntervalSince1970 * 1_000_000)
     self.startNanos = DispatchTime.now().uptimeNanoseconds
     self.pid = ProcessInfo.processInfo.processIdentifier
   }
 
   /// Measure a block and record it as a trace event.
+  /// When `enabled` is `false`, just executes the body without recording.
   @discardableResult
   public func measure<T>(_ name: String, body: () throws -> T) rethrows -> T {
+    guard enabled else { return try body() }
     let eventStartNanos = DispatchTime.now().uptimeNanoseconds
     let result = try body()
     let eventEndNanos = DispatchTime.now().uptimeNanoseconds
@@ -62,7 +66,9 @@ public final class TimeTrace {
   }
 
   /// Write the trace to a JSON file at the given path.
+  /// When `enabled` is `false`, returns without writing.
   public func write(to path: String) throws {
+    guard enabled else { return }
     var traceEvents: [[String: Any]] = []
 
     for event in events {

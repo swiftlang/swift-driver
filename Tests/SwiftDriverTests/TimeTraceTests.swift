@@ -28,7 +28,7 @@ private var testInputsPath: AbsolutePath {
 
 final class TimeTraceTests: XCTestCase {
   func testTimeTraceJSONFormat() throws {
-    let trace = TimeTrace()
+    let trace = TimeTrace(enabled: true)
     let _ = trace.measure("TestEvent") { 42 }
     try withTemporaryDirectory { dir in
       let path = dir.appending(component: "trace.json").pathString
@@ -44,21 +44,21 @@ final class TimeTraceTests: XCTestCase {
 
   func testTimeTraceDriverProperty() throws {
     var driver1 = try Driver(args: ["swiftc", "-c", "-ftime-trace", "foo.swift"])
-    XCTAssertNotNil(driver1.timeTrace)
+    XCTAssertTrue(driver1.timeTrace.enabled)
     var driver2 = try Driver(args: ["swiftc", "-c", "foo.swift"])
-    XCTAssertNil(driver2.timeTrace)
+    XCTAssertFalse(driver2.timeTrace.enabled)
   }
 
   func testTimeTracePlanBuild() throws {
     var driver = try Driver(args: ["swiftc", "-c", "-ftime-trace", "foo.swift"])
     let _ = try driver.planBuild()
-    XCTAssertTrue(driver.timeTrace!.hasEvent(named: "Plan Build"))
+    XCTAssertTrue(driver.timeTrace.hasEvent(named: "Plan Build"))
   }
 
   func testTimeTracePlanSubPhases() throws {
     var driver = try Driver(args: ["swiftc", "-c", "-ftime-trace", "foo.swift"])
     let _ = try driver.planBuild()
-    XCTAssertTrue(driver.timeTrace!.hasEvent(named: "Compute Jobs"))
+    XCTAssertTrue(driver.timeTrace.hasEvent(named: "Compute Jobs"))
   }
 
   func testTimeTraceFileWritten() throws {

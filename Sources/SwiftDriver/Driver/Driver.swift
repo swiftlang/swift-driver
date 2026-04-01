@@ -415,7 +415,7 @@ public struct Driver {
   let timeTraceOutputPath: VirtualPath.Handle?
 
   /// Time trace profiler, active when `-ftime-trace` is passed.
-  public var timeTrace: TimeTrace?
+  public var timeTrace = TimeTrace()
 
   /// Path to the TBD file (text-based dylib).
   let tbdPath: VirtualPath.Handle?
@@ -1444,16 +1444,16 @@ public struct Driver {
                               swiftInterfacePath: self.moduleOutputPaths.swiftInterfacePath,
                               diagnosticEngine: diagnosticsEngine)
 
-    self.timeTrace = parsedOptions.hasArgument(.ftimeTrace) ? TimeTrace() : nil
+    self.timeTrace = TimeTrace(enabled: parsedOptions.hasArgument(.ftimeTrace))
 
     try verifyOutputOptions()
   }
 
   public mutating func planBuild() throws -> [Job] {
     let (jobs, incrementalCompilationState, explicitModulePlanner) =
-      try timeTrace?.measure("Plan Build") {
+      try timeTrace.measure("Plan Build") {
         try planPossiblyIncrementalBuild()
-      } ?? planPossiblyIncrementalBuild()
+      }
     self.incrementalCompilationState = incrementalCompilationState
     self.intermoduleDependencyGraph = explicitModulePlanner?.dependencyGraph
     return jobs
@@ -1984,13 +1984,7 @@ extension Driver {
         defer {
           writeIncrementalBuildInformation(jobs)
         }
-        if let trace = timeTrace {
-          try trace.measure("Execute Jobs") {
-            try performTheBuild(allJobs: childJobs,
-                                jobExecutionDelegate: toolExecutionDelegate,
-                                forceResponseFiles: forceResponseFiles)
-          }
-        } else {
+        try timeTrace.measure("Execute Jobs") {
           try performTheBuild(allJobs: childJobs,
                               jobExecutionDelegate: toolExecutionDelegate,
                               forceResponseFiles: forceResponseFiles)
@@ -2035,7 +2029,7 @@ extension Driver {
   /// the frontend's time trace output. The file is automatically discovered by
   /// SwiftPM's `importCompilerTimeTraces(under:)` because it ends in `.time-trace.json`.
   public mutating func writeDriverTimeTrace() throws {
-    guard let trace = timeTrace,
+    guard timeTrace.enabled,
           let tracePathHandle = timeTraceOutputPath else { return }
     let tracePath = VirtualPath.lookup(tracePathHandle)
     // Frontend trace: foo.time-trace.json → Driver trace: foo.driver.time-trace.json
@@ -2047,7 +2041,7 @@ extension Driver {
     let driverTracePath = try VirtualPath.intern(path: driverPathString)
     let resolvedPath = VirtualPath.lookup(driverTracePath)
       .resolvedRelativePath(base: workingDirectory ?? fileSystem.currentWorkingDirectory!)
-    try trace.write(to: resolvedPath.name)
+    try timeTrace.write(to: resolvedPath.name)
   }
 
   mutating func createToolExecutionDelegate() -> ToolExecutionDelegate {

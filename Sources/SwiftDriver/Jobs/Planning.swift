@@ -70,23 +70,22 @@ extension Driver {
     // the planning process. This state contains the module dependency graph and
     // cross-module dependency information.
     let initialIncrementalState =
-      try timeTrace?.measure("Incremental State") {
+      try timeTrace.measure("Incremental State") {
         try IncrementalCompilationState.computeIncrementalStateForPlanning(driver: &self)
-      } ?? IncrementalCompilationState.computeIncrementalStateForPlanning(driver: &self)
+      }
 
     // For an explicit build, compute the inter-module dependency graph
     let explicitModulePlanner =
-      try timeTrace?.measure("Configure Explicit Module Planner") {
+      try timeTrace.measure("Configure Explicit Module Planner") {
         try configureExplicitModulePlanner()
-      } ?? configureExplicitModulePlanner()
+      }
 
     // Compute the set of all jobs required to build this module
     let jobsInPhases =
-      try timeTrace?.measure("Compute Jobs") {
+      try timeTrace.measure("Compute Jobs") {
         try computeJobsForPhasedStandardBuild(explicitModulePlanner: explicitModulePlanner,
                                               initialIncrementalState: initialIncrementalState)
-      } ?? computeJobsForPhasedStandardBuild(explicitModulePlanner: explicitModulePlanner,
-                                             initialIncrementalState: initialIncrementalState)
+      }
 
     // Determine the state for incremental compilation
     let incrementalCompilationState: IncrementalCompilationState?
