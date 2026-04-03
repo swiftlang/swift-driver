@@ -125,8 +125,8 @@ final class TimeTraceTests: XCTestCase {
 
       for job in interfaceJobs {
         XCTAssertTrue(
-          job.commandLine.contains(.flag("-time-trace")),
-          "Expected -time-trace in \(job.moduleName) compileModuleFromInterface job command line"
+          job.commandLine.contains(.flag("-time-trace-path")),
+          "Expected -time-trace-path in \(job.moduleName) compileModuleFromInterface job command line"
         )
       }
     }

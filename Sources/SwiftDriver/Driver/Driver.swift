@@ -415,7 +415,7 @@ public struct Driver {
   let timeTraceOutputPath: VirtualPath.Handle?
 
   /// Time trace profiler, active when `-time-trace` is passed.
-  public var timeTrace = TimeTrace()
+  var timeTrace = TimeTrace()
 
   /// Path to the TBD file (text-based dylib).
   let tbdPath: VirtualPath.Handle?

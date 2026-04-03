@@ -247,12 +247,8 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
       }
 
       // Add time trace flags so dependency module builds produce profiling data.
-      // Include the main module name in the trace file name to avoid collisions
-      // when multiple targets compile the same dependency module.
       if enableTimeTrace {
-        commandLine.appendFlag("-time-trace")
-        let suffix = mainModuleName.map { "-for-" + $0 } ?? ""
-        let traceFileName = (outputModulePath.file.basenameWithoutExt + suffix)
+        let traceFileName = outputModulePath.file.basenameWithoutExt
           .appendingFileTypeExtension(.timeTrace)
         let tracePath = outputModulePath.file.parentDirectory
           .appending(component: traceFileName)
@@ -331,12 +327,8 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
       }
 
       // Add time trace flags so dependency module builds produce profiling data.
-      // Include the main module name in the trace file name to avoid collisions
-      // when multiple targets compile the same dependency module.
       if enableTimeTrace {
-        commandLine.appendFlag("-time-trace")
-        let suffix = mainModuleName.map { "-for-" + $0 } ?? ""
-        let traceFileName = (modulePCMPath.file.basenameWithoutExt + suffix)
+        let traceFileName = modulePCMPath.file.basenameWithoutExt
           .appendingFileTypeExtension(.timeTrace)
         let tracePath = modulePCMPath.file.parentDirectory
           .appending(component: traceFileName)
