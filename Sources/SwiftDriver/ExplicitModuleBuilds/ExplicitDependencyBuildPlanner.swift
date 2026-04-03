@@ -389,7 +389,8 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
                                   modulePath: TextualVirtualPath(path: swiftModulePath.fileHandle),
                                   isFramework: isFramework,
                                   moduleCacheKey: swiftModuleDetails.moduleCacheKey,
-                                  libraryLevel: dependencyInfo.libraryLevel))
+                                  libraryLevel: dependencyInfo.libraryLevel,
+                                  isPrebuiltExternal: false))
       case .clang:
         let dependencyInfo = try dependencyGraph.moduleInfo(of: dependencyId)
         let dependencyClangModuleDetails =
@@ -417,7 +418,8 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
                                   headerDependencies: prebuiltModuleDetails.headerDependencyPaths,
                                   isFramework: isFramework,
                                   moduleCacheKey: prebuiltModuleDetails.moduleCacheKey,
-                                  libraryLevel: dependencyInfo.libraryLevel))
+                                  libraryLevel: dependencyInfo.libraryLevel,
+                                  isPrebuiltExternal: true))
     }
   }
 
@@ -625,19 +627,22 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
     // The module dependency map in CAS needs to be stable.
     // For caching build, updated the dependency info to exclude paths that are compiler outputs from the mapping.
     // Use abstract names and paths because caching build loads modules directly from CAS.
+    // Exclude prebuilt external swift modules because they aren't outputs of the current build.
     let allDependencyArtifacts: [ModuleDependencyArtifactInfo] =
       try swiftDependencyArtifacts.sorted().map { info in
         if !cachingEnabled {
           return ModuleDependencyArtifactInfo.swift(info)
         }
+        let modulePath = info.isPrebuiltExternal == true ? info.modulePath : try abstractPath(info.moduleName, suffix: ".swiftmodule")
         let updatedInfo = try SwiftModuleArtifactInfo(name: info.moduleName,
-                                                      modulePath: abstractPath(info.moduleName, suffix: ".swiftmodule"),
+                                                      modulePath: modulePath,
                                                       docPath: nil,
                                                       sourceInfoPath: nil,
                                                       headerDependencies: info.prebuiltHeaderDependencyPaths,
                                                       isFramework: info.isFramework,
                                                       moduleCacheKey: info.moduleCacheKey,
-                                                      libraryLevel: info.libraryLevel)
+                                                      libraryLevel: info.libraryLevel,
+                                                      isPrebuiltExternal: info.isPrebuiltExternal)
         return ModuleDependencyArtifactInfo.swift(updatedInfo)
       } +
       clangDependencyArtifacts.sorted().map { info in

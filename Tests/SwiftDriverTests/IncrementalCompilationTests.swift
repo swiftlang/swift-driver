@@ -799,6 +799,33 @@ extension IncrementalCompilationTests {
 
 // MARK: - Explicit compilation caching incremental tests
 extension IncrementalCompilationTests {
+  func testIncrementalCompilationCachingBasic() throws {
+    let driver = try Driver(args: ["swiftc"])
+    guard driver.isFeatureSupported(.compilation_caching) else {
+      throw XCTSkip("caching not supported")
+    }
+    let extraArguments = ["-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: true), "-explicit-module-build"]
+    // Initial build
+    try doABuildWithPartialExpectations(
+      "initial",
+      extraArguments: extraArguments,
+      whenAutolinking: autolinkLifecycleExpectedDiags
+    ) {
+      compiling("main", "other")
+    }
+    // Touch other noting that it depends on main, but not the other way around
+    touch("other")
+    // Subsequent build, check that it only rebuilds other
+    try doABuildWithPartialExpectations(
+      "subsequent",
+      extraArguments: extraArguments,
+      whenAutolinking: autolinkLifecycleExpectedDiags
+    ) {
+      compiling("other")
+      skipped("main")
+    }
+  }
+
   func testIncrementalCompilationCaching() throws {
 #if os(Windows)
     throw XCTSkip("CAS cannot be removed on windows when test is running")
@@ -1896,6 +1923,33 @@ extension IncrementalCompilationTests {
     @DiagsBuilder expecting expectedDiags: () -> [Diagnostic.Message]
   ) throws -> Driver {
     try doABuild(whenAutolinking: autolinkExpectedDiags, expecting: expectedDiags(), arguments: arguments)
+  }
+
+  @discardableResult
+  fileprivate func doABuildWithPartialExpectations(
+    _ message: String,
+    extraArguments: [String],
+    whenAutolinking autolinkExpectedDiags: [Diagnostic.Message],
+    @DiagsBuilder expecting expectedDiags: () -> [Diagnostic.Message]
+  ) throws -> Driver {
+    print("*** starting build \(message) ***", to: &stderrStream); stderrStream.flush()
+
+    guard let sdkArgumentsForTesting = try Driver.sdkArgumentsForTesting()
+    else {
+      throw XCTSkip("Cannot perform this test on this host")
+    }
+    let allArgs = commonArgs + extraArguments + sdkArgumentsForTesting
+
+    return try assertDriverDiagnostics(args: allArgs) {
+      driver, verifier in
+
+      expectedDiags().forEach {verifier.expect($0)}
+      if driver.isAutolinkExtractJobNeeded {
+        autolinkExpectedDiags.forEach {verifier.expect($0)}
+      }
+      doTheCompile(&driver)
+      return driver
+    }
   }
 
   private func doABuildWithoutExpectations(arguments: [String]) throws -> Driver {

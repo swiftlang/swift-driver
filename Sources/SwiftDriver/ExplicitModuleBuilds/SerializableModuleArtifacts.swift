@@ -34,11 +34,12 @@
   public let moduleCacheKey: String?
   /// The library level of the module (e.g. "api", "spi").
   public let libraryLevel: LibraryLevel?
+  public let isPrebuiltExternal: Bool?
 
   init(name: String, modulePath: TextualVirtualPath, docPath: TextualVirtualPath? = nil,
        sourceInfoPath: TextualVirtualPath? = nil, headerDependencies: [TextualVirtualPath]? = nil,
        isFramework: Bool = false, moduleCacheKey: String? = nil,
-       libraryLevel: LibraryLevel? = nil) {
+       libraryLevel: LibraryLevel? = nil, isPrebuiltExternal: Bool? = nil) {
     self.moduleName = name
     self.modulePath = modulePath
     self.docPath = docPath
@@ -47,6 +48,7 @@
     self.isFramework = isFramework
     self.moduleCacheKey = moduleCacheKey
     self.libraryLevel = libraryLevel
+    self.isPrebuiltExternal = isPrebuiltExternal
   }
 }
 
