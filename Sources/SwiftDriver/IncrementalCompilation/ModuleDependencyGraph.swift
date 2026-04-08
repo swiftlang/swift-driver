@@ -50,6 +50,13 @@ import struct Foundation.TimeInterval
     self.phase = newPhase
   }
 
+  /// Update the external module path map (from explicit module planner) and
+  /// propagate it to the currency cache for filesystem resolution.
+  func setExternalModulePathMap(_ map: [String: VirtualPath.Handle]) {
+    mutationSafetyPrecondition()
+    self.currencyCache.externalModulePathMap = map
+  }
+
   /// The phase when the graph was created. Used to help diagnose later failures
   let creationPhase: Phase
 
@@ -575,6 +582,8 @@ extension ModuleDependencyGraph {
     private var currencyCache = [ExternalDependency: Bool]()
     public internal(set) var externalDependencyFileHashes: [ExternalDependency: String]
     private let useFileHashes: Bool
+    /// Maps abstract module paths (e.g. "B.swiftmodule") to on-disk paths for filesystem checks.
+    var externalModulePathMap: [String: VirtualPath.Handle] = [:]
 
     init(_ fileSystem: FileSystem, buildStartTime: TimePoint, externalDependencyFileHashes: Dictionary<ExternalDependency, String>, useFileHashes: Bool) {
       self.fileSystem = fileSystem
@@ -583,11 +592,20 @@ extension ModuleDependencyGraph {
       self.useFileHashes = useFileHashes
     }
 
+    /// Resolve an external dependency to a filesystem path, using the module
+    /// path map for abstract paths.
+    private func resolvedPath(for externalDependency: ExternalDependency) -> VirtualPath? {
+      if let handle = externalModulePathMap[externalDependency.fileNameString] {
+        return VirtualPath.lookup(handle)
+      }
+      return externalDependency.path
+    }
+
     mutating func updateHash(_ externalDependency: ExternalDependency) {
         guard useFileHashes else {
           return
         }
-        if let depFile = externalDependency.path, 
+        if let depFile = resolvedPath(for: externalDependency),
         let data = try? fileSystem.readFileContents(depFile) {
             externalDependencyFileHashes[externalDependency] = SHA256().hash(data).hexadecimalRepresentation
         }
@@ -619,7 +637,7 @@ extension ModuleDependencyGraph {
     }
 
     private func isCurrentWRTFileHash(_ externalDependency: ExternalDependency) -> Bool {
-      if let depFile = externalDependency.path, 
+      if let depFile = resolvedPath(for: externalDependency),
         let data = try? fileSystem.readFileContents(depFile) {
             return self.externalDependencyFileHashes[externalDependency] == SHA256().hash(data).hexadecimalRepresentation
         }
@@ -627,12 +645,12 @@ extension ModuleDependencyGraph {
     }
 
     private func isCurrentWRTFileSystem(_ externalDependency: ExternalDependency) -> Bool {
-      if let depFile = externalDependency.path,
-         let fileModTime = try? self.fileSystem.lastModificationTime(for: depFile),
-         fileModTime < self.buildStartTime {
-        return true
+      guard let depFile = resolvedPath(for: externalDependency),
+            let fileModTime = try? self.fileSystem.lastModificationTime(for: depFile)
+      else {
+        return false
       }
-      return false
+      return fileModTime < self.buildStartTime
     }
   }
 }
@@ -668,19 +686,21 @@ extension ModuleDependencyGraph {
   /// - Minor number 2: Use `.swift` files instead of `.swiftdeps` in ``DependencySource``
   /// - Minor number 3: Use interned strings, including for fingerprints and use empty dependency source file for no DependencySource
   /// - Minor number 4: Absorb the data in the ``BuildRecord`` into the module dependency graph.
-  /// - Minor number 5: SHA256 hashes for files in externalDepNode and inputInfo blobs. 
-  @_spi(Testing) public static let serializedGraphVersion = Version(1, 5, 0)
+  /// - Minor number 5: SHA256 hashes for files in externalDepNode and inputInfo blobs.
+  /// - Minor number 6: externalModulePathNode for resolving abstract module paths.
+  @_spi(Testing) public static let serializedGraphVersion = Version(1, 6, 0)
 
   /// The IDs of the records used by the module dependency graph.
   fileprivate enum RecordID: UInt64 {
-    case metadata           = 1
-    case moduleDepGraphNode = 2
-    case dependsOnNode      = 3
-    case useIDNode          = 4
-    case externalDepNode    = 5
-    case identifierNode     = 6
-    case buildRecord        = 7
-    case inputInfo          = 8
+    case metadata                = 1
+    case moduleDepGraphNode      = 2
+    case dependsOnNode           = 3
+    case useIDNode               = 4
+    case externalDepNode         = 5
+    case identifierNode          = 6
+    case buildRecord             = 7
+    case inputInfo               = 8
+    case externalModulePathNode  = 9
 
     /// The human-readable name of this record.
     ///
@@ -705,6 +725,8 @@ extension ModuleDependencyGraph {
         return "BUILD_RECORD"
       case .inputInfo:
         return "INPUT_INFO"
+      case .externalModulePathNode:
+        return "EXTERNAL_MODULE_PATH_NODE"
       }
     }
   }
@@ -749,6 +771,8 @@ extension ModuleDependencyGraph {
         self = .malformedBuildRecord
       case .inputInfo:
         self = .malformedInputInfo
+      case .externalModulePathNode:
+        self = .malformedMapRecord
       }
     }
   }
@@ -795,6 +819,7 @@ extension ModuleDependencyGraph {
       private var nodeUses: [(DependencyKey, Int)] = []
       private var fingerprintedExternalDependencies = Set<FingerprintedExternalDependency>()
       private var externalDependencyFileHashes = Dictionary<ExternalDependency, String>()
+      private var externalModulePathMap = Dictionary<String, VirtualPath.Handle>()
 
       /// Deserialized nodes, in order appearing in the priors file. If `nil`, the node is for a removed source file.
       ///
@@ -842,6 +867,7 @@ extension ModuleDependencyGraph {
             .record(def: dependencyKey, use: use)
           assert(isNewUse, "Duplicate use def-use arc in graph?")
         }
+        graph.setExternalModulePathMap(self.externalModulePathMap)
         return graph
       }
 
@@ -1044,7 +1070,20 @@ extension ModuleDependencyGraph {
           else {
             throw malformedError
           }
-          _ = (String(decoding: identifierBlob, as: UTF8.self)).intern(in: internedStringTable)
+          var identifier = String(decoding: identifierBlob, as: UTF8.self)
+          identifier = info.pathReverser(identifier)
+          _ = identifier.intern(in: internedStringTable)
+        case .externalModulePathNode:
+          guard record.fields.count == 2 else {
+            throw malformedError
+          }
+          let abstractPath = try internedString(field: 0)
+          let resolvedPath = try internedString(field: 1)
+          let resolvedPathString = resolvedPath.lookup(in: internedStringTable)
+          guard let handle = try? VirtualPath.intern(path: resolvedPathString) else {
+            throw malformedError
+          }
+          externalModulePathMap[abstractPath.lookup(in: internedStringTable)] = handle
         }
       }
     }
@@ -1181,6 +1220,7 @@ extension ModuleDependencyGraph {
         self.emitRecordID(.identifierNode)
         self.emitRecordID(.buildRecord)
         self.emitRecordID(.inputInfo)
+        self.emitRecordID(.externalModulePathNode)
       }
     }
 
@@ -1240,6 +1280,12 @@ extension ModuleDependencyGraph {
 
       for (input, _) in sortedInputInfo {
         _ = input.name.intern(in: self.internedStringTable)
+      }
+
+      // Ensure external module path map strings are interned
+      for (abstractPath, resolvedHandle) in graph.currencyCache.externalModulePathMap.sorted(by: { $0.key < $1.key }) {
+        _ = abstractPath.intern(in: self.internedStringTable)
+        _ = VirtualPath.lookup(resolvedHandle).name.intern(in: self.internedStringTable)
       }
 
       for str in internedStringTable.strings {
@@ -1336,6 +1382,13 @@ extension ModuleDependencyGraph {
         // identifier data
         .blob
       ])
+      self.abbreviate(.externalModulePathNode, [
+        .literal(RecordID.externalModulePathNode.rawValue),
+        // abstract path ID
+        .vbr(chunkBitWidth: 13),
+        // resolved path ID
+        .vbr(chunkBitWidth: 13),
+      ])
     }
 
     private func abbreviate(
@@ -1413,6 +1466,15 @@ extension ModuleDependencyGraph {
               for: fingerprintedExternalDependency.fingerprint))
           }, 
           blob: graph.currencyCache.externalDependencyFileHashes[fingerprintedExternalDependency.externalDependency] ?? "")
+        }
+        for (abstractPath, resolvedHandle) in graph.currencyCache.externalModulePathMap.sorted(by: { $0.key < $1.key }) {
+          let abstractInternedString = abstractPath.intern(in: graph.internedStringTable)
+          let resolvedInternedString = VirtualPath.lookup(resolvedHandle).name.intern(in: graph.internedStringTable)
+          serializer.stream.writeRecord(serializer.abbreviations[.externalModulePathNode]!) {
+            $0.append(RecordID.externalModulePathNode)
+            $0.append(serializer.lookupIdentifierCode(for: abstractInternedString))
+            $0.append(serializer.lookupIdentifierCode(for: resolvedInternedString))
+          }
         }
       }
       return ByteString(serializer.stream.data)
