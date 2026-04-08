@@ -83,7 +83,7 @@ struct IncrementalExplicitBuildTests: DiagVerifiable {
   //
   // On this graph, inputs of 'G' are updated, causing it to be re-built
   // as well as all modules on paths from root to it: 'Y', 'H', 'T','J'
-  @Test(arguments: TestBuildConfig.explicitOnlyConfigs)
+  @Test(arguments: TestBuildConfig.availableExplicitConfigs)
   func changedDependencyInvalidatesUpstream(config: TestBuildConfig) async throws {
     let h = try IncrementalTestHarness(config: config)
     h.replace(contentsOf: "other", with: "import Y;import T")
@@ -140,7 +140,7 @@ struct IncrementalExplicitBuildTests: DiagVerifiable {
 
   // Source file and external deps timestamps updated but contents are the same,
   // and file-hashing is enabled.
-  @Test(arguments: TestBuildConfig.explicitOnlyConfigs)
+  @Test(arguments: TestBuildConfig.availableExplicitConfigs)
   func explicitIncrementalBuildWithHashing(config: TestBuildConfig) async throws {
     let h = try IncrementalTestHarness(config: config)
     h.replace(contentsOf: "other", with: "import E;let bar = foo")

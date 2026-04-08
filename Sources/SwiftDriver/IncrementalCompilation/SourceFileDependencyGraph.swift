@@ -140,9 +140,12 @@ extension SourceFileDependencyGraph {
   static func read(
     from typedFile: TypedVirtualPath,
     on fileSystem: FileSystem,
-    internedStringTable: InternedStringTable
+    internedStringTable: InternedStringTable,
+    pathReverser: ((String) -> String)? = nil
   ) throws -> Self? {
-    try self.init(contentsOf: typedFile, on: fileSystem, internedStringTable: internedStringTable)
+    try self.init(contentsOf: typedFile, on: fileSystem,
+                  internedStringTable: internedStringTable,
+                  pathReverser: pathReverser)
   }
 
   /*@_spi(Testing)*/ public init(nodesForTesting: [Node],
@@ -157,29 +160,35 @@ extension SourceFileDependencyGraph {
   /*@_spi(Testing)*/ public init?(
     contentsOf typedFile: TypedVirtualPath,
     on fileSystem: FileSystem,
-    internedStringTable: InternedStringTable
+    internedStringTable: InternedStringTable,
+    pathReverser: ((String) -> String)? = nil
   ) throws {
     assert(typedFile.type == .swiftDeps || typedFile.type == .swiftModule)
     let data = try fileSystem.readFileContents(typedFile.file)
     try self.init(internedStringTable: internedStringTable,
                   data: data,
-                  fromSwiftModule: typedFile.type == .swiftModule)
+                  fromSwiftModule: typedFile.type == .swiftModule,
+                  pathReverser: pathReverser)
   }
 
   /// Returns nil for a swiftmodule with no dependencies
   /*@_spi(Testing)*/ public init?(
     internedStringTable: InternedStringTable,
     data: ByteString,
-    fromSwiftModule extractFromSwiftModule: Bool = false
+    fromSwiftModule extractFromSwiftModule: Bool = false,
+    pathReverser: ((String) -> String)? = nil
   ) throws {
     struct Visitor: BitstreamVisitor, InternedStringTableHolder {
       let extractFromSwiftModule: Bool
       let internedStringTable: InternedStringTable
+      let pathReverser: ((String) -> String)?
 
       init(extractFromSwiftModule: Bool,
-           internedStringTable: InternedStringTable) {
+           internedStringTable: InternedStringTable,
+           pathReverser: ((String) -> String)?) {
         self.extractFromSwiftModule = extractFromSwiftModule
         self.internedStringTable = internedStringTable
+        self.pathReverser = pathReverser
         self.identifiers = ["".intern(in: internedStringTable)]
       }
 
@@ -292,14 +301,19 @@ extension SourceFileDependencyGraph {
           else {
             throw ReadError.malformedIdentifierRecord
           }
-          identifiers.append(String(decoding: identifierBlob, as: UTF8.self).intern(in: internedStringTable))
+          var identifier = String(decoding: identifierBlob, as: UTF8.self)
+          if let reverser = pathReverser {
+            identifier = reverser(identifier)
+          }
+          identifiers.append(identifier.intern(in: internedStringTable))
         }
       }
     }
 
     var visitor = Visitor(
       extractFromSwiftModule: extractFromSwiftModule,
-      internedStringTable: internedStringTable)
+      internedStringTable: internedStringTable,
+      pathReverser: pathReverser)
     do {
       try Bitcode.read(bytes: data, using: &visitor)
     } catch ReadError.swiftModuleHasNoDependencies {

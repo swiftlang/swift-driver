@@ -135,7 +135,8 @@ extension IncrementalCompilationState.IncrementalDependencyAndInputSetup {
     options: IncrementalCompilationState.Options = [.verifyDependencyGraphAfterEveryImport],
     outputFileMap: OutputFileMap,
     fileSystem: FileSystem = localFileSystem,
-    diagnosticEngine: DiagnosticsEngine = DiagnosticsEngine()
+    diagnosticEngine: DiagnosticsEngine = DiagnosticsEngine(),
+    prefixMapping: [(AbsolutePath, AbsolutePath)] = []
   ) -> Self {
     // Must set input files in order to avoid graph deserialization from culling
     let inputFiles = outputFileMap.entries.keys
@@ -153,7 +154,8 @@ extension IncrementalCompilationState.IncrementalDependencyAndInputSetup {
       nil,
       inputFiles,
       fileSystem,
-      diagnosticEngine
+      diagnosticEngine,
+      prefixMapping: prefixMapping
     )
   }
 }
