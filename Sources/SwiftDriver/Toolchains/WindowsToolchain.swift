@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014 - 2025 Apple Inc. and the Swift project authors
+// Copyright (c) 2014 - 2026 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -93,6 +93,8 @@ extension WindowsToolchain.ToolchainValidationError {
       return try lookup(executable: "llvm-dwarfdump")
     case .swiftHelp:
       return try lookup(executable: "swift-help")
+    case .dwp:
+      return try lookup(executable: "llvm-dwp")
     }
   }
 

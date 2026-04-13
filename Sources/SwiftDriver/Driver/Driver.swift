@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014 - 2025 Apple Inc. and the Swift project authors
+// Copyright (c) 2014 - 2026 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -1089,6 +1089,7 @@ public struct Driver {
     let defaultDwarfVersion = self.toolchain.getDefaultDwarfVersion(targetTriple: self.frontendTargetInfo.target.triple)
     self.debugInfo = Self.computeDebugInfo(&parsedOptions,
                                            defaultDwarfVersion: defaultDwarfVersion,
+                                           targetTriple: self.frontendTargetInfo.target.triple,
                                            diagnosticsEngine: diagnosticEngine)
 
     // Error if package-name is passed but the input is empty; if
@@ -2656,6 +2657,7 @@ extension Driver {
   /// Compute the level of debug information we are supposed to produce.
   private static func computeDebugInfo(_ parsedOptions: inout ParsedOptions,
                                        defaultDwarfVersion : UInt8,
+                                       targetTriple: Triple,
                                        diagnosticsEngine: DiagnosticsEngine) -> DebugInfo {
     var shouldVerify = parsedOptions.hasArgument(.verifyDebugInfo)
 
@@ -2734,7 +2736,26 @@ extension Driver {
       }
     }
 
-    return DebugInfo(format: format, dwarfVersion: dwarfVersion, level: level, shouldVerify: shouldVerify)
+    // Determine whether split DWARF is enabled.
+    let shouldSplitDwarf: Bool
+    if parsedOptions.hasArgument(.enableSplitDwarf) {
+      if level == nil {
+        diagnosticsEngine.emit(.warning_split_dwarf_no_debug_info)
+        shouldSplitDwarf = false
+      } else if format != .dwarf {
+        diagnosticsEngine.emit(.error_split_dwarf_incompatible_with_codeview)
+        shouldSplitDwarf = false
+      } else if targetTriple.isDarwin {
+        diagnosticsEngine.emit(.warning_split_dwarf_darwin)
+        shouldSplitDwarf = false
+      } else {
+        shouldSplitDwarf = true
+      }
+    } else {
+      shouldSplitDwarf = false
+    }
+
+    return DebugInfo(format: format, dwarfVersion: dwarfVersion, level: level, shouldVerify: shouldVerify, shouldSplitDwarf: shouldSplitDwarf)
   }
 
   /// Parses the set of `-sanitize={sanitizer}` arguments and returns all the
@@ -2866,6 +2887,18 @@ extension Driver {
 extension Diagnostic.Message {
   static var verify_debug_info_requires_debug_option: Diagnostic.Message {
     .warning("ignoring '-verify-debug-info'; no debug info is being generated")
+  }
+
+  static var warning_split_dwarf_no_debug_info: Diagnostic.Message {
+    .warning("ignoring '-enable-split-dwarf'; no debug info is being generated")
+  }
+
+  static var error_split_dwarf_incompatible_with_codeview: Diagnostic.Message {
+    .error("'-enable-split-dwarf' is not compatible with '-debug-info-format=codeview'")
+  }
+
+  static var warning_split_dwarf_darwin: Diagnostic.Message {
+    .warning("ignoring '-enable-split-dwarf'; not supported on Darwin targets (use dSYM)")
   }
 
   static func warning_option_requires_sanitizer(currentOption: Option, currentOptionValue: String, sanitizerRequired: Sanitizer) -> Diagnostic.Message {

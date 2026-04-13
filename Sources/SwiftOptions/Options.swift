@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014 - 2019 Apple Inc. and the Swift project authors
+// Copyright (c) 2014 - 2026 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -529,6 +529,7 @@ extension Option {
   public static let enableSourceImport: Option = Option("-enable-source-import", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable importing of Swift source files")
   public static let enableSpecDevirt: Option = Option("-enable-spec-devirt", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Deprecated, has no effect")
   public static let enableSplitColdCode: Option = Option("-enable-split-cold-code", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable splitting of cold code when optimizing")
+  public static let enableSplitDwarf: Option = Option("-enable-split-dwarf", .flag, helpText: "Emit debug info into separate .dwo files and merge them into a .dwp file")
   public static let enableStackProtector: Option = Option("-enable-stack-protector", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable the stack protector")
   public static let enableSwift3ObjcInference: Option = Option("-enable-swift3-objc-inference", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Deprecated, has no effect")
   public static let enableTargetOsChecking: Option = Option("-enable-target-os-checking", .flag, attributes: [.frontend, .noDriver], helpText: "Enable checking the target OS of serialized modules")
@@ -914,6 +915,7 @@ extension Option {
   public static let solverShuffleChoicesEQ: Option = Option("-solver-shuffle-choices=", .joined, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Random seed for shuffling disjunction choices. For debugging solver performance")
   public static let solverShuffleDisjunctionsEQ: Option = Option("-solver-shuffle-disjunctions=", .joined, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Random seed for shuffling disjunctions. For debugging solver performance")
   public static let solverTrailThresholdEQ: Option = Option("-solver-trail-threshold=", .joined, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Expression type checking trail change limit")
+  public static let splitDwarfOutput: Option = Option("-split-dwarf-output", .separate, attributes: [.frontend], metaVar: "<path>", helpText: "Emit split DWARF debug info to a .dwo file at the given path")
   public static let stackPromotionLimit: Option = Option("-stack-promotion-limit", .separate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Limit the size of stack promoted objects to the provided number of bytes.")
   public static let staticExecutable: Option = Option("-static-executable", .flag, helpText: "Statically link the executable")
   public static let staticStdlib: Option = Option("-static-stdlib", .flag, attributes: [.doesNotAffectIncrementalBuild], helpText: "Statically link the Swift standard library")
@@ -1554,6 +1556,7 @@ extension Option {
       Option.enableSourceImport,
       Option.enableSpecDevirt,
       Option.enableSplitColdCode,
+      Option.enableSplitDwarf,
       Option.enableStackProtector,
       Option.enableSwift3ObjcInference,
       Option.enableTargetOsChecking,
@@ -1939,6 +1942,7 @@ extension Option {
       Option.solverShuffleChoicesEQ,
       Option.solverShuffleDisjunctionsEQ,
       Option.solverTrailThresholdEQ,
+      Option.splitDwarfOutput,
       Option.stackPromotionLimit,
       Option.staticExecutable,
       Option.staticStdlib,

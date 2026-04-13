@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014 - 2025 Apple Inc. and the Swift project authors
+// Copyright (c) 2014 - 2026 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -93,7 +93,7 @@ extension Driver {
       }
     case .swiftModule:
       return compilerMode.isSingleCompilation && moduleOutputInfo.output?.isTopLevel ?? false
-    case .swift, .image, .dSYM, .dependencies, .emitModuleDependencies, .autolink,
+    case .swift, .image, .dSYM, .dwo, .dwp, .dependencies, .emitModuleDependencies, .autolink,
          .swiftDocumentation, .swiftInterface, .privateSwiftInterface, .packageSwiftInterface, .swiftSourceInfoFile,
          .diagnostics, .emitModuleDiagnostics, .objcHeader, .swiftDeps, .remap, .tbd,
          .moduleTrace, .yamlOptimizationRecord, .bitstreamOptimizationRecord, .pcm, .pch,
@@ -363,6 +363,18 @@ extension Driver {
       }
     }
 
+    // Add split DWARF output paths if enabled.
+    if debugInfo.shouldSplitDwarf, outputType == .object {
+      for primaryOutput in primaryOutputs where primaryOutput.type == .object {
+        guard primaryOutput.file != .standardOutput else { continue }
+        let dwoPath = try primaryOutput.file.replacingExtension(with: .dwo)
+        commandLine.appendFlag(.splitDwarfOutput)
+        commandLine.appendPath(dwoPath)
+        let dwoOutput = TypedVirtualPath(file: dwoPath.intern(), type: .dwo)
+        outputs.append(dwoOutput)
+      }
+    }
+
     // Add swiftmodule info to compile job for debug info generation.
     if isFeatureSupported(.debug_info_explicit_dependency), outputType?.isAfterLLVM ?? false, let explicitModulePlanner = explicitModulePlanner {
       if enableCaching {
@@ -547,7 +559,7 @@ extension FileType {
     case .jsonSupportedFeatures:
       return .printSupportedFeatures
 
-    case .swift, .dSYM, .autolink, .dependencies, .emitModuleDependencies,
+    case .swift, .dSYM, .dwo, .dwp, .autolink, .dependencies, .emitModuleDependencies,
          .swiftDocumentation, .pcm, .diagnostics, .emitModuleDiagnostics,
          .objcHeader, .image, .swiftDeps, .moduleTrace, .tbd, .yamlOptimizationRecord,
          .bitstreamOptimizationRecord, .swiftInterface, .privateSwiftInterface, .packageSwiftInterface,

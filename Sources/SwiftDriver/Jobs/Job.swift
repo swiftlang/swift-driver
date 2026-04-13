@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014 - 2025 Apple Inc. and the Swift project authors
+// Copyright (c) 2014 - 2026 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -47,6 +47,7 @@ public struct Job: Codable, Equatable, Hashable {
     case compareAPIBaseline = "compare-api-baseline"
     case compareABIBaseline = "Check ABI stability"
     case printSupportedFeatures = "print-supported-features"
+    case generateDWP = "generate-dwp"
   }
 
   public enum ArgTemplate: Equatable, Hashable {
@@ -263,6 +264,9 @@ extension Job : CustomStringConvertible {
 
     case .printSupportedFeatures:
       return "Print supported upcoming and experimental features"
+
+    case .generateDWP:
+      return "Generating DWP for module \(moduleName)"
     }
   }
 
@@ -286,7 +290,8 @@ extension Job.Kind {
         return true
 
     case .autolinkExtract, .generateDSYM, .help, .link, .verifyDebugInfo, .moduleWrap,
-        .generateAPIBaseline, .generateABIBaseline, .compareAPIBaseline, .compareABIBaseline:
+        .generateAPIBaseline, .generateABIBaseline, .compareAPIBaseline, .compareABIBaseline,
+        .generateDWP:
         return false
     }
   }
@@ -302,7 +307,7 @@ extension Job.Kind {
          .help, .link, .verifyDebugInfo, .scanDependencies,
          .emitSupportedFeatures, .moduleWrap, .verifyModuleInterface,
          .generateAPIBaseline, .generateABIBaseline, .compareAPIBaseline,
-         .compareABIBaseline, .printSupportedFeatures:
+         .compareABIBaseline, .printSupportedFeatures, .generateDWP:
       return false
     }
   }
@@ -317,7 +322,7 @@ extension Job.Kind {
          .versionRequest, .autolinkExtract, .generateDSYM, .help, .link,
          .verifyDebugInfo, .scanDependencies, .emitSupportedFeatures, .moduleWrap,
          .generateAPIBaseline, .generateABIBaseline, .compareAPIBaseline,
-         .compareABIBaseline, .printSupportedFeatures:
+         .compareABIBaseline, .printSupportedFeatures, .generateDWP:
       return false
     }
   }

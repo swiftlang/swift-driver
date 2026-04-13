@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014 - 2025 Apple Inc. and the Swift project authors
+// Copyright (c) 2014 - 2026 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -54,4 +54,7 @@
 
   /// Whether 'dwarfdump' should be used to verify debug info.
   public let shouldVerify: Bool
+
+  /// Whether split DWARF (.dwo) files should be emitted.
+  public let shouldSplitDwarf: Bool
 }

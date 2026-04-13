@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014 - 2019 Apple Inc. and the Swift project authors
+// Copyright (c) 2014 - 2026 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -1217,6 +1217,91 @@ final class SwiftDriverTests: XCTestCase {
     try assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-c", "-file-compilation-dir", ".") { driver in
       let jobs = try driver.planBuild()
       XCTAssertFalse(jobs[0].commandLine.contains(.flag("-file-compilation-dir")))
+    }
+  }
+
+  func testSplitDwarf() throws {
+    // Warning when split DWARF requested without debug info
+    try assertDriverDiagnostics(
+      args: "swiftc", "foo.swift", "-emit-executable",
+            "-enable-split-dwarf", "-target", "wasm32-unknown-wasi"
+    ) {
+      $1.expect(.warning("ignoring '-enable-split-dwarf'; no debug info is being generated"))
+    }
+
+    // Error when split DWARF used with codeview
+    try assertDriverDiagnostics(
+      args: "swiftc", "foo.swift", "-emit-executable", "-g",
+            "-enable-split-dwarf", "-debug-info-format=codeview",
+            "-target", "x86_64-unknown-windows-msvc"
+    ) {
+      $1.expect(.error("'-enable-split-dwarf' is not compatible with '-debug-info-format=codeview'"))
+    }
+
+    // Warning when split DWARF on Darwin
+    try assertDriverDiagnostics(
+      args: "swiftc", "foo.swift", "-emit-executable", "-g",
+            "-enable-split-dwarf", "-target", "x86_64-apple-macosx10.15"
+    ) {
+      $1.expect(.warning("ignoring '-enable-split-dwarf'; not supported on Darwin targets (use dSYM)"))
+    }
+
+    // Per-file compile with split DWARF on Wasm
+    try withTemporaryDirectory { path in
+      try localFileSystem.writeFileContents(path.appending(components: "wasi", "static-executable-args.lnk")) {
+        $0.send("garbage")
+      }
+      var env = ProcessEnv.block
+      env["SWIFT_DRIVER_TESTS_ENABLE_EXEC_PATH_FALLBACK"] = "1"
+      var driver = try Driver(args: [
+        "swiftc", "foo.swift", "bar.swift",
+        "-emit-executable", "-g", "-enable-split-dwarf",
+        "-target", "wasm32-unknown-wasi", "-module-name", "Test",
+        "-resource-dir", path.pathString
+      ], env: env)
+      let plannedJobs = try driver.planBuild()
+      let compileJobs = plannedJobs.filter { $0.kind == .compile }
+      XCTAssertEqual(compileJobs.count, 2)
+      for job in compileJobs {
+        XCTAssertTrue(job.commandLine.contains(.flag("-split-dwarf-output")))
+        XCTAssertTrue(job.outputs.contains(where: { $0.type == .dwo }))
+      }
+
+      // DWP job should exist
+      let dwpJobs = plannedJobs.filter { $0.kind == .generateDWP }
+      XCTAssertEqual(dwpJobs.count, 1)
+      let dwpJob = dwpJobs[0]
+      XCTAssertEqual(dwpJob.inputs.count, 2)
+      XCTAssertTrue(dwpJob.inputs.allSatisfy { $0.type == .dwo })
+      XCTAssertEqual(dwpJob.outputs.count, 1)
+      XCTAssertEqual(dwpJob.outputs[0].type, .dwp)
+    }
+
+    // Darwin: no DWP (split DWARF is rejected with a warning)
+    do {
+      var env = ProcessEnv.block
+      env["SWIFT_DRIVER_TESTS_ENABLE_EXEC_PATH_FALLBACK"] = "1"
+      let diags = DiagnosticsEngine()
+      var driver = try Driver(args: [
+        "swiftc", "foo.swift", "-emit-executable", "-g",
+        "-enable-split-dwarf", "-target", "x86_64-apple-macosx10.15"
+      ], env: env, diagnosticsEngine: diags)
+      let plannedJobs = try driver.planBuild()
+      XCTAssertFalse(plannedJobs.contains(where: { $0.kind == .generateDWP }))
+    }
+
+    // Compile-only: .dwo but no .dwp
+    do {
+      var env = ProcessEnv.block
+      env["SWIFT_DRIVER_TESTS_ENABLE_EXEC_PATH_FALLBACK"] = "1"
+      var driver = try Driver(args: [
+        "swiftc", "foo.swift", "-c", "-g", "-enable-split-dwarf",
+        "-target", "wasm32-unknown-wasi"
+      ], env: env)
+      let plannedJobs = try driver.planBuild()
+      let compileJobs = plannedJobs.filter { $0.kind == .compile }
+      XCTAssertTrue(compileJobs[0].outputs.contains(where: { $0.type == .dwo }))
+      XCTAssertFalse(plannedJobs.contains(where: { $0.kind == .generateDWP }))
     }
   }
 
