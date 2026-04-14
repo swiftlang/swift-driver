@@ -173,6 +173,11 @@ extension Driver {
       try addPathOption(option: .sdk, path: VirtualPath.lookup(sdkPath), to: &commandLine, remap: jobNeedPathRemap)
     }
 
+    if let sysroot = parsedOptions.getLastArgument(.sysroot)?.asSingle {
+      commandLine.appendFlag(.sysroot)
+      try commandLine.appendPath(VirtualPath(path: sysroot))
+    }
+
     for args: (Option, Option) in [
           (.visualcToolsRoot, .visualcToolsVersion),
           (.windowsSdkRoot, .windowsSdkVersion)

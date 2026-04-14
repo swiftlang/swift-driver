@@ -152,11 +152,6 @@ public final class GenericUnixToolchain: Toolchain {
     driver: inout Driver,
     skipMacroOptions: Bool
   ) throws {
-    if let sysroot = driver.parsedOptions.getLastArgument(.sysroot)?.asSingle {
-      commandLine.appendFlag("-sysroot")
-      try commandLine.appendPath(VirtualPath(path: sysroot))
-    }
-
     if driver.targetTriple.os == .openbsd && driver.targetTriple.arch == .aarch64 {
       if frontendTargetInfo.target.openbsdBTCFIEnabled ?? false {
         commandLine.appendFlag(.Xcc)

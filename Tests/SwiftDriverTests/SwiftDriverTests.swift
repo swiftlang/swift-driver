@@ -9397,6 +9397,26 @@ final class SwiftDriverTests: XCTestCase {
       XCTAssertJobInvocationMatches(jobs[0], .flag("-autolink-library"), .flag("oldnames"), .flag("-autolink-library"), .flag("libcmtd"), .flag("-Xcc"), .flag("-D_MT"))
     }
   }
+
+  func testSysRootHandling() throws {
+    do {
+      var driver = try Driver(args: ["swiftc", "-sysroot", "/path/to/sysroot", "-c", "input.swift"])
+      let jobs = try driver.planBuild()
+
+      XCTAssertEqual(jobs.count, 1)
+      XCTAssertEqual(jobs[0].kind, .compile)
+      XCTAssertJobInvocationMatches(jobs[0], .flag("-sysroot"), try .path(.absolute(.init(validating: "/path/to/sysroot"))))
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "-sdk", "/path/to/sdk", "-sysroot", "/path/to/sysroot", "-c", "input.swift"])
+      let jobs = try driver.planBuild()
+
+      XCTAssertEqual(jobs.count, 1)
+      XCTAssertEqual(jobs[0].kind, .compile)
+      XCTAssertJobInvocationMatches(jobs[0], .flag("-sysroot"), try .path(.absolute(.init(validating: "/path/to/sysroot"))))
+    }
+  }
 }
 
 func assertString(
