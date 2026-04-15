@@ -815,10 +815,10 @@ extension Option {
   public static let publicModuleName: Option = Option("-public-module-name", .separate, attributes: [.frontend], helpText: "Public facing module name to use in diagnostics and documentation")
   public static let RaccessNoteEQ: Option = Option("-Raccess-note=", .joined, alias: Option.RaccessNote, attributes: [.frontend, .noDriver])
   public static let RaccessNote: Option = Option("-Raccess-note", .separate, attributes: [.frontend, .noDriver], metaVar: "none|failures|all|all-validate", helpText: "Control access note remarks (default: all)")
-  public static let cacheRemarks: Option = Option("-Rcache-compile-job", .flag, attributes: [.frontend, .cacheInvariant], helpText: "Show remarks for compiler caching")
-  public static let emitCrossImportRemarks: Option = Option("-Rcross-import", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Emit a remark if a cross-import of a module is triggered.")
-  public static let dependencyScanCacheRemarks: Option = Option("-Rdependency-scan-cache", .flag, attributes: [.frontend, .noDriver], helpText: "Emit remarks indicating use of the serialized module dependency scanning cache.")
-  public static let dependencyScanRemarks: Option = Option("-Rdependency-scan", .flag, attributes: [.frontend, .noDriver], helpText: "Emit remarks for various steps taken by the dependency scanner.")
+  public static let cacheRemarks: Option = Option("-Rcache-compile-job", .flag, alias: Option.enableRemark, attributes: [.frontend, .cacheInvariant], helpText: "Show remarks for compiler caching")
+  public static let emitCrossImportRemarks: Option = Option("-Rcross-import", .flag, alias: Option.enableRemark, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Emit a remark if a cross-import of a module is triggered.")
+  public static let dependencyScanCacheRemarks: Option = Option("-Rdependency-scan-cache", .flag, alias: Option.enableRemark, attributes: [.frontend, .noDriver], helpText: "Emit remarks indicating use of the serialized module dependency scanning cache.")
+  public static let dependencyScanRemarks: Option = Option("-Rdependency-scan", .flag, alias: Option.enableRemark, attributes: [.frontend, .noDriver], helpText: "Emit remarks for various steps taken by the dependency scanner.")
   public static let readLegacyTypeInfoPathEQ: Option = Option("-read-legacy-type-info-path=", .joined, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Read legacy type layout from the given path instead of default path")
   public static let reflectionMetadataForDebuggerOnly: Option = Option("-reflection-metadata-for-debugger-only", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Emit reflection metadata for debugger only, don't make them available at runtime")
   public static let registerModuleDependency: Option = Option("-register-module-dependency", .separate, attributes: [], helpText: "Register module for dependency scan without importing in the frontend")
@@ -838,18 +838,22 @@ extension Option {
   public static let resolveImports: Option = Option("-resolve-imports", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Parse and resolve imports in input file(s)", group: .modes)
   public static let resolvedPluginVerification: Option = Option("-resolved-plugin-verification", .flag, attributes: [.frontend, .noDriver], helpText: "verify resolved plugins")
   public static let resourceDir: Option = Option("-resource-dir", .separate, attributes: [.helpHidden, .frontend, .synthesizeInterface, .argumentIsPath], metaVar: "</usr/lib/swift>", helpText: "The directory that holds the compiler resource files")
-  public static let remarkIndexingSystemModule: Option = Option("-Rindexing-system-module", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Emit a remark when indexing a system module")
-  public static let expansionRemarks: Option = Option("-Rmacro-expansions", .flag, attributes: [.frontend, .noDriver], helpText: "Show remarks for each line in macro expansions")
-  public static let remarkMacroLoading: Option = Option("-Rmacro-loading", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Emit remarks about loaded macro implementations")
-  public static let remarkModuleApiImport: Option = Option("-Rmodule-api-import", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Emit remarks about the import bridging in each element composing the API")
-  public static let RmoduleInterfaceRebuild: Option = Option("-Rmodule-interface-rebuild", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Emits a remark if an imported module needs to be re-compiled from its module interface")
-  public static let remarkLoadingModule: Option = Option("-Rmodule-loading", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Emit remarks about loaded module")
-  public static let remarkModuleRecovery: Option = Option("-Rmodule-recovery", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Emit remarks about contextual inconsistencies in loaded modules")
-  public static let remarkModuleSerialization: Option = Option("-Rmodule-serialization", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Emit remarks about module serialization")
+  public static let RhelpSwiftc: Option = Option("-Rhelp-swiftc", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "List diagnostic groups that support remark output, excluding frontend-only groups")
+  public static let Rhelp: Option = Option("-Rhelp", .flag, attributes: [.frontend], helpText: "List diagnostic groups that support remark output")
+  public static let remarkIndexingSystemModule: Option = Option("-Rindexing-system-module", .flag, alias: Option.enableRemark, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Emit a remark when indexing a system module")
+  public static let expansionRemarks: Option = Option("-Rmacro-expansions", .flag, alias: Option.enableRemark, attributes: [.frontend, .noDriver], helpText: "Show remarks for each line in macro expansions")
+  public static let remarkMacroLoading: Option = Option("-Rmacro-loading", .flag, alias: Option.enableRemark, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Emit remarks about loaded macro implementations")
+  public static let remarkModuleApiImport: Option = Option("-Rmodule-api-import", .flag, alias: Option.enableRemark, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Emit remarks about the import bridging in each element composing the API")
+  public static let RmoduleInterfaceRebuild: Option = Option("-Rmodule-interface-rebuild", .flag, alias: Option.enableRemark, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Emits a remark if an imported module needs to be re-compiled from its module interface")
+  public static let remarkLoadingModule: Option = Option("-Rmodule-loading", .flag, alias: Option.enableRemark, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Emit remarks about loaded module")
+  public static let remarkModuleRecovery: Option = Option("-Rmodule-recovery", .flag, alias: Option.enableRemark, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Emit remarks about contextual inconsistencies in loaded modules")
+  public static let remarkModuleSerialization: Option = Option("-Rmodule-serialization", .flag, alias: Option.enableRemark, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Emit remarks about module serialization")
   public static let RpassMissedEQ: Option = Option("-Rpass-missed=", .joined, attributes: [.frontend], helpText: "Report missed transformations by optimization passes whose name matches the given POSIX regular expression")
   public static let RpassEQ: Option = Option("-Rpass=", .joined, attributes: [.frontend], helpText: "Report performed transformations by optimization passes whose name matches the given POSIX regular expression")
   public static let remarkSkipExplicitInterfaceBuild: Option = Option("-Rskip-explicit-interface-build", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Emit a remark if an explicit module interface invocation has an early exit because the expected output is up-to-date")
+  public static let enableRemarkSwiftc: Option = Option("-Rswiftc", .separate, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<group>", helpText: "Enable remarks in diagnostic group <group>, excluding frontend-only groups")
   public static let runtimeCompatibilityVersion: Option = Option("-runtime-compatibility-version", .separate, attributes: [.frontend], helpText: "Link compatibility library for Swift runtime version, or 'none'")
+  public static let enableRemark: Option = Option("-R", .separate, attributes: [.frontend, .cacheInvariant], metaVar: "<group>", helpText: "Enable remarks in diagnostic group <group>. List groups with -Rhelp.")
   public static let sanitizeAddressUseOdrIndicator: Option = Option("-sanitize-address-use-odr-indicator", .flag, attributes: [.helpHidden, .frontend, .noInteractive], helpText: "When using AddressSanitizer enable ODR indicator globals to avoid false ODR violation reports in partially sanitized programs at the cost of an increase in binary size")
   public static let sanitizeCoverageEQ: Option = Option("-sanitize-coverage=", .commaJoined, attributes: [.frontend, .noInteractive], metaVar: "<type>", helpText: "Specify the type of coverage instrumentation for Sanitizers and additional options separated by commas")
   public static let sanitizeRecoverEQ: Option = Option("-sanitize-recover=", .commaJoined, attributes: [.frontend, .noInteractive], metaVar: "<check>", helpText: "Specify which sanitizer runtime checks (see -sanitize=) will generate instrumentation that allows error recovery. Listed checks should be comma separated. Default behavior is to not allow error recovery.")
@@ -1863,6 +1867,8 @@ extension Option {
       Option.resolveImports,
       Option.resolvedPluginVerification,
       Option.resourceDir,
+      Option.RhelpSwiftc,
+      Option.Rhelp,
       Option.remarkIndexingSystemModule,
       Option.expansionRemarks,
       Option.remarkMacroLoading,
@@ -1874,7 +1880,9 @@ extension Option {
       Option.RpassMissedEQ,
       Option.RpassEQ,
       Option.remarkSkipExplicitInterfaceBuild,
+      Option.enableRemarkSwiftc,
       Option.runtimeCompatibilityVersion,
+      Option.enableRemark,
       Option.sanitizeAddressUseOdrIndicator,
       Option.sanitizeCoverageEQ,
       Option.sanitizeRecoverEQ,

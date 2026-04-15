@@ -47,6 +47,7 @@ public struct Job: Codable, Equatable, Hashable {
     case compareAPIBaseline = "compare-api-baseline"
     case compareABIBaseline = "Check ABI stability"
     case printSupportedFeatures = "print-supported-features"
+    case remarkHelp = "remark-help"
   }
 
   public enum ArgTemplate: Equatable, Hashable {
@@ -263,6 +264,9 @@ extension Job : CustomStringConvertible {
 
     case .printSupportedFeatures:
       return "Print supported upcoming and experimental features"
+
+    case .remarkHelp:
+      return "Listing diagnostic groups with remark output"
     }
   }
 
@@ -282,7 +286,8 @@ extension Job.Kind {
     switch self {
     case .backend, .compile, .emitModule, .compileModuleFromInterface, .generatePCH,
         .generatePCM, .dumpPCM, .interpret, .repl, .printTargetInfo,
-        .versionRequest, .emitSupportedFeatures, .scanDependencies, .verifyModuleInterface, .printSupportedFeatures:
+        .versionRequest, .emitSupportedFeatures, .scanDependencies, .verifyModuleInterface, .printSupportedFeatures,
+        .remarkHelp:
         return true
 
     case .autolinkExtract, .generateDSYM, .help, .link, .verifyDebugInfo, .moduleWrap,
@@ -302,7 +307,7 @@ extension Job.Kind {
          .help, .link, .verifyDebugInfo, .scanDependencies,
          .emitSupportedFeatures, .moduleWrap, .verifyModuleInterface,
          .generateAPIBaseline, .generateABIBaseline, .compareAPIBaseline,
-         .compareABIBaseline, .printSupportedFeatures:
+         .compareABIBaseline, .printSupportedFeatures, .remarkHelp:
       return false
     }
   }
@@ -317,7 +322,7 @@ extension Job.Kind {
          .versionRequest, .autolinkExtract, .generateDSYM, .help, .link,
          .verifyDebugInfo, .scanDependencies, .emitSupportedFeatures, .moduleWrap,
          .generateAPIBaseline, .generateABIBaseline, .compareAPIBaseline,
-         .compareABIBaseline, .printSupportedFeatures:
+         .compareABIBaseline, .printSupportedFeatures, .remarkHelp:
       return false
     }
   }
