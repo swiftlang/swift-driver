@@ -1002,7 +1002,7 @@ extension Driver {
         outputType: .timeTrace,
         finalOutputPath: timeTraceOutputPath,
         input: input,
-        flag: "-time-trace-path")
+        flag: "-emit-time-trace-path")
     }
 
     let optRecordTypeWarning = self.optimizationRecordFileType ?? .yamlOptimizationRecord
@@ -1104,8 +1104,8 @@ extension Driver {
     // Separate time trace pairs from supplementary output pairs.
     // Time trace is not a supplementary output — it must not go into the
     // supplementary output file map (which feeds the CAS caching layer).
-    let timeTracePairs = flaggedInputOutputPairs.filter { $0.flag == "-time-trace-path" }
-    let supplementaryPairs = flaggedInputOutputPairs.filter { $0.flag != "-time-trace-path" }
+    let timeTracePairs = flaggedInputOutputPairs.filter { $0.flag == "-emit-time-trace-path" }
+    let supplementaryPairs = flaggedInputOutputPairs.filter { $0.flag != "-emit-time-trace-path" }
 
     // When we have multiple opt records in flaggedInputOutputPairs, we must use a supplementary
     // output file map to pass all the per-file paths to the frontend.

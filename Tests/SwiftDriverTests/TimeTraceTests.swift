@@ -66,7 +66,7 @@ final class TimeTraceTests: XCTestCase {
       let tracePath = dir.appending(component: "foo.time-trace.json")
       var driver = try Driver(args: [
         "swiftc", "-c", "-time-trace",
-        "-time-trace-path", tracePath.pathString,
+        "-emit-time-trace-path", tracePath.pathString,
         "foo.swift"
       ])
       let jobs = try driver.planBuild()
@@ -125,8 +125,8 @@ final class TimeTraceTests: XCTestCase {
 
       for job in interfaceJobs {
         XCTAssertTrue(
-          job.commandLine.contains(.flag("-time-trace-path")),
-          "Expected -time-trace-path in \(job.moduleName) compileModuleFromInterface job command line"
+          job.commandLine.contains(.flag("-emit-time-trace-path")),
+          "Expected -emit-time-trace-path in \(job.moduleName) compileModuleFromInterface job command line"
         )
       }
     }

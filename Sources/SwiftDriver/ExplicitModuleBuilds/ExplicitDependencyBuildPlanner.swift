@@ -252,7 +252,7 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
           .appendingFileTypeExtension(.timeTrace)
         let tracePath = outputModulePath.file.parentDirectory
           .appending(component: traceFileName)
-        commandLine.appendFlag("-time-trace-path")
+        commandLine.appendFlag("-emit-time-trace-path")
         commandLine.appendPath(tracePath)
         if let granularity = timeTraceGranularity {
           commandLine.appendFlag("-time-trace-granularity")
@@ -332,7 +332,7 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
           .appendingFileTypeExtension(.timeTrace)
         let tracePath = modulePCMPath.file.parentDirectory
           .appending(component: traceFileName)
-        commandLine.appendFlag("-time-trace-path")
+        commandLine.appendFlag("-emit-time-trace-path")
         commandLine.appendPath(tracePath)
         if let granularity = timeTraceGranularity {
           commandLine.appendFlag("-time-trace-granularity")
