@@ -89,12 +89,16 @@ public struct Option {
   /// The number of arguments for MultiArg options.
   public let numArgs: UInt
 
+  /// The arguments to supply to the alias target when this option is used.
+  public let aliasArgs: [String]
+
   public init(_ spelling: String, _ kind: Kind,
               alias: Option? = nil,
               attributes: OptionAttributes = [], metaVar: String? = nil,
               helpText: String? = nil,
               group: Group? = nil,
-              numArgs: UInt = 0) {
+              numArgs: UInt = 0,
+              aliasArgs: [String] = []) {
     self.spelling = spelling
     self.kind = kind
     self.aliasFunction = alias.map { aliasOption in { aliasOption }}
@@ -103,6 +107,7 @@ public struct Option {
     self.helpText = helpText
     self.group = group
     self.numArgs = numArgs
+    self.aliasArgs = aliasArgs
   }
 }
 

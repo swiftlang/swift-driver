@@ -302,6 +302,48 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testRemarkOptionRemapping() throws {
+    do {
+      var driver = try Driver(args: ["swiftc", "-Rhelp"])
+      let jobs = try driver.planBuild()
+      let remarkHelpJob = try jobs.findJob(.remarkHelp)
+      XCTAssertTrue(remarkHelpJob.commandLine.contains(.flag("-Rhelp-swiftc")))
+      XCTAssertFalse(remarkHelpJob.commandLine.contains(.flag("-Rhelp")))
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "foo.swift", "-R", "ModuleLoading"])
+      let jobs = try driver.planBuild()
+      let compileJob = try jobs.findJob(.compile)
+      XCTAssertCommandLineContains(compileJob.commandLine, .flag("-Rswiftc"), .flag("ModuleLoading"))
+      XCTAssertFalse(compileJob.commandLine.contains(.flag("-R")))
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "foo.swift", "-Rmodule-loading"])
+      let jobs = try driver.planBuild()
+      let compileJob = try jobs.findJob(.compile)
+      XCTAssertCommandLineContains(compileJob.commandLine, .flag("-Rswiftc"), .flag("ModuleLoading"))
+      XCTAssertFalse(compileJob.commandLine.contains(.flag("-Rmodule-loading")))
+      XCTAssertFalse(compileJob.commandLine.contains(.flag("-R")))
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "foo.swift", "-Rmodule-recovery"])
+      let jobs = try driver.planBuild()
+      let compileJob = try jobs.findJob(.compile)
+      XCTAssertCommandLineContains(compileJob.commandLine, .flag("-Rswiftc"), .flag("ModularizationIssue"))
+    }
+
+    do {
+      var driver = try Driver(args: ["swiftc", "foo.swift", "-Rmodule-loading", "-Rcross-import"])
+      let jobs = try driver.planBuild()
+      let compileJob = try jobs.findJob(.compile)
+      XCTAssertCommandLineContains(compileJob.commandLine, .flag("-Rswiftc"), .flag("ModuleLoading"))
+      XCTAssertCommandLineContains(compileJob.commandLine, .flag("-Rswiftc"), .flag("CrossImport"))
+    }
+  }
+
   func testRuntimeCompatibilityVersion() throws {
     try assertNoDriverDiagnostics(args: "swiftc", "a.swift", "-runtime-compatibility-version", "none")
   }

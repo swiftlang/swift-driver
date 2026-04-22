@@ -69,6 +69,7 @@ struct RawOption {
   const char *helpText;
   const char *metaVar;
   unsigned numArgs;
+  const char *aliasArgs;
 
   bool isGroup() const { return kind == llvm::opt::Option::GroupClass; }
 
@@ -119,7 +120,8 @@ static const RawOption rawOptions[] = {
    FLAGS,                                                                      \
    HELPTEXT,                                                                   \
    METAVAR,                                                                    \
-   PARAM},
+   PARAM,                                                                      \
+   ALIASARGS},
 #include "swift/Option/Options.inc"
 #undef OPTION
 };
@@ -353,6 +355,18 @@ int makeOptions_main() {
       }
       if (option.kind == llvm::opt::Option::MultiArgClass) {
         out << ", numArgs: " << option.numArgs;
+      }
+      if (option.aliasArgs) {
+        out << ", aliasArgs: [";
+        const char *p = option.aliasArgs;
+        bool first = true;
+        while (*p) {
+          if (!first) out << ", ";
+          first = false;
+          out << "\"" << p << "\"";
+          p += strlen(p) + 1;
+        }
+        out << "]";
       }
       out << ")\n";
     });

@@ -249,7 +249,7 @@ extension Driver {
     }
     for opt in parsedOptions.arguments(for: .enableRemark) {
       commandLine.appendFlag(.enableRemarkSwiftc)
-      commandLine.appendFlag(opt.argument.asSingle)
+      commandLine.appendFlag(opt.effectiveArgument.asSingle)
     }
     try commandLine.appendLast(.suppressRemarks, from: &parsedOptions)
     try commandLine.appendLast(.suppressWarnings, from: &parsedOptions)

@@ -141,9 +141,9 @@ public extension Driver {
       }
     }
 
-    if (parsedOptions.contains(.driverShowIncremental) ||
-        parsedOptions.contains(.dependencyScanCacheRemarks)) &&
-       isFrontendArgSupported(.dependencyScanCacheRemarks) {
+    if parsedOptions.contains(.driverShowIncremental)
+      && isFrontendArgSupported(.dependencyScanCacheRemarks)
+    {
       commandLine.appendFlag(.dependencyScanCacheRemarks)
     }
 
