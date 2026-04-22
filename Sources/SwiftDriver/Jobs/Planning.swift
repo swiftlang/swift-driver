@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014 - 2025 Apple Inc. and the Swift project authors
+// Copyright (c) 2014 - 2026 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -168,7 +168,7 @@ extension Driver {
     if pchCompileJob != nil {
       addJobBeforeCompiles(pchCompileJob!)
     }
-    let linkerInputs = try addJobsFeedingLinker(
+    let (linkerInputs, splitDwarfOutputs) = try addJobsFeedingLinker(
       addJobBeforeCompiles: addJobBeforeCompiles,
       pchCompileJob: pchCompileJob,
       addCompileJob: addCompileJob,
@@ -179,6 +179,7 @@ extension Driver {
     try addAPIDigesterJobs(addJob: addJobAfterCompiles)
     try addLinkAndPostLinkJobs(linkerInputs: linkerInputs,
                                debugInfo: debugInfo,
+                               splitDwarfOutputs: splitDwarfOutputs,
                                addJob: addJobAfterCompiles,
                                explicitModulePlanner: explicitModulePlanner)
 
@@ -293,9 +294,10 @@ extension Driver {
     addCompileJob: (Job) -> Void,
     addJobAfterCompiles: (Job) -> Void,
     explicitModulePlanner: ExplicitDependencyBuildPlanner?
-  ) throws -> [TypedVirtualPath] {
+  ) throws -> (linkerInputs: [TypedVirtualPath], splitDwarfOutputs: [TypedVirtualPath]) {
 
     var linkerInputs = [TypedVirtualPath]()
+    var splitDwarfOutputs = [TypedVirtualPath]()
     func addLinkerInput(_ li: TypedVirtualPath) { linkerInputs.append(li) }
     let acceptBitcodeAsLinkerInput = lto == .llvmThin || lto == .llvmFull
 
@@ -306,6 +308,8 @@ extension Driver {
             addLinkerInput(jobOutput)
           case .llvmBitcode where acceptBitcodeAsLinkerInput:
             addLinkerInput(jobOutput)
+          case .dwo:
+            splitDwarfOutputs.append(jobOutput)
 
           default:
             break
@@ -364,7 +368,7 @@ extension Driver {
     try addAutolinkExtractJob(linkerInputs: linkerInputs,
                               addLinkerInput: addLinkerInput,
                               addJob: addJobAfterCompiles)
-    return linkerInputs
+    return (linkerInputs: linkerInputs, splitDwarfOutputs: splitDwarfOutputs)
   }
 
   /// When in single compile, add one compile job and possibility multiple backend jobs.
@@ -682,6 +686,7 @@ extension Driver {
   private mutating func addLinkAndPostLinkJobs(
     linkerInputs: [TypedVirtualPath],
     debugInfo: DebugInfo,
+    splitDwarfOutputs: [TypedVirtualPath],
     addJob: (Job) -> Void,
     explicitModulePlanner: ExplicitDependencyBuildPlanner?
   ) throws {
@@ -691,6 +696,19 @@ extension Driver {
     let linkJ = try linkJob(inputs: linkerInputs,
                             explicitModulePlanner: explicitModulePlanner)
     addJob(linkJ)
+
+    // Split DWARF: merge .dwo files into .dwp (non-Darwin)
+    if debugInfo.shouldSplitDwarf && !splitDwarfOutputs.isEmpty {
+      switch linkerOutputType {
+      case .none, .some(.staticLibrary):
+        break
+      case .some(.dynamicLibrary), .some(.executable):
+        let dwpJob = try generateDWPJob(inputs: splitDwarfOutputs)
+        addJob(dwpJob)
+      }
+    }
+
+    // Darwin: generate dSYM bundle
     guard targetTriple.isDarwin
     else { return }
 

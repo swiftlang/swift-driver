@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014 - 2025 Apple Inc. and the Swift project authors
+// Copyright (c) 2014 - 2026 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -35,6 +35,7 @@ public enum Tool: Hashable {
   case dwarfdump
   case swiftHelp
   case swiftAPIDigester
+  case dwp
 
   /// Returns a value indicating whether or not the tool supports passing arguments via response
   /// files.
@@ -43,7 +44,7 @@ public enum Tool: Hashable {
     case .swiftCompiler, .clang, .clangxx, .swiftAutolinkExtract, .swiftAPIDigester:
       return true
 
-    case .dsymutil, .lldb, .dwarfdump, .swiftHelp:
+    case .dsymutil, .lldb, .dwarfdump, .swiftHelp, .dwp:
       // NOTE: Consider *very carefully* whether a tool actually belongs here when adding a new
       // entry. Incorrectly marking a tool as not supporting response files when it does may cause
       // large builds to fail that would have otherwise succeeded.

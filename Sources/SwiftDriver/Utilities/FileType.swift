@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014 - 2025 Apple Inc. and the Swift project authors
+// Copyright (c) 2014 - 2026 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -37,6 +37,12 @@ public enum FileType: String, Hashable, CaseIterable, Codable {
 
   /// A dSYM directory.
   case dSYM
+
+  /// Split DWARF debug info file (one per compilation unit).
+  case dwo
+
+  /// DWARF package file (merged from .dwo files).
+  case dwp
 
   /// A file containing make-style dependencies.
   case dependencies = "d"
@@ -182,7 +188,8 @@ public enum FileType: String, Hashable, CaseIterable, Codable {
 extension FileType: CustomStringConvertible {
   public var description: String {
     switch self {
-    case .swift, .sil, .sib, .image, .dSYM, .dependencies, .emitModuleDependencies,
+    case .swift, .sil, .sib, .image, .dSYM, .dwo, .dwp, .dependencies,
+         .emitModuleDependencies,
          .autolink, .swiftModule, .swiftDocumentation, .swiftInterface,
          .swiftSourceInfoFile, .assembly, .remap, .tbd, .pcm, .pch,
          .clangModuleMap:
@@ -297,7 +304,8 @@ extension FileType {
     case .swift, .raw_sil, .sil, .raw_sib, .sib:
       return true
     case .object, .pch, .ast, .llvmIR, .llvmBitcode, .assembly, .swiftModule,
-         .importedModules, .indexData, .remap, .dSYM, .autolink, .dependencies,
+         .importedModules, .indexData, .remap, .dSYM, .dwo, .dwp, .autolink,
+         .dependencies,
          .emitModuleDependencies, .swiftDocumentation, .pcm, .diagnostics,
          .emitModuleDiagnostics, .dependencyScanDiagnostics, .objcHeader, .image, .swiftDeps, .moduleTrace,
          .tbd, .yamlOptimizationRecord, .bitstreamOptimizationRecord,
@@ -360,6 +368,10 @@ extension FileType {
       return "object"
     case .dSYM:
       return "dSYM"
+    case .dwo:
+      return "dwo"
+    case .dwp:
+      return "dwp"
     case .dependencies:
       return "dependencies"
     case .emitModuleDependencies:
@@ -465,7 +477,7 @@ extension FileType {
          .jsonAPIDescriptor, .moduleSummary, .moduleSemanticInfo, .cachedDiagnostics,
          .raw_llvmIr, .jsonSupportedFeatures:
       return true
-    case .image, .object, .dSYM, .pch, .sib, .raw_sib, .swiftModule,
+    case .image, .object, .dSYM, .dwo, .dwp, .pch, .sib, .raw_sib, .swiftModule,
          .swiftDocumentation, .swiftSourceInfoFile, .llvmBitcode, .diagnostics,
          .pcm, .swiftDeps, .remap, .indexData, .bitstreamOptimizationRecord,
          .indexUnitOutputPath, .modDepCache, .emitModuleDiagnostics, .dependencyScanDiagnostics:
@@ -479,7 +491,8 @@ extension FileType {
     switch self {
     case .assembly, .llvmIR, .llvmBitcode, .object:
       return true
-    case .swift, .sil, .sib, .ast, .image, .dSYM, .dependencies, .emitModuleDependencies,
+    case .swift, .sil, .sib, .ast, .image, .dSYM, .dwo, .dwp, .dependencies,
+         .emitModuleDependencies,
          .autolink, .swiftModule, .swiftDocumentation, .swiftInterface,
          .privateSwiftInterface, .packageSwiftInterface, .swiftSourceInfoFile, .raw_sil, .raw_sib,
          .diagnostics, .emitModuleDiagnostics, .objcHeader, .swiftDeps, .remap,
@@ -498,7 +511,7 @@ extension FileType {
     switch self {
     case .swift, .ast, .indexData, .indexUnitOutputPath, .jsonCompilerFeatures, .jsonTargetInfo, .jsonSupportedFeatures:
       return false
-    case .sil, .sib, .image, .object, .dSYM, .dependencies, .autolink, .swiftModule, .swiftDocumentation, .swiftInterface, .privateSwiftInterface, .packageSwiftInterface, .swiftSourceInfoFile, .swiftConstValues, .assembly, .raw_sil, .raw_sib, .llvmIR, .llvmBitcode, .diagnostics, .emitModuleDiagnostics, .emitModuleDependencies, .objcHeader, .swiftDeps, .modDepCache, .remap, .importedModules, .tbd, .jsonDependencies, .jsonSwiftArtifacts, .moduleTrace, .yamlOptimizationRecord, .bitstreamOptimizationRecord, .pcm, .pch, .clangModuleMap, .jsonAPIBaseline, .jsonABIBaseline, .jsonAPIDescriptor, .moduleSummary, .moduleSemanticInfo, .cachedDiagnostics, .raw_llvmIr, .dependencyScanDiagnostics:
+    case .sil, .sib, .image, .object, .dSYM, .dwo, .dwp, .dependencies, .autolink, .swiftModule, .swiftDocumentation, .swiftInterface, .privateSwiftInterface, .packageSwiftInterface, .swiftSourceInfoFile, .swiftConstValues, .assembly, .raw_sil, .raw_sib, .llvmIR, .llvmBitcode, .diagnostics, .emitModuleDiagnostics, .emitModuleDependencies, .objcHeader, .swiftDeps, .modDepCache, .remap, .importedModules, .tbd, .jsonDependencies, .jsonSwiftArtifacts, .moduleTrace, .yamlOptimizationRecord, .bitstreamOptimizationRecord, .pcm, .pch, .clangModuleMap, .jsonAPIBaseline, .jsonABIBaseline, .jsonAPIDescriptor, .moduleSummary, .moduleSemanticInfo, .cachedDiagnostics, .raw_llvmIr, .dependencyScanDiagnostics:
       return true
     }
   }
@@ -510,7 +523,7 @@ extension FileType {
          // Those are by-product from swift-driver and not considered outputs need caching.
          .jsonSwiftArtifacts, .remap, .indexUnitOutputPath, .modDepCache,
          // the remaining should not be an output from a caching swift job.
-         .swift, .image, .dSYM, .importedModules, .clangModuleMap,
+         .swift, .image, .dSYM, .dwo, .dwp, .importedModules, .clangModuleMap,
          .jsonCompilerFeatures, .jsonTargetInfo, .autolink, .jsonSupportedFeatures:
       return false
     case .assembly, .llvmIR, .llvmBitcode, .object, .sil, .sib, .ast,

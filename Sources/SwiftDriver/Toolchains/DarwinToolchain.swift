@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014 - 2025 Apple Inc. and the Swift project authors
+// Copyright (c) 2014 - 2026 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -94,6 +94,8 @@ public final class DarwinToolchain: Toolchain {
       return try lookup(executable: "swift-help")
     case .swiftAPIDigester:
       return try lookup(executable: "swift-api-digester")
+    case .dwp:
+      return try lookup(executable: "llvm-dwp")
     }
   }
 

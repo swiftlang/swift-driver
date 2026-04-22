@@ -1,6 +1,6 @@
 # This source file is part of the Swift open source project
 #
-# Copyright (c) 2014 - 2019 Apple Inc. and the Swift project authors
+# Copyright (c) 2014 - 2026 Apple Inc. and the Swift project authors
 # Licensed under Apache License v2.0
 #
 # See http://swift.org/LICENSE.txt for license information
@@ -80,6 +80,7 @@ add_library(SwiftDriver
   Jobs/EmitSupportedFeaturesJob.swift
   Jobs/FrontendJobHelpers.swift
   Jobs/GenerateDSYMJob.swift
+  Jobs/GenerateDWPJob.swift
   Jobs/GeneratePCHJob.swift
   Jobs/GeneratePCMJob.swift
   Jobs/GenericUnixToolchain+LinkerSupport.swift
