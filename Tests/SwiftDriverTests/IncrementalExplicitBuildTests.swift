@@ -44,7 +44,8 @@ struct IncrementalExplicitBuildTests: DiagVerifiable {
 
   @Test(.serialized, arguments: TestBuildConfig.cachingConfigs)
   func incrementalCompilationCachingBasic(config: TestBuildConfig) async throws {
-    let h = try IncrementalTestHarness(config: config)
+    // Set preferInterfaceModuleLoadMode false to reproduce the issue 88113
+    let h = try IncrementalTestHarness(config: config, preferInterfaceModuleLoadMode: false)
     try h.buildInitialState(checkDiagnostics: false)
     try h.touch("other")
     try h.doABuild(
