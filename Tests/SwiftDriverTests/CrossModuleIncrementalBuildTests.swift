@@ -11,14 +11,15 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 //===----------------------------------------------------------------------===//
-import XCTest
+
+import Testing
 import TSCBasic
 
 @_spi(Testing) import SwiftDriver
 import SwiftOptions
 import TestUtilities
 
-class CrossModuleIncrementalBuildTests: XCTestCase {
+@Suite(.enabled(if: sdkArgumentsAvailable)) struct CrossModuleIncrementalBuildTests {
   func makeOutputFileMap(
     in workingDirectory: AbsolutePath,
     module: String,
@@ -43,12 +44,9 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
     }.joined(separator: "\n").appending("\n}"))
   }
 
-  func testChangingOutputFileMap() throws {
-    guard let sdkArguments = try Driver.sdkArgumentsForTesting() else {
-      throw XCTSkip()
-    }
-    try withTemporaryDirectory { path in
-      try localFileSystem.changeCurrentWorkingDirectory(to: path)
+  @Test func changingOutputFileMap() async throws {
+    let sdkArguments = try #require(try Driver.sdkArgumentsForTesting())
+    try await withTemporaryDirectory { path in
       let magic = path.appending(component: "magic.swift")
       try localFileSystem.writeFileContents(magic) {
         $0.send("public func castASpell() {}")
@@ -72,9 +70,9 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
         magic.pathString,
       ] + sdkArguments
       do {
-        var driver = try Driver(args: driverArgs)
-        let jobs = try driver.planBuild()
-        try driver.run(jobs: jobs)
+        var driver = try TestDriver(args: driverArgs)
+        let jobs = try await driver.planBuild()
+        try await driver.run(jobs: jobs)
       }
 
       try localFileSystem.writeFileContents(ofm) {
@@ -84,19 +82,16 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
       }
 
       do {
-        var driver = try Driver(args: driverArgs)
-        let jobs = try driver.planBuild()
-        try driver.run(jobs: jobs)
+        var driver = try TestDriver(args: driverArgs)
+        let jobs = try await driver.planBuild()
+        try await driver.run(jobs: jobs)
       }
     }
   }
 
-  func testEmbeddedModuleDependencies() throws {
-    guard let sdkArguments = try Driver.sdkArgumentsForTesting() else {
-      throw XCTSkip()
-    }
-    try withTemporaryDirectory { path in
-      try localFileSystem.changeCurrentWorkingDirectory(to: path)
+  @Test func embeddedModuleDependencies() async throws {
+    let sdkArguments = try #require(try Driver.sdkArgumentsForTesting())
+    try await withTemporaryDirectory { path in
       do {
         let magic = path.appending(component: "magic.swift")
         try localFileSystem.writeFileContents(magic) {
@@ -108,7 +103,7 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
           $0.send(self.makeOutputFileMap(in: path, module: "MagicKit", for: [ magic ]))
         }
 
-        var driver = try Driver(args: [
+        var driver = try TestDriver(args: [
           "swiftc",
           "-incremental",
           "-emit-module",
@@ -118,8 +113,8 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
           "-c",
           magic.pathString,
         ] + sdkArguments)
-        let jobs = try driver.planBuild()
-        try driver.run(jobs: jobs)
+        let jobs = try await driver.planBuild()
+        try await driver.run(jobs: jobs)
       }
 
       let main = path.appending(component: "main.swift")
@@ -133,7 +128,7 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
         $0.send(self.makeOutputFileMap(in: path, module: "theModule", for: [ main ]))
       }
 
-      var driver = try Driver(args: [
+      var driver = try TestDriver(args: [
         "swiftc",
         "-incremental",
         "-emit-module",
@@ -145,18 +140,18 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
         main.pathString,
       ] + sdkArguments)
 
-      let jobs = try driver.planBuild()
-      try driver.run(jobs: jobs)
+      let jobs = try await driver.planBuild()
+      try await driver.run(jobs: jobs)
 
       let sourcePath = path.appending(component: "main.swiftdeps")
       let data = try localFileSystem.readFileContents(sourcePath)
       try driver.withModuleDependencyGraph { host in
-        let testGraph = try XCTUnwrap(SourceFileDependencyGraph(
+        let testGraph = try #require(try SourceFileDependencyGraph(
           internedStringTable: host.internedStringTable,
           data: data,
           fromSwiftModule: false))
-        XCTAssertEqual(testGraph.majorVersion, 1)
-        XCTAssertEqual(testGraph.minorVersion, 0)
+        #expect(testGraph.majorVersion == 1)
+        #expect(testGraph.minorVersion == 0)
         testGraph.verify()
 
         var foundNode = false
@@ -166,14 +161,14 @@ class CrossModuleIncrementalBuildTests: XCTestCase {
           host.internedStringTable)
         testGraph.forEachNode { node in
           if case .externalDepend(swiftmodulePath) = node.key.designator {
-            XCTAssertFalse(foundNode)
+            #expect(!foundNode)
             foundNode = true
-            XCTAssertEqual(node.key.aspect, .interface)
-            XCTAssertTrue(node.defsIDependUpon.isEmpty)
-            XCTAssertEqual(node.definitionVsUse, .use)
+            #expect(node.key.aspect == .interface)
+            #expect(node.defsIDependUpon.isEmpty)
+            #expect(node.definitionVsUse == .use)
           }
         }
-        XCTAssertTrue(foundNode)
+        #expect(foundNode)
       }
     }
   }

@@ -12,18 +12,18 @@
 //
 //===----------------------------------------------------------------------===//
 
-import XCTest
+import Testing
 @_spi(Testing) import SwiftDriver
 import TSCBasic
 
-class DependencyGraphSerializationTests: XCTestCase, ModuleDependencyGraphMocker {
+@Suite struct DependencyGraphSerializationTests: ModuleDependencyGraphMocker {
   static let maxIndex = 12
   static let mockGraphCreator = MockModuleDependencyGraphCreator(maxIndex: maxIndex)
 
   /// Unit test of the `ModuleDependencyGraph` serialization
   ///
   /// Ensure that a round-trip fails when the minor version number changes
-  func testSerializedVersionChangeDetection() throws {
+  @Test func serializedVersionChangeDetection() throws {
     let mockPath = VirtualPath.absolute(try AbsolutePath(validating: "/module-dependency-graph"))
     let fs = InMemoryFileSystem()
     let graph = Self.mockGraphCreator.mockUpAGraph()
@@ -44,15 +44,15 @@ class DependencyGraphSerializationTests: XCTestCase, ModuleDependencyGraphMocker
       try info.blockingConcurrentAccessOrMutation {
         _ = try ModuleDependencyGraph.read(from: mockPath,
                                            info: info)
-        XCTFail("Should have thrown an exception")
+        Issue.record("Should have thrown an exception")
       }
     }
     catch let ModuleDependencyGraph.ReadError.mismatchedSerializedGraphVersion(expected, read) {
-      XCTAssertEqual(expected, currentVersion)
-      XCTAssertEqual(read, alteredVersion)
+      #expect(expected == currentVersion)
+      #expect(read == alteredVersion)
     }
     catch {
-      XCTFail("Threw an unexpected exception: \(error.localizedDescription)")
+      Issue.record("Threw an unexpected exception: \(error.localizedDescription)")
     }
   }
 
@@ -69,7 +69,7 @@ class DependencyGraphSerializationTests: XCTestCase, ModuleDependencyGraphMocker
 
     let info = IncrementalCompilationState.IncrementalDependencyAndInputSetup.mock(outputFileMap: outputFileMap, fileSystem: fs)
     let deserializedGraph = try info.blockingConcurrentAccessOrMutation {
-      try XCTUnwrap(ModuleDependencyGraph.read(from: mockPath, info: info))
+      try #require(try ModuleDependencyGraph.read(from: mockPath, info: info))
     }
 
     let descsToCompare = [originalGraph, deserializedGraph].map {
@@ -87,12 +87,12 @@ class DependencyGraphSerializationTests: XCTestCase, ModuleDependencyGraphMocker
       }
       return (nodes, uses, feds)
     }
-    XCTAssertEqual(descsToCompare[0].nodes, descsToCompare[1].nodes, "Round trip node difference!")
-    XCTAssertEqual(descsToCompare[0].uses,  descsToCompare[1].uses, "Round trip def-uses difference!")
-    XCTAssertEqual(descsToCompare[0].feds,  descsToCompare[1].feds, "Round trip fingerprinted external dependency difference!")
+    #expect(descsToCompare[0].nodes == descsToCompare[1].nodes, "Round trip node difference!")
+    #expect(descsToCompare[0].uses == descsToCompare[1].uses, "Round trip def-uses difference!")
+    #expect(descsToCompare[0].feds == descsToCompare[1].feds, "Round trip fingerprinted external dependency difference!")
   }
 
-  func testRoundTripFixtures() throws {
+  @Test func roundTripFixtures() throws {
     struct GraphFixture {
       var commands: [LoadCommand]
 

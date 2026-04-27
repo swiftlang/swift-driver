@@ -84,10 +84,7 @@ let package = Package(
     .target(
       name: "IncrementalTestFramework",
       dependencies: [ "SwiftDriver", "SwiftOptions", "TestUtilities" ],
-      path: "Tests/IncrementalTestFramework",
-      linkerSettings: [
-        .linkedFramework("XCTest", .when(platforms: [.iOS, .macOS, .tvOS, .watchOS]))
-      ]),
+      path: "Tests/IncrementalTestFramework"),
 
     .target(
       name: "TestUtilities",

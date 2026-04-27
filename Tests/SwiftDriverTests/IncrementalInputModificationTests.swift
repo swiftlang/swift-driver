@@ -19,7 +19,7 @@ import TSCBasic
 import TestUtilities
 import Testing
 
-@Suite(.serialized, .enabled(if: sdkArgumentsAvailable, "SDK not available"))
+@Suite(.enabled(if: sdkArgumentsAvailable, "SDK not available"))
 struct IncrementalInputModificationTests: DiagVerifiable {
 
   @Test func optionsParsing() async throws {
@@ -35,20 +35,19 @@ struct IncrementalInputModificationTests: DiagVerifiable {
       ]
 
     for (driverOption, stateOptionFn) in optionPairs {
-      try h.doABuild(
+      try await h.doABuild(
         "initial",
         checkDiagnostics: false,
         extraArguments: [driverOption.spelling],
         whenAutolinking: []
       ) {}
 
-      var driver = try Driver(
+      var driver = try TestDriver(
         args: h.commonArgs + [
           driverOption.spelling
-        ] + h.sdkArgumentsForTesting,
-        diagnosticsEngine: DiagnosticsEngine()
+        ] + h.sdkArgumentsForTesting
       )
-      _ = try driver.planBuild()
+      _ = try await driver.planBuild()
       #expect(!driver.diagnosticEngine.hasErrors)
       let state = try #require(driver.incrementalCompilationState)
       #expect(stateOptionFn(state.info))
@@ -64,15 +63,14 @@ struct IncrementalInputModificationTests: DiagVerifiable {
     env["SWIFT_DRIVER_SWIFT_AUTOLINK_EXTRACT_EXEC"] = "//usr/bin/swift-autolink-extract"
     env["SWIFT_DRIVER_DSYMUTIL_EXEC"] = "//usr/bin/dsymutil"
 
-    var driver = try Driver(
+    var driver = try TestDriver(
       args: h.commonArgs + [
         "-emit-library", "-target", "x86_64-unknown-linux",
       ],
-      env: env,
-      diagnosticsEngine: DiagnosticsEngine()
+      env: env
     )
 
-    let jobs = try driver.planBuild()
+    let jobs = try await driver.planBuild()
     let job = try #require(jobs.filter { $0.kind == .autolinkExtract }.first)
 
     let outputs = job.outputs.filter { $0.type == .autolink }
@@ -88,18 +86,17 @@ struct IncrementalInputModificationTests: DiagVerifiable {
   @Test func nullPlanningCompatibility() async throws {
     let h = try IncrementalTestHarness()
     let extraArguments = ["-experimental-emit-module-separately", "-emit-module"]
-    var driver = try Driver(
-      args: h.commonArgs + extraArguments + h.sdkArgumentsForTesting,
-      diagnosticsEngine: DiagnosticsEngine()
+    var driver = try TestDriver(
+      args: h.commonArgs + extraArguments + h.sdkArgumentsForTesting
     )
-    let initialJobs = try driver.planBuild()
+    let initialJobs = try await driver.planBuild()
     #expect(initialJobs.contains { $0.kind == .emitModule })
-    try driver.run(jobs: initialJobs)
+    try await driver.run(jobs: initialJobs)
 
     // Plan the build again without touching any file. This should be a null build but for
     // compatibility reason, planBuild() should return all the jobs and supported build system
     // will query incremental state for the actual jobs need to be executed.
-    let replanJobs = try driver.planBuild()
+    let replanJobs = try await driver.planBuild()
     #expect(
       !replanJobs.filter { $0.kind == .compile }.isEmpty,
       "more than one compile job needs to be planned"
@@ -109,7 +106,7 @@ struct IncrementalInputModificationTests: DiagVerifiable {
 
   @Test func addingInput() async throws {
     let h = try IncrementalTestHarness()
-    try h.runAddingInputTest(newInput: "another", defining: "nameInAnother")
+    try await h.runAddingInputTest(newInput: "another", defining: "nameInAnother")
   }
 
   /// In order to ensure robustness, test what happens under various conditions when a source
@@ -119,13 +116,13 @@ struct IncrementalInputModificationTests: DiagVerifiable {
     let h = try IncrementalTestHarness()
     let newInput = "another"
     let topLevelName = "nameInAnother"
-    try h.runAddingInputTest(newInput: newInput, defining: topLevelName)
+    try await h.runAddingInputTest(newInput: newInput, defining: topLevelName)
 
     let removeInputFromInvocation = options.contains(.removeInputFromInvocation)
     let removeSwiftDepsOfRemovedInput = options.contains(.removeSwiftDepsOfRemovedInput)
     let removedFileDependsOnChangedFileAndMainWasChanged = options.contains(.removedFileDependsOnChangedFile)
 
-    _ = try h.checkNonincrementalAfterRemoving(
+    _ = try await h.checkNonincrementalAfterRemoving(
       removedInput: newInput,
       defining: topLevelName,
       removeInputFromInvocation: removeInputFromInvocation,
@@ -136,7 +133,7 @@ struct IncrementalInputModificationTests: DiagVerifiable {
       h.replace(contentsOf: "main", with: "let foo = \"hello\"")
     }
 
-    try h.checkRestorationOfIncrementalityAfterRemoval(
+    try await h.checkRestorationOfIncrementalityAfterRemoval(
       removedInput: newInput,
       defining: topLevelName,
       removeInputFromInvocation: removeInputFromInvocation,
@@ -151,8 +148,8 @@ struct IncrementalInputModificationTests: DiagVerifiable {
   /// builds should result in a null build.
   @Test func nullBuildArgumentsNotAffectingIncrementalBuilds() async throws {
     let h = try IncrementalTestHarness()
-    try h.buildInitialState(extraArguments: ["-driver-batch-size-limit", "5", "-debug-diagnostic-names"])
-    let driver = try h.checkNullBuild(extraArguments: ["-driver-batch-size-limit", "10", "-diagnostic-style", "swift"])
+    try await h.buildInitialState(extraArguments: ["-driver-batch-size-limit", "5", "-debug-diagnostic-names"])
+    let driver = try await h.checkNullBuild(extraArguments: ["-driver-batch-size-limit", "10", "-diagnostic-style", "swift"])
     let mandatoryJobs = try #require(driver.incrementalCompilationState?.mandatoryJobsInOrder)
     #expect(mandatoryJobs.isEmpty)
   }
@@ -161,8 +158,8 @@ struct IncrementalInputModificationTests: DiagVerifiable {
   /// full recompile.
   @Test func changingOptionArgumentLeadsToRecompile() async throws {
     let h = try IncrementalTestHarness()
-    try h.buildInitialState(extraArguments: ["-user-module-version", "1.0"])
-    try h.doABuild(
+    try await h.buildInitialState(extraArguments: ["-user-module-version", "1.0"])
+    try await h.doABuild(
       "change user module version",
       checkDiagnostics: true,
       extraArguments: ["-user-module-version", "1.1"],
@@ -180,8 +177,8 @@ struct IncrementalInputModificationTests: DiagVerifiable {
   /// Reordering options which affect incremental builds should trigger a full recompile.
   @Test func optionReorderingLeadsToRecompile() async throws {
     let h = try IncrementalTestHarness()
-    try h.buildInitialState(extraArguments: ["-warnings-as-errors", "-no-warnings-as-errors"])
-    try h.doABuild(
+    try await h.buildInitialState(extraArguments: ["-warnings-as-errors", "-no-warnings-as-errors"])
+    try await h.doABuild(
       "reorder options",
       checkDiagnostics: true,
       extraArguments: ["-no-warnings-as-errors", "-warnings-as-errors"],
@@ -200,8 +197,8 @@ struct IncrementalInputModificationTests: DiagVerifiable {
   /// full recompile.
   @Test func argumentReorderingLeadsToRecompile() async throws {
     let h = try IncrementalTestHarness()
-    try h.buildInitialState(extraArguments: ["-Ifoo", "-Ibar"])
-    try h.doABuild(
+    try await h.buildInitialState(extraArguments: ["-Ifoo", "-Ibar"])
+    try await h.doABuild(
       "reorder arguments",
       checkDiagnostics: true,
       extraArguments: ["-Ibar", "-Ifoo"],
@@ -224,13 +221,13 @@ struct IncrementalInputModificationTests: DiagVerifiable {
       "-I", h.explicitSwiftDependenciesPath.nativePathString(escaped: false),
     ]
     h.replace(contentsOf: "other", with: "import E;let bar = foo")
-    try h.buildInitialState(checkDiagnostics: false, extraArguments: extraArguments)
+    try await h.buildInitialState(checkDiagnostics: false, extraArguments: extraArguments)
     h.touch(
       try AbsolutePath(validating: h.explicitSwiftDependenciesPath.appending(component: "E.swiftinterface").pathString)
     )
     h.replace(contentsOf: "other", with: "import E;let bar = foo + moduleEValue")
 
-    try h.doABuild(
+    try await h.doABuild(
       "update dependency (E) interface timestamp",
       checkDiagnostics: false,
       extraArguments: extraArguments,

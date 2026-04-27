@@ -14,14 +14,12 @@
 
 import Foundation
 @_spi(Testing) import SwiftDriver
+import SwiftOptions
 import TSCBasic
+import TestUtilities
 import Testing
 
 // MARK: - Build Configuration
-
-/// Set `SWIFT_DRIVER_TEST_VERBOSE=1` in the environment to print diagnostics
-/// and debug messages to stderr when debugging tests.
-let verboseTestOutput = ProcessEnv.block["SWIFT_DRIVER_TEST_VERBOSE"] != nil
 
 enum TestBuildConfig: CaseIterable, CustomStringConvertible, Sendable {
   case implicitModule
@@ -77,23 +75,33 @@ extension TestBuildConfig: CustomTestStringConvertible {
 
 // MARK: Testing Traits
 
+private func hostOS() -> Set<Triple.OS> {
+  #if os(Windows)
+  return [.win32]
+  #elseif os(Linux)
+  return [.linux]
+  #elseif os(macOS)
+  return [.macosx, .darwin]
+  #elseif os(iOS)
+  return [.ios, .darwin]
+  #elseif os(tvOS)
+  return [.tvos, .darwin]
+  #elseif os(watchOS)
+  return [.watchos, .darwin]
+  #elseif os(visionOS)
+  return [.visionos, .darwin]
+  #else
+  return []  // unsupported.
+  #endif
+}
+
 extension Trait where Self == Testing.ConditionTrait {
-  /// Skip on Windows platforms.
-  package static func skipWindows(_ comment: Comment? = nil) -> Self {
-    #if os(Windows)
-    disabled(comment ?? "This test cannot run on windows")
-    #else
-    enabled(if: true)
-    #endif
+  package static func requireHostOS(_ os: Triple.OS..., comment: Comment? = nil) -> Self {
+    enabled(comment ?? "This test requires host OS: \(os)", { os.allSatisfy { hostOS().contains($0) } })
   }
 
-  /// Skip on Linux platforms.
-  package static func skipLinux(_ comment: Comment? = nil) -> Self {
-    #if canImport(Linux)
-    disabled(comment ?? "This test cannot run on Linux")
-    #else
-    enabled(if: true)
-    #endif
+  package static func skipHostOS(_ os: Triple.OS..., comment: Comment? = nil) -> Self {
+    disabled(comment ?? "This test cannot run on host OS: \(os)", { os.allSatisfy { hostOS().contains($0) } })
   }
 
   /// Requires ObjC Runtime to run.
@@ -105,9 +113,75 @@ extension Trait where Self == Testing.ConditionTrait {
     #endif
   }
 
+  /// Requires that the Swift frontend supports a specific argument.
+  package static func requireFrontendArgSupport(
+    _ option: Option,
+    _ comment: Comment? = nil
+  ) -> Self {
+    let supported = _featureCheckDriver?.isFrontendArgSupported(option) ?? false
+    return enabled(
+      if: supported,
+      comment ?? Comment(rawValue: "Frontend does not support '\(option.spelling)'")
+    )
+  }
+
+  /// Requires that libSwiftScan supports link library reporting.
+  package static func requireScannerSupportsLinkLibraries(_ comment: Comment? = nil) -> Self {
+    let supported = (try? _scannerOracle?.supportsLinkLibraries()) ?? false
+    return enabled(if: supported, comment ?? "libSwiftScan does not support link library reporting")
+  }
+
+  /// Requires that libSwiftScan supports import info reporting.
+  package static func requireScannerSupportsImportInfos(_ comment: Comment? = nil) -> Self {
+    let supported = (try? _scannerOracle?.supportsImportInfos()) ?? false
+    return enabled(if: supported, comment ?? "libSwiftScan does not support import details reporting")
+  }
+
+  /// Requires that libSwiftScan supports library level reporting.
+  package static func requireScannerSupportsLibraryLevel(_ comment: Comment? = nil) -> Self {
+    let supported = (try? _scannerOracle?.supportsLibraryLevel()) ?? false
+    return enabled(if: supported, comment ?? "libSwiftScan does not support library level reporting")
+  }
+
+  /// Requires that libSwiftScan supports per-scan diagnostics.
+  package static func requireScannerSupportsPerScanDiagnostics(_ comment: Comment? = nil) -> Self {
+    let supported = (try? _scannerOracle?.supportsPerScanDiagnostics()) ?? false
+    return enabled(if: supported, comment ?? "libSwiftScan does not support diagnostics queries")
+  }
+
+  /// Requires that libSwiftScan supports binary framework dependency reporting.
+  package static func requireScannerSupportsBinaryFrameworkDependencies(_ comment: Comment? = nil) -> Self {
+    let supported = (try? _scannerOracle?.supportsBinaryFrameworkDependencies()) ?? false
+    return enabled(if: supported, comment ?? "libSwiftScan does not support framework binary dependency reporting")
+  }
+
+  /// Requires that libSwiftScan supports binary module header dependencies.
+  package static func requireScannerSupportsBinaryModuleHeaderDependencies(_ comment: Comment? = nil) -> Self {
+    let supported = (try? _scannerOracle?.supportsBinaryModuleHeaderDependencies()) ?? false
+    return enabled(if: supported, comment ?? "libSwiftScan does not support binary module header dependencies")
+  }
+
+  /// Requires that explicit module verify interface is supported.
+  package static func requireExplicitModuleVerifyInterface(_ comment: Comment? = nil) -> Self {
+    let supported = _featureCheckDriver?.isFrontendArgSupported(.inputFileKey) ?? false
+    return enabled(if: supported, comment ?? "-typecheck-module-from-interface doesn't support explicit build")
+  }
 }
 
 // MARK: - Feature availability
+
+/// A shared Driver instance used for checking feature support at test discovery time.
+private let _featureCheckDriver: TestDriver? = try? TestDriver(args: ["swiftc", "test.swift"])
+
+/// A shared scanner oracle for checking scanner feature support.
+private let _scannerOracle: InterModuleDependencyOracle? = {
+  guard let driver = _featureCheckDriver,
+    let scanLibPath = try? driver.getSwiftScanLibPath()
+  else { return nil }
+  let oracle = InterModuleDependencyOracle()
+  try? oracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
+  return oracle
+}()
 
 let sdkArgumentsAvailable: Bool = {
   do {
@@ -118,6 +192,6 @@ let sdkArgumentsAvailable: Bool = {
 }()
 
 let cachingFeatureSupported: Bool = {
-  guard let driver = try? Driver(args: ["swiftc"]) else { return false }
+  guard let driver = try? TestDriver(args: ["swiftc"]) else { return false }
   return driver.isFeatureSupported(.compilation_caching)
 }()

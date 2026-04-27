@@ -14,7 +14,7 @@
 
 @_spi(Testing) import SwiftDriver
 import TSCBasic
-import XCTest
+import Testing
 
 // MARK: - utilities for unit testing
 extension ModuleDependencyGraph {
@@ -49,7 +49,7 @@ extension ModuleDependencyGraph {
     }
     for key in nodeFinder.usesByDef.keys {
       for use in nodeFinder.usesByDef[key, default: []] {
-        XCTAssertTrue(nodeIDs.contains(use), "Node ID was not registered! \(use), \(String(describing: use.fingerprint))")
+        #expect(nodeIDs.contains(use), "Node ID was not registered! \(use), \(String(describing: use.fingerprint))")
       }
     }
   }

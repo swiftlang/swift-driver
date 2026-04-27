@@ -12,7 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import XCTest
+import Testing
 import IncrementalTestFramework
 
 // This test establishes a "transitive" chain of modules that import one another
@@ -24,9 +24,9 @@ import IncrementalTestFramework
 //    |                        ^
 //    |                        |
 //    -------------------------
-class TransitivityTest: XCTestCase {
-  func testTransitiveTopLevelUses() throws {
-    try IncrementalTest.perform([
+@Suite struct TransitivityTest {
+  @Test func transitiveTopLevelUses() async throws {
+    try await IncrementalTest.perform([
       // Build a baseline
       Step(adding: "transitive-baseline",
            building: [.C, .B, .A],
@@ -51,8 +51,8 @@ class TransitivityTest: XCTestCase {
     ])
   }
 
-  func testTransitiveStructMember() throws {
-    try IncrementalTest.perform([
+  @Test func transitiveStructMember() async throws {
+    try await IncrementalTest.perform([
       // Establish the baseline build
       Step(adding: "transitive-baseline",
            building: [.C, .B, .A],

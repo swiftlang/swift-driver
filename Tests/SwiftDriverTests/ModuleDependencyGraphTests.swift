@@ -12,14 +12,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-import XCTest
+import Testing
 @_spi(Testing) import SwiftDriver
 import TSCBasic
 
-class ModuleDependencyGraphTests: XCTestCase, ModuleDependencyGraphMocker {
+@Suite struct ModuleDependencyGraphTests: ModuleDependencyGraphMocker {
   static let mockGraphCreator = MockModuleDependencyGraphCreator(maxIndex: 12)
 
-  func testBasicLoad() {
+  @Test func basicLoad() {
     let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.topLevel: ["a->", "b->"]])
@@ -37,58 +37,58 @@ class ModuleDependencyGraphTests: XCTestCase, ModuleDependencyGraphMocker {
                            .topLevel: ["b", "c", "d->", "a->"] ])
   }
 
-  func testIndependentNodes() {
+  @Test func independentNodes() {
     let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.topLevel: ["a0", "a->"]])
     graph.simulateLoad(1, [.topLevel: ["b0", "b->"]])
     graph.simulateLoad(2, [.topLevel: ["c0", "c->"]])
 
-    XCTAssertEqual(1, graph.collectMockInputsUsing(0).count)
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: 1))
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: 2))
+    #expect(1 == graph.collectMockInputsUsing(0).count)
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(!graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(!graph.haveAnyNodesBeenTraversed(inMock: 2))
 
     // Mark 0 again -- should be no change.
-    XCTAssertEqual(0, graph.collectMockInputsUsing(0).count)
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: 1))
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: 2))
+    #expect(0 == graph.collectMockInputsUsing(0).count)
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(!graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(!graph.haveAnyNodesBeenTraversed(inMock: 2))
 
-    XCTAssertEqual(1, graph.collectMockInputsUsing(2).count)
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: 1))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 2))
+    #expect(1 == graph.collectMockInputsUsing(2).count)
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(!graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 2))
 
-    XCTAssertEqual(1, graph.collectMockInputsUsing(1).count)
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 2))
+    #expect(1 == graph.collectMockInputsUsing(1).count)
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 2))
   }
 
-  func testIndependentDepKinds() {
+  @Test func independentDepKinds() {
     let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.nominal: ["a", "a->"]])
     graph.simulateLoad(1, [.topLevel: ["a", "b->"]])
 
-    XCTAssertEqual(1, graph.collectMockInputsUsing(0).count)
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(1 == graph.collectMockInputsUsing(0).count)
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(!graph.haveAnyNodesBeenTraversed(inMock: 1))
   }
 
-  func testIndependentDepKinds2() {
+  @Test func independentDepKinds2() {
     let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.nominal: ["a->", "b"]])
     graph.simulateLoad(1, [.topLevel: ["b->", "a"]])
 
-    XCTAssertEqual(1, graph.collectMockInputsUsing(1).count)
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(1 == graph.collectMockInputsUsing(1).count)
+    #expect(!graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 1))
   }
 
-  func testIndependentMembers() {
+  @Test func independentMembers() {
     let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.member: ["a,aa"]])
@@ -97,33 +97,33 @@ class ModuleDependencyGraphTests: XCTestCase, ModuleDependencyGraphMocker {
     graph.simulateLoad(3, [.member: ["b,aa->"]])
     graph.simulateLoad(4, [.member: ["b,bb->"]])
 
-    XCTAssertEqual(1, graph.collectMockInputsUsing(0).count)
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: 1))
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: 2))
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: 3))
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: 4))
+    #expect(1 == graph.collectMockInputsUsing(0).count)
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(!graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(!graph.haveAnyNodesBeenTraversed(inMock: 2))
+    #expect(!graph.haveAnyNodesBeenTraversed(inMock: 3))
+    #expect(!graph.haveAnyNodesBeenTraversed(inMock: 4))
   }
 
-  func testSimpleDependent() {
+  @Test func simpleDependent() {
     let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.topLevel: ["a", "b", "c"]])
     graph.simulateLoad(1, [.topLevel: ["x->", "b->", "z->"]])
     do {
       let swiftDeps = graph.collectMockInputsUsing(0)
-      XCTAssertEqual(2, swiftDeps.count)
-      XCTAssertTrue(swiftDeps.contains(1))
+      #expect(2 == swiftDeps.count)
+      #expect(swiftDeps.contains(1))
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 1))
 
-    XCTAssertEqual(0, graph.collectMockInputsUsing(0).count)
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(0 == graph.collectMockInputsUsing(0).count)
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 1))
   }
 
-  func testSimpleDependentReverse() {
+  @Test func simpleDependentReverse() {
     let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.topLevel: ["a->", "b->", "c->"]])
@@ -131,18 +131,18 @@ class ModuleDependencyGraphTests: XCTestCase, ModuleDependencyGraphMocker {
 
     do {
       let swiftDeps = graph.collectMockInputsUsing(1)
-      XCTAssertEqual(2, swiftDeps.count)
-      XCTAssertTrue(swiftDeps.contains(0))
+      #expect(2 == swiftDeps.count)
+      #expect(swiftDeps.contains(0))
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 1))
 
-    XCTAssertEqual(0, graph.collectMockInputsUsing(0).count)
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(0 == graph.collectMockInputsUsing(0).count)
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 1))
   }
 
-  func testSimpleDependent2() {
+  @Test func simpleDependent2() {
     let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.nominal: ["a", "b", "c"]])
@@ -150,18 +150,18 @@ class ModuleDependencyGraphTests: XCTestCase, ModuleDependencyGraphMocker {
 
     do {
       let swiftDeps = graph.collectMockInputsUsing(0)
-      XCTAssertEqual(2, swiftDeps.count)
-      XCTAssertTrue(swiftDeps.contains(1))
+      #expect(2 == swiftDeps.count)
+      #expect(swiftDeps.contains(1))
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 1))
 
-    XCTAssertEqual(0, graph.collectMockInputsUsing(0).count)
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(0 == graph.collectMockInputsUsing(0).count)
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 1))
   }
 
-  func testSimpleDependent3() {
+  @Test func simpleDependent3() {
     let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.nominal: ["a"], .topLevel: ["a"]])
@@ -169,18 +169,18 @@ class ModuleDependencyGraphTests: XCTestCase, ModuleDependencyGraphMocker {
 
     do {
       let swiftDeps = graph.collectMockInputsUsing(0)
-      XCTAssertEqual(2, swiftDeps.count)
-      XCTAssertTrue(swiftDeps.contains(1))
+      #expect(2 == swiftDeps.count)
+      #expect(swiftDeps.contains(1))
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 1))
 
-    XCTAssertEqual(0, graph.collectMockInputsUsing(0).count)
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(0 == graph.collectMockInputsUsing(0).count)
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 1))
   }
 
-  func testSimpleDependent4() {
+  @Test func simpleDependent4() {
     let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.nominal: ["a"]])
@@ -189,18 +189,18 @@ class ModuleDependencyGraphTests: XCTestCase, ModuleDependencyGraphMocker {
 
     do {
       let swiftDeps = graph.collectMockInputsUsing(0)
-      XCTAssertEqual(2, swiftDeps.count)
-      XCTAssertTrue(swiftDeps.contains(1))
+      #expect(2 == swiftDeps.count)
+      #expect(swiftDeps.contains(1))
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 1))
 
-    XCTAssertEqual(0, graph.collectMockInputsUsing(0).count)
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(0 == graph.collectMockInputsUsing(0).count)
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 1))
   }
 
-  func testSimpleDependent5() {
+  @Test func simpleDependent5() {
     let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0,
@@ -210,19 +210,19 @@ class ModuleDependencyGraphTests: XCTestCase, ModuleDependencyGraphMocker {
 
     do {
       let swiftDeps = graph.collectMockInputsUsing(0)
-      XCTAssertEqual(2, swiftDeps.count)
-      XCTAssertTrue(swiftDeps.contains(1))
+      #expect(2 == swiftDeps.count)
+      #expect(swiftDeps.contains(1))
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 1))
 
     let _ = graph.collectMockInputsUsing(0)
-    XCTAssertEqual(0, graph.collectMockInputsUsing(0).count)
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(0 == graph.collectMockInputsUsing(0).count)
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 1))
   }
 
-  func testSimpleDependent6() {
+  @Test func simpleDependent6() {
     let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.dynamicLookup: ["a", "b", "c"]])
@@ -230,18 +230,18 @@ class ModuleDependencyGraphTests: XCTestCase, ModuleDependencyGraphMocker {
                        [.dynamicLookup: ["x->", "b->", "z->"]])
     do {
       let swiftDeps = graph.collectMockInputsUsing(0)
-      XCTAssertEqual(2, swiftDeps.count)
-      XCTAssertTrue(swiftDeps.contains(1))
+      #expect(2 == swiftDeps.count)
+      #expect(swiftDeps.contains(1))
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 1))
 
-    XCTAssertEqual(0, graph.collectMockInputsUsing(0).count)
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(0 == graph.collectMockInputsUsing(0).count)
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 1))
   }
 
-  func testSimpleDependentMember() {
+  @Test func simpleDependentMember() {
     let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.member: ["a,aa", "b,bb", "c,cc"]])
@@ -250,18 +250,18 @@ class ModuleDependencyGraphTests: XCTestCase, ModuleDependencyGraphMocker {
 
     do {
       let swiftDeps = graph.collectMockInputsUsing(0)
-      XCTAssertEqual(2, swiftDeps.count)
-      XCTAssertTrue(swiftDeps.contains(1))
+      #expect(2 == swiftDeps.count)
+      #expect(swiftDeps.contains(1))
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 1))
 
-    XCTAssertEqual(0, graph.collectMockInputsUsing(0).count)
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(0 == graph.collectMockInputsUsing(0).count)
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 1))
   }
 
-  func testMultipleDependentsSame() {
+  @Test func multipleDependentsSame() {
     let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.nominal: ["a", "b", "c"]])
@@ -270,21 +270,21 @@ class ModuleDependencyGraphTests: XCTestCase, ModuleDependencyGraphMocker {
 
     do {
       let swiftDeps = graph.collectMockInputsUsing(0)
-      XCTAssertEqual(3, swiftDeps.count)
-      XCTAssertTrue(swiftDeps.contains(1))
-      XCTAssertTrue(swiftDeps.contains(2))
+      #expect(3 == swiftDeps.count)
+      #expect(swiftDeps.contains(1))
+      #expect(swiftDeps.contains(2))
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 2))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 2))
 
-    XCTAssertEqual(0, graph.collectMockInputsUsing(0).count)
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 2))
+    #expect(0 == graph.collectMockInputsUsing(0).count)
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 2))
   }
 
-  func testMultipleDependentsDifferent() {
+  @Test func multipleDependentsDifferent() {
     let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.nominal: ["a", "b", "c"]])
@@ -293,21 +293,21 @@ class ModuleDependencyGraphTests: XCTestCase, ModuleDependencyGraphMocker {
 
     do {
       let swiftDeps = graph.collectMockInputsUsing(0)
-      XCTAssertEqual(3, swiftDeps.count)
-      XCTAssertTrue(swiftDeps.contains(1))
-      XCTAssertTrue(swiftDeps.contains(2))
+      #expect(3 == swiftDeps.count)
+      #expect(swiftDeps.contains(1))
+      #expect(swiftDeps.contains(2))
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 2))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 2))
 
-    XCTAssertEqual(0, graph.collectMockInputsUsing(0).count)
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 2))
+    #expect(0 == graph.collectMockInputsUsing(0).count)
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 2))
   }
 
-  func testChainedDependents() {
+  @Test func chainedDependents() {
     let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.nominal: ["a", "b", "c"]])
@@ -316,21 +316,21 @@ class ModuleDependencyGraphTests: XCTestCase, ModuleDependencyGraphMocker {
 
     do {
       let swiftDeps = graph.collectMockInputsUsing(0)
-      XCTAssertEqual(3, swiftDeps.count)
-      XCTAssertTrue(swiftDeps.contains(1))
-      XCTAssertTrue(swiftDeps.contains(2))
+      #expect(3 == swiftDeps.count)
+      #expect(swiftDeps.contains(1))
+      #expect(swiftDeps.contains(2))
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 2))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 2))
 
-    XCTAssertEqual(0, graph.collectMockInputsUsing(0).count)
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 2))
+    #expect(0 == graph.collectMockInputsUsing(0).count)
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 2))
   }
 
-  func testChainedNoncascadingDependents() {
+  @Test func chainedNoncascadingDependents() {
     let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.nominal: ["a", "b", "c"]])
@@ -339,21 +339,21 @@ class ModuleDependencyGraphTests: XCTestCase, ModuleDependencyGraphMocker {
 
     do {
       let swiftDeps = graph.collectMockInputsUsing(0)
-      XCTAssertEqual(3, swiftDeps.count)
-      XCTAssertTrue(swiftDeps.contains(1))
-      XCTAssertTrue(swiftDeps.contains(2))
+      #expect(3 == swiftDeps.count)
+      #expect(swiftDeps.contains(1))
+      #expect(swiftDeps.contains(2))
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 2))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 2))
 
-    XCTAssertEqual(0, graph.collectMockInputsUsing(0).count)
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 2))
+    #expect(0 == graph.collectMockInputsUsing(0).count)
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 2))
   }
 
-  func testChainedNoncascadingDependents2() {
+  @Test func chainedNoncascadingDependents2() {
     let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.topLevel: ["a", "b", "c"]])
@@ -362,15 +362,15 @@ class ModuleDependencyGraphTests: XCTestCase, ModuleDependencyGraphMocker {
 
     do {
       let swiftDeps = graph.collectMockInputsUsing(0)
-      XCTAssertEqual(2, swiftDeps.count)
-      XCTAssertTrue(swiftDeps.contains(1))
+      #expect(2 == swiftDeps.count)
+      #expect(swiftDeps.contains(1))
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: 2))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(!graph.haveAnyNodesBeenTraversed(inMock: 2))
   }
 
-  func testMarkTwoNodes() {
+  @Test func markTwoNodes() {
     let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.topLevel: ["a", "b"]])
@@ -382,33 +382,33 @@ class ModuleDependencyGraphTests: XCTestCase, ModuleDependencyGraphMocker {
 
     do {
       let swiftDeps = graph.collectMockInputsUsing(0)
-      XCTAssertEqual(3, swiftDeps.count)
-      XCTAssertTrue(swiftDeps.contains(1))
-      XCTAssertTrue(swiftDeps.contains(2)) //?????
+      #expect(3 == swiftDeps.count)
+      #expect(swiftDeps.contains(1))
+      #expect(swiftDeps.contains(2)) //?????
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 2))
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: 10))
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: 11))
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: 12))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 2))
+    #expect(!graph.haveAnyNodesBeenTraversed(inMock: 10))
+    #expect(!graph.haveAnyNodesBeenTraversed(inMock: 11))
+    #expect(!graph.haveAnyNodesBeenTraversed(inMock: 12))
 
     do {
       let swiftDeps = graph.collectMockInputsUsing(10)
-      XCTAssertEqual(2, swiftDeps.count)
-      XCTAssertTrue(swiftDeps.contains(10))
-      XCTAssertTrue(swiftDeps.contains(11))
-      XCTAssertFalse(swiftDeps.contains(2))
+      #expect(2 == swiftDeps.count)
+      #expect(swiftDeps.contains(10))
+      #expect(swiftDeps.contains(11))
+      #expect(!swiftDeps.contains(2))
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 2))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 10))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 11))
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: 12))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 2))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 10))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 11))
+    #expect(!graph.haveAnyNodesBeenTraversed(inMock: 12))
   }
 
-  func testMarkOneNodeTwice() {
+  @Test func markOneNodeTwice() {
     let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.nominal: ["a"]])
@@ -417,24 +417,24 @@ class ModuleDependencyGraphTests: XCTestCase, ModuleDependencyGraphMocker {
 
     do {
       let swiftDeps = graph.collectMockInputsUsing(0)
-      XCTAssertEqual(2, swiftDeps.count)
-      XCTAssertTrue(swiftDeps.contains(1))
+      #expect(2 == swiftDeps.count)
+      #expect(swiftDeps.contains(1))
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: 2))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(!graph.haveAnyNodesBeenTraversed(inMock: 2))
 
     do {
       let swiftDeps = graph.simulateReload(0, [.nominal: ["b"]])
-      XCTAssertEqual(2, swiftDeps.count)
-      XCTAssertTrue(swiftDeps.contains(2))
+      #expect(2 == swiftDeps.count)
+      #expect(swiftDeps.contains(2))
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 2))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 2))
   }
 
-  func testMarkOneNodeTwice2() {
+  @Test func markOneNodeTwice2() {
     let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.nominal: ["a"]])
@@ -443,24 +443,24 @@ class ModuleDependencyGraphTests: XCTestCase, ModuleDependencyGraphMocker {
 
     do {
       let swiftDeps = graph.collectMockInputsUsing(0)
-      XCTAssertEqual(2, swiftDeps.count)
-      XCTAssertTrue(swiftDeps.contains(1))
+      #expect(2 == swiftDeps.count)
+      #expect(swiftDeps.contains(1))
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: 2))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(!graph.haveAnyNodesBeenTraversed(inMock: 2))
 
     do {
       let swiftDeps = graph.simulateReload(0, [.nominal: ["a", "b"]])
-      XCTAssertEqual(2, swiftDeps.count)
-      XCTAssertTrue(swiftDeps.contains(2))
+      #expect(2 == swiftDeps.count)
+      #expect(swiftDeps.contains(2))
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 2))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 2))
   }
 
-  func testReloadDetectsChange() {
+  @Test func reloadDetectsChange() {
     let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.nominal: ["a"]])
@@ -468,26 +468,26 @@ class ModuleDependencyGraphTests: XCTestCase, ModuleDependencyGraphMocker {
     graph.simulateLoad(2, [.nominal: ["b->"]])
     do {
       let swiftDeps = graph.collectMockInputsUsing(1)
-      XCTAssertEqual(1, swiftDeps.count)
-      XCTAssertTrue(swiftDeps.contains(1))
+      #expect(1 == swiftDeps.count)
+      #expect(swiftDeps.contains(1))
     }
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: 2))
+    #expect(!graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(!graph.haveAnyNodesBeenTraversed(inMock: 2))
 
     do {
       let swiftDeps =
         graph.simulateReload(1, [.nominal: ["b", "a->"]])
-      XCTAssertEqual(2, swiftDeps.count)
-      XCTAssertTrue(swiftDeps.contains(1))
-      XCTAssertTrue(swiftDeps.contains(2))
+      #expect(2 == swiftDeps.count)
+      #expect(swiftDeps.contains(1))
+      #expect(swiftDeps.contains(2))
     }
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 2))
+    #expect(!graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 2))
   }
 
-  func testNotTransitiveOnceMarked() {
+  @Test func notTransitiveOnceMarked() {
     let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.nominal: ["a"]])
@@ -496,26 +496,26 @@ class ModuleDependencyGraphTests: XCTestCase, ModuleDependencyGraphMocker {
 
     do {
       let swiftDeps = graph.collectMockInputsUsing(1)
-      XCTAssertEqual(1, swiftDeps.count)
-      XCTAssertTrue(swiftDeps.contains(1))
+      #expect(1 == swiftDeps.count)
+      #expect(swiftDeps.contains(1))
     }
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: 2))
+    #expect(!graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(!graph.haveAnyNodesBeenTraversed(inMock: 2))
 
     do {
       let swiftDeps =
         graph.simulateReload(1, [.nominal: ["b", "a->"]])
-      XCTAssertEqual(2, swiftDeps.count)
-      XCTAssertTrue(swiftDeps.contains(1))
-      XCTAssertTrue(swiftDeps.contains(2))
+      #expect(2 == swiftDeps.count)
+      #expect(swiftDeps.contains(1))
+      #expect(swiftDeps.contains(2))
     }
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 2))
+    #expect(!graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 2))
   }
 
-  func testDependencyLoops() {
+  @Test func dependencyLoops() {
     let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.topLevel: ["a", "b", "c", "a->"]])
@@ -525,105 +525,105 @@ class ModuleDependencyGraphTests: XCTestCase, ModuleDependencyGraphMocker {
 
     do {
       let swiftDeps = graph.collectMockInputsUsing(0)
-      XCTAssertEqual(3, swiftDeps.count)
-      XCTAssertTrue(swiftDeps.contains(1))
-      XCTAssertTrue(swiftDeps.contains(2))
+      #expect(3 == swiftDeps.count)
+      #expect(swiftDeps.contains(1))
+      #expect(swiftDeps.contains(2))
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 2))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 2))
 
     do {
       let swiftDeps = graph.collectMockInputsUsing(0)
-      XCTAssertEqual(0, swiftDeps.count)
+      #expect(0 == swiftDeps.count)
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 2))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 2))
   }
 
-  func testMarkIntransitive() {
+  @Test func markIntransitive() {
     let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.topLevel: ["a", "b", "c"]])
     graph.simulateLoad(1, [.topLevel: ["x->", "b->", "z->"]])
 
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(!graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(!graph.haveAnyNodesBeenTraversed(inMock: 1))
 
     do {
       let swiftDeps = graph.collectMockInputsUsing(0)
-      XCTAssertEqual(2, swiftDeps.count)
-      XCTAssertTrue(swiftDeps.contains(1))
+      #expect(2 == swiftDeps.count)
+      #expect(swiftDeps.contains(1))
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 1))
   }
 
-  func testMarkIntransitiveTwice() {
+  @Test func markIntransitiveTwice() {
     let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.topLevel: ["a", "b", "c"]])
     graph.simulateLoad(1, [.topLevel: ["x->", "b->", "z->"]])
 
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(!graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(!graph.haveAnyNodesBeenTraversed(inMock: 1))
   }
 
-  func testMarkIntransitiveThenIndirect() {
+  @Test func markIntransitiveThenIndirect() {
     let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.topLevel: ["a", "b", "c"]])
     graph.simulateLoad(1, [.topLevel: ["x->", "b->", "z->"]])
 
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(!graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(!graph.haveAnyNodesBeenTraversed(inMock: 1))
 
     do {
       let swiftDeps = graph.collectMockInputsUsing(0)
-      XCTAssertEqual(2, swiftDeps.count)
-      XCTAssertTrue(swiftDeps.contains(0))
-      XCTAssertTrue(swiftDeps.contains(1))
+      #expect(2 == swiftDeps.count)
+      #expect(swiftDeps.contains(0))
+      #expect(swiftDeps.contains(1))
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 1))
   }
 
-  func testSimpleExternal() {
+  @Test func simpleExternal() {
     let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0,
                        [.externalDepend: ["/foo->", "/bar->"]])
 
-    XCTAssertTrue(graph.containsExternalDependency( "/foo"))
-    XCTAssertTrue(graph.containsExternalDependency( "/bar"))
+    #expect(graph.containsExternalDependency( "/foo"))
+    #expect(graph.containsExternalDependency( "/bar"))
 
     do {
       let swiftDeps = graph.findUntracedInputsDependent(onExternal: "/foo")
-      XCTAssertEqual(swiftDeps.count, 1)
-      XCTAssertTrue(swiftDeps.contains(0))
+      #expect(swiftDeps.count == 1)
+      #expect(swiftDeps.contains(0))
     }
 
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 0))
 
-    XCTAssertEqual(0, graph.findUntracedInputsDependent(onExternal: "/foo").count)
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(0 == graph.findUntracedInputsDependent(onExternal: "/foo").count)
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 0))
   }
 
-  func testSimpleExternal2() {
+  @Test func simpleExternal2() {
     let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0,
                        [.externalDepend: ["/foo->", "/bar->"]])
 
-    XCTAssertEqual(1, graph.findUntracedInputsDependent(onExternal: "/bar").count)
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(1 == graph.findUntracedInputsDependent(onExternal: "/bar").count)
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 0))
 
-    XCTAssertEqual(0, graph.findUntracedInputsDependent(onExternal: "/bar").count)
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(0 == graph.findUntracedInputsDependent(onExternal: "/bar").count)
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 0))
   }
 
-  func testChainedExternal() {
+  @Test func chainedExternal() {
     let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(
@@ -633,27 +633,27 @@ class ModuleDependencyGraphTests: XCTestCase, ModuleDependencyGraphMocker {
       1,
       [.externalDepend: ["/bar->"], .topLevel: ["a->"]])
 
-    XCTAssertTrue(graph.containsExternalDependency( "/foo"))
-    XCTAssertTrue(graph.containsExternalDependency( "/bar"))
+    #expect(graph.containsExternalDependency( "/foo"))
+    #expect(graph.containsExternalDependency( "/bar"))
 
     do {
       let swiftDeps = graph.findUntracedInputsDependent(onExternal: "/foo")
-      XCTAssertEqual(swiftDeps.count, 2)
-      XCTAssertTrue(swiftDeps.contains(0))
-      XCTAssertTrue(swiftDeps.contains(1))
+      #expect(swiftDeps.count == 2)
+      #expect(swiftDeps.contains(0))
+      #expect(swiftDeps.contains(1))
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 1))
 
     do {
       let swiftDeps = graph.findUntracedInputsDependent(onExternal: "/foo")
-      XCTAssertEqual(swiftDeps.count, 0)
+      #expect(swiftDeps.count == 0)
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 1))
   }
 
-  func testChainedExternalReverse() {
+  @Test func chainedExternalReverse() {
     let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(
@@ -665,26 +665,26 @@ class ModuleDependencyGraphTests: XCTestCase, ModuleDependencyGraphMocker {
 
     do {
       let swiftDeps = graph.findUntracedInputsDependent(onExternal: "/bar")
-      XCTAssertEqual(1, swiftDeps.count)
-      XCTAssertTrue(swiftDeps.contains(1))
+      #expect(1 == swiftDeps.count)
+      #expect(swiftDeps.contains(1))
     }
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(!graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 1))
 
-    XCTAssertEqual(0, graph.findUntracedInputsDependent(onExternal: "/bar").count)
-    XCTAssertFalse(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(0 == graph.findUntracedInputsDependent(onExternal: "/bar").count)
+    #expect(!graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 1))
 
     do {
       let swiftDeps = graph.findUntracedInputsDependent(onExternal: "/foo")
-      XCTAssertEqual(1, swiftDeps.count)
-      XCTAssertTrue(swiftDeps.contains(0))
+      #expect(1 == swiftDeps.count)
+      #expect(swiftDeps.contains(0))
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 1))
   }
 
-  func testChainedExternalPreMarked() {
+  @Test func chainedExternalPreMarked() {
     let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(
@@ -696,24 +696,24 @@ class ModuleDependencyGraphTests: XCTestCase, ModuleDependencyGraphMocker {
 
     do {
       let swiftDeps = graph.findUntracedInputsDependent(onExternal: "/foo")
-      XCTAssertEqual(2, swiftDeps.count)
-      XCTAssertTrue(swiftDeps.contains(0))
-      XCTAssertTrue(swiftDeps.contains(1))
+      #expect(2 == swiftDeps.count)
+      #expect(swiftDeps.contains(0))
+      #expect(swiftDeps.contains(1))
     }
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 0))
-    XCTAssertTrue(graph.haveAnyNodesBeenTraversed(inMock: 1))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 0))
+    #expect(graph.haveAnyNodesBeenTraversed(inMock: 1))
   }
 
-  func testMutualInterfaceHash() {
+  @Test func mutualInterfaceHash() {
     let graph = Self.mockGraphCreator.mockUpAGraph()
     graph.simulateLoad(0, [.topLevel: ["a", "b->"]])
     graph.simulateLoad(1, [.topLevel: ["a->", "b"]])
 
     let swiftDeps = graph.collectMockInputsUsing(0)
-    XCTAssertTrue(swiftDeps.contains(1))
+    #expect(swiftDeps.contains(1))
   }
 
-  func testEnabledTypeBodyFingerprints() {
+  @Test func enabledTypeBodyFingerprints() {
     let graph = Self.mockGraphCreator.mockUpAGraph()
 
     graph.simulateLoad(0, [.nominal: ["B2->"]])
@@ -722,14 +722,14 @@ class ModuleDependencyGraphTests: XCTestCase, ModuleDependencyGraphMocker {
 
     do {
       let swiftDeps = graph.collectMockInputsUsing(1)
-      XCTAssertEqual(3, swiftDeps.count)
-      XCTAssertTrue(swiftDeps.contains(0))
-      XCTAssertTrue(swiftDeps.contains(1))
-      XCTAssertTrue(swiftDeps.contains(2))
+      #expect(3 == swiftDeps.count)
+      #expect(swiftDeps.contains(0))
+      #expect(swiftDeps.contains(1))
+      #expect(swiftDeps.contains(2))
     }
   }
 
-  func testBaselineForPrintsAndCrossType() {
+  @Test func baselineForPrintsAndCrossType() {
     let graph = Self.mockGraphCreator.mockUpAGraph()
 
     // Because when A1 changes, B1 and not B2 is affected, only jobs1 and 2
@@ -742,22 +742,22 @@ class ModuleDependencyGraphTests: XCTestCase, ModuleDependencyGraphMocker {
 
     do {
       let swiftDeps = graph.simulateReload( 0, [.nominal: ["A1", "A2"]], "changed")
-      XCTAssertEqual(3, swiftDeps.count)
-      XCTAssertTrue(swiftDeps.contains(0))
-      XCTAssertTrue(swiftDeps.contains(1))
-      XCTAssertTrue(swiftDeps.contains(2))
-      XCTAssertFalse(swiftDeps.contains(3))
+      #expect(3 == swiftDeps.count)
+      #expect(swiftDeps.contains(0))
+      #expect(swiftDeps.contains(1))
+      #expect(swiftDeps.contains(2))
+      #expect(!swiftDeps.contains(3))
     }
   }
 
-  func testLoadPassesWithFingerprint() {
+  @Test func loadPassesWithFingerprint() {
     let graph = Self.mockGraphCreator.mockUpAGraph()
     _ = graph.getInvalidatedNodesForSimulatedLoad(
       0,
       [MockDependencyKind.nominal: ["A@1"]])
   }
 
-  func testUseFingerprints() {
+  @Test func useFingerprints() {
     let graph = Self.mockGraphCreator.mockUpAGraph()
 
     // Because when A1 changes, B1 and not B2 is affected, only jobs1 and 2
@@ -772,15 +772,15 @@ class ModuleDependencyGraphTests: XCTestCase, ModuleDependencyGraphMocker {
     do {
       let swiftDeps =
         graph.simulateReload(0, [.nominal: ["A1@11", "A2@2"]])
-      XCTAssertEqual(3, swiftDeps.count)
-      XCTAssertTrue(swiftDeps.contains(0))
-      XCTAssertTrue(swiftDeps.contains(1))
-      XCTAssertTrue(swiftDeps.contains(2))
-      XCTAssertFalse(swiftDeps.contains(3))
+      #expect(3 == swiftDeps.count)
+      #expect(swiftDeps.contains(0))
+      #expect(swiftDeps.contains(1))
+      #expect(swiftDeps.contains(2))
+      #expect(!swiftDeps.contains(3))
     }
   }
 
-  func testUseFingerprintsPingPong() {
+  @Test func useFingerprintsPingPong() {
     let graph = Self.mockGraphCreator.mockUpAGraph()
     // Because of the cross-type dependency, A->B,
     // when A changes, only B is dirtied in 1.
@@ -791,7 +791,7 @@ class ModuleDependencyGraphTests: XCTestCase, ModuleDependencyGraphMocker {
 
     do {
       let swiftDeps = graph.simulateReload(0, [.nominal: ["A@2"]]).sorted()
-      XCTAssertEqual(swiftDeps, [0, 1])
+      #expect(swiftDeps == [0, 1])
       graph.ensureIsSerializable()
     }
 
@@ -804,12 +804,12 @@ class ModuleDependencyGraphTests: XCTestCase, ModuleDependencyGraphMocker {
       // If it does not, and subsequently integrates the old fingerprint,
       // the change will be missed.
       let swiftDeps = graph.simulateReload(0, [.nominal: ["A@1"]]).sorted()
-      XCTAssertEqual(swiftDeps, [0, 1])
+      #expect(swiftDeps == [0, 1])
       graph.ensureIsSerializable()
     }
   }
 
-  func testUseFingerprintsPingPong2() {
+  @Test func useFingerprintsPingPong2() {
     let graph = Self.mockGraphCreator.mockUpAGraph()
     // Because of the cross-type dependency, A->B,
     // when A changes, only B is dirtied in 1.
@@ -821,7 +821,7 @@ class ModuleDependencyGraphTests: XCTestCase, ModuleDependencyGraphMocker {
 
     do {
       let swiftDeps = graph.simulateReload(0, [.nominal: ["A@2"]]).sorted()
-      XCTAssertEqual(swiftDeps, [0, 1, 2])
+      #expect(swiftDeps == [0, 1, 2])
       graph.ensureIsSerializable()
     }
 
@@ -834,12 +834,12 @@ class ModuleDependencyGraphTests: XCTestCase, ModuleDependencyGraphMocker {
       // If it does not, and subsequently integrates the old fingerprint,
       // the change will be missed.
       let swiftDeps = graph.simulateReload(0, [.nominal: ["A@1"]]).sorted()
-      XCTAssertEqual(swiftDeps, [0, 1])
+      #expect(swiftDeps == [0, 1])
       graph.ensureIsSerializable()
     }
   }
 
-  func testCrossTypeDependencyBaseline() {
+  @Test func crossTypeDependencyBaseline() {
     let graph = Self.mockGraphCreator.mockUpAGraph()
     graph.simulateLoad(0, [.nominal: ["A"]])
     graph.simulateLoad(1, [.nominal: ["B", "C", "A->"]])
@@ -847,13 +847,13 @@ class ModuleDependencyGraphTests: XCTestCase, ModuleDependencyGraphMocker {
     graph.simulateLoad(3, [.nominal: ["C->"]])
 
     let swiftDeps = graph.collectMockInputsUsing(0)
-    XCTAssertTrue(swiftDeps.contains(0))
-    XCTAssertTrue(swiftDeps.contains(1))
-    XCTAssertTrue(swiftDeps.contains(2))
-    XCTAssertTrue(swiftDeps.contains(3))
+    #expect(swiftDeps.contains(0))
+    #expect(swiftDeps.contains(1))
+    #expect(swiftDeps.contains(2))
+    #expect(swiftDeps.contains(3))
   }
 
-  func testCrossTypeDependency() {
+  @Test func crossTypeDependency() {
     let graph = Self.mockGraphCreator.mockUpAGraph()
     // Because of the cross-type dependency, A->B,
     // when A changes, only B is dirtied in 1.
@@ -864,13 +864,13 @@ class ModuleDependencyGraphTests: XCTestCase, ModuleDependencyGraphMocker {
     graph.simulateLoad(3, [.nominal: ["C->"]])
 
     let swiftDeps = graph.collectMockInputsUsing(0)
-    XCTAssertTrue(swiftDeps.contains(0))
-    XCTAssertTrue(swiftDeps.contains(1))
-    XCTAssertTrue(swiftDeps.contains(2))
-    XCTAssertFalse(swiftDeps.contains(3))
+    #expect(swiftDeps.contains(0))
+    #expect(swiftDeps.contains(1))
+    #expect(swiftDeps.contains(2))
+    #expect(!swiftDeps.contains(3))
   }
 
-  func testCrossTypeDependencyBaselineWithFingerprints() {
+  @Test func crossTypeDependencyBaselineWithFingerprints() {
     let graph = Self.mockGraphCreator.mockUpAGraph()
     graph.simulateLoad(0, [.nominal: ["A1@1", "A2@2"]])
     graph.simulateLoad(1, [.nominal: ["B1", "C1", "A1->"]])
@@ -882,16 +882,16 @@ class ModuleDependencyGraphTests: XCTestCase, ModuleDependencyGraphMocker {
 
     let swiftDeps =
       graph.simulateReload(0, [.nominal: ["A1@11", "A2@2"]])
-    XCTAssertTrue(swiftDeps.contains(0))
-    XCTAssertTrue(swiftDeps.contains(1))
-    XCTAssertTrue(swiftDeps.contains(2))
-    XCTAssertTrue(swiftDeps.contains(3))
-    XCTAssertFalse(swiftDeps.contains(4))
-    XCTAssertFalse(swiftDeps.contains(5))
-    XCTAssertFalse(swiftDeps.contains(6))
+    #expect(swiftDeps.contains(0))
+    #expect(swiftDeps.contains(1))
+    #expect(swiftDeps.contains(2))
+    #expect(swiftDeps.contains(3))
+    #expect(!swiftDeps.contains(4))
+    #expect(!swiftDeps.contains(5))
+    #expect(!swiftDeps.contains(6))
   }
 
-  func testCrossTypeDependencyWithFingerprints() {
+  @Test func crossTypeDependencyWithFingerprints() {
     let graph = Self.mockGraphCreator.mockUpAGraph()
     // Because of the cross-type dependency, A->B,
     // when A changes, only B is dirtied in 1.
@@ -906,13 +906,13 @@ class ModuleDependencyGraphTests: XCTestCase, ModuleDependencyGraphMocker {
 
     let swiftDeps =
       graph.simulateReload(0, [.nominal: ["A1@11", "A2@2"]])
-    XCTAssertTrue(swiftDeps.contains(0))
-    XCTAssertTrue(swiftDeps.contains(1))
-    XCTAssertTrue(swiftDeps.contains(2))
-    XCTAssertFalse(swiftDeps.contains(3))
-    XCTAssertFalse(swiftDeps.contains(4))
-    XCTAssertFalse(swiftDeps.contains(5))
-    XCTAssertFalse(swiftDeps.contains(6))
+    #expect(swiftDeps.contains(0))
+    #expect(swiftDeps.contains(1))
+    #expect(swiftDeps.contains(2))
+    #expect(!swiftDeps.contains(3))
+    #expect(!swiftDeps.contains(4))
+    #expect(!swiftDeps.contains(5))
+    #expect(!swiftDeps.contains(6))
   }
 }
 
@@ -1014,7 +1014,7 @@ extension ModuleDependencyGraph {
     for dependent in collectUntracedNodes(thatUse: fingerprintedExternalDependency, .testing) {
       guard case let .known(dependencySource) = dependent.definitionLocation
       else {
-        XCTFail("definition location should be known")
+        Issue.record("definition location should be known")
         break
       }
       foundSources.append(SwiftSourceFile(dependencySource.typedFile))
@@ -1141,7 +1141,7 @@ fileprivate struct SourceFileDependencyGraphMocker: InternedStringTableHolder {
     if case .sourceFileProvide = interfaceKey.designator, !allNodes.isEmpty {
       return getSourceFileNodePair()
     }
-    let implementationKey = try! XCTUnwrap(interfaceKey.correspondingImplementation)
+    let implementationKey = try! #require(interfaceKey.correspondingImplementation)
     let nodePair = NodePair(
       interface: findExistingNodeOrCreateIfNew(interfaceKey, fingerprint,
                                                definitionVsUse: .definition),
@@ -1470,7 +1470,7 @@ fileprivate extension DependencyKey.Designator {
   {
     func mustBeAbsent(_ s: InternedString?) {
       if let s = s, !s.isEmpty {
-        XCTFail()
+        Issue.record()
       }
     }
     let context = contextAndName.context?.intern(in: t)

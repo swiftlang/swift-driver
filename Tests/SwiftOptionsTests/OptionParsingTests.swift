@@ -11,11 +11,12 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 //===----------------------------------------------------------------------===//
-import SwiftOptions
-import XCTest
 
-final class SwiftDriverTests: XCTestCase {
-    func testParsing() throws {
+import SwiftOptions
+import Testing
+
+@Suite struct SwiftDriverTests {
+    @Test func parsing() throws {
       // Form an options table
       let options = OptionTable()
       // Parse each kind of option
@@ -24,93 +25,117 @@ final class SwiftDriverTests: XCTestCase {
         "-I=wibble", "input2", "-module-name", "main", "-package-name", "mypkg",
         "-sanitize=a,b,c", "--", "-foo", "-bar"], for: .batch)
 #if os(Windows)
-      XCTAssertEqual(results.description,
+      #expect(results.description ==
                      #"input1 -color-diagnostics -I foo -I "bar spaces" -I=wibble input2 -module-name main -package-name mypkg -sanitize=a,b,c -- -foo -bar"#)
 #else
-      XCTAssertEqual(results.description,
+      #expect(results.description ==
                      "input1 -color-diagnostics -I foo -I 'bar spaces' -I=wibble input2 -module-name main -package-name mypkg -sanitize=a,b,c -- -foo -bar")
 #endif
     }
 
-  func testParsingRemaining() throws {
+  @Test func parsingRemaining() throws {
     let options = OptionTable()
     let results = try options.parse(["--", "input1", "input2"], for: .batch)
-    XCTAssertEqual(results.description, "-- input1 input2")
+    #expect(results.description == "-- input1 input2")
   }
 
-  func testParsingMultiArg() throws {
+  @Test func parsingMultiArg() throws {
     var options = OptionTable()
     let two = Option("-two", .multiArg, attributes: [], numArgs: 2)
     let three = Option("-three", .multiArg, attributes: [], numArgs: 3)
     options.addNewOption(two)
     options.addNewOption(three)
     var results = try options.parse(["-two", "1", "2", "-three", "1", "2", "3", "-two", "2", "3"], for: .batch)
-    XCTAssertEqual(results.description, "-two 1 2 -three 1 2 3 -two 2 3")
+    #expect(results.description == "-two 1 2 -three 1 2 3 -two 2 3")
     // test that the arguments are assigned to their corresponding flag correctly
-    XCTAssertEqual(results.allInputs.count, 0)
+    #expect(results.allInputs.count == 0)
     let twoOpts = results.arguments(for: two)
-    XCTAssertEqual(twoOpts.count, 2)
-    XCTAssertEqual(twoOpts[0].argument.asMultiple[0], "1")
-    XCTAssertEqual(twoOpts[0].argument.asMultiple[1], "2")
-    XCTAssertEqual(twoOpts[1].argument.asMultiple[0], "2")
-    XCTAssertEqual(twoOpts[1].argument.asMultiple[1], "3")
+    #expect(twoOpts.count == 2)
+    #expect(twoOpts[0].argument.asMultiple[0] == "1")
+    #expect(twoOpts[0].argument.asMultiple[1] == "2")
+    #expect(twoOpts[1].argument.asMultiple[0] == "2")
+    #expect(twoOpts[1].argument.asMultiple[1] == "3")
     let threeOpts = results.arguments(for: three)
-    XCTAssertEqual(threeOpts.count, 1)
-    XCTAssertEqual(threeOpts[0].argument.asMultiple[0], "1")
-    XCTAssertEqual(threeOpts[0].argument.asMultiple[1], "2")
-    XCTAssertEqual(threeOpts[0].argument.asMultiple[2], "3")
+    #expect(threeOpts.count == 1)
+    #expect(threeOpts[0].argument.asMultiple[0] == "1")
+    #expect(threeOpts[0].argument.asMultiple[1] == "2")
+    #expect(threeOpts[0].argument.asMultiple[2] == "3")
     // Check not enough arguments are passed.
-    XCTAssertThrowsError(try options.parse(["-two", "1"], for: .batch)) { error in
-      XCTAssertEqual(error as? OptionParseError, .missingArgument(index: 0, argument: "-two"))
+    #expect {
+      try options.parse(["-two", "1"], for: .batch)
+    } throws: {
+      $0 as? OptionParseError == .missingArgument(index: 0, argument: "-two")
     }
   }
 
-  func testParseErrors() {
+  @Test func parseErrors() {
     let options = OptionTable()
 
-    XCTAssertThrowsError(try options.parse(["-unrecognized"], for: .batch)) { error in
-      XCTAssertEqual(error as? OptionParseError, .unknownOption(index: 0, argument: "-unrecognized"))
+    #expect {
+      try options.parse(["-unrecognized"], for: .batch)
+    } throws: {
+      $0 as? OptionParseError == .unknownOption(index: 0, argument: "-unrecognized")
     }
 
     // Ensure we check for an unexpected suffix on flags before checking if they are accepted by the current mode.
-    XCTAssertThrowsError(try options.parse(["-c-NOT"], for: .interactive)) { error in
-      XCTAssertEqual(error as? OptionParseError, .unknownOption(index: 0, argument: "-c-NOT"))
+    #expect {
+      try options.parse(["-c-NOT"], for: .interactive)
+    } throws: {
+      $0 as? OptionParseError == .unknownOption(index: 0, argument: "-c-NOT")
     }
 
-    XCTAssertThrowsError(try options.parse(["-module-name-NOT", "foo"], for: .batch)) { error in
-      XCTAssertEqual(error as? OptionParseError, .unknownOption(index: 0, argument: "-module-name-NOT"))
+    #expect {
+      try options.parse(["-module-name-NOT", "foo"], for: .batch)
+    } throws: {
+      $0 as? OptionParseError == .unknownOption(index: 0, argument: "-module-name-NOT")
     }
 
-    XCTAssertThrowsError(try options.parse(["-I"], for: .batch)) { error in
-      XCTAssertEqual(error as? OptionParseError, .missingArgument(index: 0, argument: "-I"))
+    #expect {
+      try options.parse(["-I"], for: .batch)
+    } throws: {
+      $0 as? OptionParseError == .missingArgument(index: 0, argument: "-I")
     }
 
-    XCTAssertThrowsError(try options.parse(["-color-diagnostics", "-I"], for: .batch)) { error in
-      XCTAssertEqual(error as? OptionParseError, .missingArgument(index: 1, argument: "-I"))
+    #expect {
+      try options.parse(["-color-diagnostics", "-I"], for: .batch)
+    } throws: {
+      $0 as? OptionParseError == .missingArgument(index: 1, argument: "-I")
     }
 
-    XCTAssertThrowsError(try options.parse(["-module-name"], for: .batch)) { error in
-      XCTAssertEqual(error as? OptionParseError, .missingArgument(index: 0, argument: "-module-name"))
+    #expect {
+      try options.parse(["-module-name"], for: .batch)
+    } throws: {
+      $0 as? OptionParseError == .missingArgument(index: 0, argument: "-module-name")
     }
 
-    XCTAssertThrowsError(try options.parse(["-package-name"], for: .batch)) { error in
-      XCTAssertEqual(error as? OptionParseError, .missingArgument(index: 0, argument: "-package-name"))
+    #expect {
+      try options.parse(["-package-name"], for: .batch)
+    } throws: {
+      $0 as? OptionParseError == .missingArgument(index: 0, argument: "-package-name")
     }
 
-    XCTAssertThrowsError(try options.parse(["-package-name"], for: .interactive)) { error in
-      XCTAssertEqual(error as? OptionParseError, .missingArgument(index: 0, argument: "-package-name"))
+    #expect {
+      try options.parse(["-package-name"], for: .interactive)
+    } throws: {
+      $0 as? OptionParseError == .missingArgument(index: 0, argument: "-package-name")
     }
 
-    XCTAssertThrowsError(try options.parse(["-o"], for: .interactive)) { error in
-      XCTAssertEqual(error as? OptionParseError, .unsupportedOption(index: 0, argument: "-o", option: .o, currentDriverKind: .interactive))
+    #expect {
+      try options.parse(["-o"], for: .interactive)
+    } throws: {
+      $0 as? OptionParseError == .unsupportedOption(index: 0, argument: "-o", option: .o, currentDriverKind: .interactive)
     }
 
-    XCTAssertThrowsError(try options.parse(["-repl"], for: .batch)) { error in
-      XCTAssertEqual(error as? OptionParseError, .unsupportedOption(index: 0, argument: "-repl", option: .repl, currentDriverKind: .batch))
+    #expect {
+      try options.parse(["-repl"], for: .batch)
+    } throws: {
+      $0 as? OptionParseError == .unsupportedOption(index: 0, argument: "-repl", option: .repl, currentDriverKind: .batch)
     }
 
-    XCTAssertThrowsError(try options.parse(["--invalid"], for: .batch)) { error in
-      XCTAssertEqual(error as? OptionParseError, .unknownOption(index: 0, argument: "--invalid"))
+    #expect {
+      try options.parse(["--invalid"], for: .batch)
+    } throws: {
+      $0 as? OptionParseError == .unknownOption(index: 0, argument: "--invalid")
     }
   }
 }

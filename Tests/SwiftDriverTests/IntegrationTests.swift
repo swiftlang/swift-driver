@@ -77,6 +77,30 @@ func printCommand(args: [String], extraEnv: ProcessEnvironmentBlock) {
 
 
 final class IntegrationTests: IntegrationTestCase {
+  func testVerboseImmediateMode() throws {
+  // There is nothing particularly macOS-specific about this test other than
+  // the use of some macOS-specific test functionality to determine the
+  // test bundle that contains the swift-driver executable.
+  #if os(macOS)
+    try withTemporaryDirectory { path in
+      let input = path.appending(component: "ImmediateTest.swift")
+      try localFileSystem.writeFileContents(input, bytes: "print(\"Hello, World\")")
+      let binDir = try bundleRoot()
+      let driver = binDir.appending(component: "swift-driver")
+      let args = [driver.description, "--driver-mode=swift", "-v", input.description]
+      // Immediate mode takes over the process with `exec` so we need to create
+      // a separate process to capture its output here
+      let result = try TSCBasic.Process.checkNonZeroExit(
+        arguments: args,
+        environmentBlock: ProcessEnv.block
+      )
+      // Make sure the interpret job description was printed
+      XCTAssertTrue(result.contains("-frontend -interpret \(input.description)"))
+      XCTAssertTrue(result.contains("Hello, World"))
+    }
+  #endif
+  }
+
   // FIXME: This is failing on CI right now.
   func _testSelfHosting() throws {
   #if os(macOS)

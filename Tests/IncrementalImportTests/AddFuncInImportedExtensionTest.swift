@@ -11,15 +11,16 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 //===----------------------------------------------------------------------===//
-import XCTest
+
+import Testing
 import TSCBasic
 import SwiftOptions
 import IncrementalTestFramework
 
 /// Test what happens when adding a function in an extension to a class and a struct.
-class AddFuncInImportedExtensionTest: XCTestCase {
+@Suite struct AddFuncInImportedExtensionTest {
 
-  func testAddFuncInImportedExtension() throws {
+  @Test func addFuncInImportedExtension() async throws {
 
     // MARK: - Define sources & imported module
     let definer = Source(named: "definer", containing: """
@@ -83,6 +84,6 @@ class AddFuncInImportedExtensionTest: XCTestCase {
     ]
 
     // Do the test
-    try IncrementalTest.perform(steps)
+    try await IncrementalTest.perform(steps)
   }
 }

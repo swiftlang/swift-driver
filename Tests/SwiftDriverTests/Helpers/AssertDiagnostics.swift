@@ -18,11 +18,6 @@ import TSCBasic
 import TestUtilities
 import Testing
 
-private func verboseDiagHandler(_ diag: Diagnostic) {
-  guard verboseTestOutput else { return }
-  print(diag, to: &stderrStream); stderrStream.flush()
-}
-
 @discardableResult
 func assertDriverDiagnostics<Result>(
   args: [String],
@@ -31,18 +26,18 @@ func assertDriverDiagnostics<Result>(
   fileID: String = #fileID,
   line: Int = #line,
   column: Int = #column,
-  do body: (inout Driver, DiagnosticVerifier) throws -> Result
-) throws -> Result {
+  do body: (inout TestDriver, DiagnosticVerifier) async throws -> Result
+) async throws -> Result {
   let matcher = DiagnosticVerifier()
   let sourceLocation = SourceLocation(fileID: fileID, filePath: file, line: line, column: column)
   defer { matcher.verify(sourceLocation: sourceLocation) }
 
-  var driver = try Driver(
+  var driver = try TestDriver(
     args: args,
     env: env,
-    diagnosticsEngine: DiagnosticsEngine(handlers: [matcher.emit(_:), verboseDiagHandler])
+    diagnosticsEngine: DiagnosticsEngine(handlers: [matcher.emit(_:), testDiagnosticsHandler])
   )
-  return try body(&driver, matcher)
+  return try await body(&driver, matcher)
 }
 
 /// Asserts that the `Driver` it instantiates will only emit warnings and errors
@@ -55,11 +50,11 @@ func assertDriverDiagnostics(
   fileID: String = #fileID,
   line: Int = #line,
   column: Int = #column,
-  do body: (inout Driver, DiagnosticVerifier) throws -> Void
-) throws {
+  do body: (inout TestDriver, DiagnosticVerifier) async throws -> Void
+) async throws {
   // Ensure there are no color codes in order to make matching work
   let argsInBlackAndWhite = [args[0], "-no-color-diagnostics"] + args.dropFirst()
-  try assertDriverDiagnostics(
+  try await assertDriverDiagnostics(
     args: argsInBlackAndWhite,
     env: env,
     file: file,
@@ -78,11 +73,11 @@ func assertNoDriverDiagnostics(
   fileID: String = #fileID,
   line: Int = #line,
   column: Int = #column,
-  do body: (inout Driver) throws -> Void = { _ in }
-) throws {
-  try assertDriverDiagnostics(args: args, env: env, file: file, fileID: fileID, line: line, column: column) {
+  do body: (inout TestDriver) async throws -> Void = { _ in }
+) async throws {
+  try await assertDriverDiagnostics(args: args, env: env, file: file, fileID: fileID, line: line, column: column) {
     driver,
-    _ in try body(&driver)
+    _ in try await body(&driver)
   }
 }
 
@@ -94,14 +89,14 @@ func assertDiagnostics(
   fileID: String = #fileID,
   line: Int = #line,
   column: Int = #column,
-  do body: (DiagnosticsEngine, DiagnosticVerifier) throws -> Void
-) rethrows {
+  do body: (DiagnosticsEngine, DiagnosticVerifier) async throws -> Void
+) async rethrows {
   let matcher = DiagnosticVerifier()
   let sourceLocation = SourceLocation(fileID: fileID, filePath: file, line: line, column: column)
   defer { matcher.verify(sourceLocation: sourceLocation) }
 
-  let diags = DiagnosticsEngine(handlers: [matcher.emit(_:), verboseDiagHandler])
-  try body(diags, matcher)
+  let diags = DiagnosticsEngine(handlers: [matcher.emit(_:), testDiagnosticsHandler])
+  try await body(diags, matcher)
 }
 
 /// Asserts that the `DiagnosticsEngine` it instantiates will not emit any warnings
@@ -111,9 +106,9 @@ func assertNoDiagnostics(
   fileID: String = #fileID,
   line: Int = #line,
   column: Int = #column,
-  do body: (DiagnosticsEngine) throws -> Void
-) rethrows {
-  try assertDiagnostics(file: file, fileID: fileID, line: line, column: column) { diags, _ in try body(diags) }
+  do body: (DiagnosticsEngine) async throws -> Void
+) async rethrows {
+  try await assertDiagnostics(file: file, fileID: fileID, line: line, column: column) { diags, _ in try await body(diags) }
 }
 
 /// Checks that the diagnostics actually emitted by a `DiagnosticsEngine`

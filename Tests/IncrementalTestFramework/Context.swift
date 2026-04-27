@@ -11,8 +11,9 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 //===----------------------------------------------------------------------===//
+
 import TSCBasic
-import XCTest
+import Testing
 
 /// Bundles up (incidental) values to be passed down to the various functions.
 ///
@@ -27,15 +28,14 @@ struct Context {
   /// Helpful for debugging
   let stepIndex: Int
 
-  /// Help Xcode place the errors in the right places
-  let file: StaticString
-  let line: UInt
+  /// Help Swift Testing place the errors in the right places
+  let sourceLocation: SourceLocation
 
   /// Copy with the passed values
-  func with(stepIndex: Int, file: StaticString, line: UInt) -> Self {
+  func with(stepIndex: Int, sourceLocation: SourceLocation) -> Self {
     Self(rootDir: rootDir, verbose: verbose,
          stepIndex: stepIndex,
-         file: file, line: line)
+         sourceLocation: sourceLocation)
   }
 
   func failMessage(_ step: Step) -> String {
@@ -43,7 +43,7 @@ struct Context {
   }
 
   func fail(_ msg: String, _ step: Step) {
-    XCTFail("\(msg) \(failMessage(step))")
+    Issue.record("\(msg) \(failMessage(step))", sourceLocation: sourceLocation)
   }
 }
 

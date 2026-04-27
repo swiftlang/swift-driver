@@ -12,21 +12,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_spi(Testing) import SwiftDriver
+import Foundation
+@_spi(Testing) @preconcurrency import SwiftDriver
 import SwiftDriverExecution
+import SwiftOptions
 import TSCBasic
-import XCTest
+import Testing
 import TestUtilities
-
-private var testInputsPath: AbsolutePath {
-  get throws {
-    var root: AbsolutePath = try AbsolutePath(validating: #file)
-    while root.basename != "Tests" {
-      root = root.parentDirectory
-    }
-    return root.parentDirectory.appending(component: "TestInputs")
-  }
-}
 
 private func checkCachingBuildJob(job: Job,
                                   moduleId: ModuleDependencyId,
@@ -35,37 +27,37 @@ throws {
   let moduleInfo = try dependencyGraph.moduleInfo(of: moduleId)
   switch moduleInfo.details {
     case .swift(let swiftModuleDetails):
-      XCTAssertTrue(job.commandLine.contains(.flag(String("-disable-implicit-swift-modules"))))
-      XCTAssertTrue(job.commandLine.contains(.flag(String("-cache-compile-job"))))
-      XCTAssertTrue(job.commandLine.contains(.flag(String("-cas-path"))))
+      #expect(job.commandLine.contains(.flag(String("-disable-implicit-swift-modules"))))
+      #expect(job.commandLine.contains(.flag(String("-cache-compile-job"))))
+      #expect(job.commandLine.contains(.flag(String("-cas-path"))))
       let moduleInterfacePath =
         TypedVirtualPath(file: swiftModuleDetails.moduleInterfacePath!.path,
                          type: .swiftInterface)
-      XCTAssertEqual(job.kind, .compileModuleFromInterface)
-      XCTAssertTrue(job.inputs.contains(moduleInterfacePath))
+      #expect(job.kind == .compileModuleFromInterface)
+      #expect(job.inputs.contains(moduleInterfacePath))
       if let compiledCandidateList = swiftModuleDetails.compiledModuleCandidates {
         for compiledCandidate in compiledCandidateList {
           let candidatePath = compiledCandidate.path
           let typedCandidatePath = TypedVirtualPath(file: candidatePath,
                                                     type: .swiftModule)
-          XCTAssertTrue(job.inputs.contains(typedCandidatePath))
-          XCTAssertTrue(job.commandLine.contains(.flag(VirtualPath.lookup(candidatePath).description)))
+          #expect(job.inputs.contains(typedCandidatePath))
+          #expect(job.commandLine.contains(.flag(VirtualPath.lookup(candidatePath).description)))
         }
-        XCTAssertEqual(job.commandLine.filter { $0 == .flag("-candidate-module-file") }.count, compiledCandidateList.count)
+        #expect(job.commandLine.filter { $0 == .flag("-candidate-module-file") }.count == compiledCandidateList.count)
       }
       // make sure command-line from dep-scanner are included.
-      let extraCommandLine = try XCTUnwrap(swiftModuleDetails.commandLine)
+      let extraCommandLine = try #require(swiftModuleDetails.commandLine)
       for command in extraCommandLine {
-        XCTAssertTrue(job.commandLine.contains(.flag(command)))
+        #expect(job.commandLine.contains(.flag(command)))
       }
     case .clang(_):
-      XCTAssertEqual(job.kind, .generatePCM)
-      XCTAssertEqual(job.description, "Compiling Clang module \(moduleId.moduleName)")
+      #expect(job.kind == .generatePCM)
+      #expect(job.description == "Compiling Clang module \(moduleId.moduleName)")
     case .swiftPrebuiltExternal(_):
-      XCTFail("Unexpected prebuilt external module dependency found.")
+      Issue.record("Unexpected prebuilt external module dependency found.")
   }
   // Ensure the frontend was prohibited from doing implicit module builds
-  XCTAssertTrue(job.commandLine.contains(.flag(String("-fno-implicit-modules"))))
+  #expect(job.commandLine.contains(.flag(String("-fno-implicit-modules"))))
   try checkCachingBuildJobDependencies(job: job,
                                        moduleInfo: moduleInfo,
                                        dependencyGraph: dependencyGraph)
@@ -73,9 +65,7 @@ throws {
 
 /// Checks that the output keys are in the action cache and also the output
 /// can be replayed from CAS and identicial to the original output.
-private func checkCASForResults(jobs: [Job], cas: SwiftScanCAS, fs: FileSystem) throws {
-  let expectation = XCTestExpectation(description: "Check CAS for output")
-  @Sendable
+private func checkCASForResults(jobs: [Job], cas: SwiftScanCAS, fs: FileSystem) async throws {
   func replayAndVerifyOutput(_ job: Job, _ compilations: [CachedCompilation]) async throws {
     func hashFile(_ file: VirtualPath) throws -> String {
       // store the content in the CAS as a hashing function.
@@ -98,45 +88,38 @@ private func checkCASForResults(jobs: [Job], cas: SwiftScanCAS, fs: FileSystem) 
     let replayHashes = try job.outputs.map {
       try hashFile($0.file)
     }
-    XCTAssertEqual(outputHashes, replayHashes, "replayed output is not identical to original")
+    #expect(outputHashes == replayHashes, "replayed output is not identical to original")
   }
-  Task {
-    defer {
-      expectation.fulfill()
+  for job in jobs {
+    if !job.kind.supportCaching {
+      continue
     }
-    for job in jobs {
-      if !job.kind.supportCaching {
-        continue
-      }
-      var compilations = [CachedCompilation]()
-      for (_, key) in job.outputCacheKeys {
-        if let compilation = try await cas.queryCacheKey(key, globally: false) {
-          for output in compilation {
-            XCTAssertTrue(output.isMaterialized, "Cached output not founded in CAS")
-            let success = try await output.load()
-            XCTAssertTrue(success, "Cached output not founded in CAS")
+    var compilations = [CachedCompilation]()
+    for (_, key) in job.outputCacheKeys {
+      if let compilation = try await cas.queryCacheKey(key, globally: false) {
+        for output in compilation {
+          #expect(output.isMaterialized, "Cached output not founded in CAS")
+          let success = try await output.load()
+          #expect(success, "Cached output not founded in CAS")
 
-            // Try async download. Download should succeed even on a local CAS.
-            let casID = try output.getCASID()
-            let downloaded = try await cas.download(with: casID)
-            XCTAssertTrue(downloaded, "Cached output cannot be downloaded")
-          }
-          // Execise the uploading path.
-          try await compilation.makeGlobal()
-          // Execise call back uploading method.
-          compilation.makeGlobal { error in
-            XCTAssertNil(error, "Upload Error")
-          }
-          compilations.append(compilation)
-        } else {
-          XCTFail("Cached entry not found")
+          // Try async download. Download should succeed even on a local CAS.
+          let casID = try output.getCASID()
+          let downloaded = try await cas.download(with: casID)
+          #expect(downloaded, "Cached output cannot be downloaded")
         }
+        // Execise the uploading path.
+        try await compilation.makeGlobal()
+        // Execise call back uploading method.
+        compilation.makeGlobal { error in
+          #expect(error == nil, "Upload Error")
+        }
+        compilations.append(compilation)
+      } else {
+        Issue.record("Cached entry not found")
       }
-      try await replayAndVerifyOutput(job, compilations)
     }
+    try await replayAndVerifyOutput(job, compilations)
   }
-  let result = XCTWaiter.wait(for: [expectation], timeout: 10.0)
-  XCTAssertEqual(result, .completed)
 }
 
 /// Checks that the build job for the specified module contains the required options and inputs
@@ -146,14 +129,14 @@ private func checkCachingBuildJobDependencies(job: Job,
                                               dependencyGraph: InterModuleDependencyGraph
 ) throws {
   let validateSwiftCommandLineDependency: (ModuleDependencyId, SwiftModuleDetails) throws -> Void = { dependencyId, dependencyDetails in
-    let cacheKey = try XCTUnwrap(dependencyDetails.moduleCacheKey)
-    XCTAssertTrue(job.commandLine.contains(
+    let cacheKey = try #require(dependencyDetails.moduleCacheKey)
+    #expect(job.commandLine.contains(
       .flag(String("-swift-module-file=\(dependencyId.moduleName)=\(cacheKey)"))))
   }
 
   let validateBinaryCommandLineDependency: (ModuleDependencyId, SwiftPrebuiltExternalModuleDetails) throws -> Void = { dependencyId, dependencyDetails in
-    let cacheKey = try XCTUnwrap(dependencyDetails.moduleCacheKey)
-    XCTAssertTrue(job.commandLine.contains(
+    let cacheKey = try #require(dependencyDetails.moduleCacheKey)
+    #expect(job.commandLine.contains(
       .flag(String("-swift-module-file=\(dependencyId.moduleName)=\(cacheKey)"))))
   }
 
@@ -163,11 +146,11 @@ private func checkCachingBuildJobDependencies(job: Job,
     let clangDependencyModulePathString = dependencyInfo.modulePath.path
     let clangDependencyModulePath =
       TypedVirtualPath(file: clangDependencyModulePathString, type: .pcm)
-    XCTAssertTrue(job.inputs.contains(clangDependencyModulePath))
-    XCTAssertTrue(job.commandLine.contains(
+    #expect(job.inputs.contains(clangDependencyModulePath))
+    #expect(job.commandLine.contains(
       .flag(String("-fmodule-file-cache-key"))))
-    let cacheKey = try XCTUnwrap(clangDependencyDetails.moduleCacheKey)
-    XCTAssertTrue(job.commandLine.contains(.flag(String(cacheKey))))
+    let cacheKey = try #require(clangDependencyDetails.moduleCacheKey)
+    #expect(job.commandLine.contains(.flag(String(cacheKey))))
   }
 
   for dependencyId in moduleInfo.allDependencies {
@@ -184,20 +167,12 @@ private func checkCachingBuildJobDependencies(job: Job,
 }
 
 
-final class CachingBuildTests: XCTestCase {
-  override func setUpWithError() throws {
-    try super.setUpWithError()
+@Suite(.enabled(if: cachingFeatureSupported, "caching not supported"))
+struct CachingBuildTests {
 
-    // If the toolchain doesn't support caching, skip directly.
-    let driver = try Driver(args: ["swiftc"])
-    guard driver.isFeatureSupported(.compilation_caching) else {
-      throw XCTSkip("caching not supported")
-    }
-  }
-
-  func testCachingBuildJobs() throws {
+  @Test func cachingBuildJobs() async throws {
     let (stdlibPath, shimsPath, _, hostTriple) = try getDriverArtifactsForScanning()
-    try withTemporaryDirectory { path in
+    try await withTemporaryDirectory { path in
       let main = path.appending(component: "testCachingBuildJobs.swift")
       try localFileSystem.writeFileContents(main) {
         $0.send("import C;import E;import G;")
@@ -212,7 +187,7 @@ final class CachingBuildTests: XCTestCase {
       let bridgingHeaderpath: AbsolutePath =
           cHeadersPath.appending(component: "Bridging.h")
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
-      var driver = try Driver(args: ["swiftc",
+      var driver = try TestDriver(args: ["swiftc",
                                      "-I", cHeadersPath.nativePathString(escaped: false),
                                      "-I", swiftModuleInterfacesPath.nativePathString(escaped: false),
                                      "-I", stdlibPath.nativePathString(escaped: false),
@@ -221,16 +196,16 @@ final class CachingBuildTests: XCTestCase {
                                      "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: false),
                                      "-import-objc-header", bridgingHeaderpath.nativePathString(escaped: false),
                                      main.nativePathString(escaped: false)] + sdkArgumentsForTesting)
-      let jobs = try driver.planBuild()
-      let dependencyGraph = try XCTUnwrap(driver.intermoduleDependencyGraph)
+      let jobs = try await driver.planBuild()
+      let dependencyGraph = try #require(driver.intermoduleDependencyGraph)
       let mainModuleInfo = try dependencyGraph.moduleInfo(of: .swift("testCachingBuildJobs"))
       guard case .swift(_) = mainModuleInfo.details else {
-        XCTFail("Main module does not have Swift details field")
+        Issue.record("Main module does not have Swift details field")
         return
       }
 
       for job in jobs {
-        XCTAssertEqual(job.outputs.count, 1)
+        #expect(job.outputs.count == 1)
         let outputFilePath = job.outputs[0].file
 
         // Swift dependencies
@@ -258,45 +233,47 @@ final class CachingBuildTests: XCTestCase {
                                      dependencyGraph: dependencyGraph)
           case let .some(module) where ["SAL", "_Builtin_intrinsics", "_Builtin_stddef", "_stdlib", "_malloc", "corecrt", "vcruntime"].contains(module):
             guard hostTriple.isWindows else {
-              return XCTFail("Unexpected module dependency build job output: \(outputFilePath)")
+              Issue.record("Unexpected module dependency build job output: \(outputFilePath)")
+              return
             }
             try checkCachingBuildJob(job: job, moduleId: .clang(String(module)),
                                      dependencyGraph: dependencyGraph)
           case "X":
             guard hostTriple.isMacOSX,
                hostTriple.version(for: .macOS) >= Triple.Version(11, 0, 0) else {
-              return XCTFail("Unexpected module dependency build job output: \(outputFilePath)")
+              Issue.record("Unexpected module dependency build job output: \(outputFilePath)")
+              return
             }
             try checkCachingBuildJob(job: job, moduleId: .clang("X"),
                                      dependencyGraph: dependencyGraph)
           default:
-            XCTFail("Unexpected module dependency build job output: \(outputFilePath)")
+            Issue.record("Unexpected module dependency build job output: \(outputFilePath)")
           }
         } else {
           switch (outputFilePath) {
             case .relative(try RelativePath(validating: "testCachingBuildJobs")),
                  .relative(try RelativePath(validating: "testCachingBuildJobs.exe")):
-              XCTAssertTrue(driver.isExplicitMainModuleJob(job: job))
-              XCTAssertEqual(job.kind, .link)
+              #expect(driver.isExplicitMainModuleJob(job: job))
+              #expect(job.kind == .link)
             case .absolute(let path):
-              XCTAssertEqual(path.basename, "testCachingBuildJobs")
-              XCTAssertEqual(job.kind, .link)
+              #expect(path.basename == "testCachingBuildJobs")
+              #expect(job.kind == .link)
             case .temporary(_):
               let baseName = "testCachingBuildJobs"
-              XCTAssertTrue(matchTemporary(outputFilePath, basename: baseName, fileExtension: "o") ||
+              #expect(matchTemporary(outputFilePath, basename: baseName, fileExtension: "o") ||
                             matchTemporary(outputFilePath, basename: baseName, fileExtension: "autolink") ||
                             matchTemporary(outputFilePath, basename: "", fileExtension: "pch"))
             default:
-              XCTFail("Unexpected module dependency build job output: \(outputFilePath)")
+              Issue.record("Unexpected module dependency build job output: \(outputFilePath)")
           }
         }
       }
     }
   }
 
-  func testModuleOnlyJob() throws {
+  @Test func moduleOnlyJob() async throws {
     let (stdlibPath, shimsPath, _, _) = try getDriverArtifactsForScanning()
-    try withTemporaryDirectory { path in
+    try await withTemporaryDirectory { path in
       let main = path.appending(component: "testModuleOnlyJob.swift")
       try localFileSystem.writeFileContents(main) {
         $0.send("import C;import E;")
@@ -319,7 +296,7 @@ final class CachingBuildTests: XCTestCase {
       let modulePath: AbsolutePath = path.appending(component: "testModuleOnlyJob.swiftmodule")
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       let dependencyOracle = InterModuleDependencyOracle()
-      var driver = try Driver(args: ["swiftc",
+      var driver = try TestDriver(args: ["swiftc",
                                      "-swift-version", "5",
                                      "-module-name", "ModuleOnly",
                                      "-I", cHeadersPath.nativePathString(escaped: false),
@@ -335,29 +312,29 @@ final class CachingBuildTests: XCTestCase {
                                      "-emit-module", "-o", modulePath.nativePathString(escaped: false),
                                      main.nativePathString(escaped: false), other.nativePathString(escaped: false)] + sdkArgumentsForTesting,
                               interModuleDependencyOracle: dependencyOracle)
-      let jobs = try driver.planBuild()
-      try driver.run(jobs: jobs)
+      let jobs = try await driver.planBuild()
+      try await driver.run(jobs: jobs)
       for job in jobs {
-          XCTAssertFalse(job.outputCacheKeys.isEmpty)
+          #expect(!job.outputCacheKeys.isEmpty)
       }
-      XCTAssertFalse(driver.diagnosticEngine.hasErrors)
+      #expect(!driver.diagnosticEngine.hasErrors)
 
-      let scanLibPath = try XCTUnwrap(driver.getSwiftScanLibPath())
+      let scanLibPath = try #require(try driver.getSwiftScanLibPath())
       try dependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
 
       let cas = try dependencyOracle.getOrCreateCAS(pluginPath: nil, onDiskPath: casPath, pluginOptions: [])
       if let driverCAS = driver.cas {
-        XCTAssertEqual(cas, driverCAS, "CAS should only be created once")
+        #expect(cas == driverCAS, "CAS should only be created once")
       } else {
-        XCTFail("Cached compilation doesn't have a CAS")
+        Issue.record("Cached compilation doesn't have a CAS")
       }
-      try checkCASForResults(jobs: jobs, cas: cas, fs: driver.fileSystem)
+      try await checkCASForResults(jobs: jobs, cas: cas, fs: driver.fileSystem)
     }
   }
 
-  func testSeparateModuleJob() throws {
+  @Test func separateModuleJob() async throws {
     let (stdlibPath, shimsPath, _, _) = try getDriverArtifactsForScanning()
-    try withTemporaryDirectory { path in
+    try await withTemporaryDirectory { path in
       let main = path.appending(component: "testSeparateModuleJob.swift")
       try localFileSystem.writeFileContents(main) {
         $0.send("import C;import E;")
@@ -376,7 +353,7 @@ final class CachingBuildTests: XCTestCase {
       let modulePath: AbsolutePath = path.appending(component: "testSeparateModuleJob.swiftmodule")
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       let dependencyOracle = InterModuleDependencyOracle()
-      var driver = try Driver(args: ["swiftc",
+      var driver = try TestDriver(args: ["swiftc",
                                      "-swift-version", "5",
                                      "-module-name", "SeparateModuleJob",
                                      "-I", cHeadersPath.nativePathString(escaped: false),
@@ -394,31 +371,31 @@ final class CachingBuildTests: XCTestCase {
                                      "-Xfrontend", "-disable-implicit-string-processing-module-import",
                                      main.nativePathString(escaped: false)] + sdkArgumentsForTesting,
                               interModuleDependencyOracle: dependencyOracle)
-      let jobs = try driver.planBuild()
+      let jobs = try await driver.planBuild()
       for job in jobs {
-          XCTAssertFalse(job.outputCacheKeys.isEmpty)
+          #expect(!job.outputCacheKeys.isEmpty)
       }
-      try driver.run(jobs: jobs)
-      XCTAssertFalse(driver.diagnosticEngine.hasErrors)
+      try await driver.run(jobs: jobs)
+      #expect(!driver.diagnosticEngine.hasErrors)
 
-      let scanLibPath = try XCTUnwrap(driver.getSwiftScanLibPath())
+      let scanLibPath = try #require(try driver.getSwiftScanLibPath())
       try dependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
 
       let cas = try dependencyOracle.getOrCreateCAS(pluginPath: nil, onDiskPath: casPath, pluginOptions: [])
       if let driverCAS = driver.cas {
-        XCTAssertEqual(cas, driverCAS, "CAS should only be created once")
+        #expect(cas == driverCAS, "CAS should only be created once")
       } else {
-        XCTFail("Cached compilation doesn't have a CAS")
+        Issue.record("Cached compilation doesn't have a CAS")
       }
-      try checkCASForResults(jobs: jobs, cas: cas, fs: driver.fileSystem)
+      try await checkCASForResults(jobs: jobs, cas: cas, fs: driver.fileSystem)
     }
   }
 
   /// Test generation of explicit module build jobs for dependency modules when the driver
   /// is invoked with -explicit-module-build, -verify-emitted-module-interface and -enable-library-evolution.
-  func testExplicitModuleVerifyInterfaceJobs() throws {
+  @Test(.requireExplicitModuleVerifyInterface()) func explicitModuleVerifyInterfaceJobs() async throws {
     let (stdlibPath, shimsPath, _, _) = try getDriverArtifactsForScanning()
-    try withTemporaryDirectory { path in
+    try await withTemporaryDirectory { path in
       let main = path.appending(component: "testExplicitModuleVerifyInterfaceJobs.swift")
       try localFileSystem.writeFileContents(main) {
         $0.send("import C;import E;import G;")
@@ -434,7 +411,7 @@ final class CachingBuildTests: XCTestCase {
       let swiftInterfacePath: AbsolutePath = path.appending(component: "testExplicitModuleVerifyInterfaceJobs.swiftinterface")
       let privateSwiftInterfacePath: AbsolutePath = path.appending(component: "testExplicitModuleVerifyInterfaceJobs.private.swiftinterface")
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
-      var driver = try Driver(args: ["swiftc",
+      var driver = try TestDriver(args: ["swiftc",
                                      "-swift-version", "5",
                                      "-I", cHeadersPath.nativePathString(escaped: false),
                                      "-I", swiftModuleInterfacesPath.nativePathString(escaped: false),
@@ -446,27 +423,24 @@ final class CachingBuildTests: XCTestCase {
                                      "-enable-library-evolution",
                                      "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: false),
                                      main.nativePathString(escaped: false)] + sdkArgumentsForTesting)
-      guard driver.supportExplicitModuleVerifyInterface() else {
-        throw XCTSkip("-typecheck-module-from-interface doesn't support explicit build.")
-      }
 
-      let jobs = try driver.planBuild()
-      let dependencyGraph = try XCTUnwrap(driver.intermoduleDependencyGraph)
+      let jobs = try await driver.planBuild()
+      let dependencyGraph = try #require(driver.intermoduleDependencyGraph)
       let mainModuleInfo = try dependencyGraph.moduleInfo(of: .swift("testExplicitModuleVerifyInterfaceJobs"))
       guard case .swift(_) = mainModuleInfo.details else {
-        XCTFail("Main module does not have Swift details field")
+        Issue.record("Main module does not have Swift details field")
         return
       }
 
       for job in jobs {
         if (job.outputs.count == 0) {
           // This is the verify module job as it should be the only job scheduled to have no output.
-          XCTAssertEqual(job.kind, .verifyModuleInterface)
+          #expect(job.kind == .verifyModuleInterface)
           // Check the explicit module flags exists.
-          XCTAssertTrue(job.commandLine.contains(.flag(String("-explicit-interface-module-build"))))
-          XCTAssertTrue(job.commandLine.contains(.flag(String("-explicit-swift-module-map-file"))))
-          XCTAssertTrue(job.commandLine.contains(.flag(String("-disable-implicit-swift-modules"))))
-          XCTAssertTrue(job.commandLine.contains(.flag(String("-input-file-key"))))
+          #expect(job.commandLine.contains(.flag(String("-explicit-interface-module-build"))))
+          #expect(job.commandLine.contains(.flag(String("-explicit-swift-module-map-file"))))
+          #expect(job.commandLine.contains(.flag(String("-disable-implicit-swift-modules"))))
+          #expect(job.commandLine.contains(.flag(String("-input-file-key"))))
           continue
         }
         let outputFilePath = job.outputs[0].file
@@ -499,23 +473,23 @@ final class CachingBuildTests: XCTestCase {
             try checkCachingBuildJob(job: job, moduleId: .clang(String(module)),
                                      dependencyGraph: dependencyGraph)
           default:
-            XCTFail("Unexpected module dependency build job output: \(outputFilePath)")
+            Issue.record("Unexpected module dependency build job output: \(outputFilePath)")
           }
         } else {
           switch (outputFilePath) {
             case .relative(try RelativePath(validating: "testExplicitModuleVerifyInterfaceJobs")),
                  .relative(try RelativePath(validating: "testExplicitModuleVerifyInterfaceJobs.exe")):
-              XCTAssertTrue(driver.isExplicitMainModuleJob(job: job))
-              XCTAssertEqual(job.kind, .link)
+              #expect(driver.isExplicitMainModuleJob(job: job))
+              #expect(job.kind == .link)
             case .absolute(let path):
-              XCTAssertEqual(path.basename, "testExplicitModuleVerifyInterfaceJobs")
-              XCTAssertEqual(job.kind, .link)
+              #expect(path.basename == "testExplicitModuleVerifyInterfaceJobs")
+              #expect(job.kind == .link)
             case .temporary(_):
               let baseName = "testExplicitModuleVerifyInterfaceJobs"
-              XCTAssertTrue(matchTemporary(outputFilePath, basename: baseName, fileExtension: "o") ||
+              #expect(matchTemporary(outputFilePath, basename: baseName, fileExtension: "o") ||
                             matchTemporary(outputFilePath, basename: baseName, fileExtension: "autolink"))
             default:
-              XCTFail("Unexpected module dependency build job output: \(outputFilePath)")
+              Issue.record("Unexpected module dependency build job output: \(outputFilePath)")
           }
         }
       }
@@ -523,9 +497,8 @@ final class CachingBuildTests: XCTestCase {
   }
 
 
-  func testCacheBuildEndToEndBuild() throws {
-    try withTemporaryDirectory { path in
-      try localFileSystem.changeCurrentWorkingDirectory(to: path)
+  @Test func cacheBuildEndToEndBuild() async throws {
+    try await withTemporaryDirectory { path in
       let moduleCachePath = path.appending(component: "ModuleCache")
       let casPath = path.appending(component: "cas")
       try localFileSystem.createDirectory(moduleCachePath)
@@ -542,7 +515,7 @@ final class CachingBuildTests: XCTestCase {
                             .appending(component: "Swift")
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       let dependencyOracle = InterModuleDependencyOracle()
-      var driver = try Driver(args: ["swiftc",
+      var driver = try TestDriver(args: ["swiftc", "-c",
                                      "-I", cHeadersPath.nativePathString(escaped: false),
                                      "-I", swiftModuleInterfacesPath.nativePathString(escaped: false),
                                      "-explicit-module-build", "-Rcache-compile-job",
@@ -551,26 +524,25 @@ final class CachingBuildTests: XCTestCase {
                                      "-working-directory", path.nativePathString(escaped: false),
                                      main.nativePathString(escaped: false)] + sdkArgumentsForTesting,
                               interModuleDependencyOracle: dependencyOracle)
-      let jobs = try driver.planBuild()
-      try driver.run(jobs: jobs)
-      XCTAssertFalse(driver.diagnosticEngine.hasErrors)
+      let jobs = try await driver.planBuild()
+      try await driver.run(jobs: jobs)
+      #expect(!driver.diagnosticEngine.hasErrors)
 
-      let scanLibPath = try XCTUnwrap(driver.getSwiftScanLibPath())
+      let scanLibPath = try #require(try driver.getSwiftScanLibPath())
       try dependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
 
       let cas = try dependencyOracle.getOrCreateCAS(pluginPath: nil, onDiskPath: casPath, pluginOptions: [])
       if let driverCAS = driver.cas {
-        XCTAssertEqual(cas, driverCAS, "CAS should only be created once")
+        #expect(cas == driverCAS, "CAS should only be created once")
       } else {
-        XCTFail("Cached compilation doesn't have a CAS")
+        Issue.record("Cached compilation doesn't have a CAS")
       }
-      try checkCASForResults(jobs: jobs, cas: cas, fs: driver.fileSystem)
+      try await checkCASForResults(jobs: jobs, cas: cas, fs: driver.fileSystem)
     }
   }
 
-  func testCacheBuildEndToEndWithBinaryHeaderDeps() throws {
-    try withTemporaryDirectory { path in
-      try localFileSystem.changeCurrentWorkingDirectory(to: path)
+  @Test(.requireScannerSupportsBinaryModuleHeaderDependencies()) func cacheBuildEndToEndWithBinaryHeaderDeps() async throws {
+    try await withTemporaryDirectory { path in
       let moduleCachePath = path.appending(component: "ModuleCache")
       try localFileSystem.createDirectory(moduleCachePath)
       let PCHPath = path.appending(component: "PCH")
@@ -595,7 +567,7 @@ final class CachingBuildTests: XCTestCase {
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       let dependencyOracle = InterModuleDependencyOracle()
 
-      var fooBuildDriver = try Driver(args: ["swiftc",
+      var fooBuildDriver = try TestDriver(args: ["swiftc",
                                              "-explicit-module-build",
                                              "-module-cache-path", moduleCachePath.nativePathString(escaped: false),
                                              "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: false),
@@ -608,25 +580,22 @@ final class CachingBuildTests: XCTestCase {
                                       + sdkArgumentsForTesting,
                                       interModuleDependencyOracle: dependencyOracle)
 
-      let scanLibPath = try XCTUnwrap(fooBuildDriver.getSwiftScanLibPath())
+      let scanLibPath = try #require(try fooBuildDriver.getSwiftScanLibPath())
       try dependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
-      guard try dependencyOracle.supportsBinaryModuleHeaderDependencies() else {
-        throw XCTSkip("libSwiftScan does not support binary module header dependencies.")
-      }
 
-      let fooJobs = try fooBuildDriver.planBuild()
-      try fooBuildDriver.run(jobs: fooJobs)
-      XCTAssertFalse(fooBuildDriver.diagnosticEngine.hasErrors)
+      let fooJobs = try await fooBuildDriver.planBuild()
+      try await fooBuildDriver.run(jobs: fooJobs)
+      #expect(!fooBuildDriver.diagnosticEngine.hasErrors)
 
       let cas = try dependencyOracle.getOrCreateCAS(pluginPath: nil, onDiskPath: casPath, pluginOptions: [])
       if let driverCAS = fooBuildDriver.cas {
-        XCTAssertEqual(cas, driverCAS, "CAS should only be created once")
+        #expect(cas == driverCAS, "CAS should only be created once")
       } else {
-        XCTFail("Cached compilation doesn't have a CAS")
+        Issue.record("Cached compilation doesn't have a CAS")
       }
-      try checkCASForResults(jobs: fooJobs, cas: cas, fs: fooBuildDriver.fileSystem)
+      try await checkCASForResults(jobs: fooJobs, cas: cas, fs: fooBuildDriver.fileSystem)
 
-      var driver = try Driver(args: ["swiftc",
+      var driver = try TestDriver(args: ["swiftc",
                                      "-I", FooInstallPath.nativePathString(escaped: false),
                                      "-explicit-module-build", "-emit-module", "-emit-module-path",
                                      path.appending(component: "testEMBETEWBHD.swiftmodule").nativePathString(escaped: false),
@@ -635,21 +604,21 @@ final class CachingBuildTests: XCTestCase {
                                      "-working-directory", path.nativePathString(escaped: false),
                                      main.nativePathString(escaped: false)] + sdkArgumentsForTesting,
                               interModuleDependencyOracle: dependencyOracle)
-      let jobs = try driver.planBuild()
+      let jobs = try await driver.planBuild()
       for job in jobs {
-        XCTAssertFalse(job.outputCacheKeys.isEmpty)
+        #expect(!job.outputCacheKeys.isEmpty)
       }
       if driver.isFrontendArgSupported(.autoBridgingHeaderChaining) {
-        XCTAssertTrue(jobs.contains { $0.kind == .generatePCH })
-        try driver.run(jobs: jobs)
-        XCTAssertFalse(driver.diagnosticEngine.hasErrors)
+        #expect(jobs.contains(where: { $0.kind == .generatePCH }))
+        try await driver.run(jobs: jobs)
+        #expect(!driver.diagnosticEngine.hasErrors)
       }
     }
   }
 
-  func testDependencyScanning() throws {
+  @Test func dependencyScanning() async throws {
     // Create a simple test case.
-    try withTemporaryDirectory { path in
+    try await withTemporaryDirectory { path in
       let main = path.appending(component: "testDependencyScanning.swift")
       try localFileSystem.writeFileContents(main) {
         $0.send("import C;import E;import G;")
@@ -668,7 +637,7 @@ final class CachingBuildTests: XCTestCase {
       let casPath = path.appending(component: "cas")
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       let dependencyOracle = InterModuleDependencyOracle()
-      var driver = try Driver(args: ["swiftc",
+      var driver = try TestDriver(args: ["swiftc",
                                      "-I", cHeadersPath.nativePathString(escaped: false),
                                      "-I", swiftModuleInterfacesPath.nativePathString(escaped: false),
                                      "/tmp/Foo.o",
@@ -680,8 +649,8 @@ final class CachingBuildTests: XCTestCase {
                                      main.nativePathString(escaped: false)] + sdkArgumentsForTesting,
                               interModuleDependencyOracle: dependencyOracle)
       // Plan a build to initialize the scanner and the CAS underneath.
-      _ = try driver.planBuild()
-      let scanLibPath = try XCTUnwrap(driver.getSwiftScanLibPath())
+      _ = try await driver.planBuild()
+      let scanLibPath = try #require(try driver.getSwiftScanLibPath())
       try dependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
       let resolver = try ArgsResolver(fileSystem: localFileSystem)
       var scannerCommand = try driver.dependencyScannerInvocationCommand().1.map { try resolver.resolve($0) }
@@ -693,12 +662,12 @@ final class CachingBuildTests: XCTestCase {
       }
 
       // Ensure we do not propagate the usual PCH-handling arguments to the scanner invocation
-      XCTAssertFalse(scannerCommand.contains("-pch-output-dir"))
-      XCTAssertFalse(scannerCommand.contains("Foo.o"))
+      #expect(!scannerCommand.contains("-pch-output-dir"))
+      #expect(!scannerCommand.contains("Foo.o"))
 
       // Xcc commands are used for scanner command.
-      XCTAssertTrue(scannerCommand.contains("-Xcc"))
-      XCTAssertTrue(scannerCommand.contains("-ivfsoverlay"))
+      #expect(scannerCommand.contains("-Xcc"))
+      #expect(scannerCommand.contains("-ivfsoverlay"))
 
       // Here purely to dump diagnostic output in a reasonable fashion when things go wrong.
       let lock = NSLock()
@@ -713,14 +682,15 @@ final class CachingBuildTests: XCTestCase {
         expectedNumberOfDependencies = 12
       }
 
+      let baseCommand = scannerCommand
       // Dispatch several iterations in parallel
       DispatchQueue.concurrentPerform(iterations: 20) { index in
         // Give the main modules different names
-        let iterationCommand = scannerCommand + ["-module-name",
-                                                 "testDependencyScanning\(index)",
-                                                 // FIXME: We need to differentiate the scanning action hash,
-                                                 // though the module-name above should be sufficient.
-                                                 "-I/tmp/foo/bar/\(index)"]
+        let iterationCommand = baseCommand + ["-module-name",
+                                              "testDependencyScanning\(index)",
+                                              // FIXME: We need to differentiate the scanning action hash,
+                                              // though the module-name above should be sufficient.
+                                              "-I/tmp/foo/bar/\(index)"]
         do {
           var scanDiagnostics: [ScannerDiagnosticPayload] = []
           let dependencyGraph =
@@ -749,9 +719,9 @@ final class CachingBuildTests: XCTestCase {
             }
             lock.unlock()
           }
-          XCTAssertEqual(dependencyGraph.modules.count, adjustedExpectedNumberOfDependencies)
+          #expect(dependencyGraph.modules.count == adjustedExpectedNumberOfDependencies)
         } catch {
-          XCTFail("Unexpected error: \(error)")
+          Issue.record("Unexpected error: \(error)")
         }
       }
 
@@ -770,22 +740,21 @@ final class CachingBuildTests: XCTestCase {
                                                      commandLine: command,
                                                      diagnostics: &scanDiagnostics)
       } catch let error {
-        XCTAssertTrue(error is DependencyScanningError)
+        #expect(error is DependencyScanningError)
       }
 
-      XCTAssertEqual(scanDiagnostics.count, 1)
-      XCTAssertEqual(scanDiagnostics[0].severity, .error)
+      #expect(scanDiagnostics.count == 1)
+      #expect(scanDiagnostics[0].severity == .error)
 
     }
   }
 
-  func testDependencyScanningPathRemap() throws {
-    #if os(Windows)
-    try XCTSkipIf(true, "Skipping due to improper path mapping handling.")
-    #endif
+  @Test(.skipHostOS(.win32, comment: "Skipping due to improper path mapping handling."),
+        .requireFrontendArgSupport(.scannerPrefixMapPaths))
+  func dependencyScanningPathRemap() async throws {
 
     // Create a simple test case.
-    try withTemporaryDirectory { path in
+    try await withTemporaryDirectory { path in
       let main = path.appending(component: "testDependencyScanning.swift")
       try localFileSystem.writeFileContents(main) {
         $0.send("import C;")
@@ -805,7 +774,7 @@ final class CachingBuildTests: XCTestCase {
       var env = ProcessEnv.block
       env["_SWIFT_DRIVER_MOCK_BLOCK_LIST_DIR"] = mockBlocklistDir.nativePathString(escaped: false)
       let dependencyOracle = InterModuleDependencyOracle()
-      var driver = try Driver(args: ["swiftc",
+      var driver = try TestDriver(args: ["swiftc",
                                      "-I", cHeadersPath.nativePathString(escaped: false),
                                      "-I", swiftModuleInterfacesPath.nativePathString(escaped: false),
                                      "-g", "-explicit-module-build",
@@ -818,23 +787,20 @@ final class CachingBuildTests: XCTestCase {
                                      main.nativePathString(escaped: false)] + sdkArgumentsForTesting,
                               env: env,
                               interModuleDependencyOracle: dependencyOracle)
-      guard driver.isFrontendArgSupported(.scannerPrefixMapPaths) else {
-        throw XCTSkip("frontend doesn't support prefix map")
-      }
-      let scanLibPath = try XCTUnwrap(driver.getSwiftScanLibPath())
+      let scanLibPath = try #require(try driver.getSwiftScanLibPath())
       try dependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
       let resolver = try ArgsResolver(fileSystem: localFileSystem)
       let scannerCommand = try driver.dependencyScannerInvocationCommand().1.map { try resolver.resolve($0) }
 
-      XCTAssertTrue(scannerCommand.contains("-scanner-prefix-map-paths"))
-      XCTAssertTrue(scannerCommand.contains(try testInputsPath.description))
+      #expect(scannerCommand.contains("-scanner-prefix-map-paths"))
+      #expect(scannerCommand.contains(try testInputsPath.description))
 #if os(Windows)
-      XCTAssertTrue(scannerCommand.contains("\\^src"))
+      #expect(scannerCommand.contains("\\^src"))
 #else
-      XCTAssertTrue(scannerCommand.contains("/^src"))
+      #expect(scannerCommand.contains("/^src"))
 #endif
 
-      let jobs = try driver.planBuild()
+      let jobs = try await driver.planBuild()
       for job in jobs {
         if !job.kind.supportCaching {
           continue
@@ -845,30 +811,30 @@ final class CachingBuildTests: XCTestCase {
           // Check all the arguments that are in the temporary directory are remapped.
           // The only one that is not remapped should be the `-cas-path` that points to
           // `casPath`.
-          XCTAssertFalse(command[i] != casPath.description && command[i].starts(with: path.description))
+          #expect(!(command[i] != casPath.description && command[i].starts(with: path.description)))
           /// All source location path should be remapped as well.
-          XCTAssertFalse(command[i].starts(with: try testInputsPath.description))
+          #expect(!command[i].starts(with: try testInputsPath.description))
         }
         /// command-line that compiles swift should contains -cache-replay-prefix-map
-        XCTAssertTrue(command.contains { $0 == "-cache-replay-prefix-map" })
+        #expect(command.contains(where: { $0 == "-cache-replay-prefix-map" }))
         if job.kind == .compile {
-          XCTAssertTrue(command.contains { $0 == "-in-process-plugin-server-path" })
+          #expect(command.contains(where: { $0 == "-in-process-plugin-server-path" }))
         }
-        XCTAssertFalse(command.contains { $0 == "-plugin-path" || $0 == "-external-plugin-path" ||
+        let hasPath = !command.contains(where: { $0 == "-plugin-path" || $0 == "-external-plugin-path" ||
                                           $0 == "-load-plugin-library" || $0 == "-load-plugin-executable" })
+        #expect(hasPath)
       }
 
-      try driver.run(jobs: jobs)
-      XCTAssertFalse(driver.diagnosticEngine.hasErrors)
+      try await driver.run(jobs: jobs)
+      #expect(!driver.diagnosticEngine.hasErrors)
     }
   }
 
-  func testCommaJoinedPathRemapping() throws {
-    #if os(Windows)
-    try XCTSkipIf(true, "Skipping due to improper path mapping handling.")
-    #endif
+  @Test(.skipHostOS(.win32, comment: "Skipping due to improper path mapping handling."),
+        .requireFrontendArgSupport(.scannerPrefixMapPaths))
+  func commaJoinedPathRemapping() async throws {
 
-    try withTemporaryDirectory { path in
+    try await withTemporaryDirectory { path in
       let main = path.appending(component: "testCommaJoinedPathRemapping.swift")
       try localFileSystem.writeFileContents(main) {
         $0.send("import C;")
@@ -891,7 +857,7 @@ final class CachingBuildTests: XCTestCase {
       let casPath = path.appending(component: "cas")
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       let dependencyOracle = InterModuleDependencyOracle()
-      var driver = try Driver(args: ["swiftc",
+      var driver = try TestDriver(args: ["swiftc",
                                      "-I", cHeadersPath.nativePathString(escaped: false),
                                      "-I", swiftModuleInterfacesPath.nativePathString(escaped: false),
                                      "-g", "-explicit-module-build",
@@ -902,14 +868,11 @@ final class CachingBuildTests: XCTestCase {
                                      "-profile-use=" + profdata1.nativePathString(escaped: false) + "," + profdata2.nativePathString(escaped: false),
                                      main.nativePathString(escaped: false)] + sdkArgumentsForTesting,
                               interModuleDependencyOracle: dependencyOracle)
-      guard driver.isFrontendArgSupported(.scannerPrefixMapPaths) else {
-        throw XCTSkip("frontend doesn't support prefix map")
-      }
-      let scanLibPath = try XCTUnwrap(driver.getSwiftScanLibPath())
+      let scanLibPath = try #require(try driver.getSwiftScanLibPath())
       try dependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
       let resolver = try ArgsResolver(fileSystem: localFileSystem)
 
-      let jobs = try driver.planBuild()
+      let jobs = try await driver.planBuild()
       for job in jobs {
         if !job.kind.supportCaching {
           continue
@@ -920,7 +883,7 @@ final class CachingBuildTests: XCTestCase {
           if arg.hasPrefix("-profile-use=") {
             let paths = String(arg.dropFirst("-profile-use=".count))
             for profilePath in paths.split(separator: ",") {
-              XCTAssertTrue(profilePath.starts(with: "/^tmp"),
+              #expect(profilePath.starts(with: "/^tmp"),
                             "Expected remapped profile path, got: \(profilePath)")
             }
           }
@@ -928,17 +891,16 @@ final class CachingBuildTests: XCTestCase {
         // Verify no unremapped temp paths appear (except -cas-path).
         for i in 0..<command.count {
           if i >= 2 && command[i - 2] == "-cache-replay-prefix-map" { continue }
-          XCTAssertFalse(command[i] != casPath.description && command[i].starts(with: path.description),
+          #expect(!(command[i] != casPath.description && command[i].starts(with: path.description)),
                          "Found unremapped path: \(command[i])")
         }
       }
-      XCTAssertFalse(driver.diagnosticEngine.hasErrors)
+      #expect(!driver.diagnosticEngine.hasErrors)
     }
   }
 
-  func testCacheIncrementalBuildPlan() throws {
-    try withTemporaryDirectory { path in
-      try localFileSystem.changeCurrentWorkingDirectory(to: path)
+  @Test func cacheIncrementalBuildPlan() async throws {
+    try await withTemporaryDirectory { path in
       let moduleCachePath = path.appending(component: "ModuleCache")
       let casPath = path.appending(component: "cas")
       try localFileSystem.createDirectory(moduleCachePath)
@@ -963,7 +925,7 @@ final class CachingBuildTests: XCTestCase {
       let bridgingHeaderpath: AbsolutePath =
           cHeadersPath.appending(component: "Bridging.h")
       let dependencyOracle = InterModuleDependencyOracle()
-      var driver = try Driver(args: ["swiftc",
+      var driver = try TestDriver(args: ["swiftc", "-c",
                                      "-I", cHeadersPath.nativePathString(escaped: false),
                                      "-I", swiftModuleInterfacesPath.nativePathString(escaped: false),
                                      "-explicit-module-build", "-Rcache-compile-job", "-incremental",
@@ -971,29 +933,29 @@ final class CachingBuildTests: XCTestCase {
                                      "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: false),
                                      "-import-objc-header", bridgingHeaderpath.nativePathString(escaped: false),
                                      "-output-file-map", ofm.nativePathString(escaped: false),
+                                     "-pch-output-dir", path.nativePathString(escaped: false),
                                      "-working-directory", path.nativePathString(escaped: false),
                                      main.nativePathString(escaped: false)] + sdkArgumentsForTesting,
                               interModuleDependencyOracle: dependencyOracle)
-      let jobs = try driver.planBuild()
-      try driver.run(jobs: jobs)
-      XCTAssertFalse(driver.diagnosticEngine.hasErrors)
+      let jobs = try await driver.planBuild()
+      try await driver.run(jobs: jobs)
+      #expect(!driver.diagnosticEngine.hasErrors)
 
-      let scanLibPath = try XCTUnwrap(driver.getSwiftScanLibPath())
+      let scanLibPath = try #require(try driver.getSwiftScanLibPath())
       try dependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
 
       let cas = try dependencyOracle.getOrCreateCAS(pluginPath: nil, onDiskPath: casPath, pluginOptions: [])
       if let driverCAS = driver.cas {
-        XCTAssertEqual(cas, driverCAS, "CAS should only be created once")
+        #expect(cas == driverCAS, "CAS should only be created once")
       } else {
-        XCTFail("Cached compilation doesn't have a CAS")
+        Issue.record("Cached compilation doesn't have a CAS")
       }
-      try checkCASForResults(jobs: jobs, cas: cas, fs: driver.fileSystem)
+      try await checkCASForResults(jobs: jobs, cas: cas, fs: driver.fileSystem)
     }
   }
 
-  func testCacheBatchBuildPlan() throws {
-    try withTemporaryDirectory { path in
-      try localFileSystem.changeCurrentWorkingDirectory(to: path)
+  @Test func cacheBatchBuildPlan() async throws {
+    try await withTemporaryDirectory { path in
       let moduleCachePath = path.appending(component: "ModuleCache")
       let casPath = path.appending(component: "cas")
       try localFileSystem.createDirectory(moduleCachePath)
@@ -1017,8 +979,9 @@ final class CachingBuildTests: XCTestCase {
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       let bridgingHeaderpath: AbsolutePath =
           cHeadersPath.appending(component: "Bridging.h")
+      let moduleOutputPath: AbsolutePath = moduleCachePath.appending(component: "Test.swiftmodule")
       let dependencyOracle = InterModuleDependencyOracle()
-      var driver = try Driver(args: ["swiftc", "-g",
+      var driver = try TestDriver(args: ["swiftc", "-g", "-c",
                                      "-I", cHeadersPath.nativePathString(escaped: false),
                                      "-I", swiftModuleInterfacesPath.nativePathString(escaped: false),
                                      "-explicit-module-build", "-Rcache-compile-job", "-incremental",
@@ -1026,36 +989,37 @@ final class CachingBuildTests: XCTestCase {
                                      "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: false),
                                      "-import-objc-header", bridgingHeaderpath.nativePathString(escaped: false),
                                      "-output-file-map", ofm.nativePathString(escaped: false),
+                                     "-pch-output-dir", path.nativePathString(escaped: false),
+                                     "-emit-module-path", moduleOutputPath.nativePathString(escaped: false),
                                      "-working-directory", path.nativePathString(escaped: false),
                                      main.nativePathString(escaped: false)] + sdkArgumentsForTesting,
                               interModuleDependencyOracle: dependencyOracle)
-      let jobs = try driver.planBuild()
+      let jobs = try await driver.planBuild()
 
       if driver.isFeatureSupported(.debug_info_explicit_dependency) {
         let _ = jobs.filter{ $0.kind == .compile }.map {
-          XCTAssertTrue($0.commandLine.contains("-debug-module-path"))
+          #expect($0.commandLine.contains("-debug-module-path"))
         }
       }
 
-      try driver.run(jobs: jobs)
-      XCTAssertFalse(driver.diagnosticEngine.hasErrors)
+      try await driver.run(jobs: jobs)
+      #expect(!driver.diagnosticEngine.hasErrors)
 
-      let scanLibPath = try XCTUnwrap(driver.getSwiftScanLibPath())
+      let scanLibPath = try #require(try driver.getSwiftScanLibPath())
       try dependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
 
       let cas = try dependencyOracle.getOrCreateCAS(pluginPath: nil, onDiskPath: casPath, pluginOptions: [])
       if let driverCAS = driver.cas {
-        XCTAssertEqual(cas, driverCAS, "CAS should only be created once")
+        #expect(cas == driverCAS, "CAS should only be created once")
       } else {
-        XCTFail("Cached compilation doesn't have a CAS")
+        Issue.record("Cached compilation doesn't have a CAS")
       }
-      try checkCASForResults(jobs: jobs, cas: cas, fs: driver.fileSystem)
+      try await checkCASForResults(jobs: jobs, cas: cas, fs: driver.fileSystem)
     }
   }
 
-  func testCrashReproducer() throws {
-    try withTemporaryDirectory { path in
-      try localFileSystem.changeCurrentWorkingDirectory(to: path)
+  @Test(.requireFrontendArgSupport(.genReproducer)) func crashReproducer() async throws {
+    try await withTemporaryDirectory { path in
       let moduleCachePath = path.appending(component: "ModuleCache")
       let casPath = path.appending(component: "cas")
       try localFileSystem.createDirectory(moduleCachePath)
@@ -1073,7 +1037,7 @@ final class CachingBuildTests: XCTestCase {
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       var env = ProcessEnv.block
       env["SWIFT_CRASH_DIAGNOSTICS_DIR"] = path.nativePathString(escaped: false)
-      var driver = try Driver(args: ["swiftc",
+      var driver = try TestDriver(args: ["swiftc",
                                      "-I", cHeadersPath.nativePathString(escaped: false),
                                      "-I", swiftModuleInterfacesPath.nativePathString(escaped: false),
                                      "-explicit-module-build", "-enable-deterministic-check",
@@ -1083,25 +1047,21 @@ final class CachingBuildTests: XCTestCase {
                                      "-Xfrontend", "-debug-crash-after-parse",
                                      main.nativePathString(escaped: false)] + sdkArgumentsForTesting,
                               env: env)
-      guard driver.isFrontendArgSupported(.genReproducer) else {
-        throw XCTSkip("crash reproducer not supported")
-      }
-      let jobs = try driver.planBuild()
+      let jobs = try await driver.planBuild()
       do {
-        try driver.run(jobs: jobs)
-        XCTFail("Build should fail")
+        try await driver.run(jobs: jobs)
+        Issue.record("Build should fail")
       } catch {
-        XCTAssertTrue(driver.diagnosticEngine.hasErrors)
-        XCTAssertTrue(driver.diagnosticEngine.diagnostics.contains {
+        #expect(driver.diagnosticEngine.hasErrors)
+        #expect(driver.diagnosticEngine.diagnostics.contains(where: {
           $0.message.behavior == .note && $0.message.data.description.starts(with: "crash reproducer")
-          })
+          }))
       }
     }
   }
 
-  func testDeterministicCheck() throws {
-    try withTemporaryDirectory { path in
-      try localFileSystem.changeCurrentWorkingDirectory(to: path)
+  @Test func deterministicCheck() async throws {
+    try await withTemporaryDirectory { path in
       let moduleCachePath = path.appending(component: "ModuleCache")
       let casPath = path.appending(component: "cas")
       try localFileSystem.createDirectory(moduleCachePath)
@@ -1119,7 +1079,7 @@ final class CachingBuildTests: XCTestCase {
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       let bridgingHeaderpath: AbsolutePath =
           cHeadersPath.appending(component: "Bridging.h")
-      var driver = try Driver(args: ["swiftc",
+      var driver = try TestDriver(args: ["swiftc",
                                      "-I", cHeadersPath.nativePathString(escaped: false),
                                      "-I", swiftModuleInterfacesPath.nativePathString(escaped: false),
                                      "-explicit-module-build", "-enable-deterministic-check",
@@ -1128,12 +1088,12 @@ final class CachingBuildTests: XCTestCase {
                                      "-import-objc-header", bridgingHeaderpath.nativePathString(escaped: false),
                                      "-working-directory", path.nativePathString(escaped: false),
                                      main.nativePathString(escaped: false)] + sdkArgumentsForTesting)
-      let jobs = try driver.planBuild()
+      let jobs = try await driver.planBuild()
       jobs.forEach { job in
         guard job.kind == .compile else {
           return
         }
-        XCTAssertJobInvocationMatches(job,
+        expectJobInvocationMatches(job,
                                       .flag("-enable-deterministic-check"),
                                       .flag("-always-compile-output-files"),
                                       .flag("-cache-disable-replay"))
@@ -1142,22 +1102,20 @@ final class CachingBuildTests: XCTestCase {
 
   }
 
-  func testCASManagement() throws {
+  @Test func casManagement() async throws {
     try withTemporaryDirectory { path in
       let casPath = path.appending(component: "cas")
-      let driver = try Driver(args: ["swiftc"])
-      let scanLibPath = try XCTUnwrap(driver.getSwiftScanLibPath())
+      let driver = try TestDriver(args: ["swiftc"])
+      let scanLibPath = try #require(try driver.getSwiftScanLibPath())
       let dependencyOracle = InterModuleDependencyOracle()
       try dependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
       let cas = try dependencyOracle.getOrCreateCAS(pluginPath: nil, onDiskPath: casPath, pluginOptions: [])
-      guard cas.supportsSizeManagement else {
-        throw XCTSkip("CAS size management is not supported")
-      }
-      let preSize = try XCTUnwrap(try cas.getStorageSize())
+      try #require(cas.supportsSizeManagement, "CAS size management is not supported")
+      let preSize = try #require(try cas.getStorageSize())
       let dataToStore = Data(count: 1000)
       _ = try cas.store(data: dataToStore)
-      let postSize = try XCTUnwrap(try cas.getStorageSize())
-      XCTAssertTrue(postSize > preSize)
+      let postSize = try #require(try cas.getStorageSize())
+      #expect(postSize > preSize)
 
       // Try prune.
       try cas.setSizeLimit(100)
@@ -1165,8 +1123,9 @@ final class CachingBuildTests: XCTestCase {
     }
   }
 
-  func testCASSizeLimiting() throws {
-    try withTemporaryDirectory { path in
+  // Test not stable on platforms other than macOS.
+  @Test(.requireHostOS(.macosx)) func casSizeLimiting() async throws {
+    try await withTemporaryDirectory { path in
       let moduleCachePath = path.appending(component: "ModuleCache")
       let casPath = path.appending(component: "cas")
       try localFileSystem.createDirectory(moduleCachePath)
@@ -1184,8 +1143,8 @@ final class CachingBuildTests: XCTestCase {
                             .appending(component: "Swift")
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
 
-      func createDriver(main: AbsolutePath) throws -> Driver {
-        return try Driver(args: ["swiftc",
+      func createDriver(main: AbsolutePath) throws -> TestDriver {
+        return try TestDriver(args: ["swiftc",
                                  "-I", cHeadersPath.nativePathString(escaped: false),
                                  "-I", swiftModuleInterfacesPath.nativePathString(escaped: false),
                                  "-explicit-module-build", "-Rcache-compile-job",
@@ -1195,20 +1154,15 @@ final class CachingBuildTests: XCTestCase {
                                  main.nativePathString(escaped: false)] + sdkArgumentsForTesting)
       }
 
-      func buildAndGetSwiftCASKeys(main: AbsolutePath, forceCASLimit: Bool) throws -> [String] {
+      func buildAndGetSwiftCASKeys(main: AbsolutePath, forceCASLimit: Bool) async throws -> [String] {
         var driver = try createDriver(main: main)
-        let cas = try XCTUnwrap(driver.cas)
+        let cas = try #require(driver.cas)
         if forceCASLimit {
           try cas.setSizeLimit(10)
         }
-        let jobs = try driver.planBuild()
-        try driver.run(jobs: jobs)
-        XCTAssertFalse(driver.diagnosticEngine.hasErrors)
-
-        let dependencyOracle = driver.interModuleDependencyOracle
-
-        let scanLibPath = try XCTUnwrap(driver.getSwiftScanLibPath())
-        try dependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
+        let jobs = try await driver.planBuild()
+        try await driver.run(jobs: jobs)
+        #expect(!driver.diagnosticEngine.hasErrors)
 
         var keys: [String] = []
         for job in jobs {
@@ -1222,23 +1176,23 @@ final class CachingBuildTests: XCTestCase {
         return keys
       }
 
-      func verifyKeys(exist: Bool, keys: [String], main: AbsolutePath, file: StaticString = #file, line: UInt = #line) throws {
+      func verifyKeys(exist: Bool, keys: [String], main: AbsolutePath, sourceLocation: SourceLocation = #_sourceLocation) throws {
         let driver = try createDriver(main: main)
-        let cas = try XCTUnwrap(driver.cas)
+        let cas = try #require(driver.cas)
         for key in keys {
           let comp = try cas.queryCacheKey(key, globally: false)
           if exist {
-            XCTAssertNotNil(comp, file: file, line: line)
+            #expect(comp != nil, sourceLocation: sourceLocation)
           } else {
-            XCTAssertNil(comp, file: file, line: line)
+            #expect(comp == nil, sourceLocation: sourceLocation)
           }
         }
       }
 
       do {
         // Without CAS size limitation the keys will be preserved.
-        let keys = try buildAndGetSwiftCASKeys(main: main1, forceCASLimit: false)
-        _ = try buildAndGetSwiftCASKeys(main: main2, forceCASLimit: false)
+        let keys = try await buildAndGetSwiftCASKeys(main: main1, forceCASLimit: false)
+        _ = try await buildAndGetSwiftCASKeys(main: main2, forceCASLimit: false)
         try verifyKeys(exist: true, keys: keys, main: main1)
       }
 
@@ -1246,8 +1200,8 @@ final class CachingBuildTests: XCTestCase {
 
       do {
         // 2 separate builds with CAS size limiting, the keys of first build will not be preserved.
-        let keys = try buildAndGetSwiftCASKeys(main: main1, forceCASLimit: true)
-        _ = try buildAndGetSwiftCASKeys(main: main2, forceCASLimit: true)
+        let keys = try await buildAndGetSwiftCASKeys(main: main1, forceCASLimit: true)
+        _ = try await buildAndGetSwiftCASKeys(main: main2, forceCASLimit: true)
         try verifyKeys(exist: false, keys: keys, main: main1)
       }
     }

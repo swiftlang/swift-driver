@@ -12,10 +12,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-import XCTest
+import Testing
 @_spi(Testing) import SwiftDriver
 
-class MultidictionaryTests: XCTestCase {
+@Suite struct MultidictionaryTests {
 
   private func multidictionaryWith<K: Hashable, V: Hashable>(_ keysAndValues: Dictionary<K, [V]>) -> Multidictionary<K, V>{
     var dict = Multidictionary<K, V>()
@@ -27,16 +27,16 @@ class MultidictionaryTests: XCTestCase {
     return dict
   }
 
-  func testInit() throws {
+  @Test func `init`() throws {
     let dict = Multidictionary<String, Int>()
 
-    XCTAssertEqual(dict.count, 0)
-    XCTAssertEqual(dict.keys.count, 0)
-    XCTAssertEqual(dict.values.count, 0)
-    XCTAssertEqual(dict.startIndex, dict.endIndex)
+    #expect(dict.count == 0)
+    #expect(dict.keys.count == 0)
+    #expect(dict.values.count == 0)
+    #expect(dict.startIndex == dict.endIndex)
   }
 
-  func testInsertion() throws {
+  @Test func insertion() throws {
     var dict = Multidictionary<String, Int>()
 
     dict.insertValue(1, forKey: "a")
@@ -47,17 +47,17 @@ class MultidictionaryTests: XCTestCase {
     dict.insertValue(3, forKey: "c")
     dict.insertValue(4, forKey: "c")
 
-    XCTAssertEqual(dict.count, 3)
-    XCTAssertEqual(dict["a"], [1])
-    XCTAssertEqual(dict["b"], [1, 2])
-    XCTAssertEqual(dict["c"], [1, 2, 3, 4])
-    XCTAssertEqual(dict.keysContainingValue(1), ["a", "b", "c"])
-    XCTAssertEqual(dict.keysContainingValue(2), ["b", "c"])
-    XCTAssertEqual(dict.keysContainingValue(3), ["c"])
-    XCTAssertEqual(dict.keysContainingValue(4), ["c"])
+    #expect(dict.count == 3)
+    #expect(dict["a"] == [1])
+    #expect(dict["b"] == [1, 2])
+    #expect(dict["c"] == [1, 2, 3, 4])
+    #expect(dict.keysContainingValue(1) == ["a", "b", "c"])
+    #expect(dict.keysContainingValue(2) == ["b", "c"])
+    #expect(dict.keysContainingValue(3) == ["c"])
+    #expect(dict.keysContainingValue(4) == ["c"])
   }
 
-  func testInsertion_existingPair() {
+  @Test func insertion_existingPair() {
     var dict = multidictionaryWith([
       "a": [1],
       "b": [1, 2],
@@ -65,76 +65,77 @@ class MultidictionaryTests: XCTestCase {
     ])
 
     // Inserting an existing k:v pair a second time should do nothing.
-    XCTAssertFalse(dict.insertValue(1, forKey: "a"))
+    let inserted = dict.insertValue(1, forKey: "a")
+    #expect(!inserted)
 
-    XCTAssertEqual(dict.count, 3)
-    XCTAssertEqual(dict["a"], [1])
-    XCTAssertEqual(dict["b"], [1, 2])
-    XCTAssertEqual(dict["c"], [1, 2, 3, 4])
-    XCTAssertEqual(dict.keysContainingValue(1), ["a", "b", "c"])
-    XCTAssertEqual(dict.keysContainingValue(2), ["b", "c"])
-    XCTAssertEqual(dict.keysContainingValue(3), ["c"])
-    XCTAssertEqual(dict.keysContainingValue(4), ["c"])
+    #expect(dict.count == 3)
+    #expect(dict["a"] == [1])
+    #expect(dict["b"] == [1, 2])
+    #expect(dict["c"] == [1, 2, 3, 4])
+    #expect(dict.keysContainingValue(1) == ["a", "b", "c"])
+    #expect(dict.keysContainingValue(2) == ["b", "c"])
+    #expect(dict.keysContainingValue(3) == ["c"])
+    #expect(dict.keysContainingValue(4) == ["c"])
   }
 
-  func testRemoveValue() throws {
+  @Test func removeValue() throws {
     var dict = multidictionaryWith([
       "a": [1],
       "b": [1, 2],
       "c": [1, 2, 3, 4],
     ])
 
-    XCTAssertNotNil(dict.removeValue(2, forKey: "c"))
+    #expect(dict.removeValue(2, forKey: "c") != nil)
 
-    XCTAssertEqual(dict.count, 3)
-    XCTAssertEqual(dict["a"], [1])
-    XCTAssertEqual(dict["b"], [1, 2])
-    XCTAssertEqual(dict["c"], [1, 3, 4])
-    XCTAssertEqual(dict.keysContainingValue(1), ["a", "b", "c"])
-    XCTAssertEqual(dict.keysContainingValue(2), ["b"])
-    XCTAssertEqual(dict.keysContainingValue(3), ["c"])
-    XCTAssertEqual(dict.keysContainingValue(4), ["c"])
+    #expect(dict.count == 3)
+    #expect(dict["a"] == [1])
+    #expect(dict["b"] == [1, 2])
+    #expect(dict["c"] == [1, 3, 4])
+    #expect(dict.keysContainingValue(1) == ["a", "b", "c"])
+    #expect(dict.keysContainingValue(2) == ["b"])
+    #expect(dict.keysContainingValue(3) == ["c"])
+    #expect(dict.keysContainingValue(4) == ["c"])
   }
 
-  func testRemoveValue_nonExistentValue() throws {
+  @Test func removeValue_nonExistentValue() throws {
     var dict = multidictionaryWith([
       "a": [1],
       "b": [1, 2],
       "c": [1, 2, 3, 4],
     ])
 
-    XCTAssertNil(dict.removeValue(5, forKey: "c"))
+    #expect(dict.removeValue(5, forKey: "c") == nil)
 
-    XCTAssertEqual(dict.count, 3)
-    XCTAssertEqual(dict["a"], [1])
-    XCTAssertEqual(dict["b"], [1, 2])
-    XCTAssertEqual(dict["c"], [1, 2, 3, 4])
-    XCTAssertEqual(dict.keysContainingValue(1), ["a", "b", "c"])
-    XCTAssertEqual(dict.keysContainingValue(2), ["b", "c"])
-    XCTAssertEqual(dict.keysContainingValue(3), ["c"])
-    XCTAssertEqual(dict.keysContainingValue(4), ["c"])
+    #expect(dict.count == 3)
+    #expect(dict["a"] == [1])
+    #expect(dict["b"] == [1, 2])
+    #expect(dict["c"] == [1, 2, 3, 4])
+    #expect(dict.keysContainingValue(1) == ["a", "b", "c"])
+    #expect(dict.keysContainingValue(2) == ["b", "c"])
+    #expect(dict.keysContainingValue(3) == ["c"])
+    #expect(dict.keysContainingValue(4) == ["c"])
   }
 
-  func testRemoveValue_nonExistentKey() throws {
+  @Test func removeValue_nonExistentKey() throws {
     var dict = multidictionaryWith([
       "a": [1],
       "b": [1, 2],
       "c": [1, 2, 3, 4],
     ])
 
-    XCTAssertNil(dict.removeValue(1, forKey: "d"))
+    #expect(dict.removeValue(1, forKey: "d") == nil)
 
-    XCTAssertEqual(dict.count, 3)
-    XCTAssertEqual(dict["a"], [1])
-    XCTAssertEqual(dict["b"], [1, 2])
-    XCTAssertEqual(dict["c"], [1, 2, 3, 4])
-    XCTAssertEqual(dict.keysContainingValue(1), ["a", "b", "c"])
-    XCTAssertEqual(dict.keysContainingValue(2), ["b", "c"])
-    XCTAssertEqual(dict.keysContainingValue(3), ["c"])
-    XCTAssertEqual(dict.keysContainingValue(4), ["c"])
+    #expect(dict.count == 3)
+    #expect(dict["a"] == [1])
+    #expect(dict["b"] == [1, 2])
+    #expect(dict["c"] == [1, 2, 3, 4])
+    #expect(dict.keysContainingValue(1) == ["a", "b", "c"])
+    #expect(dict.keysContainingValue(2) == ["b", "c"])
+    #expect(dict.keysContainingValue(3) == ["c"])
+    #expect(dict.keysContainingValue(4) == ["c"])
   }
 
-  func testRemoveOccurencesOf() throws {
+  @Test func removeOccurencesOf() throws {
     var dict = multidictionaryWith([
       "a": [1],
       "b": [1, 2],
@@ -143,17 +144,17 @@ class MultidictionaryTests: XCTestCase {
 
     dict.removeOccurrences(of: 1)
 
-    XCTAssertEqual(dict.count, 3)
-    XCTAssertEqual(dict["a"], [])
-    XCTAssertEqual(dict["b"], [2])
-    XCTAssertEqual(dict["c"], [2, 3, 4])
-    XCTAssertEqual(dict.keysContainingValue(1), [])
-    XCTAssertEqual(dict.keysContainingValue(2), ["b", "c"])
-    XCTAssertEqual(dict.keysContainingValue(3), ["c"])
-    XCTAssertEqual(dict.keysContainingValue(4), ["c"])
+    #expect(dict.count == 3)
+    #expect(dict["a"] == [])
+    #expect(dict["b"] == [2])
+    #expect(dict["c"] == [2, 3, 4])
+    #expect(dict.keysContainingValue(1) == [])
+    #expect(dict.keysContainingValue(2) == ["b", "c"])
+    #expect(dict.keysContainingValue(3) == ["c"])
+    #expect(dict.keysContainingValue(4) == ["c"])
   }
 
-  func testRemoveOccurencesOf_nonExistentValue() throws {
+  @Test func removeOccurencesOf_nonExistentValue() throws {
     var dict = multidictionaryWith([
       "a": [1],
       "b": [1, 2],
@@ -162,13 +163,13 @@ class MultidictionaryTests: XCTestCase {
 
     dict.removeOccurrences(of: 5)
 
-    XCTAssertEqual(dict.count, 3)
-    XCTAssertEqual(dict["a"], [1])
-    XCTAssertEqual(dict["b"], [1, 2])
-    XCTAssertEqual(dict["c"], [1, 2, 3, 4])
-    XCTAssertEqual(dict.keysContainingValue(1), ["a", "b", "c"])
-    XCTAssertEqual(dict.keysContainingValue(2), ["b", "c"])
-    XCTAssertEqual(dict.keysContainingValue(3), ["c"])
-    XCTAssertEqual(dict.keysContainingValue(4), ["c"])
+    #expect(dict.count == 3)
+    #expect(dict["a"] == [1])
+    #expect(dict["b"] == [1, 2])
+    #expect(dict["c"] == [1, 2, 3, 4])
+    #expect(dict.keysContainingValue(1) == ["a", "b", "c"])
+    #expect(dict.keysContainingValue(2) == ["b", "c"])
+    #expect(dict.keysContainingValue(3) == ["c"])
+    #expect(dict.keysContainingValue(4) == ["c"])
   }
 }

@@ -13,34 +13,11 @@
 //===----------------------------------------------------------------------===//
 
 @_spi(Testing) import SwiftDriver
-import SwiftDriverExecution
 import TSCBasic
 import protocol Foundation.LocalizedError
 import var Foundation.EXIT_SUCCESS
 
 extension Driver {
-  /// Initializer which creates an executor suitable for use in tests.
-  public init(
-    args: [String],
-    env: ProcessEnvironmentBlock = ProcessEnv.block,
-    diagnosticsEngine: DiagnosticsEngine = DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler]),
-    fileSystem: FileSystem = localFileSystem,
-    integratedDriver: Bool = true,
-    interModuleDependencyOracle: InterModuleDependencyOracle? = nil
-  ) throws {
-    let executor = try SwiftDriverExecutor(diagnosticsEngine: diagnosticsEngine,
-                                       processSet: ProcessSet(),
-                                       fileSystem: fileSystem,
-                                       env: env)
-    try self.init(args: args,
-                  envBlock: env,
-                  diagnosticsOutput: .engine(diagnosticsEngine),
-                  fileSystem: fileSystem,
-                  executor: executor,
-                  integratedDriver: integratedDriver,
-                  interModuleDependencyOracle: interModuleDependencyOracle)
-  }
-
   /// For tests that need to set the sdk path.
   /// Only works on hosts with `xcrun`, so return nil if cannot work on current host.
   public static func sdkArgumentsForTesting() throws -> [String]? {

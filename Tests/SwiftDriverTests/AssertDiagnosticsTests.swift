@@ -23,54 +23,54 @@ import Testing
 @Suite(.suppressKnownIssues())
 struct AssertDiagnosticsTests {
   @Test func noDiagnostics() async throws {
-    assertNoDiagnostics { _ in }
+    await assertNoDiagnostics { _ in }
 
     try await expectedIssue {
-      assertNoDiagnostics { diags in
+      await assertNoDiagnostics { diags in
         diags.emit(error: "something happened")
       }
     }
     try await expectedIssue {
-      assertNoDiagnostics { diags in
+      await assertNoDiagnostics { diags in
         diags.emit(warning: "hello")
       }
     }
 
     // Unexpected warnings/notes/remarks are okay
-    assertNoDiagnostics { diags in
+    await assertNoDiagnostics { diags in
       diags.emit(note: "hello")
     }
-    assertNoDiagnostics { diags in
+    await assertNoDiagnostics { diags in
       diags.emit(remark: "hello")
     }
   }
 
   @Test func diagnostics() async throws {
-    assertDiagnostics { diags, match in
+    await assertDiagnostics { diags, match in
       diags.emit(error: "yankees won again")
       match.expect(.error("won"))
     }
-    assertDiagnostics { diags, match in
+    await assertDiagnostics { diags, match in
       match.expect(.error("won"))
       diags.emit(error: "yankees won again")
     }
 
     try await expectedIssue(count: 2) {
-      assertDiagnostics { diags, match in
+      await assertDiagnostics { diags, match in
         match.expect(.error("lost"))
         diags.emit(error: "yankees won again")
       }
     }
 
     try await expectedIssue(count: 2) {
-      assertDiagnostics { diags, match in
+      await assertDiagnostics { diags, match in
         diags.emit(error: "yankees won again")
         diags.emit(error: "yankees won yet again")
       }
     }
 
     try await expectedIssue(count: 2) {
-      assertDiagnostics { diags, match in
+      await assertDiagnostics { diags, match in
         match.expect(.error("won"))
         match.expect(.error("won"))
       }
@@ -79,7 +79,7 @@ struct AssertDiagnosticsTests {
     // We should get two assertion failures: one for expecting the warning, one
     // for emitting the error.
     try await expectedIssue(count: 2) {
-      assertDiagnostics { diags, match in
+      await assertDiagnostics { diags, match in
         match.expect(.warning("won"))
         diags.emit(.error("yankees won again"))
       }
@@ -88,7 +88,7 @@ struct AssertDiagnosticsTests {
     // We should get one assertion failure for the unexpected error. An
     // unexpected note is okay.
     try await expectedIssue(count: 1) {
-      assertDiagnostics { diags, match in
+      await assertDiagnostics { diags, match in
         diags.emit(error: "yankees won again")
         diags.emit(note: "investigate their star's doctor")
       }
@@ -96,7 +96,7 @@ struct AssertDiagnosticsTests {
 
     // ...unless we tighten things up.
     try await expectedIssue(count: 2) {
-      assertDiagnostics { diags, match in
+      await assertDiagnostics { diags, match in
         diags.emit(error: "yankees won again")
         diags.emit(note: "investigate their star's doctor")
         match.forbidUnexpected(.note)
@@ -104,7 +104,7 @@ struct AssertDiagnosticsTests {
     }
 
     // ...or loosen them.
-    assertDiagnostics { diags, match in
+    await assertDiagnostics { diags, match in
       diags.emit(error: "yankees won again")
       diags.emit(note: "investigate their star's doctor")
       match.permitUnexpected(.error)
@@ -112,27 +112,27 @@ struct AssertDiagnosticsTests {
   }
 
   @Test func driverDiagnostics() async throws {
-    try assertNoDriverDiagnostics(args: "swiftc", "test.swift")
+    try await assertNoDriverDiagnostics(args: "swiftc", "test.swift")
 
-    try assertDriverDiagnostics(args: "swiftc", "test.swift") { driver, verify in
+    try await assertDriverDiagnostics(args: "swiftc", "test.swift") { driver, verify in
       driver.diagnosticEngine.emit(.error("this mode does not support emitting modules"))
       verify.expect(.error("this mode does not support emitting modules"))
     }
 
     try await expectedIssue {
-      try assertDriverDiagnostics(args: "swiftc", "test.swift") { driver, verify in
+      try await assertDriverDiagnostics(args: "swiftc", "test.swift") { driver, verify in
         verify.expect(.error("this mode does not support emitting modules"))
       }
     }
 
     try await expectedIssue {
-      try assertDriverDiagnostics(args: "swiftc", "test.swift") { driver, verify in
+      try await assertDriverDiagnostics(args: "swiftc", "test.swift") { driver, verify in
         driver.diagnosticEngine.emit(.error("this mode does not support emitting modules"))
       }
     }
 
     try await expectedIssue(count: 2) {
-      try assertDriverDiagnostics(args: "swiftc", "test.swift") { driver, verify in
+      try await assertDriverDiagnostics(args: "swiftc", "test.swift") { driver, verify in
         driver.diagnosticEngine.emit(.error("this mode does not support emitting modules"))
         verify.expect(.error("-static may not be used with -emit-executable"))
       }

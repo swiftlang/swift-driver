@@ -11,674 +11,675 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 //===----------------------------------------------------------------------===//
-import XCTest
+
+import Testing
 
 @_spi(Testing) import SwiftDriver
 import class TSCBasic.DiagnosticsEngine
 
-final class TripleTests: XCTestCase {
-  func testBasics() throws {
-    XCTAssertEqual(Triple("").arch, nil)
-    XCTAssertEqual(Triple("kalimba").arch, .kalimba)
-    XCTAssertEqual(Triple("m68k-unknown-linux-gnu").arch, .m68k)
-    XCTAssertEqual(Triple("x86_64-apple-macosx").arch, .x86_64)
-    XCTAssertEqual(Triple("blah-apple").arch, nil)
-    XCTAssertEqual(Triple("x86_64-apple-macosx").vendor, .apple)
-    XCTAssertEqual(Triple("x86_64-apple-macosx").os, .macosx)
-    XCTAssertEqual(Triple("x86_64-apple-macosx-macabi").environment, .macabi)
-    XCTAssertEqual(Triple("x86_64-apple-macosx-macabixxmacho").objectFormat, .macho)
-    XCTAssertEqual(Triple("mipsn32").environment, .gnuabin32)
+@Suite struct TripleTests {
+  @Test func basics() throws {
+    #expect(Triple("").arch == nil)
+    #expect(Triple("kalimba").arch == .kalimba)
+    #expect(Triple("m68k-unknown-linux-gnu").arch == .m68k)
+    #expect(Triple("x86_64-apple-macosx").arch == .x86_64)
+    #expect(Triple("blah-apple").arch == nil)
+    #expect(Triple("x86_64-apple-macosx").vendor == .apple)
+    #expect(Triple("x86_64-apple-macosx").os == .macosx)
+    #expect(Triple("x86_64-apple-macosx-macabi").environment == .macabi)
+    #expect(Triple("x86_64-apple-macosx-macabixxmacho").objectFormat == .macho)
+    #expect(Triple("mipsn32").environment == .gnuabin32)
 
-    XCTAssertEqual(Triple("x86_64-unknown-mylinux").osName, "mylinux")
-    XCTAssertEqual(Triple("x86_64-unknown-mylinux-abi").osName, "mylinux")
-    XCTAssertEqual(Triple("x86_64-unknown").osName, "")
+    #expect(Triple("x86_64-unknown-mylinux").osName == "mylinux")
+    #expect(Triple("x86_64-unknown-mylinux-abi").osName == "mylinux")
+    #expect(Triple("x86_64-unknown").osName == "")
 
-    XCTAssertEqual(Triple("x86_64-apple-macosx10.13").osVersion, "10.13.0")
-    XCTAssertEqual(Triple("x86_64-apple-macosx1x.13").osVersion, "0.13.0")
-    XCTAssertEqual(Triple("x86_64-apple-macosx10.13.5-abi").osVersion, "10.13.5")
+    #expect(Triple("x86_64-apple-macosx10.13").osVersion == "10.13.0")
+    #expect(Triple("x86_64-apple-macosx1x.13").osVersion == "0.13.0")
+    #expect(Triple("x86_64-apple-macosx10.13.5-abi").osVersion == "10.13.5")
 
-    XCTAssertEqual(Triple("arm64-unknown-none").arch, .aarch64)
-    XCTAssertEqual(Triple("arm64-unknown-none").vendor, nil)
-    XCTAssertEqual(Triple("arm64-unknown-none").os, .noneOS)
-    XCTAssertEqual(Triple("arm64-unknown-none").environment, nil)
-    XCTAssertEqual(Triple("arm64-unknown-none").objectFormat, .elf)
+    #expect(Triple("arm64-unknown-none").arch == .aarch64)
+    #expect(Triple("arm64-unknown-none").vendor == nil)
+    #expect(Triple("arm64-unknown-none").os == .noneOS)
+    #expect(Triple("arm64-unknown-none").environment == nil)
+    #expect(Triple("arm64-unknown-none").objectFormat == .elf)
 
-    XCTAssertEqual(Triple("xtensa-unknown-none").objectFormat, .elf)
+    #expect(Triple("xtensa-unknown-none").objectFormat == .elf)
 
-    XCTAssertEqual(Triple("arm64-apple-none-macho").arch, .aarch64)
-    XCTAssertEqual(Triple("arm64-apple-none-macho").vendor, .apple)
-    XCTAssertEqual(Triple("arm64-apple-none-macho").os, .noneOS)
-    XCTAssertEqual(Triple("arm64-apple-none-macho").environment, nil)
-    XCTAssertEqual(Triple("arm64-apple-none-macho").objectFormat, .macho)
+    #expect(Triple("arm64-apple-none-macho").arch == .aarch64)
+    #expect(Triple("arm64-apple-none-macho").vendor == .apple)
+    #expect(Triple("arm64-apple-none-macho").os == .noneOS)
+    #expect(Triple("arm64-apple-none-macho").environment == nil)
+    #expect(Triple("arm64-apple-none-macho").objectFormat == .macho)
 
-    XCTAssertEqual(Triple("x86_64-unknown-freebsd14.1").arch, .x86_64)
-    XCTAssertEqual(Triple("x86_64-unknown-freebsd14.1").vendor, nil)
-    XCTAssertEqual(Triple("x86_64-unknown-freebsd14.1").os, .freeBSD)
-    XCTAssertEqual(Triple("x86_64-unknown-freebsd14.1").osNameUnversioned, "freebsd")
-    XCTAssertEqual(Triple("x86_64-unknown-freebsd14.1").objectFormat, .elf)
+    #expect(Triple("x86_64-unknown-freebsd14.1").arch == .x86_64)
+    #expect(Triple("x86_64-unknown-freebsd14.1").vendor == nil)
+    #expect(Triple("x86_64-unknown-freebsd14.1").os == .freeBSD)
+    #expect(Triple("x86_64-unknown-freebsd14.1").osNameUnversioned == "freebsd")
+    #expect(Triple("x86_64-unknown-freebsd14.1").objectFormat == .elf)
   }
 
-  func testBasicParsing() {
+  @Test func basicParsing() {
     var T: Triple
 
     T = Triple("")
-    XCTAssertEqual(T.archName, "")
-    XCTAssertEqual(T.vendorName, "")
-    XCTAssertEqual(T.osName, "")
-    XCTAssertEqual(T.environmentName, "")
+    #expect(T.archName == "")
+    #expect(T.vendorName == "")
+    #expect(T.osName == "")
+    #expect(T.environmentName == "")
 
     T = Triple("-")
-    XCTAssertEqual(T.archName, "")
-    XCTAssertEqual(T.vendorName, "")
-    XCTAssertEqual(T.osName, "")
-    XCTAssertEqual(T.environmentName, "")
+    #expect(T.archName == "")
+    #expect(T.vendorName == "")
+    #expect(T.osName == "")
+    #expect(T.environmentName == "")
 
     T = Triple("--")
-    XCTAssertEqual(T.archName, "")
-    XCTAssertEqual(T.vendorName, "")
-    XCTAssertEqual(T.osName, "")
-    XCTAssertEqual(T.environmentName, "")
+    #expect(T.archName == "")
+    #expect(T.vendorName == "")
+    #expect(T.osName == "")
+    #expect(T.environmentName == "")
 
     T = Triple("---")
-    XCTAssertEqual(T.archName, "")
-    XCTAssertEqual(T.vendorName, "")
-    XCTAssertEqual(T.osName, "")
-    XCTAssertEqual(T.environmentName, "")
+    #expect(T.archName == "")
+    #expect(T.vendorName == "")
+    #expect(T.osName == "")
+    #expect(T.environmentName == "")
 
     T = Triple("----")
-    XCTAssertEqual(T.archName, "")
-    XCTAssertEqual(T.vendorName, "")
-    XCTAssertEqual(T.osName, "")
-    XCTAssertEqual(T.environmentName, "-")
+    #expect(T.archName == "")
+    #expect(T.vendorName == "")
+    #expect(T.osName == "")
+    #expect(T.environmentName == "-")
 
     T = Triple("a")
-    XCTAssertEqual(T.archName, "a")
-    XCTAssertEqual(T.vendorName, "")
-    XCTAssertEqual(T.osName, "")
-    XCTAssertEqual(T.environmentName, "")
+    #expect(T.archName == "a")
+    #expect(T.vendorName == "")
+    #expect(T.osName == "")
+    #expect(T.environmentName == "")
 
     T = Triple("a-b")
-    XCTAssertEqual(T.archName, "a")
-    XCTAssertEqual(T.vendorName, "b")
-    XCTAssertEqual(T.osName, "")
-    XCTAssertEqual(T.environmentName, "")
+    #expect(T.archName == "a")
+    #expect(T.vendorName == "b")
+    #expect(T.osName == "")
+    #expect(T.environmentName == "")
 
     T = Triple("a-b-c")
-    XCTAssertEqual(T.archName, "a")
-    XCTAssertEqual(T.vendorName, "b")
-    XCTAssertEqual(T.osName, "c")
-    XCTAssertEqual(T.environmentName, "")
+    #expect(T.archName == "a")
+    #expect(T.vendorName == "b")
+    #expect(T.osName == "c")
+    #expect(T.environmentName == "")
 
     T = Triple("a-b-c-d")
-    XCTAssertEqual(T.archName, "a")
-    XCTAssertEqual(T.vendorName, "b")
-    XCTAssertEqual(T.osName, "c")
-    XCTAssertEqual(T.environmentName, "d")
+    #expect(T.archName == "a")
+    #expect(T.vendorName == "b")
+    #expect(T.osName == "c")
+    #expect(T.environmentName == "d")
   }
 
-  func testParsedIDs() {
+  @Test func parsedIDs() {
     var T: Triple
 
     T = Triple("i386-apple-darwin")
-    XCTAssertEqual(T.arch, Triple.Arch.x86)
-    XCTAssertEqual(T.vendor, Triple.Vendor.apple)
-    XCTAssertEqual(T.os, Triple.OS.darwin)
-    XCTAssertEqual(T.environment, nil)
+    #expect(T.arch == Triple.Arch.x86)
+    #expect(T.vendor == Triple.Vendor.apple)
+    #expect(T.os == Triple.OS.darwin)
+    #expect(T.environment == nil)
 
     T = Triple("arm64-apple-firmware1.0")
-    XCTAssertEqual(T.arch, Triple.Arch.aarch64)
-    XCTAssertEqual(T.vendor, Triple.Vendor.apple)
-    XCTAssertEqual(T.os, Triple.OS.firmware)
-    XCTAssertEqual(T.environment, nil)
-    XCTAssertEqual(T.objectFormat, .macho)
-    XCTAssertTrue(T.isDarwin)
+    #expect(T.arch == Triple.Arch.aarch64)
+    #expect(T.vendor == Triple.Vendor.apple)
+    #expect(T.os == Triple.OS.firmware)
+    #expect(T.environment == nil)
+    #expect(T.objectFormat == .macho)
+    #expect(T.isDarwin)
 
     T = Triple("i386-pc-elfiamcu")
-    XCTAssertEqual(T.arch, Triple.Arch.x86)
-    XCTAssertEqual(T.vendor, Triple.Vendor.pc)
-    XCTAssertEqual(T.os, Triple.OS.elfiamcu)
-    XCTAssertEqual(T.environment, nil)
+    #expect(T.arch == Triple.Arch.x86)
+    #expect(T.vendor == Triple.Vendor.pc)
+    #expect(T.os == Triple.OS.elfiamcu)
+    #expect(T.environment == nil)
 
     T = Triple("i386-pc-contiki-unknown")
-    XCTAssertEqual(T.arch, Triple.Arch.x86)
-    XCTAssertEqual(T.vendor, Triple.Vendor.pc)
-    XCTAssertEqual(T.os, Triple.OS.contiki)
-    XCTAssertEqual(T.environment, nil)
+    #expect(T.arch == Triple.Arch.x86)
+    #expect(T.vendor == Triple.Vendor.pc)
+    #expect(T.os == Triple.OS.contiki)
+    #expect(T.environment == nil)
 
     T = Triple("i386-pc-hurd-gnu")
-    XCTAssertEqual(T.arch, Triple.Arch.x86)
-    XCTAssertEqual(T.vendor, Triple.Vendor.pc)
-    XCTAssertEqual(T.os, Triple.OS.hurd)
-    XCTAssertEqual(T.environment, Triple.Environment.gnu)
+    #expect(T.arch == Triple.Arch.x86)
+    #expect(T.vendor == Triple.Vendor.pc)
+    #expect(T.os == Triple.OS.hurd)
+    #expect(T.environment == Triple.Environment.gnu)
 
     T = Triple("x86_64-pc-linux-gnu")
-    XCTAssertEqual(T.arch, Triple.Arch.x86_64)
-    XCTAssertEqual(T.vendor, Triple.Vendor.pc)
-    XCTAssertEqual(T.os, Triple.OS.linux)
-    XCTAssertEqual(T.environment, Triple.Environment.gnu)
+    #expect(T.arch == Triple.Arch.x86_64)
+    #expect(T.vendor == Triple.Vendor.pc)
+    #expect(T.os == Triple.OS.linux)
+    #expect(T.environment == Triple.Environment.gnu)
 
     T = Triple("x86_64-pc-linux-musl")
-    XCTAssertEqual(T.arch, Triple.Arch.x86_64)
-    XCTAssertEqual(T.vendor, Triple.Vendor.pc)
-    XCTAssertEqual(T.os, Triple.OS.linux)
-    XCTAssertEqual(T.environment, Triple.Environment.musl)
+    #expect(T.arch == Triple.Arch.x86_64)
+    #expect(T.vendor == Triple.Vendor.pc)
+    #expect(T.os == Triple.OS.linux)
+    #expect(T.environment == Triple.Environment.musl)
 
     T = Triple("powerpc-bgp-linux")
-    XCTAssertEqual(T.arch, Triple.Arch.ppc)
-    XCTAssertEqual(T.vendor, Triple.Vendor.bgp)
-    XCTAssertEqual(T.os, Triple.OS.linux)
-    XCTAssertEqual(T.environment, nil)
+    #expect(T.arch == Triple.Arch.ppc)
+    #expect(T.vendor == Triple.Vendor.bgp)
+    #expect(T.os == Triple.OS.linux)
+    #expect(T.environment == nil)
 
     T = Triple("powerpc-bgp-cnk")
-    XCTAssertEqual(T.arch, Triple.Arch.ppc)
-    XCTAssertEqual(T.vendor, Triple.Vendor.bgp)
-    XCTAssertEqual(T.os, Triple.OS.cnk)
-    XCTAssertEqual(T.environment, nil)
+    #expect(T.arch == Triple.Arch.ppc)
+    #expect(T.vendor == Triple.Vendor.bgp)
+    #expect(T.os == Triple.OS.cnk)
+    #expect(T.environment == nil)
 
     T = Triple("ppc-bgp-linux")
-    XCTAssertEqual(T.arch, Triple.Arch.ppc)
-    XCTAssertEqual(T.vendor, Triple.Vendor.bgp)
-    XCTAssertEqual(T.os, Triple.OS.linux)
-    XCTAssertEqual(T.environment, nil)
+    #expect(T.arch == Triple.Arch.ppc)
+    #expect(T.vendor == Triple.Vendor.bgp)
+    #expect(T.os == Triple.OS.linux)
+    #expect(T.environment == nil)
 
     T = Triple("ppc32-bgp-linux")
-    XCTAssertEqual(T.arch, Triple.Arch.ppc)
-    XCTAssertEqual(T.vendor, Triple.Vendor.bgp)
-    XCTAssertEqual(T.os, Triple.OS.linux)
-    XCTAssertEqual(T.environment, nil)
+    #expect(T.arch == Triple.Arch.ppc)
+    #expect(T.vendor == Triple.Vendor.bgp)
+    #expect(T.os == Triple.OS.linux)
+    #expect(T.environment == nil)
 
     T = Triple("powerpc64-bgq-linux")
-    XCTAssertEqual(T.arch, Triple.Arch.ppc64)
-    XCTAssertEqual(T.vendor, Triple.Vendor.bgq)
-    XCTAssertEqual(T.os, Triple.OS.linux)
-    XCTAssertEqual(T.environment, nil)
+    #expect(T.arch == Triple.Arch.ppc64)
+    #expect(T.vendor == Triple.Vendor.bgq)
+    #expect(T.os == Triple.OS.linux)
+    #expect(T.environment == nil)
 
     T = Triple("ppc64-bgq-linux")
-    XCTAssertEqual(T.arch, Triple.Arch.ppc64)
-    XCTAssertEqual(T.vendor, Triple.Vendor.bgq)
-    XCTAssertEqual(T.os, Triple.OS.linux)
+    #expect(T.arch == Triple.Arch.ppc64)
+    #expect(T.vendor == Triple.Vendor.bgq)
+    #expect(T.os == Triple.OS.linux)
 
     T = Triple("powerpc-ibm-aix")
-    XCTAssertEqual(T.arch, Triple.Arch.ppc)
-    XCTAssertEqual(T.vendor, Triple.Vendor.ibm)
-    XCTAssertEqual(T.os, Triple.OS.aix)
-    XCTAssertEqual(T.environment, nil)
+    #expect(T.arch == Triple.Arch.ppc)
+    #expect(T.vendor == Triple.Vendor.ibm)
+    #expect(T.os == Triple.OS.aix)
+    #expect(T.environment == nil)
 
     T = Triple("powerpc64-ibm-aix")
-    XCTAssertEqual(T.arch, Triple.Arch.ppc64)
-    XCTAssertEqual(T.vendor, Triple.Vendor.ibm)
-    XCTAssertEqual(T.os, Triple.OS.aix)
-    XCTAssertEqual(T.environment, nil)
+    #expect(T.arch == Triple.Arch.ppc64)
+    #expect(T.vendor == Triple.Vendor.ibm)
+    #expect(T.os == Triple.OS.aix)
+    #expect(T.environment == nil)
 
     T = Triple("powerpc-dunno-notsure")
-    XCTAssertEqual(T.arch, Triple.Arch.ppc)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.os, nil)
-    XCTAssertEqual(T.environment, nil)
+    #expect(T.arch == Triple.Arch.ppc)
+    #expect(T.vendor == nil)
+    #expect(T.os == nil)
+    #expect(T.environment == nil)
 
     T = Triple("arm-none-none-eabi")
-    XCTAssertEqual(T.arch, Triple.Arch.arm)
-    XCTAssertEqual(T.subArch, nil)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.os, .noneOS)
-    XCTAssertEqual(T.environment, Triple.Environment.eabi)
+    #expect(T.arch == Triple.Arch.arm)
+    #expect(T.subArch == nil)
+    #expect(T.vendor == nil)
+    #expect(T.os == .noneOS)
+    #expect(T.environment == Triple.Environment.eabi)
 
     T = Triple("arm-none-unknown-eabi")
-    XCTAssertEqual(T.arch, Triple.Arch.arm)
-    XCTAssertEqual(T.subArch, nil)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.os, nil)
-    XCTAssertEqual(T.environment, Triple.Environment.eabi)
+    #expect(T.arch == Triple.Arch.arm)
+    #expect(T.subArch == nil)
+    #expect(T.vendor == nil)
+    #expect(T.os == nil)
+    #expect(T.environment == Triple.Environment.eabi)
 
     T = Triple("arm-none-linux-musleabi")
-    XCTAssertEqual(T.arch, Triple.Arch.arm)
-    XCTAssertEqual(T.subArch, nil)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.os, Triple.OS.linux)
-    XCTAssertEqual(T.environment, Triple.Environment.musleabi)
+    #expect(T.arch == Triple.Arch.arm)
+    #expect(T.subArch == nil)
+    #expect(T.vendor == nil)
+    #expect(T.os == Triple.OS.linux)
+    #expect(T.environment == Triple.Environment.musleabi)
 
     T = Triple("armv6hl-none-linux-gnueabi")
-    XCTAssertEqual(T.arch, Triple.Arch.arm)
-    XCTAssertEqual(T.subArch, nil)
-    XCTAssertEqual(T.os, Triple.OS.linux)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.environment, Triple.Environment.gnueabi)
+    #expect(T.arch == Triple.Arch.arm)
+    #expect(T.subArch == nil)
+    #expect(T.os == Triple.OS.linux)
+    #expect(T.vendor == nil)
+    #expect(T.environment == Triple.Environment.gnueabi)
 
     T = Triple("armv7hl-none-linux-gnueabi")
-    XCTAssertEqual(T.arch, Triple.Arch.arm)
-    XCTAssertEqual(T.subArch, nil)
-    XCTAssertEqual(T.os, Triple.OS.linux)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.environment, Triple.Environment.gnueabi)
+    #expect(T.arch == Triple.Arch.arm)
+    #expect(T.subArch == nil)
+    #expect(T.os == Triple.OS.linux)
+    #expect(T.vendor == nil)
+    #expect(T.environment == Triple.Environment.gnueabi)
 
     T = Triple("armv7em-apple-none-macho")
-    XCTAssertEqual(T.arch, Triple.Arch.arm)
-    XCTAssertEqual(T.subArch, Triple.SubArch.arm(.v7em))
-    XCTAssertEqual(T.vendor, .apple)
-    XCTAssertEqual(T.os, Triple.OS.noneOS)
-    XCTAssertEqual(T.environment, nil)
-    XCTAssertEqual(T.objectFormat, Triple.ObjectFormat.macho)
+    #expect(T.arch == Triple.Arch.arm)
+    #expect(T.subArch == Triple.SubArch.arm(.v7em))
+    #expect(T.vendor == .apple)
+    #expect(T.os == Triple.OS.noneOS)
+    #expect(T.environment == nil)
+    #expect(T.objectFormat == Triple.ObjectFormat.macho)
 
     T = Triple("amdil-unknown-unknown")
-    XCTAssertEqual(T.arch, Triple.Arch.amdil)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.os, nil)
+    #expect(T.arch == Triple.Arch.amdil)
+    #expect(T.vendor == nil)
+    #expect(T.os == nil)
 
     T = Triple("amdil64-unknown-unknown")
-    XCTAssertEqual(T.arch, Triple.Arch.amdil64)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.os, nil)
+    #expect(T.arch == Triple.Arch.amdil64)
+    #expect(T.vendor == nil)
+    #expect(T.os == nil)
 
     T = Triple("hsail-unknown-unknown")
-    XCTAssertEqual(T.arch, Triple.Arch.hsail)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.os, nil)
+    #expect(T.arch == Triple.Arch.hsail)
+    #expect(T.vendor == nil)
+    #expect(T.os == nil)
 
     T = Triple("hsail64-unknown-unknown")
-    XCTAssertEqual(T.arch, Triple.Arch.hsail64)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.os, nil)
+    #expect(T.arch == Triple.Arch.hsail64)
+    #expect(T.vendor == nil)
+    #expect(T.os == nil)
 
     T = Triple("m68k-unknown-unknown")
-    XCTAssertEqual(T.arch, Triple.Arch.m68k)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.os, nil)
+    #expect(T.arch == Triple.Arch.m68k)
+    #expect(T.vendor == nil)
+    #expect(T.os == nil)
 
     T = Triple("sparcel-unknown-unknown")
-    XCTAssertEqual(T.arch, Triple.Arch.sparcel)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.os, nil)
+    #expect(T.arch == Triple.Arch.sparcel)
+    #expect(T.vendor == nil)
+    #expect(T.os == nil)
 
     T = Triple("spir-unknown-unknown")
-    XCTAssertEqual(T.arch, Triple.Arch.spir)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.os, nil)
+    #expect(T.arch == Triple.Arch.spir)
+    #expect(T.vendor == nil)
+    #expect(T.os == nil)
 
     T = Triple("spir64-unknown-unknown")
-    XCTAssertEqual(T.arch, Triple.Arch.spir64)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.os, nil)
+    #expect(T.arch == Triple.Arch.spir64)
+    #expect(T.vendor == nil)
+    #expect(T.os == nil)
 
     T = Triple("x86_64-unknown-ananas")
-    XCTAssertEqual(T.arch, Triple.Arch.x86_64)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.os, Triple.OS.ananas)
-    XCTAssertEqual(T.environment, nil)
+    #expect(T.arch == Triple.Arch.x86_64)
+    #expect(T.vendor == nil)
+    #expect(T.os == Triple.OS.ananas)
+    #expect(T.environment == nil)
 
     T = Triple("x86_64-unknown-cloudabi")
-    XCTAssertEqual(T.arch, Triple.Arch.x86_64)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.os, Triple.OS.cloudABI)
-    XCTAssertEqual(T.environment, nil)
+    #expect(T.arch == Triple.Arch.x86_64)
+    #expect(T.vendor == nil)
+    #expect(T.os == Triple.OS.cloudABI)
+    #expect(T.environment == nil)
 
     T = Triple("x86_64-unknown-fuchsia")
-    XCTAssertEqual(T.arch, Triple.Arch.x86_64)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.os, Triple.OS.fuchsia)
-    XCTAssertEqual(T.environment, nil)
+    #expect(T.arch == Triple.Arch.x86_64)
+    #expect(T.vendor == nil)
+    #expect(T.os == Triple.OS.fuchsia)
+    #expect(T.environment == nil)
 
     T = Triple("x86_64-unknown-hermit")
-    XCTAssertEqual(T.arch, Triple.Arch.x86_64)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.os, Triple.OS.hermitcore)
-    XCTAssertEqual(T.environment, nil)
+    #expect(T.arch == Triple.Arch.x86_64)
+    #expect(T.vendor == nil)
+    #expect(T.os == Triple.OS.hermitcore)
+    #expect(T.environment == nil)
 
     T = Triple("wasm32-unknown-unknown")
-    XCTAssertEqual(T.arch, Triple.Arch.wasm32)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.os, nil)
-    XCTAssertEqual(T.environment, nil)
+    #expect(T.arch == Triple.Arch.wasm32)
+    #expect(T.vendor == nil)
+    #expect(T.os == nil)
+    #expect(T.environment == nil)
 
     T = Triple("wasm32-unknown-wasi")
-    XCTAssertEqual(T.arch, Triple.Arch.wasm32)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.os, Triple.OS.wasi)
-    XCTAssertEqual(T.environment, nil)
+    #expect(T.arch == Triple.Arch.wasm32)
+    #expect(T.vendor == nil)
+    #expect(T.os == Triple.OS.wasi)
+    #expect(T.environment == nil)
 
     T = Triple("wasm64-unknown-unknown")
-    XCTAssertEqual(T.arch, Triple.Arch.wasm64)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.os, nil)
-    XCTAssertEqual(T.environment, nil)
+    #expect(T.arch == Triple.Arch.wasm64)
+    #expect(T.vendor == nil)
+    #expect(T.os == nil)
+    #expect(T.environment == nil)
 
     T = Triple("wasm64-unknown-wasi")
-    XCTAssertEqual(T.arch, Triple.Arch.wasm64)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.os, Triple.OS.wasi)
-    XCTAssertEqual(T.environment, nil)
+    #expect(T.arch == Triple.Arch.wasm64)
+    #expect(T.vendor == nil)
+    #expect(T.os == Triple.OS.wasi)
+    #expect(T.environment == nil)
 
     T = Triple("avr-unknown-unknown")
-    XCTAssertEqual(T.arch, Triple.Arch.avr)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.os, nil)
-    XCTAssertEqual(T.environment, nil)
+    #expect(T.arch == Triple.Arch.avr)
+    #expect(T.vendor == nil)
+    #expect(T.os == nil)
+    #expect(T.environment == nil)
 
     T = Triple("avr")
-    XCTAssertEqual(T.arch, Triple.Arch.avr)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.os, nil)
-    XCTAssertEqual(T.environment, nil)
+    #expect(T.arch == Triple.Arch.avr)
+    #expect(T.vendor == nil)
+    #expect(T.os == nil)
+    #expect(T.environment == nil)
 
     T = Triple("lanai-unknown-unknown")
-    XCTAssertEqual(T.arch, Triple.Arch.lanai)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.os, nil)
-    XCTAssertEqual(T.environment, nil)
+    #expect(T.arch == Triple.Arch.lanai)
+    #expect(T.vendor == nil)
+    #expect(T.os == nil)
+    #expect(T.environment == nil)
 
     T = Triple("lanai")
-    XCTAssertEqual(T.arch, Triple.Arch.lanai)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.os, nil)
-    XCTAssertEqual(T.environment, nil)
+    #expect(T.arch == Triple.Arch.lanai)
+    #expect(T.vendor == nil)
+    #expect(T.os == nil)
+    #expect(T.environment == nil)
 
     T = Triple("amdgcn-mesa-mesa3d")
-    XCTAssertEqual(T.arch, Triple.Arch.amdgcn)
-    XCTAssertEqual(T.vendor, Triple.Vendor.mesa)
-    XCTAssertEqual(T.os, Triple.OS.mesa3d)
-    XCTAssertEqual(T.environment, nil)
+    #expect(T.arch == Triple.Arch.amdgcn)
+    #expect(T.vendor == Triple.Vendor.mesa)
+    #expect(T.os == Triple.OS.mesa3d)
+    #expect(T.environment == nil)
 
     T = Triple("amdgcn-amd-amdhsa")
-    XCTAssertEqual(T.arch, Triple.Arch.amdgcn)
-    XCTAssertEqual(T.vendor, Triple.Vendor.amd)
-    XCTAssertEqual(T.os, Triple.OS.amdhsa)
-    XCTAssertEqual(T.environment, nil)
+    #expect(T.arch == Triple.Arch.amdgcn)
+    #expect(T.vendor == Triple.Vendor.amd)
+    #expect(T.os == Triple.OS.amdhsa)
+    #expect(T.environment == nil)
 
     T = Triple("amdgcn-amd-amdpal")
-    XCTAssertEqual(T.arch, Triple.Arch.amdgcn)
-    XCTAssertEqual(T.vendor, Triple.Vendor.amd)
-    XCTAssertEqual(T.os, Triple.OS.amdpal)
-    XCTAssertEqual(T.environment, nil)
+    #expect(T.arch == Triple.Arch.amdgcn)
+    #expect(T.vendor == Triple.Vendor.amd)
+    #expect(T.os == Triple.OS.amdpal)
+    #expect(T.environment == nil)
 
     T = Triple("riscv32-unknown-unknown")
-    XCTAssertEqual(T.arch, Triple.Arch.riscv32)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.os, nil)
-    XCTAssertEqual(T.environment, nil)
+    #expect(T.arch == Triple.Arch.riscv32)
+    #expect(T.vendor == nil)
+    #expect(T.os == nil)
+    #expect(T.environment == nil)
 
     T = Triple("riscv64-unknown-linux")
-    XCTAssertEqual(T.arch, Triple.Arch.riscv64)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.os, Triple.OS.linux)
-    XCTAssertEqual(T.environment, nil)
+    #expect(T.arch == Triple.Arch.riscv64)
+    #expect(T.vendor == nil)
+    #expect(T.os == Triple.OS.linux)
+    #expect(T.environment == nil)
 
     T = Triple("riscv64-unknown-freebsd")
-    XCTAssertEqual(T.arch, Triple.Arch.riscv64)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.os, Triple.OS.freeBSD)
-    XCTAssertEqual(T.environment, nil)
+    #expect(T.arch == Triple.Arch.riscv64)
+    #expect(T.vendor == nil)
+    #expect(T.os == Triple.OS.freeBSD)
+    #expect(T.environment == nil)
 
     T = Triple("armv7hl-suse-linux-gnueabi")
-    XCTAssertEqual(T.arch, Triple.Arch.arm)
-    XCTAssertEqual(T.vendor, Triple.Vendor.suse)
-    XCTAssertEqual(T.os, Triple.OS.linux)
-    XCTAssertEqual(T.environment, Triple.Environment.gnueabi)
+    #expect(T.arch == Triple.Arch.arm)
+    #expect(T.vendor == Triple.Vendor.suse)
+    #expect(T.os == Triple.OS.linux)
+    #expect(T.environment == Triple.Environment.gnueabi)
 
     T = Triple("i586-pc-haiku")
-    XCTAssertEqual(T.arch, Triple.Arch.x86)
-    XCTAssertEqual(T.vendor, Triple.Vendor.pc)
-    XCTAssertEqual(T.os, Triple.OS.haiku)
-    XCTAssertEqual(T.environment, nil)
+    #expect(T.arch == Triple.Arch.x86)
+    #expect(T.vendor == Triple.Vendor.pc)
+    #expect(T.os == Triple.OS.haiku)
+    #expect(T.environment == nil)
 
     T = Triple("x86_64-unknown-haiku")
-    XCTAssertEqual(T.arch, Triple.Arch.x86_64)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.os, Triple.OS.haiku)
-    XCTAssertEqual(T.environment, nil)
+    #expect(T.arch == Triple.Arch.x86_64)
+    #expect(T.vendor == nil)
+    #expect(T.os == Triple.OS.haiku)
+    #expect(T.environment == nil)
 
     T = Triple("m68k-suse-linux-gnu")
-    XCTAssertEqual(T.arch, Triple.Arch.m68k)
-    XCTAssertEqual(T.vendor, Triple.Vendor.suse)
-    XCTAssertEqual(T.os, Triple.OS.linux)
-    XCTAssertEqual(T.environment, Triple.Environment.gnu)
+    #expect(T.arch == Triple.Arch.m68k)
+    #expect(T.vendor == Triple.Vendor.suse)
+    #expect(T.os == Triple.OS.linux)
+    #expect(T.environment == Triple.Environment.gnu)
 
     T = Triple("mips-mti-linux-gnu")
-    XCTAssertEqual(T.arch, Triple.Arch.mips)
-    XCTAssertEqual(T.vendor, Triple.Vendor.mipsTechnologies)
-    XCTAssertEqual(T.os, Triple.OS.linux)
-    XCTAssertEqual(T.environment, Triple.Environment.gnu)
+    #expect(T.arch == Triple.Arch.mips)
+    #expect(T.vendor == Triple.Vendor.mipsTechnologies)
+    #expect(T.os == Triple.OS.linux)
+    #expect(T.environment == Triple.Environment.gnu)
 
     T = Triple("mipsel-img-linux-gnu")
-    XCTAssertEqual(T.arch, Triple.Arch.mipsel)
-    XCTAssertEqual(T.vendor, Triple.Vendor.imaginationTechnologies)
-    XCTAssertEqual(T.os, Triple.OS.linux)
-    XCTAssertEqual(T.environment, Triple.Environment.gnu)
+    #expect(T.arch == Triple.Arch.mipsel)
+    #expect(T.vendor == Triple.Vendor.imaginationTechnologies)
+    #expect(T.os == Triple.OS.linux)
+    #expect(T.environment == Triple.Environment.gnu)
 
     T = Triple("mips64-mti-linux-gnu")
-    XCTAssertEqual(T.arch, Triple.Arch.mips64)
-    XCTAssertEqual(T.vendor, Triple.Vendor.mipsTechnologies)
-    XCTAssertEqual(T.os, Triple.OS.linux)
-    XCTAssertEqual(T.environment, Triple.Environment.gnu)
+    #expect(T.arch == Triple.Arch.mips64)
+    #expect(T.vendor == Triple.Vendor.mipsTechnologies)
+    #expect(T.os == Triple.OS.linux)
+    #expect(T.environment == Triple.Environment.gnu)
 
     T = Triple("mips64el-img-linux-gnu")
-    XCTAssertEqual(T.arch, Triple.Arch.mips64el)
-    XCTAssertEqual(T.vendor, Triple.Vendor.imaginationTechnologies)
-    XCTAssertEqual(T.os, Triple.OS.linux)
-    XCTAssertEqual(T.environment, Triple.Environment.gnu)
+    #expect(T.arch == Triple.Arch.mips64el)
+    #expect(T.vendor == Triple.Vendor.imaginationTechnologies)
+    #expect(T.os == Triple.OS.linux)
+    #expect(T.environment == Triple.Environment.gnu)
 
     T = Triple("mips64el-img-linux-gnuabin32")
-    XCTAssertEqual(T.arch, Triple.Arch.mips64el)
-    XCTAssertEqual(T.vendor, Triple.Vendor.imaginationTechnologies)
-    XCTAssertEqual(T.os, Triple.OS.linux)
-    XCTAssertEqual(T.environment, Triple.Environment.gnuabin32)
+    #expect(T.arch == Triple.Arch.mips64el)
+    #expect(T.vendor == Triple.Vendor.imaginationTechnologies)
+    #expect(T.os == Triple.OS.linux)
+    #expect(T.environment == Triple.Environment.gnuabin32)
 
     T = Triple("mips64el-unknown-linux-gnuabi64")
-    XCTAssertEqual(T.arch, Triple.Arch.mips64el)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.os, Triple.OS.linux)
-    XCTAssertEqual(T.environment, Triple.Environment.gnuabi64)
-    XCTAssertEqual(T.subArch, nil)
+    #expect(T.arch == Triple.Arch.mips64el)
+    #expect(T.vendor == nil)
+    #expect(T.os == Triple.OS.linux)
+    #expect(T.environment == Triple.Environment.gnuabi64)
+    #expect(T.subArch == nil)
     T = Triple("mips64el")
-    XCTAssertEqual(T.arch, Triple.Arch.mips64el)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.environment, Triple.Environment.gnuabi64)
-    XCTAssertEqual(T.subArch, nil)
+    #expect(T.arch == Triple.Arch.mips64el)
+    #expect(T.vendor == nil)
+    #expect(T.environment == Triple.Environment.gnuabi64)
+    #expect(T.subArch == nil)
 
     T = Triple("mips64-unknown-linux-gnuabi64")
-    XCTAssertEqual(T.arch, Triple.Arch.mips64)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.os, Triple.OS.linux)
-    XCTAssertEqual(T.environment, Triple.Environment.gnuabi64)
-    XCTAssertEqual(T.subArch, nil)
+    #expect(T.arch == Triple.Arch.mips64)
+    #expect(T.vendor == nil)
+    #expect(T.os == Triple.OS.linux)
+    #expect(T.environment == Triple.Environment.gnuabi64)
+    #expect(T.subArch == nil)
     T = Triple("mips64")
-    XCTAssertEqual(T.arch, Triple.Arch.mips64)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.environment, Triple.Environment.gnuabi64)
-    XCTAssertEqual(T.subArch, nil)
+    #expect(T.arch == Triple.Arch.mips64)
+    #expect(T.vendor == nil)
+    #expect(T.environment == Triple.Environment.gnuabi64)
+    #expect(T.subArch == nil)
 
     T = Triple("mipsisa64r6el-unknown-linux-gnuabi64")
-    XCTAssertEqual(T.arch, Triple.Arch.mips64el)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.os, Triple.OS.linux)
-    XCTAssertEqual(T.environment, Triple.Environment.gnuabi64)
-    XCTAssertEqual(T.subArch, Triple.SubArch.mips(.r6))
+    #expect(T.arch == Triple.Arch.mips64el)
+    #expect(T.vendor == nil)
+    #expect(T.os == Triple.OS.linux)
+    #expect(T.environment == Triple.Environment.gnuabi64)
+    #expect(T.subArch == Triple.SubArch.mips(.r6))
     T = Triple("mips64r6el")
-    XCTAssertEqual(T.arch, Triple.Arch.mips64el)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.environment, Triple.Environment.gnuabi64)
-    XCTAssertEqual(T.subArch, Triple.SubArch.mips(.r6))
+    #expect(T.arch == Triple.Arch.mips64el)
+    #expect(T.vendor == nil)
+    #expect(T.environment == Triple.Environment.gnuabi64)
+    #expect(T.subArch == Triple.SubArch.mips(.r6))
     T = Triple("mipsisa64r6el")
-    XCTAssertEqual(T.arch, Triple.Arch.mips64el)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.environment, Triple.Environment.gnuabi64)
-    XCTAssertEqual(T.subArch, Triple.SubArch.mips(.r6))
+    #expect(T.arch == Triple.Arch.mips64el)
+    #expect(T.vendor == nil)
+    #expect(T.environment == Triple.Environment.gnuabi64)
+    #expect(T.subArch == Triple.SubArch.mips(.r6))
 
     T = Triple("mipsisa64r6-unknown-linux-gnuabi64")
-    XCTAssertEqual(T.arch, Triple.Arch.mips64)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.os, Triple.OS.linux)
-    XCTAssertEqual(T.environment, Triple.Environment.gnuabi64)
-    XCTAssertEqual(T.subArch, Triple.SubArch.mips(.r6))
+    #expect(T.arch == Triple.Arch.mips64)
+    #expect(T.vendor == nil)
+    #expect(T.os == Triple.OS.linux)
+    #expect(T.environment == Triple.Environment.gnuabi64)
+    #expect(T.subArch == Triple.SubArch.mips(.r6))
     T = Triple("mips64r6")
-    XCTAssertEqual(T.arch, Triple.Arch.mips64)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.environment, Triple.Environment.gnuabi64)
-    XCTAssertEqual(T.subArch, Triple.SubArch.mips(.r6))
+    #expect(T.arch == Triple.Arch.mips64)
+    #expect(T.vendor == nil)
+    #expect(T.environment == Triple.Environment.gnuabi64)
+    #expect(T.subArch == Triple.SubArch.mips(.r6))
     T = Triple("mipsisa64r6")
-    XCTAssertEqual(T.arch, Triple.Arch.mips64)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.environment, Triple.Environment.gnuabi64)
-    XCTAssertEqual(T.subArch, Triple.SubArch.mips(.r6))
+    #expect(T.arch == Triple.Arch.mips64)
+    #expect(T.vendor == nil)
+    #expect(T.environment == Triple.Environment.gnuabi64)
+    #expect(T.subArch == Triple.SubArch.mips(.r6))
 
     T = Triple("mips64el-unknown-linux-gnuabin32")
-    XCTAssertEqual(T.arch, Triple.Arch.mips64el)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.os, Triple.OS.linux)
-    XCTAssertEqual(T.environment, Triple.Environment.gnuabin32)
-    XCTAssertEqual(T.subArch, nil)
+    #expect(T.arch == Triple.Arch.mips64el)
+    #expect(T.vendor == nil)
+    #expect(T.os == Triple.OS.linux)
+    #expect(T.environment == Triple.Environment.gnuabin32)
+    #expect(T.subArch == nil)
     T = Triple("mipsn32el")
-    XCTAssertEqual(T.arch, Triple.Arch.mips64el)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.environment, Triple.Environment.gnuabin32)
-    XCTAssertEqual(T.subArch, nil)
+    #expect(T.arch == Triple.Arch.mips64el)
+    #expect(T.vendor == nil)
+    #expect(T.environment == Triple.Environment.gnuabin32)
+    #expect(T.subArch == nil)
 
     T = Triple("mips64-unknown-linux-gnuabin32")
-    XCTAssertEqual(T.arch, Triple.Arch.mips64)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.os, Triple.OS.linux)
-    XCTAssertEqual(T.environment, Triple.Environment.gnuabin32)
-    XCTAssertEqual(T.subArch, nil)
+    #expect(T.arch == Triple.Arch.mips64)
+    #expect(T.vendor == nil)
+    #expect(T.os == Triple.OS.linux)
+    #expect(T.environment == Triple.Environment.gnuabin32)
+    #expect(T.subArch == nil)
     T = Triple("mipsn32")
-    XCTAssertEqual(T.arch, Triple.Arch.mips64)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.environment, Triple.Environment.gnuabin32)
-    XCTAssertEqual(T.subArch, nil)
+    #expect(T.arch == Triple.Arch.mips64)
+    #expect(T.vendor == nil)
+    #expect(T.environment == Triple.Environment.gnuabin32)
+    #expect(T.subArch == nil)
 
     T = Triple("mipsisa64r6el-unknown-linux-gnuabin32")
-    XCTAssertEqual(T.arch, Triple.Arch.mips64el)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.os, Triple.OS.linux)
-    XCTAssertEqual(T.environment, Triple.Environment.gnuabin32)
-    XCTAssertEqual(T.subArch, Triple.SubArch.mips(.r6))
+    #expect(T.arch == Triple.Arch.mips64el)
+    #expect(T.vendor == nil)
+    #expect(T.os == Triple.OS.linux)
+    #expect(T.environment == Triple.Environment.gnuabin32)
+    #expect(T.subArch == Triple.SubArch.mips(.r6))
     T = Triple("mipsn32r6el")
-    XCTAssertEqual(T.arch, Triple.Arch.mips64el)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.environment, Triple.Environment.gnuabin32)
-    XCTAssertEqual(T.subArch, Triple.SubArch.mips(.r6))
+    #expect(T.arch == Triple.Arch.mips64el)
+    #expect(T.vendor == nil)
+    #expect(T.environment == Triple.Environment.gnuabin32)
+    #expect(T.subArch == Triple.SubArch.mips(.r6))
 
     T = Triple("mipsisa64r6-unknown-linux-gnuabin32")
-    XCTAssertEqual(T.arch, Triple.Arch.mips64)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.os, Triple.OS.linux)
-    XCTAssertEqual(T.environment, Triple.Environment.gnuabin32)
-    XCTAssertEqual(T.subArch, Triple.SubArch.mips(.r6))
+    #expect(T.arch == Triple.Arch.mips64)
+    #expect(T.vendor == nil)
+    #expect(T.os == Triple.OS.linux)
+    #expect(T.environment == Triple.Environment.gnuabin32)
+    #expect(T.subArch == Triple.SubArch.mips(.r6))
     T = Triple("mipsn32r6")
-    XCTAssertEqual(T.arch, Triple.Arch.mips64)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.environment, Triple.Environment.gnuabin32)
-    XCTAssertEqual(T.subArch, Triple.SubArch.mips(.r6))
+    #expect(T.arch == Triple.Arch.mips64)
+    #expect(T.vendor == nil)
+    #expect(T.environment == Triple.Environment.gnuabin32)
+    #expect(T.subArch == Triple.SubArch.mips(.r6))
 
     T = Triple("mipsel-unknown-linux-gnu")
-    XCTAssertEqual(T.arch, Triple.Arch.mipsel)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.os, Triple.OS.linux)
-    XCTAssertEqual(T.environment, Triple.Environment.gnu)
-    XCTAssertEqual(T.subArch, nil)
+    #expect(T.arch == Triple.Arch.mipsel)
+    #expect(T.vendor == nil)
+    #expect(T.os == Triple.OS.linux)
+    #expect(T.environment == Triple.Environment.gnu)
+    #expect(T.subArch == nil)
     T = Triple("mipsel")
-    XCTAssertEqual(T.arch, Triple.Arch.mipsel)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.environment, Triple.Environment.gnu)
-    XCTAssertEqual(T.subArch, nil)
+    #expect(T.arch == Triple.Arch.mipsel)
+    #expect(T.vendor == nil)
+    #expect(T.environment == Triple.Environment.gnu)
+    #expect(T.subArch == nil)
 
     T = Triple("mips-unknown-linux-gnu")
-    XCTAssertEqual(T.arch, Triple.Arch.mips)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.os, Triple.OS.linux)
-    XCTAssertEqual(T.environment, Triple.Environment.gnu)
-    XCTAssertEqual(T.subArch, nil)
+    #expect(T.arch == Triple.Arch.mips)
+    #expect(T.vendor == nil)
+    #expect(T.os == Triple.OS.linux)
+    #expect(T.environment == Triple.Environment.gnu)
+    #expect(T.subArch == nil)
     T = Triple("mips")
-    XCTAssertEqual(T.arch, Triple.Arch.mips)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.environment, Triple.Environment.gnu)
-    XCTAssertEqual(T.subArch, nil)
+    #expect(T.arch == Triple.Arch.mips)
+    #expect(T.vendor == nil)
+    #expect(T.environment == Triple.Environment.gnu)
+    #expect(T.subArch == nil)
 
     T = Triple("mipsisa32r6el-unknown-linux-gnu")
-    XCTAssertEqual(T.arch, Triple.Arch.mipsel)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.os, Triple.OS.linux)
-    XCTAssertEqual(T.environment, Triple.Environment.gnu)
-    XCTAssertEqual(T.subArch, Triple.SubArch.mips(.r6))
+    #expect(T.arch == Triple.Arch.mipsel)
+    #expect(T.vendor == nil)
+    #expect(T.os == Triple.OS.linux)
+    #expect(T.environment == Triple.Environment.gnu)
+    #expect(T.subArch == Triple.SubArch.mips(.r6))
     T = Triple("mipsr6el")
-    XCTAssertEqual(T.arch, Triple.Arch.mipsel)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.subArch, Triple.SubArch.mips(.r6))
+    #expect(T.arch == Triple.Arch.mipsel)
+    #expect(T.vendor == nil)
+    #expect(T.subArch == Triple.SubArch.mips(.r6))
     T = Triple("mipsisa32r6el")
-    XCTAssertEqual(T.arch, Triple.Arch.mipsel)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.environment, Triple.Environment.gnu)
-    XCTAssertEqual(T.subArch, Triple.SubArch.mips(.r6))
+    #expect(T.arch == Triple.Arch.mipsel)
+    #expect(T.vendor == nil)
+    #expect(T.environment == Triple.Environment.gnu)
+    #expect(T.subArch == Triple.SubArch.mips(.r6))
 
     T = Triple("mipsisa32r6-unknown-linux-gnu")
-    XCTAssertEqual(T.arch, Triple.Arch.mips)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.os, Triple.OS.linux)
-    XCTAssertEqual(T.environment, Triple.Environment.gnu)
-    XCTAssertEqual(T.subArch, Triple.SubArch.mips(.r6))
+    #expect(T.arch == Triple.Arch.mips)
+    #expect(T.vendor == nil)
+    #expect(T.os == Triple.OS.linux)
+    #expect(T.environment == Triple.Environment.gnu)
+    #expect(T.subArch == Triple.SubArch.mips(.r6))
     T = Triple("mipsr6")
-    XCTAssertEqual(T.arch, Triple.Arch.mips)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.environment, Triple.Environment.gnu)
-    XCTAssertEqual(T.subArch, Triple.SubArch.mips(.r6))
+    #expect(T.arch == Triple.Arch.mips)
+    #expect(T.vendor == nil)
+    #expect(T.environment == Triple.Environment.gnu)
+    #expect(T.subArch == Triple.SubArch.mips(.r6))
     T = Triple("mipsisa32r6")
-    XCTAssertEqual(T.arch, Triple.Arch.mips)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.environment, Triple.Environment.gnu)
-    XCTAssertEqual(T.subArch, Triple.SubArch.mips(.r6))
+    #expect(T.arch == Triple.Arch.mips)
+    #expect(T.vendor == nil)
+    #expect(T.environment == Triple.Environment.gnu)
+    #expect(T.subArch == Triple.SubArch.mips(.r6))
 
     T = Triple("arm-oe-linux-gnueabi")
-    XCTAssertEqual(T.arch, Triple.Arch.arm)
-    XCTAssertEqual(T.vendor, Triple.Vendor.openEmbedded)
-    XCTAssertEqual(T.os, Triple.OS.linux)
-    XCTAssertEqual(T.environment, Triple.Environment.gnueabi)
+    #expect(T.arch == Triple.Arch.arm)
+    #expect(T.vendor == Triple.Vendor.openEmbedded)
+    #expect(T.os == Triple.OS.linux)
+    #expect(T.environment == Triple.Environment.gnueabi)
 
     T = Triple("aarch64-oe-linux")
-    XCTAssertEqual(T.arch, Triple.Arch.aarch64)
-    XCTAssertEqual(T.vendor, Triple.Vendor.openEmbedded)
-    XCTAssertEqual(T.os, Triple.OS.linux)
-    XCTAssertEqual(T.environment, nil)
-    XCTAssertEqual(T.arch?.is64Bit, true)
+    #expect(T.arch == Triple.Arch.aarch64)
+    #expect(T.vendor == Triple.Vendor.openEmbedded)
+    #expect(T.os == Triple.OS.linux)
+    #expect(T.environment == nil)
+    #expect(T.arch?.is64Bit == true)
 
     T = Triple("arm64_32-apple-ios")
-    XCTAssertEqual(T.arch, Triple.Arch.aarch64_32)
-    XCTAssertEqual(T.os, Triple.OS.ios)
-    XCTAssertEqual(T.environment, nil)
-    XCTAssertEqual(T.arch?.is32Bit, true)
+    #expect(T.arch == Triple.Arch.aarch64_32)
+    #expect(T.os == Triple.OS.ios)
+    #expect(T.environment == nil)
+    #expect(T.arch?.is32Bit == true)
 
     T = Triple("armv7s-apple-ios")
-    XCTAssertEqual(T.arch, Triple.Arch.arm)
-    XCTAssertEqual(T.os, Triple.OS.ios)
-    XCTAssertEqual(T.environment, nil)
-    XCTAssertEqual(T.arch?.is32Bit, true)
-    XCTAssertEqual(T.subArch, Triple.SubArch.arm(.v7s))
+    #expect(T.arch == Triple.Arch.arm)
+    #expect(T.os == Triple.OS.ios)
+    #expect(T.environment == nil)
+    #expect(T.arch?.is32Bit == true)
+    #expect(T.subArch == Triple.SubArch.arm(.v7s))
 
     T = Triple("xscale-none-linux-gnueabi")
-    XCTAssertEqual(T.arch, Triple.Arch.arm)
-    XCTAssertEqual(T.os, Triple.OS.linux)
-    XCTAssertEqual(T.vendor, nil)
-    XCTAssertEqual(T.environment, Triple.Environment.gnueabi)
-    XCTAssertEqual(T.subArch, Triple.SubArch.arm(.v5e))
+    #expect(T.arch == Triple.Arch.arm)
+    #expect(T.os == Triple.OS.linux)
+    #expect(T.vendor == nil)
+    #expect(T.environment == Triple.Environment.gnueabi)
+    #expect(T.subArch == Triple.SubArch.arm(.v5e))
 
     T = Triple("thumbv7-pc-linux-gnu")
-    XCTAssertEqual(T.arch, Triple.Arch.thumb)
-    XCTAssertEqual(T.vendor, Triple.Vendor.pc)
-    XCTAssertEqual(T.os, Triple.OS.linux)
-    XCTAssertEqual(T.environment, Triple.Environment.gnu)
+    #expect(T.arch == Triple.Arch.thumb)
+    #expect(T.vendor == Triple.Vendor.pc)
+    #expect(T.os == Triple.OS.linux)
+    #expect(T.environment == Triple.Environment.gnu)
 
     T = Triple("thumbv3-pc-linux-gnu")
-    XCTAssertEqual(T.arch, nil)
-    XCTAssertEqual(T.vendor, Triple.Vendor.pc)
-    XCTAssertEqual(T.os, Triple.OS.linux)
-    XCTAssertEqual(T.environment, Triple.Environment.gnu)
+    #expect(T.arch == nil)
+    #expect(T.vendor == Triple.Vendor.pc)
+    #expect(T.os == Triple.OS.linux)
+    #expect(T.environment == Triple.Environment.gnu)
 
     T = Triple("huh")
-    XCTAssertEqual(T.arch, nil)
+    #expect(T.arch == nil)
   }
 
   func assertNormalizesEqual(
     _ input: String, _ expected: String,
-    file: StaticString = #file, line: UInt = #line
+    sourceLocation: SourceLocation = #_sourceLocation
   ) {
-    XCTAssertEqual(Triple(input, normalizing: true).triple, expected,
-                   "normalizing '\(input)'", file: file, line: line)
+    #expect(Triple(input, normalizing: true).triple == expected,
+                   "normalizing '\(input)'", sourceLocation: sourceLocation)
   }
 
   func normalize(_ string: String) -> String {
@@ -687,7 +688,7 @@ final class TripleTests: XCTestCase {
 
   // Normalization test cases adapted from the llvm::Triple unit tests.
 
-  func testNormalizeSimple() {
+  @Test func normalizeSimple() {
     assertNormalizesEqual("", "unknown")
     assertNormalizesEqual("-", "unknown-unknown")
     assertNormalizesEqual("--", "unknown-unknown-unknown")
@@ -725,7 +726,7 @@ final class TripleTests: XCTestCase {
     assertNormalizesEqual("x86_64-gnu-linux", "x86_64-unknown-linux-gnu")
   }
 
-  func testNormalizePermute() {
+  @Test func normalizePermute() {
     // Check that normalizing a permutated set of valid components returns a
     // triple with the unpermuted components.
     //
@@ -750,7 +751,7 @@ final class TripleTests: XCTestCase {
       forAllPermutations(count) { indices in
         let permutation =
             indices.map { i in components[i] }.joined(separator: "-")
-        XCTAssertEqual(normalize(permutation), expected)
+        #expect(normalize(permutation) == expected)
       }
     }
 
@@ -771,7 +772,7 @@ final class TripleTests: XCTestCase {
     }
   }
 
-  func testNormalizeSpecialCases() {
+  @Test func normalizeSpecialCases() {
     // Various real-world funky triples.  The value returned by GCC's config.sub
     // is given in the comment.
     assertNormalizesEqual("i386-mingw32",
@@ -792,7 +793,7 @@ final class TripleTests: XCTestCase {
               "wasm64-unknown-wasi") // wasm64-unknown-wasi
   }
 
-  func testNormalizeWindows() {
+  @Test func normalizeWindows() {
     assertNormalizesEqual("i686-pc-win32", "i686-pc-windows-msvc")
     assertNormalizesEqual("i686-win32", "i686-unknown-windows-msvc")
     assertNormalizesEqual("i686-pc-mingw32", "i686-pc-windows-gnu")
@@ -839,7 +840,7 @@ final class TripleTests: XCTestCase {
     assertNormalizesEqual("x86_64-unknown-windows-coff", "x86_64-unknown-windows-coff")
   }
 
-  func testNormalizeARM() {
+  @Test func normalizeARM() {
     assertNormalizesEqual("armv6-netbsd-eabi",
               "armv6-unknown-netbsd-eabi")
     assertNormalizesEqual("armv7-netbsd-eabi",
@@ -862,293 +863,293 @@ final class TripleTests: XCTestCase {
 
     var T: Triple
     T = Triple("armv6--netbsd-eabi")
-    XCTAssertEqual(.arm, T.arch)
+    #expect(.arm == T.arch)
     T = Triple("armv6eb--netbsd-eabi")
-    XCTAssertEqual(.armeb, T.arch)
+    #expect(.armeb == T.arch)
     T = Triple("arm64--netbsd-eabi")
-    XCTAssertEqual(.aarch64, T.arch)
+    #expect(.aarch64 == T.arch)
     T = Triple("aarch64_be--netbsd-eabi")
-    XCTAssertEqual(.aarch64_be, T.arch)
+    #expect(.aarch64_be == T.arch)
     T = Triple("armv7-suse-linux-gnueabihf")
-    XCTAssertEqual(.gnueabihf, T.environment)
+    #expect(.gnueabihf == T.environment)
   }
 
-  func testOSVersion() {
+  @Test func osVersion() {
     var T: Triple
     var V: Triple.Version?
 
     T = Triple("i386-apple-darwin9")
-    XCTAssertTrue(T.os?.isMacOSX)
-    XCTAssertFalse(T.os?.isiOS)
-    XCTAssertFalse(T.arch?.is16Bit)
-    XCTAssertTrue(T.arch?.is32Bit)
-    XCTAssertFalse(T.arch?.is64Bit)
+    #expect(T.os?.isMacOSX == true)
+    #expect(T.os?.isiOS == false)
+    #expect(T.arch?.is16Bit == false)
+    #expect(T.arch?.is32Bit == true)
+    #expect(T.arch?.is64Bit == false)
     V = T._macOSVersion
-    XCTAssertEqual(V?.major, 10)
-    XCTAssertEqual(V?.minor, 5)
-    XCTAssertEqual(V?.micro, 0)
+    #expect(V?.major == 10)
+    #expect(V?.minor == 5)
+    #expect(V?.micro == 0)
     V = T._iOSVersion
-    XCTAssertEqual(V?.major, 5)
-    XCTAssertEqual(V?.minor, 0)
-    XCTAssertEqual(V?.micro, 0)
+    #expect(V?.major == 5)
+    #expect(V?.minor == 0)
+    #expect(V?.micro == 0)
 
     T = Triple("x86_64-apple-darwin9")
-    XCTAssertTrue(T.os?.isMacOSX)
-    XCTAssertFalse(T.os?.isiOS)
-    XCTAssertFalse(T.arch?.is16Bit)
-    XCTAssertFalse(T.arch?.is32Bit)
-    XCTAssertTrue(T.arch?.is64Bit)
+    #expect(T.os?.isMacOSX == true)
+    #expect(T.os?.isiOS == false)
+    #expect(T.arch?.is16Bit == false)
+    #expect(T.arch?.is32Bit == false)
+    #expect(T.arch?.is64Bit == true)
     V = T._macOSVersion
-    XCTAssertEqual(V?.major, 10)
-    XCTAssertEqual(V?.minor, 5)
-    XCTAssertEqual(V?.micro, 0)
+    #expect(V?.major == 10)
+    #expect(V?.minor == 5)
+    #expect(V?.micro == 0)
     V = T._iOSVersion
-    XCTAssertEqual(V?.major, 5)
-    XCTAssertEqual(V?.minor, 0)
-    XCTAssertEqual(V?.micro, 0)
+    #expect(V?.major == 5)
+    #expect(V?.minor == 0)
+    #expect(V?.micro == 0)
 
     T = Triple("x86_64-apple-darwin20")
-    XCTAssertTrue(T.os?.isMacOSX)
-    XCTAssertFalse(T.os?.isiOS)
-    XCTAssertFalse(T.arch?.is16Bit)
-    XCTAssertFalse(T.arch?.is32Bit)
-    XCTAssertTrue(T.arch?.is64Bit)
+    #expect(T.os?.isMacOSX == true)
+    #expect(T.os?.isiOS == false)
+    #expect(T.arch?.is16Bit == false)
+    #expect(T.arch?.is32Bit == false)
+    #expect(T.arch?.is64Bit == true)
     V = T._macOSVersion
-    XCTAssertEqual(V?.major, 11)
-    XCTAssertEqual(V?.minor, 0)
-    XCTAssertEqual(V?.micro, 0)
+    #expect(V?.major == 11)
+    #expect(V?.minor == 0)
+    #expect(V?.micro == 0)
     V = T._iOSVersion
-    XCTAssertEqual(V?.major, 5)
-    XCTAssertEqual(V?.minor, 0)
-    XCTAssertEqual(V?.micro, 0)
+    #expect(V?.major == 5)
+    #expect(V?.minor == 0)
+    #expect(V?.micro == 0)
 
     T = Triple("x86_64-apple-darwin21")
-    XCTAssertTrue(T.os?.isMacOSX)
-    XCTAssertFalse(T.os?.isiOS)
-    XCTAssertFalse(T.arch?.is16Bit)
-    XCTAssertFalse(T.arch?.is32Bit)
-    XCTAssertTrue(T.arch?.is64Bit)
+    #expect(T.os?.isMacOSX == true)
+    #expect(T.os?.isiOS == false)
+    #expect(T.arch?.is16Bit == false)
+    #expect(T.arch?.is32Bit == false)
+    #expect(T.arch?.is64Bit == true)
     V = T._macOSVersion
-    XCTAssertEqual(V?.major, 12)
-    XCTAssertEqual(V?.minor, 0)
-    XCTAssertEqual(V?.micro, 0)
+    #expect(V?.major == 12)
+    #expect(V?.minor == 0)
+    #expect(V?.micro == 0)
     V = T._iOSVersion
-    XCTAssertEqual(V?.major, 5)
-    XCTAssertEqual(V?.minor, 0)
-    XCTAssertEqual(V?.micro, 0)
+    #expect(V?.major == 5)
+    #expect(V?.minor == 0)
+    #expect(V?.micro == 0)
 
     T = Triple("x86_64-apple-macosx")
-    XCTAssertTrue(T.os?.isMacOSX)
-    XCTAssertFalse(T.os?.isiOS)
-    XCTAssertFalse(T.arch?.is16Bit)
-    XCTAssertFalse(T.arch?.is32Bit)
-    XCTAssertTrue(T.arch?.is64Bit)
+    #expect(T.os?.isMacOSX == true)
+    #expect(T.os?.isiOS == false)
+    #expect(T.arch?.is16Bit == false)
+    #expect(T.arch?.is32Bit == false)
+    #expect(T.arch?.is64Bit == true)
     V = T._macOSVersion
-    XCTAssertEqual(V?.major, 10)
-    XCTAssertEqual(V?.minor, 4)
-    XCTAssertEqual(V?.micro, 0)
+    #expect(V?.major == 10)
+    #expect(V?.minor == 4)
+    #expect(V?.micro == 0)
     V = T._iOSVersion
-    XCTAssertEqual(V?.major, 5)
-    XCTAssertEqual(V?.minor, 0)
-    XCTAssertEqual(V?.micro, 0)
+    #expect(V?.major == 5)
+    #expect(V?.minor == 0)
+    #expect(V?.micro == 0)
 
     T = Triple("x86_64-apple-macosx10.7")
-    XCTAssertTrue(T.os?.isMacOSX)
-    XCTAssertFalse(T.os?.isiOS)
-    XCTAssertFalse(T.arch?.is16Bit)
-    XCTAssertFalse(T.arch?.is32Bit)
-    XCTAssertTrue(T.arch?.is64Bit)
+    #expect(T.os?.isMacOSX == true)
+    #expect(T.os?.isiOS == false)
+    #expect(T.arch?.is16Bit == false)
+    #expect(T.arch?.is32Bit == false)
+    #expect(T.arch?.is64Bit == true)
     V = T._macOSVersion
-    XCTAssertEqual(V?.major, 10)
-    XCTAssertEqual(V?.minor, 7)
-    XCTAssertEqual(V?.micro, 0)
+    #expect(V?.major == 10)
+    #expect(V?.minor == 7)
+    #expect(V?.micro == 0)
     V = T._iOSVersion
-    XCTAssertEqual(V?.major, 5)
-    XCTAssertEqual(V?.minor, 0)
-    XCTAssertEqual(V?.micro, 0)
+    #expect(V?.major == 5)
+    #expect(V?.minor == 0)
+    #expect(V?.micro == 0)
 
     T = Triple("x86_64-apple-macosx11.0")
-    XCTAssertTrue(T.os?.isMacOSX)
-    XCTAssertFalse(T.os?.isiOS)
-    XCTAssertFalse(T.arch?.is16Bit)
-    XCTAssertFalse(T.arch?.is32Bit)
-    XCTAssertTrue(T.arch?.is64Bit)
+    #expect(T.os?.isMacOSX == true)
+    #expect(T.os?.isiOS == false)
+    #expect(T.arch?.is16Bit == false)
+    #expect(T.arch?.is32Bit == false)
+    #expect(T.arch?.is64Bit == true)
     V = T._macOSVersion
-    XCTAssertEqual(V?.major, 11)
-    XCTAssertEqual(V?.minor, 0)
-    XCTAssertEqual(V?.micro, 0)
+    #expect(V?.major == 11)
+    #expect(V?.minor == 0)
+    #expect(V?.micro == 0)
     V = T._iOSVersion
-    XCTAssertEqual(V?.major, 5)
-    XCTAssertEqual(V?.minor, 0)
-    XCTAssertEqual(V?.micro, 0)
+    #expect(V?.major == 5)
+    #expect(V?.minor == 0)
+    #expect(V?.micro == 0)
 
     T = Triple("x86_64-apple-macosx11.1")
-    XCTAssertTrue(T.os?.isMacOSX)
-    XCTAssertFalse(T.os?.isiOS)
-    XCTAssertFalse(T.arch?.is16Bit)
-    XCTAssertFalse(T.arch?.is32Bit)
-    XCTAssertTrue(T.arch?.is64Bit)
+    #expect(T.os?.isMacOSX == true)
+    #expect(T.os?.isiOS == false)
+    #expect(T.arch?.is16Bit == false)
+    #expect(T.arch?.is32Bit == false)
+    #expect(T.arch?.is64Bit == true)
     V = T._macOSVersion
-    XCTAssertEqual(V?.major, 11)
-    XCTAssertEqual(V?.minor, 1)
-    XCTAssertEqual(V?.micro, 0)
+    #expect(V?.major == 11)
+    #expect(V?.minor == 1)
+    #expect(V?.micro == 0)
     V = T._iOSVersion
-    XCTAssertEqual(V?.major, 5)
-    XCTAssertEqual(V?.minor, 0)
-    XCTAssertEqual(V?.micro, 0)
+    #expect(V?.major == 5)
+    #expect(V?.minor == 0)
+    #expect(V?.micro == 0)
 
     T = Triple("x86_64-apple-macosx12.0")
-    XCTAssertTrue(T.os?.isMacOSX)
-    XCTAssertFalse(T.os?.isiOS)
-    XCTAssertFalse(T.arch?.is16Bit)
-    XCTAssertFalse(T.arch?.is32Bit)
-    XCTAssertTrue(T.arch?.is64Bit)
+    #expect(T.os?.isMacOSX == true)
+    #expect(T.os?.isiOS == false)
+    #expect(T.arch?.is16Bit == false)
+    #expect(T.arch?.is32Bit == false)
+    #expect(T.arch?.is64Bit == true)
     V = T._macOSVersion
-    XCTAssertEqual(V?.major, 12)
-    XCTAssertEqual(V?.minor, 0)
-    XCTAssertEqual(V?.micro, 0)
+    #expect(V?.major == 12)
+    #expect(V?.minor == 0)
+    #expect(V?.micro == 0)
     V = T._iOSVersion
-    XCTAssertEqual(V?.major, 5)
-    XCTAssertEqual(V?.minor, 0)
-    XCTAssertEqual(V?.micro, 0)
+    #expect(V?.major == 5)
+    #expect(V?.minor == 0)
+    #expect(V?.micro == 0)
 
     T = Triple("armv7-apple-ios")
-    XCTAssertFalse(T.os?.isMacOSX)
-    XCTAssertTrue(T.os?.isiOS)
-    XCTAssertEqual(T.arch?.is16Bit, false)
-    XCTAssertEqual(T.arch?.is32Bit, true)
-    XCTAssertEqual(T.arch?.is64Bit, false)
+    #expect(T.os?.isMacOSX == false)
+    #expect(T.os?.isiOS == true)
+    #expect(T.arch?.is16Bit == false)
+    #expect(T.arch?.is32Bit == true)
+    #expect(T.arch?.is64Bit == false)
     V = T.version(for: .macOS)
-    XCTAssertEqual(V?.major, 10)
-    XCTAssertEqual(V?.minor, 4)
-    XCTAssertEqual(V?.micro, 0)
+    #expect(V?.major == 10)
+    #expect(V?.minor == 4)
+    #expect(V?.micro == 0)
     V = T.version(for: .iOS(.device))
-    XCTAssertEqual(V?.major, 5)
-    XCTAssertEqual(V?.minor, 0)
-    XCTAssertEqual(V?.micro, 0)
+    #expect(V?.major == 5)
+    #expect(V?.minor == 0)
+    #expect(V?.micro == 0)
 
     T = Triple("armv7-apple-ios7.0")
-    XCTAssertFalse(T.os?.isMacOSX)
-    XCTAssertTrue(T.os?.isiOS)
-    XCTAssertEqual(T.arch?.is16Bit, false)
-    XCTAssertEqual(T.arch?.is32Bit, true)
-    XCTAssertEqual(T.arch?.is64Bit, false)
+    #expect(T.os?.isMacOSX == false)
+    #expect(T.os?.isiOS == true)
+    #expect(T.arch?.is16Bit == false)
+    #expect(T.arch?.is32Bit == true)
+    #expect(T.arch?.is64Bit == false)
     V = T.version(for: .macOS)
-    XCTAssertEqual(V?.major, 10)
-    XCTAssertEqual(V?.minor, 4)
-    XCTAssertEqual(V?.micro, 0)
+    #expect(V?.major == 10)
+    #expect(V?.minor == 4)
+    #expect(V?.micro == 0)
     V = T.version(for: .iOS(.device))
-    XCTAssertEqual(V?.major, 7)
-    XCTAssertEqual(V?.minor, 0)
-    XCTAssertEqual(V?.micro, 0)
-    XCTAssertFalse(T._isSimulatorEnvironment)
+    #expect(V?.major == 7)
+    #expect(V?.minor == 0)
+    #expect(V?.micro == 0)
+    #expect(T._isSimulatorEnvironment == false)
 
     T = Triple("x86_64-apple-ios10.3-simulator")
-    XCTAssertTrue(T.os?.isiOS)
+    #expect(T.os?.isiOS == true)
     V = T._iOSVersion
-    XCTAssertEqual(V?.major, 10)
-    XCTAssertEqual(V?.minor, 3)
-    XCTAssertEqual(V?.micro, 0)
-    XCTAssertTrue(T._isSimulatorEnvironment)
-    XCTAssertFalse(T.isMacCatalyst)
+    #expect(V?.major == 10)
+    #expect(V?.minor == 3)
+    #expect(V?.micro == 0)
+    #expect(T._isSimulatorEnvironment)
+    #expect(!T.isMacCatalyst)
 
     T = Triple("x86_64-apple-ios13.0-macabi")
-    XCTAssertTrue(T.os?.isiOS)
+    #expect(T.os?.isiOS == true)
     V = T._iOSVersion
-    XCTAssertEqual(V?.major, 13)
-    XCTAssertEqual(V?.minor, 0)
-    XCTAssertEqual(V?.micro, 0)
-    XCTAssertEqual(T.environment, .macabi)
-    XCTAssertTrue(T.isMacCatalyst)
-    XCTAssertFalse(T._isSimulatorEnvironment)
+    #expect(V?.major == 13)
+    #expect(V?.minor == 0)
+    #expect(V?.micro == 0)
+    #expect(T.environment == .macabi)
+    #expect(T.isMacCatalyst)
+    #expect(!T._isSimulatorEnvironment)
 
     T = Triple("x86_64-apple-ios12.0")
-    XCTAssertTrue(T.os?.isiOS)
-    XCTAssertFalse(T.os?.isTvOS)
+    #expect(T.os?.isiOS == true)
+    #expect(T.os?.isTvOS == false)
     V = T._iOSVersion
-    XCTAssertEqual(V?.major, 12)
-    XCTAssertEqual(V?.minor, 0)
-    XCTAssertEqual(V?.micro, 0)
-    XCTAssertFalse(T._isSimulatorEnvironment)
-    XCTAssertFalse(T.isMacCatalyst)
+    #expect(V?.major == 12)
+    #expect(V?.minor == 0)
+    #expect(V?.micro == 0)
+    #expect(!T._isSimulatorEnvironment)
+    #expect(!T.isMacCatalyst)
 
     T = Triple("x86_64-apple-tvos12.0")
-    XCTAssertTrue(T.os?.isTvOS)
-    XCTAssertFalse(T.os?.isiOS)
+    #expect(T.os?.isTvOS == true)
+    #expect(T.os?.isiOS == false)
     V = T._tvOSVersion
-    XCTAssertEqual(V?.major, 12)
-    XCTAssertEqual(V?.minor, 0)
-    XCTAssertEqual(V?.micro, 0)
-    XCTAssertFalse(T._isSimulatorEnvironment)
-    XCTAssertFalse(T.isMacCatalyst)
+    #expect(V?.major == 12)
+    #expect(V?.minor == 0)
+    #expect(V?.micro == 0)
+    #expect(!T._isSimulatorEnvironment)
+    #expect(!T.isMacCatalyst)
   }
 
-  func testFileFormat() {
-    XCTAssertEqual(.elf, Triple("i686-unknown-linux-gnu").objectFormat)
-    XCTAssertEqual(.elf, Triple("x86_64-unknown-linux-gnu").objectFormat)
-    XCTAssertEqual(.elf, Triple("x86_64-gnu-linux").objectFormat)
-    XCTAssertEqual(.elf, Triple("i686-unknown-freebsd").objectFormat)
-    XCTAssertEqual(.elf, Triple("i686-unknown-netbsd").objectFormat)
-    XCTAssertEqual(.elf, Triple("i686--win32-elf").objectFormat)
-    XCTAssertEqual(.elf, Triple("i686---elf").objectFormat)
+  @Test func fileFormat() {
+    #expect(.elf == Triple("i686-unknown-linux-gnu").objectFormat)
+    #expect(.elf == Triple("x86_64-unknown-linux-gnu").objectFormat)
+    #expect(.elf == Triple("x86_64-gnu-linux").objectFormat)
+    #expect(.elf == Triple("i686-unknown-freebsd").objectFormat)
+    #expect(.elf == Triple("i686-unknown-netbsd").objectFormat)
+    #expect(.elf == Triple("i686--win32-elf").objectFormat)
+    #expect(.elf == Triple("i686---elf").objectFormat)
 
-    XCTAssertEqual(.macho, Triple("i686-apple-macosx").objectFormat)
-    XCTAssertEqual(.macho, Triple("i686-apple-ios").objectFormat)
-    XCTAssertEqual(.macho, Triple("arm64-apple-firmware1.0").objectFormat)
-    XCTAssertEqual(.macho, Triple("i686---macho").objectFormat)
+    #expect(.macho == Triple("i686-apple-macosx").objectFormat)
+    #expect(.macho == Triple("i686-apple-ios").objectFormat)
+    #expect(.macho == Triple("arm64-apple-firmware1.0").objectFormat)
+    #expect(.macho == Triple("i686---macho").objectFormat)
 
-    XCTAssertEqual(.coff, Triple("i686--win32").objectFormat)
-    XCTAssertEqual(.coff, Triple("i686-unknown-windows-coff").objectFormat)
+    #expect(.coff == Triple("i686--win32").objectFormat)
+    #expect(.coff == Triple("i686-unknown-windows-coff").objectFormat)
 
-    XCTAssertEqual(.elf, Triple("i686-pc-windows-msvc-elf").objectFormat)
-    XCTAssertEqual(.elf, Triple("i686-pc-cygwin-elf").objectFormat)
+    #expect(.elf == Triple("i686-pc-windows-msvc-elf").objectFormat)
+    #expect(.elf == Triple("i686-pc-cygwin-elf").objectFormat)
 
-    XCTAssertEqual(.wasm, Triple("wasm32-unknown-unknown").objectFormat)
-    XCTAssertEqual(.wasm, Triple("wasm64-unknown-unknown").objectFormat)
-    XCTAssertEqual(.wasm, Triple("wasm32-wasi").objectFormat)
-    XCTAssertEqual(.wasm, Triple("wasm64-wasi").objectFormat)
-    XCTAssertEqual(.wasm, Triple("wasm32-unknown-wasi").objectFormat)
-    XCTAssertEqual(.wasm, Triple("wasm64-unknown-wasi").objectFormat)
+    #expect(.wasm == Triple("wasm32-unknown-unknown").objectFormat)
+    #expect(.wasm == Triple("wasm64-unknown-unknown").objectFormat)
+    #expect(.wasm == Triple("wasm32-wasi").objectFormat)
+    #expect(.wasm == Triple("wasm64-wasi").objectFormat)
+    #expect(.wasm == Triple("wasm32-unknown-wasi").objectFormat)
+    #expect(.wasm == Triple("wasm64-unknown-wasi").objectFormat)
 
-    XCTAssertEqual(.wasm,
+    #expect(.wasm ==
               Triple("wasm32-unknown-unknown-wasm").objectFormat)
-    XCTAssertEqual(.wasm,
+    #expect(.wasm ==
               Triple("wasm64-unknown-unknown-wasm").objectFormat)
-    XCTAssertEqual(.wasm,
+    #expect(.wasm ==
               Triple("wasm32-wasi-wasm").objectFormat)
-    XCTAssertEqual(.wasm,
+    #expect(.wasm ==
               Triple("wasm64-wasi-wasm").objectFormat)
-    XCTAssertEqual(.wasm,
+    #expect(.wasm ==
               Triple("wasm32-unknown-wasi-wasm").objectFormat)
-    XCTAssertEqual(.wasm,
+    #expect(.wasm ==
               Triple("wasm64-unknown-wasi-wasm").objectFormat)
 
-    XCTAssertEqual(.xcoff, Triple("powerpc-ibm-aix").objectFormat)
-    XCTAssertEqual(.xcoff, Triple("powerpc64-ibm-aix").objectFormat)
-    XCTAssertEqual(.xcoff, Triple("powerpc---xcoff").objectFormat)
-    XCTAssertEqual(.xcoff, Triple("powerpc64---xcoff").objectFormat)
+    #expect(.xcoff == Triple("powerpc-ibm-aix").objectFormat)
+    #expect(.xcoff == Triple("powerpc64-ibm-aix").objectFormat)
+    #expect(.xcoff == Triple("powerpc---xcoff").objectFormat)
+    #expect(.xcoff == Triple("powerpc64---xcoff").objectFormat)
 
 //    let MSVCNormalized = Triple("i686-pc-windows-msvc-elf", normalizing: true)
-//    XCTAssertEqual(.elf, MSVCNormalized.objectFormat)
+//    #expect(.elf == MSVCNormalized.objectFormat)
 
 //    let GNUWindowsNormalized = Triple("i686-pc-windows-gnu-elf", normalizing: true)
-//    XCTAssertEqual(.elf, GNUWindowsNormalized.objectFormat)
+//    #expect(.elf == GNUWindowsNormalized.objectFormat)
 
 //    let CygnusNormalized = Triple("i686-pc-windows-cygnus-elf", normalizing: true)
-//    XCTAssertEqual(.elf, CygnusNormalized.objectFormat)
+//    #expect(.elf == CygnusNormalized.objectFormat)
 
     let CygwinNormalized = Triple("i686-pc-cygwin-elf", normalizing: true)
-    XCTAssertEqual(.elf, CygwinNormalized.objectFormat)
+    #expect(.elf == CygwinNormalized.objectFormat)
 
 //    var T = Triple("")
 //    T.setObjectFormat(.ELF)
-//    XCTAssertEqual(.ELF, T.objectFormat)
+//    #expect(.ELF == T.objectFormat)
 //
 //    T.setObjectFormat(.MachO)
-//    XCTAssertEqual(.MachO, T.objectFormat)
+//    #expect(.MachO == T.objectFormat)
 //
 //    T.setObjectFormat(.XCOFF)
-//    XCTAssertEqual(.XCOFF, T.objectFormat)
+//    #expect(.XCOFF == T.objectFormat)
   }
 
   static let jetPacks = Triple.FeatureAvailability(
@@ -1168,53 +1169,53 @@ final class TripleTests: XCTestCase {
     tvOSVersion: Triple.Version?,
     watchOSVersion: Triple.Version?,
     shouldHaveJetPacks: Bool,
-    file: StaticString = #file, line: UInt = #line
+    sourceLocation: SourceLocation = #_sourceLocation
   ) {
     guard let platform = triple.darwinPlatform else {
-      XCTFail("Not a Darwin platform: \(triple)", file: file, line: line)
+      Issue.record("Not a Darwin platform: \(triple)", sourceLocation: sourceLocation)
       return
     }
 
     guard let matchedEnvironment = match(platform) else {
-      XCTFail("Unexpected case: \(platform) from \(triple)",
-        file: file, line: line)
+      Issue.record("Unexpected case: \(platform) from \(triple)",
+        sourceLocation: sourceLocation)
       return
     }
 
-    XCTAssertEqual(matchedEnvironment, environment,
-                   "environment == .simulator", file: file, line: line)
+    #expect(matchedEnvironment == environment,
+                   "environment == .simulator", sourceLocation: sourceLocation)
 
     if let macOSVersion = macOSVersion {
-      XCTAssertEqual(triple.version(for: .macOS), macOSVersion,
-                     "macOS version", file: file, line: line)
+      #expect(triple.version(for: .macOS) == macOSVersion,
+                     "macOS version", sourceLocation: sourceLocation)
     }
     if let iOSVersion = iOSVersion {
-      XCTAssertEqual(triple.version(for: .iOS(.device)), iOSVersion,
-                     "iOS device version", file: file, line: line)
-      XCTAssertEqual(triple.version(for: .iOS(.simulator)), iOSVersion,
-                     "iOS simulator version", file: file, line: line)
+      #expect(triple.version(for: .iOS(.device)) == iOSVersion,
+                     "iOS device version", sourceLocation: sourceLocation)
+      #expect(triple.version(for: .iOS(.simulator)) == iOSVersion,
+                     "iOS simulator version", sourceLocation: sourceLocation)
     }
     if let tvOSVersion = tvOSVersion {
-      XCTAssertEqual(triple.version(for: .tvOS(.device)), tvOSVersion,
-                     "tvOS device version", file: file, line: line)
-      XCTAssertEqual(triple.version(for: .tvOS(.simulator)), tvOSVersion,
-                     "tvOS simulator version", file: file, line: line)
+      #expect(triple.version(for: .tvOS(.device)) == tvOSVersion,
+                     "tvOS device version", sourceLocation: sourceLocation)
+      #expect(triple.version(for: .tvOS(.simulator)) == tvOSVersion,
+                     "tvOS simulator version", sourceLocation: sourceLocation)
     }
     if let watchOSVersion = watchOSVersion {
-      XCTAssertEqual(triple.version(for: .watchOS(.device)), watchOSVersion,
-                     "watchOS device version", file: file, line: line)
-      XCTAssertEqual(triple.version(for: .watchOS(.simulator)), watchOSVersion,
-                     "watchOS simulator version", file: file, line: line)
+      #expect(triple.version(for: .watchOS(.device)) == watchOSVersion,
+                     "watchOS device version", sourceLocation: sourceLocation)
+      #expect(triple.version(for: .watchOS(.simulator)) == watchOSVersion,
+                     "watchOS simulator version", sourceLocation: sourceLocation)
     }
 
-    XCTAssertEqual(triple.supports(Self.jetPacks), shouldHaveJetPacks,
-                   "FeatureAvailability version check", file: file, line: line)
+    #expect(triple.supports(Self.jetPacks) == shouldHaveJetPacks,
+                   "FeatureAvailability version check", sourceLocation: sourceLocation)
   }
 
-  func testDarwinPlatform() {
+  @Test func darwinPlatform() {
     let nonDarwin = Triple("x86_64-unknown-linux")
-    XCTAssertNil(nonDarwin.darwinPlatform)
-    XCTAssertTrue(nonDarwin.supports(Self.jetPacks))
+    #expect(nonDarwin.darwinPlatform == nil)
+    #expect(nonDarwin.supports(Self.jetPacks))
 
     func macOS(_ platform: DarwinPlatform) -> DarwinPlatform.Environment? {
       if case .macOS = platform { return .device } else { return nil }
@@ -1378,48 +1379,44 @@ final class TripleTests: XCTestCase {
                                 shouldHaveJetPacks: true)
   }
 
-  func testClangOSLibName() {
-    XCTAssertEqual("darwin", Triple("x86_64-apple-macosx").clangOSLibName)
-    XCTAssertEqual("darwin", Triple("arm64-apple-ios13.0").clangOSLibName)
-    XCTAssertEqual("linux", Triple("aarch64-unknown-linux-android24").clangOSLibName)
-    XCTAssertEqual("wasi", Triple("wasm32-unknown-wasi").clangOSLibName)
-    XCTAssertEqual("wasip1", Triple("wasm32-unknown-wasip1-threads").clangOSLibName)
-    XCTAssertEqual("none", Triple("arm64-unknown-none").clangOSLibName)
+  @Test func clangOSLibName() {
+    #expect("darwin" == Triple("x86_64-apple-macosx").clangOSLibName)
+    #expect("darwin" == Triple("arm64-apple-ios13.0").clangOSLibName)
+    #expect("linux" == Triple("aarch64-unknown-linux-android24").clangOSLibName)
+    #expect("wasi" == Triple("wasm32-unknown-wasi").clangOSLibName)
+    #expect("wasip1" == Triple("wasm32-unknown-wasip1-threads").clangOSLibName)
+    #expect("none" == Triple("arm64-unknown-none").clangOSLibName)
   }
 
-  func testToolchainSelection() {
+  @Test func toolchainSelection() {
     let diagnostics = DiagnosticsEngine()
     struct None { }
 
     func assertToolchain<T>(
       _ rawTriple: String,
       _ expectedToolchain: T.Type?,
-      file: StaticString = #filePath,
-      line: UInt = #line
+      sourceLocation: SourceLocation = #_sourceLocation
     ) {
       do {
         let triple = Triple(rawTriple)
         let actual = try triple.toolchainType(diagnostics)
         if None.self is T.Type {
-          XCTFail(
+          Issue.record(
             "Expected None but found \(actual) for triple \(rawTriple).",
-            file: file,
-            line: line)
+            sourceLocation: sourceLocation)
         } else {
-          XCTAssertTrue(
+          #expect(
             actual is T.Type,
             "Expected \(T.self) but found \(actual) for triple \(rawTriple).",
-            file: file,
-            line: line)
+            sourceLocation: sourceLocation)
         }
       } catch {
         if None.self is T.Type {
           // Good
         } else {
-          XCTFail(
+          Issue.record(
             "Expected \(T.self) but found None for triple \(rawTriple).",
-            file: file,
-            line: line)
+            sourceLocation: sourceLocation)
         }
       }
     }
@@ -1514,27 +1511,9 @@ final class TripleTests: XCTestCase {
   }
 }
 
-extension Triple.Version: @retroactive ExpressibleByStringLiteral {
+extension Triple.Version: ExpressibleByStringLiteral {
   public init(stringLiteral value: String) {
     self.init(parse: value)
   }
-}
-
-// Variants of XCTAssertTrue and False which accept Optional<Bool>.
-
-func XCTAssertTrue(
-  _ expression: @autoclosure () throws -> Bool?,
-  _ message: @autoclosure () -> String = "",
-  file: StaticString = #file, line: UInt = #line
-) {
-  XCTAssertEqual(try expression(), true, message(), file: file, line: line)
-}
-
-func XCTAssertFalse(
-  _ expression: @autoclosure () throws -> Bool?,
-  _ message: @autoclosure () -> String = "",
-  file: StaticString = #file, line: UInt = #line
-) {
-  XCTAssertEqual(try expression(), false, message(), file: file, line: line)
 }
 

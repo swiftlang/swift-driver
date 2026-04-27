@@ -11,7 +11,8 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 //===----------------------------------------------------------------------===//
-import XCTest
+
+import Testing
 import TSCBasic
 
 @_spi(Testing) import SwiftDriver
@@ -31,27 +32,23 @@ public struct Step {
   /// The desired outcome
   let expected: Expectation
 
-  /// By using the file & line where the step was constructed, the failures show which step failed
-  let file: StaticString
-  let line: UInt
+  /// By using the sourceLocation where the step was constructed, the failures show which step failed
+  let sourceLocation: SourceLocation
 
   /// Create a `Step`
   /// - Parameters:
   ///    - adding: The names of the markers to delete and thus uncomment code
   ///    - building: The modules to compile
   ///    - expecting: What is expected
-  ///    - file: Where to place test errors
-  ///    - line: Where to place test errors
+  ///    - sourceLocation: Where to place test errors
   public init(adding addOns: String...,
               building modules: [Module],
               _ expected: Expectation,
-              file: StaticString = #file,
-              line: UInt = #line) {
+              sourceLocation: SourceLocation = #_sourceLocation) {
     self.init(adding: addOns,
               building: modules,
               expected,
-              file: file,
-              line: line)
+              sourceLocation: sourceLocation)
   }
 
   /// Create a `Step`
@@ -59,34 +56,33 @@ public struct Step {
   ///    - adding: The names of the markers to delete and thus uncomment code
   ///    - building: The modules to compile
   ///    - expecting: What is expected
-  ///    - line: Where to place test errors
+  ///    - sourceLocation: Where to place test errors
   public init(adding addOns: [String],
               building modules: [Module],
               _ expected: Expectation,
-              file: StaticString = #file,
-              line: UInt = #line) {
+              sourceLocation: SourceLocation = #_sourceLocation) {
     self.addOns = addOns.map(AddOn.init(named:))
     self.modules = modules
     self.expected = expected
-    self.file = file
-    self.line = line
+    self.sourceLocation = sourceLocation
   }
 
   public func contains(addOn name: String) -> Bool {
     addOns.map {$0.name} .contains(name)
   }
 
-  /// Perform this step. Fails an `XCTest` assertion if what is recompiled is not as expected, or if
+  /// Perform this step. Records a test issue if what is recompiled is not as expected, or if
   /// running an executable does not produce an expected result.
   /// - Parameters:
   ///    - stepIndex: The index of this step in the test, from zero. Used for error messages, etc.
-  func perform(stepIndex: Int, in context: Context) throws {
-    let stepContext = context.with(stepIndex: stepIndex, file: file, line: line)
+  func perform(stepIndex: Int, in context: Context) async throws {
+    let stepContext = context.with(stepIndex: stepIndex, sourceLocation: sourceLocation)
     if stepContext.verbose {
       print("\n*** performing step \(stepIndex): \(whatIsBuilt), \(stepContext) ***\n")
     }
-    let compiledSources = try modules.flatMap {
-      try $0.compile(addOns: addOns, in: stepContext)
+    var compiledSources: [Source] = []
+    for module in modules {
+      compiledSources += try await module.compile(addOns: addOns, in: stepContext)
     }
     expected.compilations.check(against: compiledSources, step: self, in: stepContext)
 
