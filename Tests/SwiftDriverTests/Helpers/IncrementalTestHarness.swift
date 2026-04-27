@@ -157,7 +157,7 @@ final class IncrementalTestHarness {
     }
   }
 
-  init(config: TestBuildConfig = .implicitModule) throws {
+  init(config: TestBuildConfig = .implicitModule, preferInterfaceModuleLoadMode: Bool = true) throws {
     self.config = config
 
     guard let sdkArgs = try Driver.sdkArgumentsForTesting() else {
@@ -204,7 +204,7 @@ final class IncrementalTestHarness {
 
     Thread.sleep(forTimeInterval: 1)
     let driver = try! Driver(args: ["swiftc"])
-    if driver.isFrontendArgSupported(.moduleLoadMode) {
+    if preferInterfaceModuleLoadMode && driver.isFrontendArgSupported(.moduleLoadMode) {
       self.extraExplicitBuildArgs = ["-Xfrontend", "-module-load-mode", "-Xfrontend", "prefer-interface"]
     }
   }
