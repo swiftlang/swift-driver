@@ -13,13 +13,12 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
-import Testing
-import TSCBasic
-
 @_spi(Testing) import SwiftDriver
 import SwiftDriverExecution
 import SwiftOptions
+import TSCBasic
 import TestUtilities
+import Testing
 
 extension Job.ArgTemplate: ExpressibleByStringLiteral {
   public init(stringLiteral value: String) {
@@ -33,8 +32,11 @@ class JobCollectingDelegate: JobExecutionDelegate {
       return .init()
     }
 
-    static func launchProcessAndWriteInput(arguments: [String], env: ProcessEnvironmentBlock,
-                                           inputFileHandle: FileHandle) throws -> StubProcess {
+    static func launchProcessAndWriteInput(
+      arguments: [String],
+      env: ProcessEnvironmentBlock,
+      inputFileHandle: FileHandle
+    ) throws -> StubProcess {
       return .init()
     }
 
@@ -74,7 +76,10 @@ extension DarwinToolchain {
   var sdk: Result<AbsolutePath, Swift.Error> {
     Result {
       let result = try executor.checkNonZeroExit(
-        args: "xcrun", "-sdk", "macosx", "--show-sdk-path",
+        args: "xcrun",
+        "-sdk",
+        "macosx",
+        "--show-sdk-path",
         environment: env.legacyVars
       ).spm_chomp()
       return try AbsolutePath(validating: result)
@@ -84,14 +89,20 @@ extension DarwinToolchain {
   /// macOS resource directory, for testing only.
   var resourcesDirectory: Result<AbsolutePath, Swift.Error> {
     return Result {
-      try AbsolutePath(validating: "../../lib/swift/macosx",
-                       relativeTo: getToolPath(.swiftCompiler))
+      try AbsolutePath(
+        validating: "../../lib/swift/macosx",
+        relativeTo: getToolPath(.swiftCompiler)
+      )
     }
   }
 
   var clangRT: Result<AbsolutePath, Error> {
-    resourcesDirectory.map { try! AbsolutePath(validating: "../clang/lib/darwin/libclang_rt.osx.a",
-                                               relativeTo: $0) }
+    resourcesDirectory.map {
+      try! AbsolutePath(
+        validating: "../clang/lib/darwin/libclang_rt.osx.a",
+        relativeTo: $0
+      )
+    }
   }
 
   var compatibility50: Result<AbsolutePath, Error> {
@@ -110,10 +121,12 @@ extension DarwinToolchain {
 @Suite(.serialized) struct JobExecutorTests {
   @Test(.requireHostOS(.macosx)) func darwinBasic() async throws {
     let hostTriple = try TestDriver(args: ["swiftc", "test.swift"]).hostTriple
-    let executor = try SwiftDriverExecutor(diagnosticsEngine: DiagnosticsEngine(),
-                                           processSet: ProcessSet(),
-                                           fileSystem: localFileSystem,
-                                           env: ProcessEnv.block)
+    let executor = try SwiftDriverExecutor(
+      diagnosticsEngine: DiagnosticsEngine(),
+      processSet: ProcessSet(),
+      fileSystem: localFileSystem,
+      env: ProcessEnv.block
+    )
     let toolchain = DarwinToolchain(env: ProcessEnv.block, executor: executor)
     try withTemporaryDirectory { path in
       let foo = path.appending(component: "foo.swift")
@@ -132,8 +145,8 @@ extension DarwinToolchain {
       ]
 
       let inputs: [String: TypedVirtualPath] = [
-        "foo" : .init(file: VirtualPath.relative(try .init(validating: "foo.swift")).intern(), type: .swift),
-        "main": .init(file: VirtualPath.relative(try .init(validating: "main.swift")).intern(), type: .swift)
+        "foo": .init(file: VirtualPath.relative(try .init(validating: "foo.swift")).intern(), type: .swift),
+        "main": .init(file: VirtualPath.relative(try .init(validating: "main.swift")).intern(), type: .swift),
       ]
 
       let compileFoo = Job(
@@ -144,7 +157,7 @@ extension DarwinToolchain {
           "-frontend",
           "-c",
           "-primary-file",
-          .path(inputs[ "foo"]!.file),
+          .path(inputs["foo"]!.file),
           .path(inputs["main"]!.file),
           "-target", .flag(hostTriple.triple),
           "-enable-objc-interop",
@@ -203,8 +216,12 @@ extension DarwinToolchain {
         outputs: [.init(file: VirtualPath.relative(try .init(validating: "main")).intern(), type: .image)]
       )
       let delegate = JobCollectingDelegate()
-      let executor = MultiJobExecutor(workload: .all([compileFoo, compileMain, link]),
-                                      resolver: resolver, executorDelegate: delegate, diagnosticsEngine: DiagnosticsEngine())
+      let executor = MultiJobExecutor(
+        workload: .all([compileFoo, compileMain, link]),
+        resolver: resolver,
+        executorDelegate: delegate,
+        diagnosticsEngine: DiagnosticsEngine()
+      )
       try executor.execute(env: toolchain.env, fileSystem: localFileSystem)
 
       let output = try TSCBasic.Process.checkNonZeroExit(args: exec.pathString)
@@ -212,19 +229,27 @@ extension DarwinToolchain {
       #expect(delegate.started.count == 3)
 
       let fooObject = try resolver.resolve(.path(.temporary(try RelativePath(validating: "foo.o"))))
-      #expect(localFileSystem.exists(try AbsolutePath(validating: fooObject)), "expected foo.o to be present in the temporary directory")
+      #expect(
+        localFileSystem.exists(try AbsolutePath(validating: fooObject)),
+        "expected foo.o to be present in the temporary directory"
+      )
       try resolver.removeTemporaryDirectory()
-      #expect(!localFileSystem.exists(try AbsolutePath(validating: fooObject)), "expected foo.o to be removed from the temporary directory")
+      #expect(
+        !localFileSystem.exists(try AbsolutePath(validating: fooObject)),
+        "expected foo.o to be removed from the temporary directory"
+      )
     }
   }
 
   /// Ensure the executor is capable of forwarding its standard input to the compile job that requires it.
   @Test(.requireHostOS(.macosx)) func inputForwarding() async throws {
     let hostTriple = try TestDriver(args: ["swiftc", "test.swift"]).hostTriple
-    let executor = try SwiftDriverExecutor(diagnosticsEngine: DiagnosticsEngine(),
-                                           processSet: ProcessSet(),
-                                           fileSystem: localFileSystem,
-                                           env: ProcessEnv.block)
+    let executor = try SwiftDriverExecutor(
+      diagnosticsEngine: DiagnosticsEngine(),
+      processSet: ProcessSet(),
+      fileSystem: localFileSystem,
+      env: ProcessEnv.block
+    )
     let toolchain = DarwinToolchain(env: ProcessEnv.block, executor: executor)
     try withTemporaryDirectory { path in
       let exec = path.appending(component: "main")
@@ -245,10 +270,14 @@ extension DarwinToolchain {
           "-module-name", "main",
           "-o", .path(.temporary(try RelativePath(validating: "main.o"))),
         ],
-        inputs: [TypedVirtualPath(file: .standardInput, type: .swift )],
-        primaryInputs: [TypedVirtualPath(file: .standardInput, type: .swift )],
-        outputs: [.init(file: VirtualPath.temporary(try RelativePath(validating: "main.o")).intern(),
-                        type: .object)]
+        inputs: [TypedVirtualPath(file: .standardInput, type: .swift)],
+        primaryInputs: [TypedVirtualPath(file: .standardInput, type: .swift)],
+        outputs: [
+          .init(
+            file: VirtualPath.temporary(try RelativePath(validating: "main.o")).intern(),
+            type: .object
+          )
+        ]
       )
       let link = Job(
         moduleName: "main",
@@ -263,7 +292,7 @@ extension DarwinToolchain {
           "-o", .path(.absolute(exec)),
         ],
         inputs: [
-          .init(file: VirtualPath.temporary(try RelativePath(validating: "main.o")).intern(), type: .object),
+          .init(file: VirtualPath.temporary(try RelativePath(validating: "main.o")).intern(), type: .object)
         ],
         primaryInputs: [],
         outputs: [.init(file: VirtualPath.relative(try .init(validating: "main")).intern(), type: .image)]
@@ -278,10 +307,13 @@ extension DarwinToolchain {
       let testFile: FileHandle = FileHandle(forReadingAtPath: inputFile.description)!
       let delegate = JobCollectingDelegate()
       let resolver = try ArgsResolver(fileSystem: localFileSystem)
-      let executor = MultiJobExecutor(workload: .all([compile, link]),
-                                      resolver: resolver, executorDelegate: delegate,
-                                      diagnosticsEngine: DiagnosticsEngine(),
-                                      inputHandleOverride: testFile)
+      let executor = MultiJobExecutor(
+        workload: .all([compile, link]),
+        resolver: resolver,
+        executorDelegate: delegate,
+        diagnosticsEngine: DiagnosticsEngine(),
+        inputHandleOverride: testFile
+      )
       try executor.execute(env: toolchain.env, fileSystem: localFileSystem)
 
       // Execute the resulting program
@@ -304,7 +336,8 @@ extension DarwinToolchain {
 
     let delegate = JobCollectingDelegate()
     let executor = MultiJobExecutor(
-      workload: .all([job]), resolver: try ArgsResolver(fileSystem: localFileSystem),
+      workload: .all([job]),
+      resolver: try ArgsResolver(fileSystem: localFileSystem),
       executorDelegate: delegate,
       diagnosticsEngine: DiagnosticsEngine(),
       processType: JobCollectingDelegate.StubProcess.self
@@ -318,17 +351,18 @@ extension DarwinToolchain {
     var env = ProcessEnv.block
     let envVarName = ProcessEnvironmentKey("SWIFT_DRIVER_SWIFT_FRONTEND_EXEC")
     let dummyPath = "/some/garbage/path/fnord"
-    let executor = try SwiftDriverExecutor(diagnosticsEngine: DiagnosticsEngine(),
-                                           processSet: ProcessSet(),
-                                           fileSystem: localFileSystem,
-                                           env: env)
+    let executor = try SwiftDriverExecutor(
+      diagnosticsEngine: DiagnosticsEngine(),
+      processSet: ProcessSet(),
+      fileSystem: localFileSystem,
+      env: env
+    )
 
     // DarwinToolchain
     env.removeValue(forKey: envVarName)
     let normalSwiftPath = try DarwinToolchain(env: env, executor: executor).getToolPath(.swiftCompiler)
     // Match Toolchain temporary shim of a fallback to looking for "swift" before failing.
-    #expect(normalSwiftPath.basenameWithoutExt == "swift-frontend" ||
-                  normalSwiftPath.basenameWithoutExt == "swift")
+    #expect(normalSwiftPath.basenameWithoutExt == "swift-frontend" || normalSwiftPath.basenameWithoutExt == "swift")
 
     env[envVarName] = dummyPath
     let overriddenSwiftPath = try DarwinToolchain(env: env, executor: executor).getToolPath(.swiftCompiler)
@@ -337,8 +371,7 @@ extension DarwinToolchain {
     // GenericUnixToolchain
     env.removeValue(forKey: envVarName)
     let unixSwiftPath = try GenericUnixToolchain(env: env, executor: executor).getToolPath(.swiftCompiler)
-    #expect(unixSwiftPath.basenameWithoutExt == "swift-frontend" ||
-                  unixSwiftPath.basenameWithoutExt == "swift")
+    #expect(unixSwiftPath.basenameWithoutExt == "swift-frontend" || unixSwiftPath.basenameWithoutExt == "swift")
 
     env[envVarName] = dummyPath
     let unixOverriddenSwiftPath = try GenericUnixToolchain(env: env, executor: executor).getToolPath(.swiftCompiler)
@@ -364,31 +397,48 @@ extension DarwinToolchain {
       try localFileSystem.writeFileContents(main, bytes: "let foo = 1")
       // Ensure that the file modification since the start of the build planning process
       // results in a corresponding error.
-      #expect(throws: (any Error).self) { try soleJob.verifyInputsNotModified(since: driver.recordedInputMetadata.mapValues{$0.mTime}, fileSystem: localFileSystem) }
+      #expect(throws: (any Error).self) {
+        try soleJob.verifyInputsNotModified(
+          since: driver.recordedInputMetadata.mapValues { $0.mTime },
+          fileSystem: localFileSystem
+        )
+      }
 
     }
   }
 
   @Test func shellEscapingArgsInJobDescription() throws {
-    let executor = try SwiftDriverExecutor(diagnosticsEngine: DiagnosticsEngine(),
-                                           processSet: ProcessSet(),
-                                           fileSystem: localFileSystem,
-                                           env: [:])
-    let job = Job(moduleName: "Module",
-                  kind: .compile,
-                  tool: ResolvedTool(
-                    path: try AbsolutePath(validating: "/path/to/the tool"),
-                    supportsResponseFiles: false),
-                  commandLine: [.path(.absolute(try .init(validating: "/with space"))),
-                                .path(.absolute(try .init(validating: "/withoutspace")))],
-                  inputs: [], primaryInputs: [], outputs: [])
-#if os(Windows)
-    #expect(try executor.description(of: job, forceResponseFiles: false) ==
-                   #""\path\to\the tool" "\with space" \withoutspace"#)
-#else
-    #expect(try executor.description(of: job, forceResponseFiles: false) ==
-                   "'/path/to/the tool' '/with space' /withoutspace")
-#endif
+    let executor = try SwiftDriverExecutor(
+      diagnosticsEngine: DiagnosticsEngine(),
+      processSet: ProcessSet(),
+      fileSystem: localFileSystem,
+      env: [:]
+    )
+    let job = Job(
+      moduleName: "Module",
+      kind: .compile,
+      tool: ResolvedTool(
+        path: try AbsolutePath(validating: "/path/to/the tool"),
+        supportsResponseFiles: false
+      ),
+      commandLine: [
+        .path(.absolute(try .init(validating: "/with space"))),
+        .path(.absolute(try .init(validating: "/withoutspace"))),
+      ],
+      inputs: [],
+      primaryInputs: [],
+      outputs: []
+    )
+    #if os(Windows)
+    #expect(
+      try executor.description(of: job, forceResponseFiles: false)
+        == #""\path\to\the tool" "\with space" \withoutspace"#
+    )
+    #else
+    #expect(
+      try executor.description(of: job, forceResponseFiles: false) == "'/path/to/the tool' '/with space' /withoutspace"
+    )
+    #endif
   }
 
   @Test func inputModifiedDuringMultiJobBuild() async throws {
@@ -404,8 +454,10 @@ extension DarwinToolchain {
       // Touch timestamp file, which in process ensures the file system timestamp changed.
       try! localFileSystem.touch(path.appending(component: "timestamp"))
 
-      try await assertDriverDiagnostics(args: ["swiftc", main.pathString, other.pathString,
-                                         "-o", output.pathString]) {driver, verifier in
+      try await assertDriverDiagnostics(args: [
+        "swiftc", main.pathString, other.pathString,
+        "-o", output.pathString,
+      ]) { driver, verifier in
         let jobs = try await driver.planBuild()
         #expect(jobs.count > 1)
 
@@ -426,7 +478,10 @@ extension DarwinToolchain {
   @Test func temporaryFileWriting() throws {
     try withTemporaryDirectory { path in
       let resolver = try ArgsResolver(fileSystem: localFileSystem, temporaryDirectory: .absolute(path))
-      let tmpPath = VirtualPath.temporaryWithKnownContents(try .init(validating: "one.txt"), "hello, world!".data(using: .utf8)!)
+      let tmpPath = VirtualPath.temporaryWithKnownContents(
+        try .init(validating: "one.txt"),
+        "hello, world!".data(using: .utf8)!
+      )
       let resolvedOnce = try resolver.resolve(.path(tmpPath))
       let readContents = try localFileSystem.readFileContents(.init(validating: resolvedOnce))
       #expect(readContents == "hello, world!")
@@ -440,17 +495,32 @@ extension DarwinToolchain {
   @Test func resolveSquashedArgs() throws {
     try withTemporaryDirectory { path in
       let resolver = try ArgsResolver(fileSystem: localFileSystem, temporaryDirectory: .absolute(path))
-      let tmpPath = VirtualPath.temporaryWithKnownContents(try .init(validating: "one.txt"), "hello, world!".data(using: .utf8)!)
-      let tmpPath2 = VirtualPath.temporaryWithKnownContents(try .init(validating: "two.txt"), "goodbye!".data(using: .utf8)!)
+      let tmpPath = VirtualPath.temporaryWithKnownContents(
+        try .init(validating: "one.txt"),
+        "hello, world!".data(using: .utf8)!
+      )
+      let tmpPath2 = VirtualPath.temporaryWithKnownContents(
+        try .init(validating: "two.txt"),
+        "goodbye!".data(using: .utf8)!
+      )
       let resolvedCommandLine = try resolver.resolve(
-        .squashedArgumentList(option: "--opt=", args: [.path(tmpPath), .path(tmpPath2)]))
-      #expect(resolvedCommandLine == "--opt=\(path.appending(component: "one.txt").pathString) \(path.appending(component: "two.txt").pathString)")
-#if os(Windows)
-      #expect(resolvedCommandLine.spm_shellEscaped() ==
-                     #""--opt=\#(path.appending(component: "one.txt").pathString) \#(path.appending(component: "two.txt").pathString)""#)
-#else
-      #expect(resolvedCommandLine.spm_shellEscaped() == "'--opt=\(path.appending(component: "one.txt").pathString) \(path.appending(component: "two.txt").pathString)'")
-#endif
+        .squashedArgumentList(option: "--opt=", args: [.path(tmpPath), .path(tmpPath2)])
+      )
+      #expect(
+        resolvedCommandLine
+          == "--opt=\(path.appending(component: "one.txt").pathString) \(path.appending(component: "two.txt").pathString)"
+      )
+      #if os(Windows)
+      #expect(
+        resolvedCommandLine.spm_shellEscaped()
+          == #""--opt=\#(path.appending(component: "one.txt").pathString) \#(path.appending(component: "two.txt").pathString)""#
+      )
+      #else
+      #expect(
+        resolvedCommandLine.spm_shellEscaped()
+          == "'--opt=\(path.appending(component: "one.txt").pathString) \(path.appending(component: "two.txt").pathString)'"
+      )
+      #endif
     }
   }
 
@@ -476,16 +546,22 @@ extension DarwinToolchain {
         try localFileSystem.writeFileContents(main, bytes: "print(\"hello, world!\")")
 
         let diags = DiagnosticsEngine()
-        let executor = try SwiftDriverExecutor(diagnosticsEngine: diags,
-                                               processSet: ProcessSet(),
-                                               fileSystem: localFileSystem,
-                                               env: ProcessEnv.block)
+        let executor = try SwiftDriverExecutor(
+          diagnosticsEngine: diags,
+          processSet: ProcessSet(),
+          fileSystem: localFileSystem,
+          env: ProcessEnv.block
+        )
         let outputPath = path.appending(component: "finalOutput")
-        var driver = try TestDriver(args: ["swiftc", main.pathString,
-                                       "-driver-filelist-threshold", "0",
-                                       "-o", outputPath.pathString] + getHostToolchainSdkArg(executor),
-                                diagnosticsEngine: diags,
-                                executor: executor)
+        var driver = try TestDriver(
+          args: [
+            "swiftc", main.pathString,
+            "-driver-filelist-threshold", "0",
+            "-o", outputPath.pathString,
+          ] + getHostToolchainSdkArg(executor),
+          diagnosticsEngine: diags,
+          executor: executor
+        )
         let jobs = try await driver.planBuild()
         #expect(jobs.removingAutolinkExtractJobs().map(\.kind) == [.compile, .link])
         #expect(jobs[0].outputs.count == 1)
@@ -498,7 +574,9 @@ extension DarwinToolchain {
         #expect(localFileSystem.exists(outputPath))
         // -save-temps wasn't passed, so ensure the temporary file was removed.
         #expect(
-          !localFileSystem.exists(try .init(validating: try executor.resolver.resolve(.path(driver.allSourcesFileList!))))
+          !localFileSystem.exists(
+            try .init(validating: try executor.resolver.resolve(.path(driver.allSourcesFileList!)))
+          )
         )
         #expect(!localFileSystem.exists(try .init(validating: try executor.resolver.resolve(.path(compileOutput)))))
       }
@@ -509,19 +587,25 @@ extension DarwinToolchain {
         let main = path.appending(component: "main.swift")
         try localFileSystem.writeFileContents(main, bytes: "print(\"hello, world!\")")
         let diags = DiagnosticsEngine()
-        let executor = try SwiftDriverExecutor(diagnosticsEngine: diags,
-                                               processSet: ProcessSet(),
-                                               fileSystem: localFileSystem,
-                                               env: ProcessEnv.block)
+        let executor = try SwiftDriverExecutor(
+          diagnosticsEngine: diags,
+          processSet: ProcessSet(),
+          fileSystem: localFileSystem,
+          env: ProcessEnv.block
+        )
         let outputPath = path.appending(component: "finalOutput")
-        var driver = try TestDriver(args: ["swiftc", main.pathString,
-                                       "-save-temps",
-                                       "-sil-output-dir", path.pathString,
-                                       "-ir-output-dir", path.pathString,
-                                       "-driver-filelist-threshold", "0",
-                                       "-o", outputPath.pathString] + getHostToolchainSdkArg(executor),
-                                diagnosticsEngine: diags,
-                                executor: executor)
+        var driver = try TestDriver(
+          args: [
+            "swiftc", main.pathString,
+            "-save-temps",
+            "-sil-output-dir", path.pathString,
+            "-ir-output-dir", path.pathString,
+            "-driver-filelist-threshold", "0",
+            "-o", outputPath.pathString,
+          ] + getHostToolchainSdkArg(executor),
+          diagnosticsEngine: diags,
+          executor: executor
+        )
         let jobs = try await driver.planBuild()
         #expect(jobs.removingAutolinkExtractJobs().map(\.kind) == [.compile, .link])
         // With -save-temps, we now have additional SIL and IR outputs, so expect more outputs
@@ -549,17 +633,23 @@ extension DarwinToolchain {
         let main = path.appending(component: "main.swift")
         try localFileSystem.writeFileContents(main, bytes: "print(\"hello, world!\")")
         let diags = DiagnosticsEngine()
-        let executor = try SwiftDriverExecutor(diagnosticsEngine: diags,
-                                               processSet: ProcessSet(),
-                                               fileSystem: localFileSystem,
-                                               env: ProcessEnv.block)
+        let executor = try SwiftDriverExecutor(
+          diagnosticsEngine: diags,
+          processSet: ProcessSet(),
+          fileSystem: localFileSystem,
+          env: ProcessEnv.block
+        )
         let outputPath = path.appending(component: "finalOutput")
-        var driver = try TestDriver(args: ["swiftc", main.pathString,
-                                       "-driver-filelist-threshold", "0",
-                                       "-Xfrontend", "-debug-crash-immediately",
-                                       "-o", outputPath.pathString] + getHostToolchainSdkArg(executor),
-                                diagnosticsEngine: diags,
-                                executor: executor)
+        var driver = try TestDriver(
+          args: [
+            "swiftc", main.pathString,
+            "-driver-filelist-threshold", "0",
+            "-Xfrontend", "-debug-crash-immediately",
+            "-o", outputPath.pathString,
+          ] + getHostToolchainSdkArg(executor),
+          diagnosticsEngine: diags,
+          executor: executor
+        )
         let jobs = try await driver.planBuild()
         #expect(jobs.removingAutolinkExtractJobs().map(\.kind) == [.compile, .link])
         #expect(jobs[0].outputs.count == 1)
@@ -585,16 +675,22 @@ extension DarwinToolchain {
       let main = path.appending(component: "main.swift")
       try localFileSystem.writeFileContents(main, bytes: "print(\"hello, world!\")")
       let diags = DiagnosticsEngine()
-      let executor = try SwiftDriverExecutor(diagnosticsEngine: diags,
-                                             processSet: ProcessSet(),
-                                             fileSystem: localFileSystem,
-                                             env: ProcessEnv.block)
+      let executor = try SwiftDriverExecutor(
+        diagnosticsEngine: diags,
+        processSet: ProcessSet(),
+        fileSystem: localFileSystem,
+        env: ProcessEnv.block
+      )
       let outputPath = path.appending(component: "finalOutput")
-      var driver = try TestDriver(args: ["swiftc", main.pathString,
-                                     "-save-temps",
-                                     "-o", outputPath.pathString] + getHostToolchainSdkArg(executor),
-                              diagnosticsEngine: diags,
-                              executor: executor)
+      var driver = try TestDriver(
+        args: [
+          "swiftc", main.pathString,
+          "-save-temps",
+          "-o", outputPath.pathString,
+        ] + getHostToolchainSdkArg(executor),
+        diagnosticsEngine: diags,
+        executor: executor
+      )
       let jobs = try await driver.planBuild()
       let compileJobs = jobs.removingAutolinkExtractJobs()
       #expect(compileJobs.map(\.kind) == [.compile, .link])

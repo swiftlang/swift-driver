@@ -12,8 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Testing
 import SwiftDriver
+import Testing
 
 @Suite struct TwoDMapTests {
 
@@ -31,31 +31,30 @@ import SwiftDriver
     indices.removeAll()
 
     #expect(3.4 == m.updateValue(11, forKey: (1, "a")))
-    m.verify {  _, _, _ in }
+    m.verify { _, _, _ in }
 
     #expect(nil == m.updateValue(21, forKey: (2, "a")))
     m.verify { _, _, _ in }
 
     #expect(nil == m.updateValue(12, forKey: (1, "b")))
-    m.verify {  _, _, _ in }
+    m.verify { _, _, _ in }
 
     #expect(nil == m.updateValue(22, forKey: (2, "b")))
-    m.verify {  _, _, _ in }
+    m.verify { _, _, _ in }
 
     var n = 0
     m.verify { k, v, i in
       switch (k.0, k.1, v, i) {
-        case
-          (1, "a", 11, 0),
-          (1, "a", 11, 1),
-          (2, "a", 21, 0),
-          (2, "a", 21, 1),
-          (1, "b", 12, 0),
-          (1, "b", 12, 1),
-          (2, "b", 22, 0),
-          (2, "b", 22, 1):
-          n += 1
-        default: Issue.record()
+      case (1, "a", 11, 0),
+        (1, "a", 11, 1),
+        (2, "a", 21, 0),
+        (2, "a", 21, 1),
+        (1, "b", 12, 0),
+        (1, "b", 12, 1),
+        (2, "b", 22, 0),
+        (2, "b", 22, 1):
+        n += 1
+      default: Issue.record()
       }
     }
     #expect(n == 8)
@@ -64,21 +63,20 @@ import SwiftDriver
     n = 0
     m.verify { k, v, i in
       switch (k.0, k.1, v, i) {
-        case
-          (1, "a", 11, 0),
-          (1, "a", 11, 1),
-          (1, "b", 12, 0),
-          (1, "b", 12, 1),
-          (2, "b", 22, 0),
-          (2, "b", 22, 1):
-          n += 1
-        default: Issue.record()
+      case (1, "a", 11, 0),
+        (1, "a", 11, 1),
+        (1, "b", 12, 0),
+        (1, "b", 12, 1),
+        (2, "b", 22, 0),
+        (2, "b", 22, 1):
+        n += 1
+      default: Issue.record()
       }
     }
     #expect(n == 6)
 
     do {
-      let a =  m[1]
+      let a = m[1]
       #expect(a == ["a": 11, "b": 12])
 
       let b = m[2]

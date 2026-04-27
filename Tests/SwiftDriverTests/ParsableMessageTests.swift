@@ -12,17 +12,17 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Testing
-import TSCBasic
-
 @_spi(Testing) import SwiftDriver
+import TSCBasic
 import TestUtilities
+import Testing
+
 import var Foundation.EXIT_SUCCESS
 import class Foundation.NSString
 
 @discardableResult
 internal func withHijackedErrorStream(
-  _ body: () async throws -> ()
+  _ body: () async throws -> Void
 ) async throws -> String {
   // Replace the error stream with one we capture here.
   let errorStream = stderrStream
@@ -40,7 +40,7 @@ internal func withHijackedErrorStream(
 
 @discardableResult
 internal func withHijackedOutputStream(
-  _ body: () async throws -> ()
+  _ body: () async throws -> Void
 ) async throws -> String {
   // Replace the error stream with one we capture here.
   let outputStream = stdoutStream
@@ -63,7 +63,7 @@ internal func withHijackedOutputStream(
       realPid: 1,
       inputs: ["/path/to/foo.swift"],
       outputs: [
-      .init(path: "/path/to/foo.o", type: "object")
+        .init(path: "/path/to/foo.o", type: "object")
       ],
       commandExecutable: "/path/to/swiftc",
       commandArguments: ["-frontend", "compile"]
@@ -74,30 +74,32 @@ internal func withHijackedOutputStream(
     let encoded = try beganMessage.toJSON()
     let string = String(data: encoded, encoding: .utf8)!
 
-    #expect(string == """
-      {
-        "command_arguments" : [
-          "-frontend",
-          "compile"
-        ],
-        "command_executable" : "\\/path\\/to\\/swiftc",
-        "inputs" : [
-          "\\/path\\/to\\/foo.swift"
-        ],
-        "kind" : "began",
-        "name" : "compile",
-        "outputs" : [
-          {
-            "path" : "\\/path\\/to\\/foo.o",
-            "type" : "object"
+    #expect(
+      string == """
+        {
+          "command_arguments" : [
+            "-frontend",
+            "compile"
+          ],
+          "command_executable" : "\\/path\\/to\\/swiftc",
+          "inputs" : [
+            "\\/path\\/to\\/foo.swift"
+          ],
+          "kind" : "began",
+          "name" : "compile",
+          "outputs" : [
+            {
+              "path" : "\\/path\\/to\\/foo.o",
+              "type" : "object"
+            }
+          ],
+          "pid" : 1,
+          "process" : {
+            "real_pid" : 1
           }
-        ],
-        "pid" : 1,
-        "process" : {
-          "real_pid" : 1
         }
-      }
-      """)
+        """
+    )
   }
 
   @Test func finishedMessage() throws {
@@ -106,40 +108,49 @@ internal func withHijackedOutputStream(
     let encoded = try finishedMessage.toJSON()
     let string = String(data: encoded, encoding: .utf8)!
 
-    #expect(string == """
-    {
-      "exit-status" : 1,
-      "kind" : "finished",
-      "name" : "compile",
-      "output" : "hello",
-      "pid" : 1,
-      "process" : {
-        "real_pid" : 1
-      }
-    }
-    """)
+    #expect(
+      string == """
+        {
+          "exit-status" : 1,
+          "kind" : "finished",
+          "name" : "compile",
+          "output" : "hello",
+          "pid" : 1,
+          "process" : {
+            "real_pid" : 1
+          }
+        }
+        """
+    )
   }
 
   @Test func signalledMessage() throws {
-    let message = SignalledMessage(pid: 2, realPid: 2, output: "sig",
-                                   errorMessage: "err", signal: 3)
+    let message = SignalledMessage(
+      pid: 2,
+      realPid: 2,
+      output: "sig",
+      errorMessage: "err",
+      signal: 3
+    )
     let signalledMessage = ParsableMessage(name: "compile", kind: .signalled(message))
     let encoded = try signalledMessage.toJSON()
     let string = String(data: encoded, encoding: .utf8)!
 
-    #expect(string == """
-    {
-      "error-message" : "err",
-      "kind" : "signalled",
-      "name" : "compile",
-      "output" : "sig",
-      "pid" : 2,
-      "process" : {
-        "real_pid" : 2
-      },
-      "signal" : 3
-    }
-    """)
+    #expect(
+      string == """
+        {
+          "error-message" : "err",
+          "kind" : "signalled",
+          "name" : "compile",
+          "output" : "sig",
+          "pid" : 2,
+          "process" : {
+            "real_pid" : 2
+          },
+          "signal" : 3
+        }
+        """
+    )
   }
 
   @Test func abnormalExitMessage() throws {
@@ -148,17 +159,19 @@ internal func withHijackedOutputStream(
     let encoded = try message.toJSON()
     let string = String(data: encoded, encoding: .utf8)!
 
-    #expect(string == """
-    {
-      "exception" : 2147483651,
-      "kind" : "abnormal-exit",
-      "name" : "compile",
-      "pid" : 1024,
-      "process" : {
-        "real_pid" : 1024
-      }
-    }
-    """)
+    #expect(
+      string == """
+        {
+          "exception" : 2147483651,
+          "kind" : "abnormal-exit",
+          "name" : "compile",
+          "pid" : 1024,
+          "process" : {
+            "real_pid" : 1024
+          }
+        }
+        """
+    )
   }
 
   @Test func beganBatchMessages() async throws {
@@ -167,81 +180,119 @@ internal func withHijackedOutputStream(
         let workdir: AbsolutePath = localFileSystem.currentWorkingDirectory!.appending(components: "WorkDir")
         let resolver = try ArgsResolver(fileSystem: localFileSystem)
 
-        var driver = try TestDriver(args: ["swiftc", "-o", "test.o",
-                                       "main.swift", "test1.swift", "test2.swift",
-                                       "-enable-batch-mode", "-driver-batch-count", "1",
-                                       "-working-directory", workdir.pathString])
+        var driver = try TestDriver(args: [
+          "swiftc", "-o", "test.o",
+          "main.swift", "test1.swift", "test2.swift",
+          "-enable-batch-mode", "-driver-batch-count", "1",
+          "-working-directory", workdir.pathString,
+        ])
         let jobs = try await driver.planBuild()
         let compileJob = jobs[0]
-        let args : [String] = try resolver.resolveArgumentList(for: compileJob, useResponseFiles: .disabled)
-        let toolDelegate = ToolExecutionDelegate(mode: .parsableOutput,
-                                                 buildRecordInfo: nil,
-                                                 showJobLifecycle: false,
-                                                 argsResolver: resolver,
-                                                 diagnosticEngine: DiagnosticsEngine())
+        let args: [String] = try resolver.resolveArgumentList(for: compileJob, useResponseFiles: .disabled)
+        let toolDelegate = ToolExecutionDelegate(
+          mode: .parsableOutput,
+          buildRecordInfo: nil,
+          showJobLifecycle: false,
+          argsResolver: resolver,
+          diagnosticEngine: DiagnosticsEngine()
+        )
 
         let errorOutput = try await withHijackedErrorStream {
           // Emit the began messages and examine the output
           toolDelegate.jobStarted(job: compileJob, arguments: args, pid: 42)
         }
 
-
         // There were 3 messages emitted
-        #expect(errorOutput.components(separatedBy:
-          """
-            "kind" : "began",
-            "name" : "compile",
-          """).count - 1 == 3)
+        #expect(
+          errorOutput.components(
+            separatedBy:
+              """
+                "kind" : "began",
+                "name" : "compile",
+              """
+          ).count - 1 == 3
+        )
 
-#if os(Windows)
+        #if os(Windows)
         let mainPath: String = workdir.appending(component: "main.swift").nativePathString(escaped: true)
         let test1Path: String = workdir.appending(component: "test1.swift").nativePathString(escaped: true)
         let test2Path: String = workdir.appending(component: "test2.swift").nativePathString(escaped: true)
-#else
-        let mainPath: String = workdir.appending(component: "main.swift").pathString.replacingOccurrences(of: "/", with: "\\/")
-        let test1Path: String = workdir.appending(component: "test1.swift").pathString.replacingOccurrences(of: "/", with: "\\/")
-        let test2Path: String = workdir.appending(component: "test2.swift").pathString.replacingOccurrences(of: "/", with: "\\/")
-#endif
+        #else
+        let mainPath: String = workdir.appending(component: "main.swift").pathString.replacingOccurrences(
+          of: "/",
+          with: "\\/"
+        )
+        let test1Path: String = workdir.appending(component: "test1.swift").pathString.replacingOccurrences(
+          of: "/",
+          with: "\\/"
+        )
+        let test2Path: String = workdir.appending(component: "test2.swift").pathString.replacingOccurrences(
+          of: "/",
+          with: "\\/"
+        )
+        #endif
 
         /// One per primary
-        #expect(errorOutput.contains(
-          """
-            "pid" : -1000,
-          """))
-        #expect(errorOutput.contains(
-          """
-            \"inputs\" : [
-              \"\(mainPath)\"
-            ],
-          """))
-        #expect(errorOutput.contains(
-          """
-            "pid" : -1001,
-          """))
-        #expect(errorOutput.contains(
-          """
-            \"inputs\" : [
-              \"\(test1Path)\"
-            ],
-          """))
-        #expect(errorOutput.contains(
-          """
-            "pid" : -1002,
-          """))
-        #expect(errorOutput.contains(
-          """
-            \"inputs\" : [
-              \"\(test2Path)\"
-            ],
-          """))
+        #expect(
+          errorOutput.contains(
+            """
+              "pid" : -1000,
+            """
+          )
+        )
+        #expect(
+          errorOutput.contains(
+            """
+              \"inputs\" : [
+                \"\(mainPath)\"
+              ],
+            """
+          )
+        )
+        #expect(
+          errorOutput.contains(
+            """
+              "pid" : -1001,
+            """
+          )
+        )
+        #expect(
+          errorOutput.contains(
+            """
+              \"inputs\" : [
+                \"\(test1Path)\"
+              ],
+            """
+          )
+        )
+        #expect(
+          errorOutput.contains(
+            """
+              "pid" : -1002,
+            """
+          )
+        )
+        #expect(
+          errorOutput.contains(
+            """
+              \"inputs\" : [
+                \"\(test2Path)\"
+              ],
+            """
+          )
+        )
 
         /// Real PID appeared in every message
-        #expect(errorOutput.components(separatedBy:
-          """
-            \"process\" : {
-              \"real_pid\" : 42
-            }
-          """).count - 1 == 3)
+        #expect(
+          errorOutput.components(
+            separatedBy:
+              """
+                \"process\" : {
+                  \"real_pid\" : 42
+                }
+              """
+          ).count - 1 == 3
+        )
       }
     }
   }
@@ -251,18 +302,22 @@ internal func withHijackedOutputStream(
       try await withTemporaryDirectory { path in
         // Take over the error stream just to prevent it being printed in test runs
         let resolver = try ArgsResolver(fileSystem: localFileSystem)
-        var driver = try TestDriver(args: ["swiftc", "-o", "test.o",
-                                       "main.swift", "test1.swift", "test2.swift",
-                                       "-enable-batch-mode", "-driver-batch-count", "1",
-                                       "-working-directory", "/WorkDir"])
+        var driver = try TestDriver(args: [
+          "swiftc", "-o", "test.o",
+          "main.swift", "test1.swift", "test2.swift",
+          "-enable-batch-mode", "-driver-batch-count", "1",
+          "-working-directory", "/WorkDir",
+        ])
         let jobs = try await driver.planBuild()
         let compileJob = jobs[0]
         let args: [String] = try resolver.resolveArgumentList(for: compileJob)
-        let toolDelegate = ToolExecutionDelegate(mode: .parsableOutput,
-                                             buildRecordInfo: nil,
-                                             showJobLifecycle: false,
-                                             argsResolver: resolver,
-                                             diagnosticEngine: DiagnosticsEngine())
+        let toolDelegate = ToolExecutionDelegate(
+          mode: .parsableOutput,
+          buildRecordInfo: nil,
+          showJobLifecycle: false,
+          argsResolver: resolver,
+          diagnosticEngine: DiagnosticsEngine()
+        )
 
         let _ = try await withHijackedErrorStream {
           // First emit the began messages
@@ -271,50 +326,61 @@ internal func withHijackedOutputStream(
 
         // Now hijack the error stream and emit finished messages
         let errorOutput = try await withHijackedErrorStream {
-          let resultSuccess = ProcessResult(arguments: args,
-                                            environmentBlock: ProcessEnv.block,
-                                            exitStatus: ProcessResult.ExitStatus.terminated(code: EXIT_SUCCESS),
-                                            output: Result.success([]),
-                                            stderrOutput: Result.success([]))
+          let resultSuccess = ProcessResult(
+            arguments: args,
+            environmentBlock: ProcessEnv.block,
+            exitStatus: ProcessResult.ExitStatus.terminated(code: EXIT_SUCCESS),
+            output: Result.success([]),
+            stderrOutput: Result.success([])
+          )
           // Emit the finished messages and examine the output
           toolDelegate.jobFinished(job: compileJob, result: resultSuccess, pid: 42)
         }
-        #expect(errorOutput.contains(
-          """
-          {
-            \"exit-status\" : 0,
-            \"kind\" : \"finished\",
-            \"name\" : \"compile\",
-            \"pid\" : -1000,
-            \"process\" : {
-              \"real_pid\" : 42
+        #expect(
+          errorOutput.contains(
+            """
+            {
+              \"exit-status\" : 0,
+              \"kind\" : \"finished\",
+              \"name\" : \"compile\",
+              \"pid\" : -1000,
+              \"process\" : {
+                \"real_pid\" : 42
+              }
             }
-          }
-          """))
-        #expect(errorOutput.contains(
-          """
-          {
-            \"exit-status\" : 0,
-            \"kind\" : \"finished\",
-            \"name\" : \"compile\",
-            \"pid\" : -1001,
-            \"process\" : {
-              \"real_pid\" : 42
+            """
+          )
+        )
+        #expect(
+          errorOutput.contains(
+            """
+            {
+              \"exit-status\" : 0,
+              \"kind\" : \"finished\",
+              \"name\" : \"compile\",
+              \"pid\" : -1001,
+              \"process\" : {
+                \"real_pid\" : 42
+              }
             }
-          }
-          """))
-        #expect(errorOutput.contains(
-          """
-          {
-            \"exit-status\" : 0,
-            \"kind\" : \"finished\",
-            \"name\" : \"compile\",
-            \"pid\" : -1002,
-            \"process\" : {
-              \"real_pid\" : 42
+            """
+          )
+        )
+        #expect(
+          errorOutput.contains(
+            """
+            {
+              \"exit-status\" : 0,
+              \"kind\" : \"finished\",
+              \"name\" : \"compile\",
+              \"pid\" : -1002,
+              \"process\" : {
+                \"real_pid\" : 42
+              }
             }
-          }
-          """))
+            """
+          )
+        )
       }
     }
   }
@@ -324,77 +390,92 @@ internal func withHijackedOutputStream(
       try await withTemporaryDirectory { path in
         // Take over the error stream just to prevent it being printed in test runs
         let resolver = try ArgsResolver(fileSystem: localFileSystem)
-        var driver = try TestDriver(args: ["swiftc", "-o", "test.o",
-                                       "main.swift", "test1.swift", "test2.swift",
-                                       "-enable-batch-mode", "-driver-batch-count", "1",
-                                       "-working-directory", "/WorkDir"])
+        var driver = try TestDriver(args: [
+          "swiftc", "-o", "test.o",
+          "main.swift", "test1.swift", "test2.swift",
+          "-enable-batch-mode", "-driver-batch-count", "1",
+          "-working-directory", "/WorkDir",
+        ])
         let jobs = try await driver.planBuild()
         let compileJob = jobs[0]
         let args: [String] = try resolver.resolveArgumentList(for: compileJob)
-        let toolDelegate = ToolExecutionDelegate(mode: .parsableOutput,
-                                             buildRecordInfo: nil,
-                                             showJobLifecycle: false,
-                                             argsResolver: resolver,
-                                             diagnosticEngine: DiagnosticsEngine())
+        let toolDelegate = ToolExecutionDelegate(
+          mode: .parsableOutput,
+          buildRecordInfo: nil,
+          showJobLifecycle: false,
+          argsResolver: resolver,
+          diagnosticEngine: DiagnosticsEngine()
+        )
 
         let _ = try await withHijackedErrorStream {
           // First emit the began messages
           toolDelegate.jobStarted(job: compileJob, arguments: args, pid: 42)
         }
 
-#if os(Windows)
-          let status = ProcessResult.ExitStatus.terminated(code: EXIT_SUCCESS)
-          let kind = "finished"
-          let signal = ""
-#else
-          let status = ProcessResult.ExitStatus.signalled(signal: 9)
-          let kind = "signalled"
-          let signal = """
+        #if os(Windows)
+        let status = ProcessResult.ExitStatus.terminated(code: EXIT_SUCCESS)
+        let kind = "finished"
+        let signal = ""
+        #else
+        let status = ProcessResult.ExitStatus.signalled(signal: 9)
+        let kind = "signalled"
+        let signal = """
           ,
             \"signal\" : 9
           """
-#endif
+        #endif
 
         // Now hijack the error stream and emit finished messages
         let errorOutput = try await withHijackedErrorStream {
-          let resultSignalled = ProcessResult(arguments: args,
-                                              environmentBlock: ProcessEnv.block,
-                                              exitStatus: status,
-                                              output: Result.success([]),
-                                              stderrOutput: Result.success([]))
+          let resultSignalled = ProcessResult(
+            arguments: args,
+            environmentBlock: ProcessEnv.block,
+            exitStatus: status,
+            output: Result.success([]),
+            stderrOutput: Result.success([])
+          )
           // First emit the began messages
           toolDelegate.jobFinished(job: compileJob, result: resultSignalled, pid: 42)
         }
-        #expect(errorOutput.contains(
-          """
-            \"kind\" : \"\(kind)\",
-            \"name\" : \"compile\",
-            \"pid\" : -1000,
-            \"process\" : {
-              \"real_pid\" : 42
-            }\(signal)
-          }
-          """))
-        #expect(errorOutput.contains(
-          """
-            \"kind\" : \"\(kind)\",
-            \"name\" : \"compile\",
-            \"pid\" : -1001,
-            \"process\" : {
-              \"real_pid\" : 42
-            }\(signal)
-          }
-          """))
-        #expect(errorOutput.contains(
-          """
-            \"kind\" : \"\(kind)\",
-            \"name\" : \"compile\",
-            \"pid\" : -1002,
-            \"process\" : {
-              \"real_pid\" : 42
-            }\(signal)
-          }
-          """))
+        #expect(
+          errorOutput.contains(
+            """
+              \"kind\" : \"\(kind)\",
+              \"name\" : \"compile\",
+              \"pid\" : -1000,
+              \"process\" : {
+                \"real_pid\" : 42
+              }\(signal)
+            }
+            """
+          )
+        )
+        #expect(
+          errorOutput.contains(
+            """
+              \"kind\" : \"\(kind)\",
+              \"name\" : \"compile\",
+              \"pid\" : -1001,
+              \"process\" : {
+                \"real_pid\" : 42
+              }\(signal)
+            }
+            """
+          )
+        )
+        #expect(
+          errorOutput.contains(
+            """
+              \"kind\" : \"\(kind)\",
+              \"name\" : \"compile\",
+              \"pid\" : -1002,
+              \"process\" : {
+                \"real_pid\" : 42
+              }\(signal)
+            }
+            """
+          )
+        )
       }
     }
   }
@@ -408,10 +489,14 @@ internal func withHijackedOutputStream(
 
         let diags = DiagnosticsEngine()
         let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
-        var driver = try TestDriver(args: ["swiftc", main.pathString,
-                                       "-o", output.pathString] + sdkArgumentsForTesting,
-                                diagnosticsEngine: diags,
-                                integratedDriver: true)
+        var driver = try TestDriver(
+          args: [
+            "swiftc", main.pathString,
+            "-o", output.pathString,
+          ] + sdkArgumentsForTesting,
+          diagnosticsEngine: diags,
+          integratedDriver: true
+        )
         let jobs = try await driver.planBuild()
         let errorOutput = try await withHijackedErrorStream {
           await #expect(throws: (any Error).self) {
@@ -432,11 +517,15 @@ internal func withHijackedOutputStream(
 
         let diags = DiagnosticsEngine()
         let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
-        var driver = try TestDriver(args: ["swiftc", main.pathString,
-                                       "-use-frontend-parseable-output",
-                                       "-o", output.pathString] + sdkArgumentsForTesting,
-                                diagnosticsEngine: diags,
-                                integratedDriver: false)
+        var driver = try TestDriver(
+          args: [
+            "swiftc", main.pathString,
+            "-use-frontend-parseable-output",
+            "-o", output.pathString,
+          ] + sdkArgumentsForTesting,
+          diagnosticsEngine: diags,
+          integratedDriver: false
+        )
         let jobs = try await driver.planBuild()
         #expect(jobs.removingAutolinkExtractJobs().map(\.kind) == [.compile, .link])
         #expect(jobs[0].outputs.count == 1)
@@ -445,28 +534,41 @@ internal func withHijackedOutputStream(
         let errorOutput = try await withHijackedErrorStream {
           try await driver.run(jobs: jobs)
         }
-        #expect(errorOutput.contains(
-          """
-          {
-            "kind": "began",
-            "name": "compile",
-          """))
-        #expect(errorOutput.contains(
-          """
-          {
-            "kind": "finished",
-            "name": "compile",
-          """))
+        #expect(
+          errorOutput.contains(
+            """
+            {
+              "kind": "began",
+              "name": "compile",
+            """
+          )
+        )
+        #expect(
+          errorOutput.contains(
+            """
+            {
+              "kind": "finished",
+              "name": "compile",
+            """
+          )
+        )
       }
     }
 
     do {
-      try await assertDriverDiagnostics(args: ["swiftc", "foo.swift", "-parseable-output",
-                                         "-use-frontend-parseable-output"]) {
-        $1.expect(.error(Driver.Error.conflictingOptions(.parseableOutput,
-                                                         .useFrontendParseableOutput)))
+      try await assertDriverDiagnostics(args: [
+        "swiftc", "foo.swift", "-parseable-output",
+        "-use-frontend-parseable-output",
+      ]) {
+        $1.expect(
+          .error(
+            Driver.Error.conflictingOptions(
+              .parseableOutput,
+              .useFrontendParseableOutput
+            )
+          )
+        )
       }
     }
   }
 }
-

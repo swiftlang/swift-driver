@@ -12,11 +12,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-@testable @_spi(Testing) import SwiftDriver
 import SwiftOptions
 import TSCBasic
-import Testing
 import TestUtilities
+import Testing
+
+@testable @_spi(Testing) import SwiftDriver
 
 @Suite struct CompileJobTests {
 
@@ -39,10 +40,17 @@ import TestUtilities
     // Forwarding of arguments.
     let workingDirectory = localFileSystem.currentWorkingDirectory!.appending(components: "tmp")
 
-    var driver2 = try TestDriver(args: ["swiftc", "-color-diagnostics", "foo.swift", "bar.swift", "-working-directory", workingDirectory.pathString, "-api-diff-data-file", "diff.txt", "-Xfrontend", "-HI", "-no-color-diagnostics", "-g"])
+    var driver2 = try TestDriver(args: [
+      "swiftc", "-color-diagnostics", "foo.swift", "bar.swift", "-working-directory", workingDirectory.pathString,
+      "-api-diff-data-file", "diff.txt", "-Xfrontend", "-HI", "-no-color-diagnostics", "-g",
+    ])
     let plannedJobs2 = try await driver2.planBuild()
     let compileJob = try plannedJobs2.findJob(.compile)
-    #expect(compileJob.commandLine.contains(Job.ArgTemplate.path(.absolute(try AbsolutePath(validating: rebase("diff.txt", at: workingDirectory))))))
+    #expect(
+      compileJob.commandLine.contains(
+        Job.ArgTemplate.path(.absolute(try AbsolutePath(validating: rebase("diff.txt", at: workingDirectory))))
+      )
+    )
     #expect(compileJob.commandLine.contains(.flag("-HI")))
     #expect(!compileJob.commandLine.contains(.flag("-Xfrontend")))
     #expect(compileJob.commandLine.contains(.flag("-no-color-diagnostics")))
@@ -61,43 +69,67 @@ import TestUtilities
     try await withTemporaryDirectory { dir in
       let fileMapFile = dir.appending(component: "file-map-file")
       let outputMapContents: ByteString = """
-      {
-        "": {
-          "diagnostics": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/main.dia",
-          "emit-module-diagnostics": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/main.emit-module.dia"
-        },
-        "foo.swift": {
-          "diagnostics": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.dia"
+        {
+          "": {
+            "diagnostics": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/main.dia",
+            "emit-module-diagnostics": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/main.emit-module.dia"
+          },
+          "foo.swift": {
+            "diagnostics": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.dia"
+          }
         }
-      }
-      """
+        """
       try localFileSystem.writeFileContents(fileMapFile, bytes: outputMapContents)
 
       // Plain (batch/single-file) compile
       do {
-        var driver = try TestDriver(args: ["swiftc", "foo.swift", "-emit-module", "-output-file-map", fileMapFile.pathString,
-                                       "-emit-library", "-module-name", "Test", "-serialize-diagnostics"])
+        var driver = try TestDriver(args: [
+          "swiftc", "foo.swift", "-emit-module", "-output-file-map", fileMapFile.pathString,
+          "-emit-library", "-module-name", "Test", "-serialize-diagnostics",
+        ])
         let plannedJobs = try await driver.planBuild().removingAutolinkExtractJobs()
         #expect(plannedJobs.count == 3)
         #expect(plannedJobs[0].kind == .emitModule)
         #expect(plannedJobs[1].kind == .compile)
         #expect(plannedJobs[2].kind == .link)
-        try expectJobInvocationMatches(plannedJobs[0], .flag("-serialize-diagnostics-path"), .path(.absolute(.init(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/main.emit-module.dia"))))
-        try expectJobInvocationMatches(plannedJobs[1], .flag("-serialize-diagnostics-path"), .path(.absolute(.init(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.dia"))))
+        try expectJobInvocationMatches(
+          plannedJobs[0],
+          .flag("-serialize-diagnostics-path"),
+          .path(
+            .absolute(.init(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/main.emit-module.dia"))
+          )
+        )
+        try expectJobInvocationMatches(
+          plannedJobs[1],
+          .flag("-serialize-diagnostics-path"),
+          .path(.absolute(.init(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.dia")))
+        )
       }
 
       // WMO
       do {
-        var driver = try TestDriver(args: ["swiftc", "foo.swift", "-whole-module-optimization", "-emit-module",
-                                       "-output-file-map", fileMapFile.pathString, "-disable-cmo",
-                                       "-emit-library", "-module-name", "Test", "-serialize-diagnostics"])
+        var driver = try TestDriver(args: [
+          "swiftc", "foo.swift", "-whole-module-optimization", "-emit-module",
+          "-output-file-map", fileMapFile.pathString, "-disable-cmo",
+          "-emit-library", "-module-name", "Test", "-serialize-diagnostics",
+        ])
         let plannedJobs = try await driver.planBuild().removingAutolinkExtractJobs()
         #expect(plannedJobs.count == 3)
         #expect(plannedJobs[0].kind == .compile)
         #expect(plannedJobs[1].kind == .emitModule)
         #expect(plannedJobs[2].kind == .link)
-        try expectJobInvocationMatches(plannedJobs[0], .flag("-serialize-diagnostics-path"), .path(.absolute(.init(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/main.dia"))))
-        try expectJobInvocationMatches(plannedJobs[1], .flag("-serialize-diagnostics-path"), .path(.absolute(.init(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/main.emit-module.dia"))))
+        try expectJobInvocationMatches(
+          plannedJobs[0],
+          .flag("-serialize-diagnostics-path"),
+          .path(.absolute(.init(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/main.dia")))
+        )
+        try expectJobInvocationMatches(
+          plannedJobs[1],
+          .flag("-serialize-diagnostics-path"),
+          .path(
+            .absolute(.init(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/main.emit-module.dia"))
+          )
+        )
       }
     }
   }
@@ -106,50 +138,74 @@ import TestUtilities
     try await withTemporaryDirectory { dir in
       let fileMapFile = dir.appending(component: "file-map-file")
       let outputMapContents: ByteString = """
-      {
-        "": {
-          "dependencies": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/main.d",
-          "emit-module-dependencies": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/main.emit-module.d"
-        },
-        "foo.swift": {
-          "dependencies": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.d"
+        {
+          "": {
+            "dependencies": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/main.d",
+            "emit-module-dependencies": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/main.emit-module.d"
+          },
+          "foo.swift": {
+            "dependencies": "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.d"
+          }
         }
-      }
-      """
+        """
       try localFileSystem.writeFileContents(fileMapFile, bytes: outputMapContents)
 
       // Plain (batch/single-file) compile
       do {
-        var driver = try TestDriver(args: ["swiftc", "foo.swift", "-emit-module", "-output-file-map", fileMapFile.pathString,
-                                       "-emit-library", "-module-name", "Test", "-emit-dependencies"])
+        var driver = try TestDriver(args: [
+          "swiftc", "foo.swift", "-emit-module", "-output-file-map", fileMapFile.pathString,
+          "-emit-library", "-module-name", "Test", "-emit-dependencies",
+        ])
         let plannedJobs = try await driver.planBuild().removingAutolinkExtractJobs()
         #expect(plannedJobs.count == 3)
         #expect(plannedJobs[0].kind == .emitModule)
         #expect(plannedJobs[1].kind == .compile)
         #expect(plannedJobs[2].kind == .link)
-        try expectJobInvocationMatches(plannedJobs[0], .flag("-emit-dependencies-path"), .path(.absolute(.init(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/main.emit-module.d"))))
-        try expectJobInvocationMatches(plannedJobs[1], .flag("-emit-dependencies-path"), .path(.absolute(.init(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.d"))))
+        try expectJobInvocationMatches(
+          plannedJobs[0],
+          .flag("-emit-dependencies-path"),
+          .path(.absolute(.init(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/main.emit-module.d")))
+        )
+        try expectJobInvocationMatches(
+          plannedJobs[1],
+          .flag("-emit-dependencies-path"),
+          .path(.absolute(.init(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.d")))
+        )
       }
 
       // WMO
       do {
-        var driver = try TestDriver(args: ["swiftc", "foo.swift", "-whole-module-optimization", "-emit-module",
-                                       "-output-file-map", fileMapFile.pathString, "-disable-cmo",
-                                       "-emit-library", "-module-name", "Test", "-emit-dependencies"])
+        var driver = try TestDriver(args: [
+          "swiftc", "foo.swift", "-whole-module-optimization", "-emit-module",
+          "-output-file-map", fileMapFile.pathString, "-disable-cmo",
+          "-emit-library", "-module-name", "Test", "-emit-dependencies",
+        ])
         let plannedJobs = try await driver.planBuild().removingAutolinkExtractJobs()
         #expect(plannedJobs.count == 3)
         #expect(plannedJobs[0].kind == .compile)
         #expect(plannedJobs[1].kind == .emitModule)
         #expect(plannedJobs[2].kind == .link)
-        try expectJobInvocationMatches(plannedJobs[0], .flag("-emit-dependencies-path"), .path(.absolute(.init(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/main.d"))))
-        try expectJobInvocationMatches(plannedJobs[1], .flag("-emit-dependencies-path"), .path(.absolute(.init(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/main.emit-module.d"))))
+        try expectJobInvocationMatches(
+          plannedJobs[0],
+          .flag("-emit-dependencies-path"),
+          .path(.absolute(.init(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/main.d")))
+        )
+        try expectJobInvocationMatches(
+          plannedJobs[1],
+          .flag("-emit-dependencies-path"),
+          .path(.absolute(.init(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/main.emit-module.d")))
+        )
       }
     }
   }
 
   @Test func batchModeCompiles() async throws {
     do {
-      var driver1 = try TestDriver(args: ["swiftc", "foo1.swift", "bar1.swift", "foo2.swift", "bar2.swift", "foo3.swift", "bar3.swift", "foo4.swift", "bar4.swift", "foo5.swift", "bar5.swift", "wibble.swift", "-module-name", "Test", "-enable-batch-mode", "-driver-batch-count", "3"])
+      var driver1 = try TestDriver(args: [
+        "swiftc", "foo1.swift", "bar1.swift", "foo2.swift", "bar2.swift", "foo3.swift", "bar3.swift", "foo4.swift",
+        "bar4.swift", "foo5.swift", "bar5.swift", "wibble.swift", "-module-name", "Test", "-enable-batch-mode",
+        "-driver-batch-count", "3",
+      ])
       let plannedJobs = try await driver1.planBuild().removingAutolinkExtractJobs()
       #expect(plannedJobs.count == 4)
       #expect(plannedJobs[0].outputs.count == 4)
@@ -165,7 +221,11 @@ import TestUtilities
 
     // Test 1 partition results in 1 job
     do {
-      var driver = try TestDriver(args: ["swiftc", "-toolchain-stdlib-rpath", "-module-cache-path", "/tmp/clang-module-cache", "-swift-version", "4", "-Xfrontend", "-ignore-module-source-info", "-module-name", "batch", "-enable-batch-mode", "-j", "1", "-c", "main.swift", "lib.swift"])
+      var driver = try TestDriver(args: [
+        "swiftc", "-toolchain-stdlib-rpath", "-module-cache-path", "/tmp/clang-module-cache", "-swift-version", "4",
+        "-Xfrontend", "-ignore-module-source-info", "-module-name", "batch", "-enable-batch-mode", "-j", "1", "-c",
+        "main.swift", "lib.swift",
+      ])
       let plannedJobs = try await driver.planBuild().removingAutolinkExtractJobs()
       #expect(plannedJobs.count == 1)
       var count = 0
@@ -177,40 +237,63 @@ import TestUtilities
   }
 
   @Test func batchModeDiagnostics() async throws {
-      try await assertNoDriverDiagnostics(args: "swiftc", "-enable-batch-mode") { driver in
-        switch driver.compilerMode {
-        case .batchCompile:
-          break
-        default:
-          Issue.record("Expected batch compile, got \(driver.compilerMode)")
-        }
+    try await assertNoDriverDiagnostics(args: "swiftc", "-enable-batch-mode") { driver in
+      switch driver.compilerMode {
+      case .batchCompile:
+        break
+      default:
+        Issue.record("Expected batch compile, got \(driver.compilerMode)")
       }
+    }
 
-      try await assertDriverDiagnostics(args: "swiftc", "-enable-batch-mode", "-whole-module-optimization") { driver, diagnostics in
-        #expect(driver.compilerMode == .singleCompile)
-        diagnostics.expect(.warning("ignoring '-enable-batch-mode' because '-whole-module-optimization' was also specified"))
-      }
+    try await assertDriverDiagnostics(args: "swiftc", "-enable-batch-mode", "-whole-module-optimization") {
+      driver,
+      diagnostics in
+      #expect(driver.compilerMode == .singleCompile)
+      diagnostics.expect(
+        .warning("ignoring '-enable-batch-mode' because '-whole-module-optimization' was also specified")
+      )
+    }
 
-      try await assertDriverDiagnostics(args: "swiftc", "-enable-batch-mode", "-whole-module-optimization", "-no-whole-module-optimization", "-index-file", "-module-name", "foo") { driver, diagnostics in
-        #expect(driver.compilerMode == .singleCompile)
-        diagnostics.expect(.warning("ignoring '-enable-batch-mode' because '-index-file' was also specified"))
-      }
+    try await assertDriverDiagnostics(
+      args: "swiftc",
+      "-enable-batch-mode",
+      "-whole-module-optimization",
+      "-no-whole-module-optimization",
+      "-index-file",
+      "-module-name",
+      "foo"
+    ) { driver, diagnostics in
+      #expect(driver.compilerMode == .singleCompile)
+      diagnostics.expect(.warning("ignoring '-enable-batch-mode' because '-index-file' was also specified"))
+    }
 
-      try await assertNoDriverDiagnostics(args: "swiftc", "-enable-batch-mode", "-whole-module-optimization", "-no-whole-module-optimization") { driver in
-        switch driver.compilerMode {
-        case .batchCompile:
-          break
-        default:
-          Issue.record("Expected batch compile, got \(driver.compilerMode)")
-        }
+    try await assertNoDriverDiagnostics(
+      args: "swiftc",
+      "-enable-batch-mode",
+      "-whole-module-optimization",
+      "-no-whole-module-optimization"
+    ) { driver in
+      switch driver.compilerMode {
+      case .batchCompile:
+        break
+      default:
+        Issue.record("Expected batch compile, got \(driver.compilerMode)")
       }
+    }
   }
 
   @Test func singleThreadedWholeModuleOptimizationCompiles() async throws {
     var envVars = ProcessEnv.block
     envVars["SWIFT_DRIVER_LD_EXEC"] = try ld.nativePathString(escaped: false)
-    var driver1 = try TestDriver(args: ["swiftc", "-whole-module-optimization", "foo.swift", "bar.swift", "-emit-library", "-emit-module", "-module-name", "Test", "-emit-module-interface", "-emit-objc-header-path", "Test-Swift.h", "-emit-private-module-interface-path", "Test.private.swiftinterface", "-emit-tbd", "-o", "libTest"],
-                             env: envVars)
+    var driver1 = try TestDriver(
+      args: [
+        "swiftc", "-whole-module-optimization", "foo.swift", "bar.swift", "-emit-library", "-emit-module",
+        "-module-name", "Test", "-emit-module-interface", "-emit-objc-header-path", "Test-Swift.h",
+        "-emit-private-module-interface-path", "Test.private.swiftinterface", "-emit-tbd", "-o", "libTest",
+      ],
+      env: envVars
+    )
     let plannedJobs = try await driver1.planBuild().removingAutolinkExtractJobs()
     #expect(plannedJobs.count == 3)
     expectEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .emitModule, .link]))
@@ -225,20 +308,20 @@ import TestUtilities
     #expect(try emitModuleJob.outputs[0].file == toPath("Test.swiftmodule"))
     #expect(try emitModuleJob.outputs[1].file == toPath("Test.swiftdoc"))
     #expect(try emitModuleJob.outputs[2].file == toPath("Test.swiftsourceinfo"))
-#if os(Windows)
+    #if os(Windows)
     #expect(try emitModuleJob.outputs[3].file == toPath("Test.swiftinterface"))
-#else
+    #else
     #expect(try emitModuleJob.outputs[3].file == VirtualPath(path: "./Test.swiftinterface"))
-#endif
+    #endif
     #expect(try emitModuleJob.outputs[4].file == toPath("Test.private.swiftinterface"))
     #expect(try emitModuleJob.outputs[5].file == toPath("Test-Swift.h"))
-#if os(Windows)
+    #if os(Windows)
     #expect(try emitModuleJob.outputs[6].file == toPath("Test.tbd"))
-#else
+    #else
     #expect(try emitModuleJob.outputs[6].file == VirtualPath(path: "./Test.tbd"))
-#endif
+    #endif
     if driver1.targetTriple.isDarwin {
-        try expectEqual(emitModuleJob.outputs[7].file, try toPath("Test.abi.json"))
+      try expectEqual(emitModuleJob.outputs[7].file, try toPath("Test.abi.json"))
     }
     #expect(!emitModuleJob.commandLine.contains(.flag("-primary-file")))
     expectJobInvocationMatches(emitModuleJob, .flag("-emit-module-interface-path"))
@@ -249,7 +332,7 @@ import TestUtilities
     do {
       var driver1 = try TestDriver(args: [
         "swiftc", "-whole-module-optimization", "foo.swift", "bar.swift", "wibble.swift",
-        "-module-name", "Test", "-num-threads", "4"
+        "-module-name", "Test", "-num-threads", "4",
       ])
       let plannedJobs = try await driver1.planBuild().removingAutolinkExtractJobs()
       #expect(plannedJobs.count == 2)
@@ -265,7 +348,10 @@ import TestUtilities
 
     // emit-module
     do {
-      var driver = try TestDriver(args: ["swiftc", "-module-name=ThisModule", "-wmo", "-num-threads", "4", "main.swift", "multi-threaded.swift", "-emit-module", "-o", "test.swiftmodule"])
+      var driver = try TestDriver(args: [
+        "swiftc", "-module-name=ThisModule", "-wmo", "-num-threads", "4", "main.swift", "multi-threaded.swift",
+        "-emit-module", "-o", "test.swiftmodule",
+      ])
       let plannedJobs = try await driver.planBuild().removingAutolinkExtractJobs()
       #expect(plannedJobs.count == 1)
       #expect(plannedJobs[0].kind == .compile)
@@ -294,7 +380,7 @@ import TestUtilities
         try localFileSystem.writeFileContents(file, bytes: contents)
         var driver1 = try TestDriver(args: [
           "swiftc", "-whole-module-optimization", "foo.swift", "bar.swift", "wibble.swift", "-module-name", "Test",
-          "-num-threads", "4", "-output-file-map", file.pathString, "-emit-module-interface"
+          "-num-threads", "4", "-output-file-map", file.pathString, "-emit-module-interface",
         ])
         let plannedJobs = try await driver1.planBuild().removingAutolinkExtractJobs()
         #expect(plannedJobs.count == 3)
@@ -307,8 +393,10 @@ import TestUtilities
         #expect(matchTemporary(plannedJobs[0].outputs[2].file, "wibble.o"))
         #expect(!plannedJobs[0].commandLine.contains(.flag("-primary-file")))
 
-        let emitModuleJob = plannedJobs.first(where: {$0.kind == .emitModule})!
-        #expect(emitModuleJob.outputs[3].file == VirtualPath.absolute(try .init(validating: "/tmp/salty/Test.swiftinterface")))
+        let emitModuleJob = plannedJobs.first(where: { $0.kind == .emitModule })!
+        #expect(
+          emitModuleJob.outputs[3].file == VirtualPath.absolute(try .init(validating: "/tmp/salty/Test.swiftinterface"))
+        )
         #expect(!emitModuleJob.commandLine.contains(.flag("-primary-file")))
         #expect(plannedJobs[2].kind == .link)
       }
@@ -318,7 +406,7 @@ import TestUtilities
   @Test func wholeModuleOptimizationUsingSupplementaryOutputFileMap() async throws {
     var driver1 = try TestDriver(args: [
       "swiftc", "-whole-module-optimization", "foo.swift", "bar.swift", "wibble.swift", "-module-name", "Test",
-      "-emit-module-interface", "-driver-filelist-threshold=0"
+      "-emit-module-interface", "-driver-filelist-threshold=0",
     ])
     let plannedJobs = try await driver1.planBuild().removingAutolinkExtractJobs()
     #expect(plannedJobs.count == 3)
@@ -328,8 +416,9 @@ import TestUtilities
 
   @Test func wmoWithNonSourceInput() async throws {
     var driver1 = try TestDriver(args: [
-      "swiftc", "-whole-module-optimization", "danger.o", "foo.swift", "bar.swift", "wibble.swift", "-module-name", "Test",
-      "-driver-filelist-threshold=0"
+      "swiftc", "-whole-module-optimization", "danger.o", "foo.swift", "bar.swift", "wibble.swift", "-module-name",
+      "Test",
+      "-driver-filelist-threshold=0",
     ])
     let plannedJobs = try await driver1.planBuild().removingAutolinkExtractJobs()
     #expect(plannedJobs.count == 2)
@@ -342,7 +431,7 @@ import TestUtilities
 
   @Test func explicitBuildWithJustObjectInputs() async throws {
     var driver = try TestDriver(args: [
-      "swiftc", "-explicit-module-build", "foo.o", "bar.o"
+      "swiftc", "-explicit-module-build", "foo.o", "bar.o",
     ])
     let plannedJobs = try await driver.planBuild().removingAutolinkExtractJobs()
     #expect(plannedJobs.count == 1)
@@ -352,18 +441,21 @@ import TestUtilities
   @Test func wmoWithNonSourceInputFirstAndModuleOutput() async throws {
     var driver1 = try TestDriver(args: [
       "swiftc", "-wmo", "danger.o", "foo.swift", "bar.swift", "wibble.swift", "-module-name", "Test",
-      "-driver-filelist-threshold=0", "-emit-module", "-emit-library", "-no-emit-module-separately-wmo"
+      "-driver-filelist-threshold=0", "-emit-module", "-emit-library", "-no-emit-module-separately-wmo",
     ])
     let plannedJobs = try await driver1.planBuild().removingAutolinkExtractJobs()
     #expect(plannedJobs.count == 2)
     let compileJob = plannedJobs[0]
     expectEqual(compileJob.kind, .compile)
     #expect(compileJob.commandLine.contains(.flag("-supplementary-output-file-map")))
-    let argIdx = try #require(compileJob.commandLine.firstIndex(where: { $0 == .flag("-supplementary-output-file-map") }))
-    let supplOutputs = compileJob.commandLine[argIdx+1]
+    let argIdx = try #require(
+      compileJob.commandLine.firstIndex(where: { $0 == .flag("-supplementary-output-file-map") })
+    )
+    let supplOutputs = compileJob.commandLine[argIdx + 1]
     guard case let .path(path) = supplOutputs,
-          case let .fileList(_, fileList) = path,
-          case let .outputFileMap(outFileMap) = fileList else {
+      case let .fileList(_, fileList) = path,
+      case let .outputFileMap(outFileMap) = fileList
+    else {
       throw StringError("Unexpected argument for output file map")
     }
     let firstKeyHandle = try #require(outFileMap.entries.keys.first)
@@ -375,7 +467,7 @@ import TestUtilities
 
   @Test func wmoWithJustObjectInputs() async throws {
     var driver = try TestDriver(args: [
-      "swiftc", "-wmo", "foo.o", "bar.o"
+      "swiftc", "-wmo", "foo.o", "bar.o",
     ])
     let plannedJobs = try await driver.planBuild().removingAutolinkExtractJobs()
     #expect(plannedJobs.count == 1)
@@ -389,20 +481,35 @@ import TestUtilities
     do {
       let root = localFileSystem.currentWorkingDirectory!.appending(components: "foo", "bar")
 
-      var driver = try TestDriver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-emit-symbol-graph", "-emit-symbol-graph-dir", "/foo/bar/", "-experimental-emit-module-separately", "-emit-library"],
-                              env: envVars)
+      var driver = try TestDriver(
+        args: [
+          "swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path",
+          rebase("Test.swiftmodule", at: root), "-emit-symbol-graph", "-emit-symbol-graph-dir", "/foo/bar/",
+          "-experimental-emit-module-separately", "-emit-library",
+        ],
+        env: envVars
+      )
       let plannedJobs = try await driver.planBuild().removingAutolinkExtractJobs()
       #expect(plannedJobs.count == 4)
       expectEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .emitModule, .link]))
       #expect(plannedJobs[0].tool.name.contains("swift"))
       expectJobInvocationMatches(plannedJobs[0], .flag("-parse-as-library"))
       #expect(plannedJobs[0].outputs.count == (driver.targetTriple.isDarwin ? 4 : 3))
-      let module : VirtualPath = .absolute(try .init(validating: rebase("Test.swiftmodule", at: root)))
+      let module: VirtualPath = .absolute(try .init(validating: rebase("Test.swiftmodule", at: root)))
       #expect(plannedJobs[0].outputs[0].file == module)
-      try expectEqual(plannedJobs[0].outputs[1].file, .absolute(try .init(validating: rebase("Test.swiftdoc", at: root))))
-      try expectEqual(plannedJobs[0].outputs[2].file, .absolute(try .init(validating: rebase("Test.swiftsourceinfo", at: root))))
+      try expectEqual(
+        plannedJobs[0].outputs[1].file,
+        .absolute(try .init(validating: rebase("Test.swiftdoc", at: root)))
+      )
+      try expectEqual(
+        plannedJobs[0].outputs[2].file,
+        .absolute(try .init(validating: rebase("Test.swiftsourceinfo", at: root)))
+      )
       if driver.targetTriple.isDarwin {
-          try expectEqual(plannedJobs[0].outputs[3].file, .absolute(try .init(validating: rebase("Test.abi.json", at: root))))
+        try expectEqual(
+          plannedJobs[0].outputs[3].file,
+          .absolute(try .init(validating: rebase("Test.abi.json", at: root)))
+        )
       }
 
       // We don't know the output file of the symbol graph, just make sure the flag is passed along.
@@ -414,25 +521,42 @@ import TestUtilities
 
       // We don't expect partial jobs when asking only for the swiftmodule with
       // -experimental-emit-module-separately.
-      var driver = try TestDriver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-experimental-emit-module-separately"])
+      var driver = try TestDriver(args: [
+        "swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path",
+        rebase("Test.swiftmodule", at: root), "-experimental-emit-module-separately",
+      ])
       let plannedJobs = try await driver.planBuild().removingAutolinkExtractJobs()
       #expect(plannedJobs.count == 3)
       expectEqual(Set(plannedJobs.map { $0.kind }), Set([.emitModule, .compile]))
       #expect(plannedJobs[0].tool.name.contains("swift"))
       #expect(plannedJobs[0].outputs.count == (driver.targetTriple.isDarwin ? 4 : 3))
-      let module : VirtualPath = .absolute(try .init(validating: rebase("Test.swiftmodule", at: root)))
+      let module: VirtualPath = .absolute(try .init(validating: rebase("Test.swiftmodule", at: root)))
       #expect(plannedJobs[0].outputs[0].file == module)
-      try expectEqual(plannedJobs[0].outputs[1].file, .absolute(try .init(validating: rebase("Test.swiftdoc", at: root))))
-      try expectEqual(plannedJobs[0].outputs[2].file, .absolute(try .init(validating: rebase("Test.swiftsourceinfo", at: root))))
+      try expectEqual(
+        plannedJobs[0].outputs[1].file,
+        .absolute(try .init(validating: rebase("Test.swiftdoc", at: root)))
+      )
+      try expectEqual(
+        plannedJobs[0].outputs[2].file,
+        .absolute(try .init(validating: rebase("Test.swiftsourceinfo", at: root)))
+      )
       if driver.targetTriple.isDarwin {
-          try expectEqual(plannedJobs[0].outputs[3].file, .absolute(try .init(validating: rebase("Test.abi.json", at: root))))
+        try expectEqual(
+          plannedJobs[0].outputs[3].file,
+          .absolute(try .init(validating: rebase("Test.abi.json", at: root)))
+        )
       }
     }
 
     do {
       // Calls using the driver to link a library shouldn't trigger an emit-module job, like in LLDB tests.
-      var driver = try TestDriver(args: ["swiftc", "-emit-library", "foo.swiftmodule", "foo.o", "-emit-module-path", "foo.swiftmodule", "-experimental-emit-module-separately", "-target", "x86_64-apple-macosx10.15", "-module-name", "Test"],
-                              env: envVars)
+      var driver = try TestDriver(
+        args: [
+          "swiftc", "-emit-library", "foo.swiftmodule", "foo.o", "-emit-module-path", "foo.swiftmodule",
+          "-experimental-emit-module-separately", "-target", "x86_64-apple-macosx10.15", "-module-name", "Test",
+        ],
+        env: envVars
+      )
       let plannedJobs = try await driver.planBuild().removingAutolinkExtractJobs()
       #expect(plannedJobs.count == 1)
       expectEqual(Set(plannedJobs.map { $0.kind }), Set([.link]))
@@ -440,8 +564,13 @@ import TestUtilities
 
     do {
       // Use emit-module to build sil files.
-      var driver = try TestDriver(args: ["swiftc", "foo.sil", "bar.sil", "-module-name", "Test", "-emit-module-path", "/foo/bar/Test.swiftmodule", "-experimental-emit-module-separately", "-emit-library", "-target", "x86_64-apple-macosx10.15"],
-                              env: envVars)
+      var driver = try TestDriver(
+        args: [
+          "swiftc", "foo.sil", "bar.sil", "-module-name", "Test", "-emit-module-path", "/foo/bar/Test.swiftmodule",
+          "-experimental-emit-module-separately", "-emit-library", "-target", "x86_64-apple-macosx10.15",
+        ],
+        env: envVars
+      )
       let plannedJobs = try await driver.planBuild().removingAutolinkExtractJobs()
       #expect(plannedJobs.count == 4)
       expectEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .emitModule, .link]))
@@ -449,8 +578,12 @@ import TestUtilities
 
     do {
       // Schedule an emit-module separately job even if there are non-compilable inputs.
-      var driver = try TestDriver(args: ["swiftc", "foo.swift", "bar.dylib", "-emit-library", "foo.dylib", "-emit-module-path", "foo.swiftmodule"],
-                              env: envVars)
+      var driver = try TestDriver(
+        args: [
+          "swiftc", "foo.swift", "bar.dylib", "-emit-library", "foo.dylib", "-emit-module-path", "foo.swiftmodule",
+        ],
+        env: envVars
+      )
       let plannedJobs = try await driver.planBuild().removingAutolinkExtractJobs()
       #expect(plannedJobs.count == 3)
       expectEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .emitModule, .link]))
@@ -470,8 +603,14 @@ import TestUtilities
     let root = localFileSystem.currentWorkingDirectory!.appending(components: "foo", "bar")
 
     do {
-      var driver = try TestDriver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-emit-symbol-graph", "-emit-symbol-graph-dir", root.pathString, "-emit-library", "-target", "x86_64-apple-macosx10.15", "-wmo", "-emit-module-separately-wmo"],
-                               env: envVars)
+      var driver = try TestDriver(
+        args: [
+          "swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path",
+          rebase("Test.swiftmodule", at: root), "-emit-symbol-graph", "-emit-symbol-graph-dir", root.pathString,
+          "-emit-library", "-target", "x86_64-apple-macosx10.15", "-wmo", "-emit-module-separately-wmo",
+        ],
+        env: envVars
+      )
 
       let abiFileCount = (driver.isFeatureSupported(.emit_abi_descriptor) && driver.targetTriple.isDarwin) ? 1 : 0
       let plannedJobs = try await driver.planBuild()
@@ -483,17 +622,37 @@ import TestUtilities
       #expect(compileJob.tool.name.contains("swift"))
       expectJobInvocationMatches(compileJob, .flag("-parse-as-library"))
       expectEqual(compileJob.outputs.count, 1)
-      expectEqual(1, compileJob.outputs.filter({$0.type == .object}).count)
+      expectEqual(1, compileJob.outputs.filter({ $0.type == .object }).count)
 
       // The emit module job produces the module files.
       let emitModuleJob = try plannedJobs.findJob(.emitModule)
       #expect(emitModuleJob.tool.name.contains("swift"))
       expectEqual(emitModuleJob.outputs.count, 3 + abiFileCount)
-      try expectEqual(1, try emitModuleJob.outputs.filter({$0.file == .absolute(try .init(validating: rebase("Test.swiftmodule", at: root)))}).count)
-      try expectEqual(1, try emitModuleJob.outputs.filter({$0.file == .absolute(try .init(validating: rebase("Test.swiftdoc", at: root)))}).count)
-      try expectEqual(1, try emitModuleJob.outputs.filter({$0.file == .absolute(try .init(validating: rebase("Test.swiftsourceinfo", at: root)))}).count)
+      try expectEqual(
+        1,
+        try emitModuleJob.outputs.filter({
+          $0.file == .absolute(try .init(validating: rebase("Test.swiftmodule", at: root)))
+        }).count
+      )
+      try expectEqual(
+        1,
+        try emitModuleJob.outputs.filter({
+          $0.file == .absolute(try .init(validating: rebase("Test.swiftdoc", at: root)))
+        }).count
+      )
+      try expectEqual(
+        1,
+        try emitModuleJob.outputs.filter({
+          $0.file == .absolute(try .init(validating: rebase("Test.swiftsourceinfo", at: root)))
+        }).count
+      )
       if abiFileCount == 1 {
-          try expectEqual(abiFileCount, try emitModuleJob.outputs.filter({$0.file == .absolute(try .init(validating: rebase("Test.abi.json", at: root)))}).count)
+        try expectEqual(
+          abiFileCount,
+          try emitModuleJob.outputs.filter({
+            $0.file == .absolute(try .init(validating: rebase("Test.abi.json", at: root)))
+          }).count
+        )
       }
 
       // We don't know the output file of the symbol graph, just make sure the flag is passed along.
@@ -502,7 +661,10 @@ import TestUtilities
 
     do {
       // Ignore the `-emit-module-separately-wmo` flag when building only the module files to avoid duplicating outputs.
-      var driver = try TestDriver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-wmo", "-emit-module-separately-wmo"])
+      var driver = try TestDriver(args: [
+        "swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path",
+        rebase("Test.swiftmodule", at: root), "-wmo", "-emit-module-separately-wmo",
+      ])
       let abiFileCount = (driver.isFeatureSupported(.emit_abi_descriptor) && driver.targetTriple.isDarwin) ? 1 : 0
       let plannedJobs = try await driver.planBuild()
       #expect(plannedJobs.count == 1)
@@ -512,17 +674,41 @@ import TestUtilities
       let emitModuleJob = plannedJobs[0]
       #expect(emitModuleJob.tool.name.contains("swift"))
       expectEqual(emitModuleJob.outputs.count, 3 + abiFileCount)
-      try expectEqual(1, try emitModuleJob.outputs.filter({$0.file == .absolute(try .init(validating: rebase("Test.swiftmodule", at: root)))}).count)
-      try expectEqual(1, try emitModuleJob.outputs.filter({$0.file == .absolute(try .init(validating: rebase("Test.swiftdoc", at: root)))}).count)
-      try expectEqual(1, try emitModuleJob.outputs.filter({$0.file == .absolute(try .init(validating: rebase("Test.swiftsourceinfo", at: root)))}).count)
+      try expectEqual(
+        1,
+        try emitModuleJob.outputs.filter({
+          $0.file == .absolute(try .init(validating: rebase("Test.swiftmodule", at: root)))
+        }).count
+      )
+      try expectEqual(
+        1,
+        try emitModuleJob.outputs.filter({
+          $0.file == .absolute(try .init(validating: rebase("Test.swiftdoc", at: root)))
+        }).count
+      )
+      try expectEqual(
+        1,
+        try emitModuleJob.outputs.filter({
+          $0.file == .absolute(try .init(validating: rebase("Test.swiftsourceinfo", at: root)))
+        }).count
+      )
       if abiFileCount == 1 {
-          try expectEqual(abiFileCount, try emitModuleJob.outputs.filter({$0.file == .absolute(try .init(validating: rebase("Test.abi.json", at: root)))}).count)
+        try expectEqual(
+          abiFileCount,
+          try emitModuleJob.outputs.filter({
+            $0.file == .absolute(try .init(validating: rebase("Test.abi.json", at: root)))
+          }).count
+        )
       }
     }
 
     do {
       // Specifying -no-emit-module-separately-wmo doesn't schedule the separate emit-module job.
-      var driver = try TestDriver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-emit-library", "-wmo", "-emit-module-separately-wmo", "-no-emit-module-separately-wmo" ])
+      var driver = try TestDriver(args: [
+        "swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path",
+        rebase("Test.swiftmodule", at: root), "-emit-library", "-wmo", "-emit-module-separately-wmo",
+        "-no-emit-module-separately-wmo",
+      ])
       let abiFileCount = (driver.isFeatureSupported(.emit_abi_descriptor) && driver.targetTriple.isDarwin) ? 1 : 0
       let plannedJobs = try await driver.planBuild()
       #if os(Linux) || os(Android)
@@ -536,18 +722,40 @@ import TestUtilities
       // The compile job produces both the object file and the module files.
       let compileJob = try plannedJobs.findJob(.compile)
       expectEqual(compileJob.outputs.count, 4 + abiFileCount)
-      expectEqual(1, compileJob.outputs.filter({$0.type == .object}).count)
-      try expectEqual(1, try compileJob.outputs.filter({$0.file == .absolute(try .init(validating: rebase("Test.swiftmodule", at: root)))}).count)
-      try expectEqual(1, try compileJob.outputs.filter({$0.file == .absolute(try .init(validating: rebase("Test.swiftdoc", at: root)))}).count)
-      try expectEqual(1, try compileJob.outputs.filter({$0.file == .absolute(try .init(validating: rebase("Test.swiftsourceinfo", at: root)))}).count)
+      expectEqual(1, compileJob.outputs.filter({ $0.type == .object }).count)
+      try expectEqual(
+        1,
+        try compileJob.outputs.filter({
+          $0.file == .absolute(try .init(validating: rebase("Test.swiftmodule", at: root)))
+        }).count
+      )
+      try expectEqual(
+        1,
+        try compileJob.outputs.filter({ $0.file == .absolute(try .init(validating: rebase("Test.swiftdoc", at: root))) }
+        ).count
+      )
+      try expectEqual(
+        1,
+        try compileJob.outputs.filter({
+          $0.file == .absolute(try .init(validating: rebase("Test.swiftsourceinfo", at: root)))
+        }).count
+      )
       if abiFileCount == 1 {
-          try expectEqual(abiFileCount, try compileJob.outputs.filter({$0.file == .absolute(try .init(validating: rebase("Test.abi.json", at: root)))}).count)
+        try expectEqual(
+          abiFileCount,
+          try compileJob.outputs.filter({
+            $0.file == .absolute(try .init(validating: rebase("Test.abi.json", at: root)))
+          }).count
+        )
       }
     }
 
     do {
       // non library-evolution builds require a single job, because cross-module-optimization is enabled by default.
-      var driver = try TestDriver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-c", "-o", rebase("test.o", at: root), "-wmo", "-O" ])
+      var driver = try TestDriver(args: [
+        "swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path",
+        rebase("Test.swiftmodule", at: root), "-c", "-o", rebase("test.o", at: root), "-wmo", "-O",
+      ])
       let plannedJobs = try await driver.planBuild()
       #expect(plannedJobs.count == 1)
       expectJobInvocationMatches(plannedJobs[0], .flag("-enable-default-cmo"))
@@ -555,7 +763,11 @@ import TestUtilities
 
     do {
       // -cross-module-optimization should supersede -enable-default-cmo
-      var driver = try TestDriver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-c", "-o", rebase("test.o", at: root), "-wmo", "-O", "-cross-module-optimization"])
+      var driver = try TestDriver(args: [
+        "swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path",
+        rebase("Test.swiftmodule", at: root), "-c", "-o", rebase("test.o", at: root), "-wmo", "-O",
+        "-cross-module-optimization",
+      ])
       let plannedJobs = try await driver.planBuild()
       #expect(plannedJobs.count == 1)
       #expect(!plannedJobs[0].commandLine.contains(.flag("-enable-default-cmo")))
@@ -564,7 +776,11 @@ import TestUtilities
 
     do {
       // -enable-cmo-everything should supersede -enable-default-cmo
-      var driver = try TestDriver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-c", "-o", rebase("test.o", at: root), "-wmo", "-O", "-enable-cmo-everything"])
+      var driver = try TestDriver(args: [
+        "swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path",
+        rebase("Test.swiftmodule", at: root), "-c", "-o", rebase("test.o", at: root), "-wmo", "-O",
+        "-enable-cmo-everything",
+      ])
       let plannedJobs = try await driver.planBuild()
       #expect(plannedJobs.count == 1)
       #expect(!plannedJobs[0].commandLine.contains(.flag("-enable-default-cmo")))
@@ -573,7 +789,11 @@ import TestUtilities
 
     do {
       // library-evolution builds can emit the module in a separate job.
-      var driver = try TestDriver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-c", "-o", rebase("test.o", at: root), "-wmo", "-O", "-enable-library-evolution" ])
+      var driver = try TestDriver(args: [
+        "swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path",
+        rebase("Test.swiftmodule", at: root), "-c", "-o", rebase("test.o", at: root), "-wmo", "-O",
+        "-enable-library-evolution",
+      ])
       let plannedJobs = try await driver.planBuild()
       #expect(plannedJobs.count == 2)
       #expect(!plannedJobs[0].commandLine.contains(.flag("-enable-default-cmo")))
@@ -582,7 +802,10 @@ import TestUtilities
 
     do {
       // When disabling cross-module-optimization, the module can be emitted in a separate job.
-      var driver = try TestDriver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-c", "-o", rebase("test.o", at: root), "-wmo", "-O", "-disable-cmo" ])
+      var driver = try TestDriver(args: [
+        "swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path",
+        rebase("Test.swiftmodule", at: root), "-c", "-o", rebase("test.o", at: root), "-wmo", "-O", "-disable-cmo",
+      ])
       let plannedJobs = try await driver.planBuild()
       #expect(plannedJobs.count == 2)
       #expect(!plannedJobs[0].commandLine.contains(.flag("-enable-default-cmo")))
@@ -591,7 +814,10 @@ import TestUtilities
 
     do {
       // non optimized builds can emit the module in a separate job.
-      var driver = try TestDriver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-c", "-o", rebase("test.o", at: root), "-wmo" ])
+      var driver = try TestDriver(args: [
+        "swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path",
+        rebase("Test.swiftmodule", at: root), "-c", "-o", rebase("test.o", at: root), "-wmo",
+      ])
       let plannedJobs = try await driver.planBuild()
       #expect(plannedJobs.count == 2)
       #expect(!plannedJobs[0].commandLine.contains(.flag("-enable-default-cmo")))
@@ -600,8 +826,13 @@ import TestUtilities
 
     do {
       // Don't use emit-module-separately as a linker.
-      var driver = try TestDriver(args: ["swiftc", "foo.sil", "bar.sil", "-module-name", "Test", "-emit-module-path", "/foo/bar/Test.swiftmodule", "-emit-library", "-target", "x86_64-apple-macosx10.15", "-wmo", "-emit-module-separately-wmo"],
-                               env: envVars)
+      var driver = try TestDriver(
+        args: [
+          "swiftc", "foo.sil", "bar.sil", "-module-name", "Test", "-emit-module-path", "/foo/bar/Test.swiftmodule",
+          "-emit-library", "-target", "x86_64-apple-macosx10.15", "-wmo", "-emit-module-separately-wmo",
+        ],
+        env: envVars
+      )
       let plannedJobs = try await driver.planBuild()
       #expect(plannedJobs.count == 3)
       expectEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .emitModule, .link]))
@@ -676,11 +907,34 @@ import TestUtilities
   }
 
   @Test func multiThreadingOutputs() async throws {
-    try await assertDriverDiagnostics(args: "swiftc", "-c", "foo.swift", "bar.swift", "-o", "bar.ll", "-o", "foo.ll", "-num-threads", "2", "-whole-module-optimization") {
+    try await assertDriverDiagnostics(
+      args: "swiftc",
+      "-c",
+      "foo.swift",
+      "bar.swift",
+      "-o",
+      "bar.ll",
+      "-o",
+      "foo.ll",
+      "-num-threads",
+      "2",
+      "-whole-module-optimization"
+    ) {
       $1.expect(.error("cannot specify -o when generating multiple output files"))
     }
 
-    try await assertDriverDiagnostics(args: "swiftc", "-c", "foo.swift", "bar.swift", "-o", "bar.ll", "-o", "foo.ll", "-num-threads", "0") {
+    try await assertDriverDiagnostics(
+      args: "swiftc",
+      "-c",
+      "foo.swift",
+      "bar.swift",
+      "-o",
+      "bar.ll",
+      "-o",
+      "foo.ll",
+      "-num-threads",
+      "0"
+    ) {
       $1.expect(.error("cannot specify -o when generating multiple output files"))
     }
   }
@@ -695,7 +949,8 @@ import TestUtilities
   }
 
   func checkPCHGeneration(internalBridgingHeader: Bool) async throws {
-    let importHeaderFlag = internalBridgingHeader
+    let importHeaderFlag =
+      internalBridgingHeader
       ? "-internal-import-bridging-header"
       : "-import-objc-header"
 
@@ -724,7 +979,9 @@ import TestUtilities
     }
 
     do {
-      var driver = try TestDriver(args: ["swiftc", "-typecheck", "-disable-bridging-pch", importHeaderFlag, "TestInputHeader.h", "foo.swift"])
+      var driver = try TestDriver(args: [
+        "swiftc", "-typecheck", "-disable-bridging-pch", importHeaderFlag, "TestInputHeader.h", "foo.swift",
+      ])
       let plannedJobs = try await driver.planBuild()
       #expect(plannedJobs.count == 1)
 
@@ -735,7 +992,9 @@ import TestUtilities
     }
 
     do {
-      var driver = try TestDriver(args: ["swiftc", "-typecheck", "-index-store-path", "idx", importHeaderFlag, "TestInputHeader.h", "foo.swift"])
+      var driver = try TestDriver(args: [
+        "swiftc", "-typecheck", "-index-store-path", "idx", importHeaderFlag, "TestInputHeader.h", "foo.swift",
+      ])
       let plannedJobs = try await driver.planBuild()
       #expect(plannedJobs.count == 2)
 
@@ -759,7 +1018,9 @@ import TestUtilities
     }
 
     do {
-      var driver = try TestDriver(args: ["swiftc", "-typecheck", importHeaderFlag, "TestInputHeader.h", "-pch-output-dir", "/pch", "foo.swift"])
+      var driver = try TestDriver(args: [
+        "swiftc", "-typecheck", importHeaderFlag, "TestInputHeader.h", "-pch-output-dir", "/pch", "foo.swift",
+      ])
       let plannedJobs = try await driver.planBuild()
       #expect(plannedJobs.count == 2)
 
@@ -768,7 +1029,10 @@ import TestUtilities
       try expectEqual(plannedJobs[0].inputs[0].file, try toPath("TestInputHeader.h"))
       expectEqual(plannedJobs[0].inputs[0].type, .objcHeader)
       #expect(plannedJobs[0].outputs.count == 1)
-      try expectEqual(plannedJobs[0].outputs[0].file.nativePathString(escaped: false), try VirtualPath(path: "/pch/TestInputHeader.pch").nativePathString(escaped: false))
+      try expectEqual(
+        plannedJobs[0].outputs[0].file.nativePathString(escaped: false),
+        try VirtualPath(path: "/pch/TestInputHeader.pch").nativePathString(escaped: false)
+      )
       expectEqual(plannedJobs[0].outputs[0].type, .pch)
       #expect(plannedJobs[0].commandLine.contains(.flag("-frontend")))
       #expect(plannedJobs[0].commandLine.contains(.flag("-emit-pch")))
@@ -782,7 +1046,10 @@ import TestUtilities
     }
 
     do {
-      var driver = try TestDriver(args: ["swiftc", "-typecheck", "-disable-bridging-pch", importHeaderFlag, "TestInputHeader.h", "-pch-output-dir", "/pch", "foo.swift"])
+      var driver = try TestDriver(args: [
+        "swiftc", "-typecheck", "-disable-bridging-pch", importHeaderFlag, "TestInputHeader.h", "-pch-output-dir",
+        "/pch", "foo.swift",
+      ])
       let plannedJobs = try await driver.planBuild()
       #expect(plannedJobs.count == 1)
 
@@ -794,7 +1061,10 @@ import TestUtilities
     }
 
     do {
-      var driver = try TestDriver(args: ["swiftc", "-typecheck", "-disable-bridging-pch", importHeaderFlag, "TestInputHeader.h", "-pch-output-dir", "/pch", "-whole-module-optimization", "foo.swift"])
+      var driver = try TestDriver(args: [
+        "swiftc", "-typecheck", "-disable-bridging-pch", importHeaderFlag, "TestInputHeader.h", "-pch-output-dir",
+        "/pch", "-whole-module-optimization", "foo.swift",
+      ])
       let plannedJobs = try await driver.planBuild()
       #expect(plannedJobs.count == 1)
 
@@ -806,7 +1076,10 @@ import TestUtilities
     }
 
     do {
-      var driver = try TestDriver(args: ["swiftc", "-typecheck", importHeaderFlag, "TestInputHeader.h", "-pch-output-dir", "/pch", "-serialize-diagnostics", "foo.swift"])
+      var driver = try TestDriver(args: [
+        "swiftc", "-typecheck", importHeaderFlag, "TestInputHeader.h", "-pch-output-dir", "/pch",
+        "-serialize-diagnostics", "foo.swift",
+      ])
       let plannedJobs = try await driver.planBuild()
       #expect(plannedJobs.count == 2)
 
@@ -817,7 +1090,10 @@ import TestUtilities
       #expect(plannedJobs[0].outputs.count == 2)
       #expect(matchTemporary(plannedJobs[0].outputs[0].file, "TestInputHeader.dia"))
       expectEqual(plannedJobs[0].outputs[0].type, .diagnostics)
-      try expectEqual(plannedJobs[0].outputs[1].file.nativePathString(escaped: false), try VirtualPath(path: "/pch/TestInputHeader.pch").nativePathString(escaped: false))
+      try expectEqual(
+        plannedJobs[0].outputs[1].file.nativePathString(escaped: false),
+        try VirtualPath(path: "/pch/TestInputHeader.pch").nativePathString(escaped: false)
+      )
       expectEqual(plannedJobs[0].outputs[1].type, .pch)
       #expect(plannedJobs[0].commandLine.contains(.flag("-serialize-diagnostics-path")))
       #expect(commandContainsTemporaryPath(plannedJobs[0].commandLine, "TestInputHeader.dia"))
@@ -833,7 +1109,10 @@ import TestUtilities
     }
 
     do {
-      var driver = try TestDriver(args: ["swiftc", "-typecheck", importHeaderFlag, "TestInputHeader.h", "-pch-output-dir", "/pch", "-serialize-diagnostics", "foo.swift", "-emit-module", "-emit-module-path", "/module-path-dir"])
+      var driver = try TestDriver(args: [
+        "swiftc", "-typecheck", importHeaderFlag, "TestInputHeader.h", "-pch-output-dir", "/pch",
+        "-serialize-diagnostics", "foo.swift", "-emit-module", "-emit-module-path", "/module-path-dir",
+      ])
       let plannedJobs = try await driver.planBuild()
       #expect(plannedJobs.count == 3)
 
@@ -842,15 +1121,25 @@ import TestUtilities
       try expectEqual(plannedJobs[0].inputs[0].file, try toPath("TestInputHeader.h"))
       expectEqual(plannedJobs[0].inputs[0].type, .objcHeader)
       #expect(plannedJobs[0].outputs.count == 2)
-      #expect(plannedJobs[0].outputs[0].file.name.range(of: #"[\\/]pch[\\/]TestInputHeader-.*.dia"#, options: .regularExpression) != nil)
+      #expect(
+        plannedJobs[0].outputs[0].file.name.range(
+          of: #"[\\/]pch[\\/]TestInputHeader-.*.dia"#,
+          options: .regularExpression
+        ) != nil
+      )
       expectEqual(plannedJobs[0].outputs[0].type, .diagnostics)
-      try expectEqual(plannedJobs[0].outputs[1].file.nativePathString(escaped: false), try VirtualPath(path: "/pch/TestInputHeader.pch").nativePathString(escaped: false))
+      try expectEqual(
+        plannedJobs[0].outputs[1].file.nativePathString(escaped: false),
+        try VirtualPath(path: "/pch/TestInputHeader.pch").nativePathString(escaped: false)
+      )
       expectEqual(plannedJobs[0].outputs[1].type, .pch)
       #expect(plannedJobs[0].commandLine.contains(.flag("-serialize-diagnostics-path")))
-      #expect(plannedJobs[0].commandLine.contains {
-        guard case .path(let path) = $0 else { return false }
-        return path.name.range(of: #"[\\/]pch[\\/]TestInputHeader-.*.dia"#, options: .regularExpression) != nil
-      })
+      #expect(
+        plannedJobs[0].commandLine.contains {
+          guard case .path(let path) = $0 else { return false }
+          return path.name.range(of: #"[\\/]pch[\\/]TestInputHeader-.*.dia"#, options: .regularExpression) != nil
+        }
+      )
       #expect(plannedJobs[0].commandLine.contains(.flag("-frontend")))
       #expect(plannedJobs[0].commandLine.contains(.flag("-emit-pch")))
       #expect(plannedJobs[0].commandLine.contains(.flag("-pch-output-dir")))
@@ -865,7 +1154,10 @@ import TestUtilities
     }
 
     do {
-      var driver = try TestDriver(args: ["swiftc", "-typecheck", importHeaderFlag, "TestInputHeader.h", "-pch-output-dir", "/pch", "-whole-module-optimization", "foo.swift"])
+      var driver = try TestDriver(args: [
+        "swiftc", "-typecheck", importHeaderFlag, "TestInputHeader.h", "-pch-output-dir", "/pch",
+        "-whole-module-optimization", "foo.swift",
+      ])
       let plannedJobs = try await driver.planBuild()
       #expect(plannedJobs.count == 2)
 
@@ -874,7 +1166,10 @@ import TestUtilities
       try expectEqual(plannedJobs[0].inputs[0].file, try toPath("TestInputHeader.h"))
       expectEqual(plannedJobs[0].inputs[0].type, .objcHeader)
       #expect(plannedJobs[0].outputs.count == 1)
-      try expectEqual(plannedJobs[0].outputs[0].file.nativePathString(escaped: false), try VirtualPath(path: "/pch/TestInputHeader.pch").nativePathString(escaped: false))
+      try expectEqual(
+        plannedJobs[0].outputs[0].file.nativePathString(escaped: false),
+        try VirtualPath(path: "/pch/TestInputHeader.pch").nativePathString(escaped: false)
+      )
       expectEqual(plannedJobs[0].outputs[0].type, .pch)
       #expect(plannedJobs[0].commandLine.contains(.flag("-frontend")))
       #expect(plannedJobs[0].commandLine.contains(.flag("-emit-pch")))
@@ -888,7 +1183,9 @@ import TestUtilities
     }
 
     do {
-      var driver = try TestDriver(args: ["swiftc", "-typecheck", "-O", importHeaderFlag, "TestInputHeader.h", "foo.swift"])
+      var driver = try TestDriver(args: [
+        "swiftc", "-typecheck", "-O", importHeaderFlag, "TestInputHeader.h", "foo.swift",
+      ])
       let plannedJobs = try await driver.planBuild()
       #expect(plannedJobs.count == 2)
 
@@ -922,16 +1219,16 @@ import TestUtilities
   }
 
   @Test func pcmGeneration() async throws {
-     do {
-       var driver = try TestDriver(args: ["swiftc", "-emit-pcm", "module.modulemap", "-module-name", "Test"])
-       let plannedJobs = try await driver.planBuild()
-       #expect(plannedJobs.count == 1)
+    do {
+      var driver = try TestDriver(args: ["swiftc", "-emit-pcm", "module.modulemap", "-module-name", "Test"])
+      let plannedJobs = try await driver.planBuild()
+      #expect(plannedJobs.count == 1)
 
-       #expect(plannedJobs[0].kind == .generatePCM)
-       expectEqual(plannedJobs[0].inputs.count, 1)
-       try expectEqual(plannedJobs[0].inputs[0].file, try toPath("module.modulemap"))
-       #expect(plannedJobs[0].outputs.count == 1)
-       #expect(plannedJobs[0].outputs[0].file == .relative(try RelativePath(validating: "Test.pcm")))
+      #expect(plannedJobs[0].kind == .generatePCM)
+      expectEqual(plannedJobs[0].inputs.count, 1)
+      try expectEqual(plannedJobs[0].inputs[0].file, try toPath("module.modulemap"))
+      #expect(plannedJobs[0].outputs.count == 1)
+      #expect(plannedJobs[0].outputs[0].file == .relative(try RelativePath(validating: "Test.pcm")))
     }
   }
 
@@ -950,47 +1247,81 @@ import TestUtilities
 
   @Test func indexFilePathHandling() async throws {
     do {
-      var driver = try TestDriver(args: ["swiftc", "-index-file", "-index-file-path",
-                                     "bar.swift", "foo.swift", "bar.swift", "baz.swift",
-                                     "-module-name", "Test"])
+      var driver = try TestDriver(args: [
+        "swiftc", "-index-file", "-index-file-path",
+        "bar.swift", "foo.swift", "bar.swift", "baz.swift",
+        "-module-name", "Test",
+      ])
       let plannedJobs = try await driver.planBuild()
       #expect(plannedJobs.count == 1)
       #expect(plannedJobs[0].kind == .compile)
-      try expectJobInvocationMatches(plannedJobs[0], toPathOption("foo.swift"), .flag("-primary-file"), toPathOption("bar.swift"), toPathOption("baz.swift"))
+      try expectJobInvocationMatches(
+        plannedJobs[0],
+        toPathOption("foo.swift"),
+        .flag("-primary-file"),
+        toPathOption("bar.swift"),
+        toPathOption("baz.swift")
+      )
     }
   }
 
   @Test func indexMultipleFilesInSingleCommandLineInvocation() async throws {
     try await withTemporaryDirectory { dir in
       let outputFileMap = dir.appending(component: "output-filelist")
-      let outputMapContents = ByteString("""
-      {
-        "first.swift": {
-          "index-unit-output-path": "first.o"
-        },
-        "second.swift": {
-          "index-unit-output-path": "second.o"
+      let outputMapContents = ByteString(
+        """
+        {
+          "first.swift": {
+            "index-unit-output-path": "first.o"
+          },
+          "second.swift": {
+            "index-unit-output-path": "second.o"
+          }
         }
-      }
-      """.utf8)
+        """.utf8
+      )
       try localFileSystem.writeFileContents(outputFileMap, bytes: outputMapContents)
-      try await assertNoDriverDiagnostics(args:
-        "swiftc", "-index-file",
-        "first.swift", "second.swift", "third.swift",
-        "-index-file-path", "first.swift",
-        "-index-file-path", "second.swift",
-        "-index-store-path", "/tmp/idx",
-        "-output-file-map", outputFileMap.pathString
+      try await assertNoDriverDiagnostics(
+        args:
+          "swiftc",
+        "-index-file",
+        "first.swift",
+        "second.swift",
+        "third.swift",
+        "-index-file-path",
+        "first.swift",
+        "-index-file-path",
+        "second.swift",
+        "-index-store-path",
+        "/tmp/idx",
+        "-output-file-map",
+        outputFileMap.pathString
       ) { driver in
-          let jobs = try await driver.planBuild()
-          #expect(jobs.count == 1)
-          let commandLine = jobs[0].commandLine
-          expectJobInvocationMatches(jobs[0], .flag("-index-unit-output-path"), .path(.relative(try RelativePath(validating: "first.o"))))
-          expectJobInvocationMatches(jobs[0], .flag("-index-unit-output-path"), .path(.relative(try RelativePath(validating: "second.o"))))
-          expectEqual(commandLine.filter { $0 == .flag("-index-unit-output-path") }.count, 2)
-          expectJobInvocationMatches(jobs[0], .flag("-primary-file"), .path(.relative(try RelativePath(validating: "first.swift"))))
-          expectJobInvocationMatches(jobs[0], .flag("-primary-file"), .path(.relative(try RelativePath(validating: "second.swift"))))
-          expectEqual(commandLine.filter { $0 == .flag("-primary-file") }.count, 2)
+        let jobs = try await driver.planBuild()
+        #expect(jobs.count == 1)
+        let commandLine = jobs[0].commandLine
+        expectJobInvocationMatches(
+          jobs[0],
+          .flag("-index-unit-output-path"),
+          .path(.relative(try RelativePath(validating: "first.o")))
+        )
+        expectJobInvocationMatches(
+          jobs[0],
+          .flag("-index-unit-output-path"),
+          .path(.relative(try RelativePath(validating: "second.o")))
+        )
+        expectEqual(commandLine.filter { $0 == .flag("-index-unit-output-path") }.count, 2)
+        expectJobInvocationMatches(
+          jobs[0],
+          .flag("-primary-file"),
+          .path(.relative(try RelativePath(validating: "first.swift")))
+        )
+        expectJobInvocationMatches(
+          jobs[0],
+          .flag("-primary-file"),
+          .path(.relative(try RelativePath(validating: "second.swift")))
+        )
+        expectEqual(commandLine.filter { $0 == .flag("-primary-file") }.count, 2)
       }
     }
   }
@@ -1001,7 +1332,7 @@ import TestUtilities
       "swiftc", "foo1.swift", "foo2.swift", "foo3.swift", "foo4.swift", "foo5.swift",
       "-index-file", "-index-file-path", "foo5.swift", "-o", "/tmp/t.o",
       "-index-store-path", "/tmp/idx",
-      "-working-directory", workingDirectory.nativePathString(escaped: false)
+      "-working-directory", workingDirectory.nativePathString(escaped: false),
     ])
     let plannedJobs = try await driver1.planBuild().removingAutolinkExtractJobs()
     #expect(plannedJobs.count == 1)
@@ -1009,7 +1340,9 @@ import TestUtilities
     // This is to match the legacy driver behavior
     // Make sure the supplementary output map has an entry for the Swift file
     // under indexing and its indexData entry is the primary output file
-    let entry = try #require(map.entries[VirtualPath.absolute(workingDirectory.appending(component: "foo5.swift")).intern()])
+    let entry = try #require(
+      map.entries[VirtualPath.absolute(workingDirectory.appending(component: "foo5.swift")).intern()]
+    )
     expectEqual(VirtualPath.lookup(entry[.indexData]!), .absolute(workingDirectory.appending(component: "t.o")))
   }
 
@@ -1017,8 +1350,13 @@ import TestUtilities
     var envVars = ProcessEnv.block
     envVars["SWIFT_DRIVER_LD_EXEC"] = try ld.nativePathString(escaped: false)
 
-    var driver = try TestDriver(args: ["swiftc", "-target", "x86_64-apple-macosx10.14", "-enable-bridging-pch", "-import-objc-header", "TestInputHeader.h", "foo.swift"],
-                            env: envVars)
+    var driver = try TestDriver(
+      args: [
+        "swiftc", "-target", "x86_64-apple-macosx10.14", "-enable-bridging-pch", "-import-objc-header",
+        "TestInputHeader.h", "foo.swift",
+      ],
+      env: envVars
+    )
     let plannedJobs = try await driver.planBuild()
     #expect(plannedJobs.count == 3)
     #expect(plannedJobs[0].kind == .generatePCH)
@@ -1031,8 +1369,13 @@ import TestUtilities
     var envVars = ProcessEnv.block
     envVars["SWIFT_DRIVER_LD_EXEC"] = try ld.nativePathString(escaped: false)
 
-    var driver = try TestDriver(args: ["swiftc", "-target", "x86_64-apple-macosx10.14", "-enable-bridging-pch", "-internal-import-bridging-header", "TestInputHeader.h", "foo.swift"],
-                            env: envVars)
+    var driver = try TestDriver(
+      args: [
+        "swiftc", "-target", "x86_64-apple-macosx10.14", "-enable-bridging-pch", "-internal-import-bridging-header",
+        "TestInputHeader.h", "foo.swift",
+      ],
+      env: envVars
+    )
     let plannedJobs = try await driver.planBuild()
     #expect(plannedJobs.count == 3)
     #expect(plannedJobs[0].kind == .generatePCH)
@@ -1060,7 +1403,10 @@ import TestUtilities
     env["SWIFT_DRIVER_SWIFT_AUTOLINK_EXTRACT_EXEC"] = "/garbage/swift-autolink-extract"
 
     do {
-      var driver = try TestDriver(args: ["swiftc", "-target", "arm64-apple-macosx10.13",  "test.swift", "-enable-experimental-feature", "Embedded", "-parse-as-library", "-wmo", "-o", "a.out", "-module-name", "main"])
+      var driver = try TestDriver(args: [
+        "swiftc", "-target", "arm64-apple-macosx10.13", "test.swift", "-enable-experimental-feature", "Embedded",
+        "-parse-as-library", "-wmo", "-o", "a.out", "-module-name", "main",
+      ])
       let plannedJobs = try await driver.planBuild()
       #expect(plannedJobs.count == 2)
       let compileJob = plannedJobs[0]
@@ -1070,47 +1416,53 @@ import TestUtilities
     }
 
     do {
-      var driver = try TestDriver(args: [
-        "swiftc",
-        "-L",
-        "/TestApp/.build/aarch64-none-none-elf/release",
-        "-o",
-        "/TestApp/.build/aarch64-none-none-elf/release/TestApp",
-        "-module-name",
-        "TestApp",
-        "-emit-executable",
-        "-Xlinker",
-        "--gc-sections",
-        "@/TestApp/.build/aarch64-none-none-elf/release/TestApp.product/Objects.LinkFileList",
-        "-target",
-        "aarch64-none-none-elf",
-        "-enable-experimental-feature", "Embedded",
-        "-Xfrontend",
-        "-function-sections",
-        "-Xfrontend",
-        "-disable-stack-protector",
-        "-use-ld=lld",
-        "-tools-directory",
-        "/Tools/swift.xctoolchain/usr/bin",
-      ], env: env)
+      var driver = try TestDriver(
+        args: [
+          "swiftc",
+          "-L",
+          "/TestApp/.build/aarch64-none-none-elf/release",
+          "-o",
+          "/TestApp/.build/aarch64-none-none-elf/release/TestApp",
+          "-module-name",
+          "TestApp",
+          "-emit-executable",
+          "-Xlinker",
+          "--gc-sections",
+          "@/TestApp/.build/aarch64-none-none-elf/release/TestApp.product/Objects.LinkFileList",
+          "-target",
+          "aarch64-none-none-elf",
+          "-enable-experimental-feature", "Embedded",
+          "-Xfrontend",
+          "-function-sections",
+          "-Xfrontend",
+          "-disable-stack-protector",
+          "-use-ld=lld",
+          "-tools-directory",
+          "/Tools/swift.xctoolchain/usr/bin",
+        ],
+        env: env
+      )
 
       let jobs = try await driver.planBuild()
       let linkJob = try jobs.findJob(.link)
       let invalidPath = try VirtualPath(path: "/Tools/swift.xctoolchain/usr/lib/swift")
       let invalid = linkJob.commandLine.contains(.responseFilePath(invalidPath))
-      #expect(!invalid) // ensure the driver does not emit invalid responseFilePaths to the clang invocation
+      #expect(!invalid)  // ensure the driver does not emit invalid responseFilePaths to the clang invocation
       #expect(!linkJob.commandLine.joinedUnresolvedArguments.contains("swiftrt.o"))
     }
 
     // Printing target info needs to pass through the experimental flag.
     do {
-      var driver = try TestDriver(args: [
-        "swiftc",
-        "-target",
-        "aarch64-none-none-elf",
-        "-enable-experimental-feature", "Embedded",
-        "-print-target-info"
-      ], env: env)
+      var driver = try TestDriver(
+        args: [
+          "swiftc",
+          "-target",
+          "aarch64-none-none-elf",
+          "-enable-experimental-feature", "Embedded",
+          "-print-target-info",
+        ],
+        env: env
+      )
 
       let jobs = try await driver.planBuild()
       let targetInfoJob = try jobs.findJob(.printTargetInfo)
@@ -1119,7 +1471,13 @@ import TestUtilities
 
     // Embedded Wasm compile job
     do {
-      var driver = try TestDriver(args: ["swiftc", "-target", "wasm32-none-none-wasm", "test.swift", "-enable-experimental-feature", "Embedded", "-wmo", "-o", "a.wasm"], env: env)
+      var driver = try TestDriver(
+        args: [
+          "swiftc", "-target", "wasm32-none-none-wasm", "test.swift", "-enable-experimental-feature", "Embedded",
+          "-wmo", "-o", "a.wasm",
+        ],
+        env: env
+      )
       let plannedJobs = try await driver.planBuild()
       #expect(plannedJobs.count == 2)
       let compileJob = plannedJobs[0]
@@ -1132,7 +1490,13 @@ import TestUtilities
 
     // Embedded Wasm link job
     do {
-      var driver = try TestDriver(args: ["swiftc", "-target", "wasm32-none-none-wasm", "test.o", "-enable-experimental-feature", "Embedded", "-wmo", "-o", "a.wasm"], env: env)
+      var driver = try TestDriver(
+        args: [
+          "swiftc", "-target", "wasm32-none-none-wasm", "test.o", "-enable-experimental-feature", "Embedded", "-wmo",
+          "-o", "a.wasm",
+        ],
+        env: env
+      )
       let plannedJobs = try await driver.planBuild()
       #expect(plannedJobs.count == 1)
       let linkJob = plannedJobs[0]
@@ -1150,7 +1514,7 @@ import TestUtilities
             "swiftc", "-target", "wasm32-unknown-\(tripleEnv)",
             "-resource-dir", "/usr/lib/swift",
             "-enable-experimental-feature", "Embedded", "-wmo",
-            "test.o", "-o",  "a.wasm"
+            "test.o", "-o", "a.wasm",
           ],
           env: env
         )
@@ -1161,52 +1525,88 @@ import TestUtilities
         #expect(!linkJob.commandLine.contains(.flag("-rpath")))
         #expect(!linkJob.commandLine.contains(.flag("-lswiftCore")))
         #expect(!linkJob.commandLine.joinedUnresolvedArguments.contains("swiftrt.o"))
-        #expect(linkJob.commandLine.contains(
-          .joinedOptionAndPath("-L", try .init(path: "/usr/lib/swift/embedded/wasm32-unknown-\(tripleEnv)"))
-        ))
+        #expect(
+          linkJob.commandLine.contains(
+            .joinedOptionAndPath("-L", try .init(path: "/usr/lib/swift/embedded/wasm32-unknown-\(tripleEnv)"))
+          )
+        )
       }
     }
 
     // 32-bit iOS jobs under Embedded should be allowed regardless of OS version
     do {
-      let _ = try TestDriver(args: ["swiftc", "-c", "-target", "armv7-apple-ios8", "-enable-experimental-feature", "Embedded", "foo.swift"])
-      let _ = try TestDriver(args: ["swiftc", "-c", "-target", "armv7-apple-ios12.1", "-enable-experimental-feature", "Embedded", "foo.swift"])
-      let _ = try TestDriver(args: ["swiftc", "-c", "-target", "armv7-apple-ios16", "-enable-experimental-feature", "Embedded", "foo.swift"])
+      let _ = try TestDriver(args: [
+        "swiftc", "-c", "-target", "armv7-apple-ios8", "-enable-experimental-feature", "Embedded", "foo.swift",
+      ])
+      let _ = try TestDriver(args: [
+        "swiftc", "-c", "-target", "armv7-apple-ios12.1", "-enable-experimental-feature", "Embedded", "foo.swift",
+      ])
+      let _ = try TestDriver(args: [
+        "swiftc", "-c", "-target", "armv7-apple-ios16", "-enable-experimental-feature", "Embedded", "foo.swift",
+      ])
     }
 
     do {
       let diags = DiagnosticsEngine()
-      var driver = try TestDriver(args: ["swiftc", "-target", "arm64-apple-macosx10.13",  "test.swift", "-enable-experimental-feature", "Embedded", "-parse-as-library", "-wmo", "-o", "a.out", "-module-name", "main", "-enable-library-evolution"], diagnosticsEngine: diags)
+      var driver = try TestDriver(
+        args: [
+          "swiftc", "-target", "arm64-apple-macosx10.13", "test.swift", "-enable-experimental-feature", "Embedded",
+          "-parse-as-library", "-wmo", "-o", "a.out", "-module-name", "main", "-enable-library-evolution",
+        ],
+        diagnosticsEngine: diags
+      )
       _ = try await driver.planBuild()
       expectEqual(diags.diagnostics.first!.message.text, Diagnostic.Message.error_no_library_evolution_embedded.text)
-    } catch _ { }
+    } catch _ {}
     do {
       let diags = DiagnosticsEngine()
-      var driver = try TestDriver(args: ["swiftc", "-target", "arm64-apple-macosx10.13",  "test.swift", "-enable-experimental-feature", "Embedded", "-parse-as-library", "-o", "a.out", "-module-name", "main"], diagnosticsEngine: diags)
+      var driver = try TestDriver(
+        args: [
+          "swiftc", "-target", "arm64-apple-macosx10.13", "test.swift", "-enable-experimental-feature", "Embedded",
+          "-parse-as-library", "-o", "a.out", "-module-name", "main",
+        ],
+        diagnosticsEngine: diags
+      )
       _ = try await driver.planBuild()
       expectEqual(diags.diagnostics.first!.message.text, Diagnostic.Message.error_need_wmo_embedded.text)
-    } catch _ { }
+    } catch _ {}
     do {
       var environment = ProcessEnv.block
       environment["SDKROOT"] = nil
 
       // Indexing embedded Swift code should not require WMO
       let diags = DiagnosticsEngine()
-      var driver = try TestDriver(args: ["swiftc", "-target", "arm64-apple-macosx10.13",  "test.swift", "-index-file", "-index-file-path", "test.swift", "-enable-experimental-feature", "Embedded", "-parse-as-library", "-o", "a.out", "-module-name", "main"], env: env, diagnosticsEngine: diags)
+      var driver = try TestDriver(
+        args: [
+          "swiftc", "-target", "arm64-apple-macosx10.13", "test.swift", "-index-file", "-index-file-path", "test.swift",
+          "-enable-experimental-feature", "Embedded", "-parse-as-library", "-o", "a.out", "-module-name", "main",
+        ],
+        env: env,
+        diagnosticsEngine: diags
+      )
       _ = try await driver.planBuild()
       expectEqual(diags.diagnostics.count, 0)
     }
     do {
       let diags = DiagnosticsEngine()
-      var driver = try TestDriver(args: ["swiftc", "-target", "arm64-apple-macosx10.13",  "test.swift", "-enable-experimental-feature", "Embedded", "-parse-as-library", "-wmo", "-o", "a.out", "-module-name", "main", "-enable-objc-interop"], diagnosticsEngine: diags)
+      var driver = try TestDriver(
+        args: [
+          "swiftc", "-target", "arm64-apple-macosx10.13", "test.swift", "-enable-experimental-feature", "Embedded",
+          "-parse-as-library", "-wmo", "-o", "a.out", "-module-name", "main", "-enable-objc-interop",
+        ],
+        diagnosticsEngine: diags
+      )
       _ = try await driver.planBuild()
       expectEqual(diags.diagnostics.first!.message.text, Diagnostic.Message.error_no_objc_interop_embedded.text)
-    } catch _ { }
+    } catch _ {}
   }
 
   @Test func dashDashPassingDownInput() async throws {
     do {
-      var driver = try TestDriver(args: ["swiftc", "-module-name=ThisModule", "-wmo", "-num-threads", "4", "-emit-module", "-o", "test.swiftmodule", "--", "main.swift", "multi-threaded.swift"])
+      var driver = try TestDriver(args: [
+        "swiftc", "-module-name=ThisModule", "-wmo", "-num-threads", "4", "-emit-module", "-o", "test.swiftmodule",
+        "--", "main.swift", "multi-threaded.swift",
+      ])
       let plannedJobs = try await driver.planBuild().removingAutolinkExtractJobs()
       #expect(!driver.diagnosticEngine.hasErrors)
       #expect(plannedJobs.count == 1)
@@ -1232,7 +1632,10 @@ import TestUtilities
   }
 
   @Test func emitModuleEmittingDependencies() async throws {
-    var driver1 = try TestDriver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Foo", "-emit-dependencies", "-emit-module", "-serialize-diagnostics", "-driver-filelist-threshold=9999", "-experimental-emit-module-separately"])
+    var driver1 = try TestDriver(args: [
+      "swiftc", "foo.swift", "bar.swift", "-module-name", "Foo", "-emit-dependencies", "-emit-module",
+      "-serialize-diagnostics", "-driver-filelist-threshold=9999", "-experimental-emit-module-separately",
+    ])
     let plannedJobs = try await driver1.planBuild().removingAutolinkExtractJobs()
     #expect(plannedJobs.count == 3)
     #expect(plannedJobs[0].kind == .emitModule)
@@ -1242,10 +1645,12 @@ import TestUtilities
   }
 
   @Test func emitConstValues() async throws {
-    do { // Just single files
-      var driver = try TestDriver(args: ["swiftc", "foo.swift", "bar.swift", "baz.swift",
-                                     "-const-gather-protocols-list", "protocols.json",
-                                     "-module-name", "Foo", "-emit-const-values"])
+    do {  // Just single files
+      var driver = try TestDriver(args: [
+        "swiftc", "foo.swift", "bar.swift", "baz.swift",
+        "-const-gather-protocols-list", "protocols.json",
+        "-module-name", "Foo", "-emit-const-values",
+      ])
       let plannedJobs = try await driver.planBuild().removingAutolinkExtractJobs()
       #expect(plannedJobs.count == 4)
 
@@ -1267,9 +1672,11 @@ import TestUtilities
       #expect(plannedJobs[3].kind == .link)
     }
 
-    do { // Just single files with emit-module
-      var driver = try TestDriver(args: ["swiftc", "foo.swift", "bar.swift", "baz.swift", "-emit-module",
-                                     "-module-name", "Foo", "-emit-const-values"])
+    do {  // Just single files with emit-module
+      var driver = try TestDriver(args: [
+        "swiftc", "foo.swift", "bar.swift", "baz.swift", "-emit-module",
+        "-module-name", "Foo", "-emit-const-values",
+      ])
       let plannedJobs = try await driver.planBuild().removingAutolinkExtractJobs()
       #expect(plannedJobs.count == 4)
 
@@ -1290,27 +1697,29 @@ import TestUtilities
       #expect(plannedJobs[3].outputs.contains(where: { $0.type == .swiftConstValues }))
     }
 
-    do { // Batch
-      var driver = try TestDriver(args: ["swiftc", "foo.swift", "bar.swift", "baz.swift",
-                                     "-enable-batch-mode","-driver-batch-size-limit", "2",
-                                     "-module-name", "Foo", "-emit-const-values"])
+    do {  // Batch
+      var driver = try TestDriver(args: [
+        "swiftc", "foo.swift", "bar.swift", "baz.swift",
+        "-enable-batch-mode", "-driver-batch-size-limit", "2",
+        "-module-name", "Foo", "-emit-const-values",
+      ])
       let plannedJobs = try await driver.planBuild().removingAutolinkExtractJobs()
       #expect(plannedJobs.count == 3)
 
       #expect(plannedJobs[0].kind == .compile)
-      #expect(plannedJobs[0].primaryInputs.map{ $0.file.description }.elementsEqual(["foo.swift", "bar.swift"]))
+      #expect(plannedJobs[0].primaryInputs.map { $0.file.description }.elementsEqual(["foo.swift", "bar.swift"]))
       expectJobInvocationMatches(plannedJobs[0], .flag("-emit-const-values-path"))
       expectEqual(plannedJobs[0].outputs.filter({ $0.type == .swiftConstValues }).count, 2)
 
       #expect(plannedJobs[1].kind == .compile)
-      #expect(plannedJobs[1].primaryInputs.map{ $0.file.description }.elementsEqual(["baz.swift"]))
+      #expect(plannedJobs[1].primaryInputs.map { $0.file.description }.elementsEqual(["baz.swift"]))
       expectJobInvocationMatches(plannedJobs[1], .flag("-emit-const-values-path"))
       expectEqual(plannedJobs[1].outputs.filter({ $0.type == .swiftConstValues }).count, 1)
 
       #expect(plannedJobs[2].kind == .link)
     }
 
-    try await withTemporaryDirectory { dir in // Batch with output-file-map
+    try await withTemporaryDirectory { dir in  // Batch with output-file-map
       let fileMapFile = dir.appending(component: "file-map-file")
       let outputMapContents: ByteString = """
         {
@@ -1329,31 +1738,47 @@ import TestUtilities
         }
         """
       try localFileSystem.writeFileContents(fileMapFile, bytes: outputMapContents)
-      var driver = try TestDriver(args: ["swiftc", "foo.swift", "bar.swift", "baz.swift",
-                                     "-enable-batch-mode","-driver-batch-size-limit", "2",
-                                     "-module-name", "Foo", "-emit-const-values",
-                                     "-output-file-map", fileMapFile.description])
+      var driver = try TestDriver(args: [
+        "swiftc", "foo.swift", "bar.swift", "baz.swift",
+        "-enable-batch-mode", "-driver-batch-size-limit", "2",
+        "-module-name", "Foo", "-emit-const-values",
+        "-output-file-map", fileMapFile.description,
+      ])
       let plannedJobs = try await driver.planBuild().removingAutolinkExtractJobs()
       #expect(plannedJobs.count == 3)
 
       #expect(plannedJobs[0].kind == .compile)
-      #expect(plannedJobs[0].primaryInputs.map{ $0.file.description }.elementsEqual(["foo.swift", "bar.swift"]))
-      try expectJobInvocationMatches(plannedJobs[0], .flag("-emit-const-values-path"), .path(.absolute(.init(validating: "/tmp/foo.build/foo.swiftconstvalues"))))
-      try expectJobInvocationMatches(plannedJobs[0], .flag("-emit-const-values-path"), .path(.absolute(.init(validating: "/tmp/foo.build/bar.swiftconstvalues"))))
+      #expect(plannedJobs[0].primaryInputs.map { $0.file.description }.elementsEqual(["foo.swift", "bar.swift"]))
+      try expectJobInvocationMatches(
+        plannedJobs[0],
+        .flag("-emit-const-values-path"),
+        .path(.absolute(.init(validating: "/tmp/foo.build/foo.swiftconstvalues")))
+      )
+      try expectJobInvocationMatches(
+        plannedJobs[0],
+        .flag("-emit-const-values-path"),
+        .path(.absolute(.init(validating: "/tmp/foo.build/bar.swiftconstvalues")))
+      )
       expectEqual(plannedJobs[0].outputs.filter({ $0.type == .swiftConstValues }).count, 2)
 
       #expect(plannedJobs[1].kind == .compile)
-      #expect(plannedJobs[1].primaryInputs.map{ $0.file.description }.elementsEqual(["baz.swift"]))
-      try expectJobInvocationMatches(plannedJobs[1], .flag("-emit-const-values-path"), .path(.absolute(.init(validating: "/tmp/foo.build/baz.swiftconstvalues"))))
+      #expect(plannedJobs[1].primaryInputs.map { $0.file.description }.elementsEqual(["baz.swift"]))
+      try expectJobInvocationMatches(
+        plannedJobs[1],
+        .flag("-emit-const-values-path"),
+        .path(.absolute(.init(validating: "/tmp/foo.build/baz.swiftconstvalues")))
+      )
       expectEqual(plannedJobs[1].outputs.filter({ $0.type == .swiftConstValues }).count, 1)
 
       #expect(plannedJobs[2].kind == .link)
     }
 
-    do { // WMO
-      var driver = try TestDriver(args: ["swiftc", "foo.swift", "bar.swift", "baz.swift",
-                                     "-whole-module-optimization",
-                                     "-module-name", "Foo", "-emit-const-values"])
+    do {  // WMO
+      var driver = try TestDriver(args: [
+        "swiftc", "foo.swift", "bar.swift", "baz.swift",
+        "-whole-module-optimization",
+        "-module-name", "Foo", "-emit-const-values",
+      ])
       let plannedJobs = try await driver.planBuild().removingAutolinkExtractJobs()
       #expect(plannedJobs.count == 2)
       #expect(plannedJobs[0].kind == .compile)
@@ -1383,15 +1808,19 @@ import TestUtilities
         }
         """
       try localFileSystem.writeFileContents(fileMapFile, bytes: outputMapContents)
-      var driver = try TestDriver(args: ["swiftc", "foo.swift", "bar.swift", "baz.swift",
-                                     "-whole-module-optimization",
-                                     "-module-name", "Foo", "-emit-const-values",
-                                     "-output-file-map", fileMapFile.description])
+      var driver = try TestDriver(args: [
+        "swiftc", "foo.swift", "bar.swift", "baz.swift",
+        "-whole-module-optimization",
+        "-module-name", "Foo", "-emit-const-values",
+        "-output-file-map", fileMapFile.description,
+      ])
       let plannedJobs = try await driver.planBuild().removingAutolinkExtractJobs()
       #expect(plannedJobs.count == 2)
       #expect(plannedJobs[0].kind == .compile)
-      try expectEqual(plannedJobs[0].outputs.first(where: { $0.type == .swiftConstValues })?.file,
-                     .absolute(try .init(validating: "/tmp/foo.build/foo.main.swiftconstvalues")))
+      try expectEqual(
+        plannedJobs[0].outputs.first(where: { $0.type == .swiftConstValues })?.file,
+        .absolute(try .init(validating: "/tmp/foo.build/foo.main.swiftconstvalues"))
+      )
       #expect(plannedJobs[1].kind == .link)
     }
   }
@@ -1399,52 +1828,70 @@ import TestUtilities
   @Test func emitModuleSepratelyEmittingDiagnosticsWithOutputFileMap() async throws {
     try await withTemporaryDirectory { path in
       let outputFileMap = path.appending(component: "outputFileMap.json")
-      try localFileSystem.writeFileContents(outputFileMap, bytes: """
-        {
-          "": {
-            "emit-module-diagnostics": "/build/Foo-test.dia"
+      try localFileSystem.writeFileContents(
+        outputFileMap,
+        bytes: """
+          {
+            "": {
+              "emit-module-diagnostics": "/build/Foo-test.dia"
+            }
           }
-        }
-        """
+          """
       )
-      var driver = try TestDriver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Foo", "-emit-module",
-                                      "-serialize-diagnostics", "-experimental-emit-module-separately",
-                                      "-output-file-map", outputFileMap.description])
+      var driver = try TestDriver(args: [
+        "swiftc", "foo.swift", "bar.swift", "-module-name", "Foo", "-emit-module",
+        "-serialize-diagnostics", "-experimental-emit-module-separately",
+        "-output-file-map", outputFileMap.description,
+      ])
       let plannedJobs = try await driver.planBuild().removingAutolinkExtractJobs()
 
       #expect(plannedJobs.count == 3)
       #expect(plannedJobs[0].kind == .emitModule)
-      try expectJobInvocationMatches(plannedJobs[0], .flag("-serialize-diagnostics-path"), .path(.absolute(.init(validating: "/build/Foo-test.dia"))))
+      try expectJobInvocationMatches(
+        plannedJobs[0],
+        .flag("-serialize-diagnostics-path"),
+        .path(.absolute(.init(validating: "/build/Foo-test.dia")))
+      )
     }
   }
 
   @Test func emitPCHWithOutputFileMap() async throws {
     try await withTemporaryDirectory { path in
       let outputFileMap = path.appending(component: "outputFileMap.json")
-      try localFileSystem.writeFileContents(outputFileMap, bytes: """
-        {
-          "": {
-            "pch": "/build/Foo-bridging-header.pch"
+      try localFileSystem.writeFileContents(
+        outputFileMap,
+        bytes: """
+          {
+            "": {
+              "pch": "/build/Foo-bridging-header.pch"
+            }
           }
-        }
-        """
+          """
       )
-      var driver = try TestDriver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Foo", "-emit-module",
-                                      "-serialize-diagnostics", "-experimental-emit-module-separately",
-                                      "-import-objc-header", "bridging.h", "-enable-bridging-pch",
-                                      "-output-file-map", outputFileMap.description])
+      var driver = try TestDriver(args: [
+        "swiftc", "foo.swift", "bar.swift", "-module-name", "Foo", "-emit-module",
+        "-serialize-diagnostics", "-experimental-emit-module-separately",
+        "-import-objc-header", "bridging.h", "-enable-bridging-pch",
+        "-output-file-map", outputFileMap.description,
+      ])
       let plannedJobs = try await driver.planBuild().removingAutolinkExtractJobs()
       #expect(driver.diagnosticEngine.diagnostics.isEmpty)
 
       // Test the output path is correct for GeneratePCH job.
       #expect(plannedJobs.count == 4)
       #expect(plannedJobs[0].kind == .generatePCH)
-      try expectJobInvocationMatches(plannedJobs[0], .flag("-o"), .path(.absolute(.init(validating: "/build/Foo-bridging-header.pch"))))
+      try expectJobInvocationMatches(
+        plannedJobs[0],
+        .flag("-o"),
+        .path(.absolute(.init(validating: "/build/Foo-bridging-header.pch")))
+      )
 
       // Plan a build with no bridging header and make sure no diagnostics is emitted (pch in output file map is still accepted)
-      driver = try TestDriver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Foo", "-emit-module",
-                                  "-serialize-diagnostics", "-experimental-emit-module-separately",
-                                  "-output-file-map", outputFileMap.description])
+      driver = try TestDriver(args: [
+        "swiftc", "foo.swift", "bar.swift", "-module-name", "Foo", "-emit-module",
+        "-serialize-diagnostics", "-experimental-emit-module-separately",
+        "-output-file-map", outputFileMap.description,
+      ])
       let _ = try await driver.planBuild()
       #expect(driver.diagnosticEngine.diagnostics.isEmpty)
     }

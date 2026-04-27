@@ -12,12 +12,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-@testable @_spi(Testing) import SwiftDriver
 import SwiftDriverExecution
 import SwiftOptions
 import TSCBasic
-import Testing
 import TestUtilities
+import Testing
+
+@testable @_spi(Testing) import SwiftDriver
+
 #if canImport(Darwin)
 import Darwin
 #elseif canImport(Glibc)
@@ -109,7 +111,7 @@ import CRT
 
     do {
       var driver = try TestDriver(args: ["swift", "-repl", "/foo/bar/Test.swift"])
-      await #expect {try await driver.planBuild()} throws: { error in
+      await #expect { try await driver.planBuild() } throws: { error in
         (error as? PlanningError) == .replReceivedInput
       }
     }
@@ -191,7 +193,9 @@ import CRT
     }
 
     do {
-      var driver = try TestDriver(args: ["swift", "-L/path/to/lib", "-F/path/to/framework", "-lsomelib", "-l", "otherlib", "foo.swift"])
+      var driver = try TestDriver(args: [
+        "swift", "-L/path/to/lib", "-F/path/to/framework", "-lsomelib", "-l", "otherlib", "foo.swift",
+      ])
       let plannedJobs = try await driver.planBuild()
       #expect(plannedJobs.count == 1)
       let job = plannedJobs[0]
@@ -227,10 +231,12 @@ import CRT
 
   @Test func installAPI() async throws {
     let modulePath = "/tmp/FooMod.swiftmodule"
-    var driver = try TestDriver(args: ["swiftc", "foo.swift", "-whole-module-optimization",
-                                   "-module-name", "FooMod",
-                                   "-emit-tbd", "-emit-tbd-path", "/tmp/FooMod.tbd",
-                                   "-emit-module", "-emit-module-path", modulePath])
+    var driver = try TestDriver(args: [
+      "swiftc", "foo.swift", "-whole-module-optimization",
+      "-module-name", "FooMod",
+      "-emit-tbd", "-emit-tbd-path", "/tmp/FooMod.tbd",
+      "-emit-module", "-emit-module-path", modulePath,
+    ])
     let plannedJobs = try await driver.planBuild()
     #expect(plannedJobs.count == 1)
     #expect(plannedJobs[0].kind == .compile)
@@ -243,17 +249,25 @@ import CRT
   @Test func updateCode() async throws {
     do {
       var driver = try TestDriver(args: [
-        "swiftc", "-update-code", "foo.swift", "bar.swift"
+        "swiftc", "-update-code", "foo.swift", "bar.swift",
       ])
       let plannedJobs = try await driver.planBuild().removingAutolinkExtractJobs()
       #expect(plannedJobs.count == 3)
       #expect(plannedJobs.map(\.kind) == [.compile, .compile, .link])
-      #expect(commandContainsFlagTemporaryPathSequence(plannedJobs[0].commandLine,
-                                                             flag: "-emit-remap-file-path",
-                                                             filename: "foo.remap"))
-      #expect(commandContainsFlagTemporaryPathSequence(plannedJobs[1].commandLine,
-                                                             flag: "-emit-remap-file-path",
-                                                             filename: "bar.remap"))
+      #expect(
+        commandContainsFlagTemporaryPathSequence(
+          plannedJobs[0].commandLine,
+          flag: "-emit-remap-file-path",
+          filename: "foo.remap"
+        )
+      )
+      #expect(
+        commandContainsFlagTemporaryPathSequence(
+          plannedJobs[1].commandLine,
+          flag: "-emit-remap-file-path",
+          filename: "bar.remap"
+        )
+      )
     }
 
     try await assertDriverDiagnostics(
@@ -272,14 +286,18 @@ import CRT
 
     do {
       var driver = try TestDriver(args: [
-        "swiftc", "-update-code", "foo.swift", "-migrate-keep-objc-visibility"
+        "swiftc", "-update-code", "foo.swift", "-migrate-keep-objc-visibility",
       ])
       let plannedJobs = try await driver.planBuild().removingAutolinkExtractJobs()
       #expect(plannedJobs.count == 2)
       #expect(plannedJobs.map(\.kind) == [.compile, .link])
-      #expect(commandContainsFlagTemporaryPathSequence(plannedJobs[0].commandLine,
-                                                             flag: "-emit-remap-file-path",
-                                                             filename: "foo.remap"))
+      #expect(
+        commandContainsFlagTemporaryPathSequence(
+          plannedJobs[0].commandLine,
+          flag: "-emit-remap-file-path",
+          filename: "foo.remap"
+        )
+      )
       expectJobInvocationMatches(plannedJobs[0], .flag("-migrate-keep-objc-visibility"))
     }
   }
@@ -323,7 +341,9 @@ import CRT
 
   @Test func printTargetInfo() async throws {
     do {
-      var driver = try TestDriver(args: ["swift", "-print-target-info", "-target", "arm64-apple-ios12.0", "-sdk", "bar", "-resource-dir", "baz"])
+      var driver = try TestDriver(args: [
+        "swift", "-print-target-info", "-target", "arm64-apple-ios12.0", "-sdk", "bar", "-resource-dir", "baz",
+      ])
       let plannedJobs = try await driver.planBuild()
       #expect(plannedJobs.count == 1)
       let job = plannedJobs[0]
@@ -338,20 +358,29 @@ import CRT
     do {
       let targetInfoArgs = ["-print-target-info", "-sdk", "/bar", "-resource-dir", "baz"]
       let driver = try TestDriver(args: ["swift"] + targetInfoArgs)
-      let printTargetInfoJob = try driver.toolchain.printTargetInfoJob(target: nil, targetVariant: nil,
-                                                                       sdkPath: .absolute(driver.absoluteSDKPath!),
-                                                                       swiftCompilerPrefixArgs: [])
-      var printTargetInfoCommand = try Driver.itemizedJobCommand(of: printTargetInfoJob, useResponseFiles: .disabled, using: ArgsResolver(fileSystem: InMemoryFileSystem()))
+      let printTargetInfoJob = try driver.toolchain.printTargetInfoJob(
+        target: nil,
+        targetVariant: nil,
+        sdkPath: .absolute(driver.absoluteSDKPath!),
+        swiftCompilerPrefixArgs: []
+      )
+      var printTargetInfoCommand = try Driver.itemizedJobCommand(
+        of: printTargetInfoJob,
+        useResponseFiles: .disabled,
+        using: ArgsResolver(fileSystem: InMemoryFileSystem())
+      )
       Driver.sanitizeCommandForLibScanInvocation(&printTargetInfoCommand)
       let swiftScanLibPath = try #require(try driver.getSwiftScanLibPath())
       if localFileSystem.exists(swiftScanLibPath) {
         let libSwiftScanInstance = try SwiftScan(dylib: swiftScanLibPath)
         if libSwiftScanInstance.canQueryTargetInfo() {
-          let _ = try Driver.queryTargetInfoInProcess(libSwiftScanInstance: libSwiftScanInstance,
-                                                      toolchain: driver.toolchain,
-                                                      fileSystem: localFileSystem,
-                                                      workingDirectory: localFileSystem.currentWorkingDirectory,
-                                                      invocationCommand: printTargetInfoCommand)
+          let _ = try Driver.queryTargetInfoInProcess(
+            libSwiftScanInstance: libSwiftScanInstance,
+            toolchain: driver.toolchain,
+            fileSystem: localFileSystem,
+            workingDirectory: localFileSystem.currentWorkingDirectory,
+            invocationCommand: printTargetInfoCommand
+          )
         }
       }
     }
@@ -360,20 +389,29 @@ import CRT
     do {
       let targetInfoArgs = ["-print-target-info", "-sdk", "/tmp/foo bar", "-resource-dir", "baz"]
       let driver = try TestDriver(args: ["swift"] + targetInfoArgs)
-      let printTargetInfoJob = try driver.toolchain.printTargetInfoJob(target: nil, targetVariant: nil,
-                                                                       sdkPath: .absolute(driver.absoluteSDKPath!),
-                                                                       swiftCompilerPrefixArgs: [])
-      var printTargetInfoCommand = try Driver.itemizedJobCommand(of: printTargetInfoJob, useResponseFiles: .disabled, using: ArgsResolver(fileSystem: InMemoryFileSystem()))
+      let printTargetInfoJob = try driver.toolchain.printTargetInfoJob(
+        target: nil,
+        targetVariant: nil,
+        sdkPath: .absolute(driver.absoluteSDKPath!),
+        swiftCompilerPrefixArgs: []
+      )
+      var printTargetInfoCommand = try Driver.itemizedJobCommand(
+        of: printTargetInfoJob,
+        useResponseFiles: .disabled,
+        using: ArgsResolver(fileSystem: InMemoryFileSystem())
+      )
       Driver.sanitizeCommandForLibScanInvocation(&printTargetInfoCommand)
       let swiftScanLibPath = try #require(try driver.getSwiftScanLibPath())
       if localFileSystem.exists(swiftScanLibPath) {
         let libSwiftScanInstance = try SwiftScan(dylib: swiftScanLibPath)
         if libSwiftScanInstance.canQueryTargetInfo() {
-          let _ = try Driver.queryTargetInfoInProcess(libSwiftScanInstance: libSwiftScanInstance,
-                                                      toolchain: driver.toolchain,
-                                                      fileSystem: localFileSystem,
-                                                      workingDirectory: localFileSystem.currentWorkingDirectory,
-                                                      invocationCommand: printTargetInfoCommand)
+          let _ = try Driver.queryTargetInfoInProcess(
+            libSwiftScanInstance: libSwiftScanInstance,
+            toolchain: driver.toolchain,
+            fileSystem: localFileSystem,
+            workingDirectory: localFileSystem.currentWorkingDirectory,
+            invocationCommand: printTargetInfoCommand
+          )
         }
       }
     }
@@ -382,14 +420,26 @@ import CRT
       struct MockExecutor: DriverExecutor {
         let resolver: ArgsResolver
 
-        func execute(job: Job, forceResponseFiles: Bool, recordedInputMetadata: [TypedVirtualPath : FileMetadata]) throws -> ProcessResult {
-          return ProcessResult(arguments: [], environmentBlock: [:], exitStatus: .terminated(code: 0), output: .success(Array("bad JSON".utf8)), stderrOutput: .success([]))
+        func execute(
+          job: Job,
+          forceResponseFiles: Bool,
+          recordedInputMetadata: [TypedVirtualPath: FileMetadata]
+        ) throws -> ProcessResult {
+          return ProcessResult(
+            arguments: [],
+            environmentBlock: [:],
+            exitStatus: .terminated(code: 0),
+            output: .success(Array("bad JSON".utf8)),
+            stderrOutput: .success([])
+          )
         }
-        func execute(workload: DriverExecutorWorkload,
-                     delegate: JobExecutionDelegate,
-                     numParallelJobs: Int,
-                     forceResponseFiles: Bool,
-                     recordedInputMetadata: [TypedVirtualPath : FileMetadata]) throws {
+        func execute(
+          workload: DriverExecutorWorkload,
+          delegate: JobExecutionDelegate,
+          numParallelJobs: Int,
+          forceResponseFiles: Bool,
+          recordedInputMetadata: [TypedVirtualPath: FileMetadata]
+        ) throws {
           fatalError()
         }
         func checkNonZeroExit(args: String..., environment: [String: String]) throws -> String {
@@ -402,37 +452,51 @@ import CRT
           fatalError()
         }
 
-        public func execute(job: Job,
-                             forceResponseFiles: Bool,
-                             recordedInputModificationDates: [TypedVirtualPath : TimePoint]) throws -> ProcessResult {
-          fatalError("This DriverExecutor protocol method is only for backwards compatibility and should not be called directly")
+        public func execute(
+          job: Job,
+          forceResponseFiles: Bool,
+          recordedInputModificationDates: [TypedVirtualPath: TimePoint]
+        ) throws -> ProcessResult {
+          fatalError(
+            "This DriverExecutor protocol method is only for backwards compatibility and should not be called directly"
+          )
         }
 
-        public func execute(workload: DriverExecutorWorkload,
-                            delegate: JobExecutionDelegate,
-                            numParallelJobs: Int,
-                            forceResponseFiles: Bool,
-                            recordedInputModificationDates: [TypedVirtualPath : TimePoint]) throws {
-          fatalError("This DriverExecutor protocol method is only for backwards compatibility and should not be called directly")
+        public func execute(
+          workload: DriverExecutorWorkload,
+          delegate: JobExecutionDelegate,
+          numParallelJobs: Int,
+          forceResponseFiles: Bool,
+          recordedInputModificationDates: [TypedVirtualPath: TimePoint]
+        ) throws {
+          fatalError(
+            "This DriverExecutor protocol method is only for backwards compatibility and should not be called directly"
+          )
         }
 
-        public func execute(jobs: [Job],
-                            delegate: JobExecutionDelegate,
-                            numParallelJobs: Int,
-                            forceResponseFiles: Bool,
-                            recordedInputModificationDates: [TypedVirtualPath: TimePoint]) throws {
-          fatalError("This DriverExecutor protocol method is only for backwards compatibility and should not be called directly")
+        public func execute(
+          jobs: [Job],
+          delegate: JobExecutionDelegate,
+          numParallelJobs: Int,
+          forceResponseFiles: Bool,
+          recordedInputModificationDates: [TypedVirtualPath: TimePoint]
+        ) throws {
+          fatalError(
+            "This DriverExecutor protocol method is only for backwards compatibility and should not be called directly"
+          )
         }
-    }
+      }
 
       // Override path to libSwiftScan to force the fallback of using the executor
       var hideSwiftScanEnv = ProcessEnv.block
       hideSwiftScanEnv["SWIFT_DRIVER_SWIFTSCAN_LIB"] = "/bad/path/lib_InternalSwiftScan.dylib"
       #expect {
-        try TestDriver(args: ["swift", "-print-target-info"],
-                              env: hideSwiftScanEnv,
-                              executor: MockExecutor(resolver: ArgsResolver(fileSystem: InMemoryFileSystem())),
-                              fileSystem: InMemoryFileSystem())
+        try TestDriver(
+          args: ["swift", "-print-target-info"],
+          env: hideSwiftScanEnv,
+          executor: MockExecutor(resolver: ArgsResolver(fileSystem: InMemoryFileSystem())),
+          fileSystem: InMemoryFileSystem()
+        )
       } throws: { error in
         if case .decodingError = error as? JobExecutionError { return true }
         Issue.record("not a decoding error: \(error)")
@@ -440,11 +504,13 @@ import CRT
       }
     }
 
-#if !os(Windows) // Windows uses Foundation instead of TSC for subprocesses
+    #if !os(Windows)  // Windows uses Foundation instead of TSC for subprocesses
     do {
       #expect {
-        try TestDriver(args: ["swift", "-print-target-info"],
-                              env: ["SWIFT_DRIVER_SWIFT_FRONTEND_EXEC": "/bad/path/to/swift-frontend"])
+        try TestDriver(
+          args: ["swift", "-print-target-info"],
+          env: ["SWIFT_DRIVER_SWIFT_FRONTEND_EXEC": "/bad/path/to/swift-frontend"]
+        )
       } throws: { error in
         if case .posix_spawn = error as? TSCBasic.SystemError { return true }
         if error as? JobExecutionError != nil { return true }
@@ -452,10 +518,13 @@ import CRT
         return false
       }
     }
-#endif
+    #endif
 
     do {
-      var driver = try TestDriver(args: ["swift", "-print-target-info", "-target", "x86_64-apple-ios13.1-macabi", "-target-variant", "x86_64-apple-macosx10.14", "-sdk", "bar", "-resource-dir", "baz"])
+      var driver = try TestDriver(args: [
+        "swift", "-print-target-info", "-target", "x86_64-apple-ios13.1-macabi", "-target-variant",
+        "x86_64-apple-macosx10.14", "-sdk", "bar", "-resource-dir", "baz",
+      ])
       let plannedJobs = try await driver.planBuild()
       #expect(plannedJobs.count == 1)
       let job = plannedJobs[0]
@@ -479,7 +548,9 @@ import CRT
     }
 
     do {
-      var driver = try TestDriver(args: ["swift", "-print-target-info", "-target", "x86_64-unknown-linux", "-static-stdlib"])
+      var driver = try TestDriver(args: [
+        "swift", "-print-target-info", "-target", "x86_64-unknown-linux", "-static-stdlib",
+      ])
       let plannedJobs = try await driver.planBuild()
       #expect(plannedJobs.count == 1)
       let job = plannedJobs[0]
@@ -490,7 +561,9 @@ import CRT
     }
 
     do {
-      var driver = try TestDriver(args: ["swift", "-print-target-info", "-target", "x86_64-unknown-linux", "-static-executable"])
+      var driver = try TestDriver(args: [
+        "swift", "-print-target-info", "-target", "x86_64-unknown-linux", "-static-executable",
+      ])
       let plannedJobs = try await driver.planBuild()
       #expect(plannedJobs.count == 1)
       let job = plannedJobs[0]
@@ -504,13 +577,17 @@ import CRT
   @Test func frontendSupportedArguments() throws {
     do {
       // General case: ensure supported frontend arguments have been computed, one way or another
-      let driver = try TestDriver(args: ["swift", "-target", "arm64-apple-ios12.0",
-                                     "-resource-dir", "baz"])
+      let driver = try TestDriver(args: [
+        "swift", "-target", "arm64-apple-ios12.0",
+        "-resource-dir", "baz",
+      ])
       #expect(driver.supportedFrontendFlags.contains("emit-module"))
     }
     do {
-      let driver = try TestDriver(args: ["swift", "-target", "arm64-apple-ios12.0",
-                                     "-resource-dir", "baz"])
+      let driver = try TestDriver(args: [
+        "swift", "-target", "arm64-apple-ios12.0",
+        "-resource-dir", "baz",
+      ])
       if let libraryBasedResult = try driver.querySupportedArgumentsForTest() {
         #expect(libraryBasedResult.contains("emit-module"))
       }
@@ -521,9 +598,13 @@ import CRT
       // exist
       var env = ProcessEnv.block
       env["SWIFT_DRIVER_SWIFT_SCAN_TOOLCHAIN_PATH"] = "/some/nonexistent/path"
-      let driver = try TestDriver(args: ["swift", "-target", "arm64-apple-ios12.0",
-                                     "-resource-dir", "baz"],
-                              env: env)
+      let driver = try TestDriver(
+        args: [
+          "swift", "-target", "arm64-apple-ios12.0",
+          "-resource-dir", "baz",
+        ],
+        env: env
+      )
       #expect(driver.supportedFrontendFlags.contains("emit-module"))
     }
   }
@@ -558,7 +639,8 @@ import CRT
       let libSwift: AbsolutePath = path.appending(components: "Inputs", "lib.swift")
       let outputFileMap = path.appending(component: "output_file_map.json")
 
-      let fileMap = ByteString("""
+      let fileMap = ByteString(
+        """
         {
             \"\(dummyInput.nativePathString(escaped: true))\": {
                 \"object\": \"\(basicOutputFileMapObj.nativePathString(escaped: true))\"
@@ -570,20 +652,35 @@ import CRT
                 \"object\": \"\(libObj.nativePathString(escaped: true))\"
             }
         }
-        """.utf8)
+        """.utf8
+      )
       try localFileSystem.writeFileContents(outputFileMap, bytes: fileMap)
 
-      var driver = try TestDriver(args: ["swiftc", "-driver-print-output-file-map",
-                                     "-target", "x86_64-apple-macosx10.9",
-                                     "-o", root.appending(component: "basic_output_file_map.out").nativePathString(escaped: false),
-                                     "-module-name", "OutputFileMap",
-                                     "-output-file-map", outputFileMap.nativePathString(escaped: false)])
+      var driver = try TestDriver(args: [
+        "swiftc", "-driver-print-output-file-map",
+        "-target", "x86_64-apple-macosx10.9",
+        "-o", root.appending(component: "basic_output_file_map.out").nativePathString(escaped: false),
+        "-module-name", "OutputFileMap",
+        "-output-file-map", outputFileMap.nativePathString(escaped: false),
+      ])
       try await driver.run(jobs: [])
       let invocationError = try localFileSystem.readFileContents(errorOutputFile).description
 
-      #expect(invocationError.contains("\(libSwift.nativePathString(escaped: false)) -> object: \"\(libObj.nativePathString(escaped: false))\""))
-      #expect(invocationError.contains("\(mainSwift.nativePathString(escaped: false)) -> object: \"\(mainObj.nativePathString(escaped: false))\""))
-      #expect(invocationError.contains("\(dummyInput.nativePathString(escaped: false)) -> object: \"\(basicOutputFileMapObj.nativePathString(escaped: false))\""))
+      #expect(
+        invocationError.contains(
+          "\(libSwift.nativePathString(escaped: false)) -> object: \"\(libObj.nativePathString(escaped: false))\""
+        )
+      )
+      #expect(
+        invocationError.contains(
+          "\(mainSwift.nativePathString(escaped: false)) -> object: \"\(mainObj.nativePathString(escaped: false))\""
+        )
+      )
+      #expect(
+        invocationError.contains(
+          "\(dummyInput.nativePathString(escaped: false)) -> object: \"\(basicOutputFileMapObj.nativePathString(escaped: false))\""
+        )
+      )
 
       // Restore the error stream to what it was
       TSCBasic.stderrStream = errorStream
@@ -599,11 +696,13 @@ import CRT
       expectJobInvocationMatches(jobs[0], .flag("-dump-ast"))
     }
 
-    try await assertDriverDiagnostics(args: ["swiftc", "-index-file", "-dump-ast",
-                                       "foo.swift",
-                                       "-index-file-path", "foo.swift",
-                                       "-index-store-path", "store/path",
-                                       "-index-ignore-system-modules"]) {
+    try await assertDriverDiagnostics(args: [
+      "swiftc", "-index-file", "-dump-ast",
+      "foo.swift",
+      "-index-file-path", "foo.swift",
+      "-index-store-path", "store/path",
+      "-index-ignore-system-modules",
+    ]) {
       $1.expect(.warning("ignoring '-index-file' because '-dump-ast' was also specified"))
       let jobs = try await $0.planBuild()
       #expect(jobs[0].kind == .compile)
@@ -620,7 +719,7 @@ import CRT
 
   @Test func dumpASTFormat() async throws {
     var driver = try TestDriver(args: [
-      "swiftc", "-dump-ast", "-dump-ast-format", "json", "foo.swift"
+      "swiftc", "-dump-ast", "-dump-ast-format", "json", "foo.swift",
     ])
     let plannedJobs = try await driver.planBuild()
     #expect(plannedJobs[0].kind == .compile)
@@ -631,15 +730,23 @@ import CRT
 
   @Test func deriveSwiftDocPath() async throws {
     var driver = try TestDriver(args: [
-      "swiftc", "-emit-module", "/tmp/main.swift", "-emit-module-path", "test-ios-macabi.swiftmodule"
+      "swiftc", "-emit-module", "/tmp/main.swift", "-emit-module-path", "test-ios-macabi.swiftmodule",
     ])
     let plannedJobs = try await driver.planBuild().removingAutolinkExtractJobs()
 
     #expect(plannedJobs.count == 2)
     #expect(plannedJobs[0].kind == .emitModule)
     try expectJobInvocationMatches(plannedJobs[0], .flag("-o"), toPathOption("test-ios-macabi.swiftmodule"))
-    try expectJobInvocationMatches(plannedJobs[0], .flag("-emit-module-doc-path"), toPathOption("test-ios-macabi.swiftdoc"))
-    try expectJobInvocationMatches(plannedJobs[0], .flag("-emit-module-source-info-path"), toPathOption("test-ios-macabi.swiftsourceinfo"))
+    try expectJobInvocationMatches(
+      plannedJobs[0],
+      .flag("-emit-module-doc-path"),
+      toPathOption("test-ios-macabi.swiftdoc")
+    )
+    try expectJobInvocationMatches(
+      plannedJobs[0],
+      .flag("-emit-module-source-info-path"),
+      toPathOption("test-ios-macabi.swiftsourceinfo")
+    )
   }
 
   @Test func aDDITIONAL_SWIFT_DRIVER_FLAGS() async throws {

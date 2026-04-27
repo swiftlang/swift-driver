@@ -12,68 +12,94 @@
 //
 //===----------------------------------------------------------------------===//
 
+import CToolingTestShim
 @_spi(Testing) import SwiftDriver
 import SwiftOptions
 import TSCBasic
 import Testing
-import CToolingTestShim
 
 @Suite struct SwiftDriverToolingInterfaceTests {
   @Test func createCompilerInvocationV2() throws {
     try withTemporaryDirectory { path in
       let inputFile = path.appending(components: "test.swift")
       try localFileSystem.writeFileContents(inputFile) { $0.send("public func foo()") }
-      
+
       // Expected success scenarios:
       do {
         let testCommand = inputFile.description
         var emittedDiagnostics: [Diagnostic] = []
-        #expect(!getSingleFrontendInvocationFromDriverArgumentsV2(driverPath: "swiftc",
-                                                                        argList: testCommand.components(separatedBy: " "),
-                                                                        action: { _ in false },
-                                                                        diagnostics: &emittedDiagnostics,
-                                                                        diagnosticCallback: {_,_ in }))
+        #expect(
+          !getSingleFrontendInvocationFromDriverArgumentsV2(
+            driverPath: "swiftc",
+            argList: testCommand.components(separatedBy: " "),
+            action: { _ in false },
+            diagnostics: &emittedDiagnostics,
+            diagnosticCallback: { _, _ in }
+          )
+        )
       }
       do {
-        let testCommand = "-emit-executable " + inputFile.description + " main.swift lib.swift -module-name createCompilerInvocation -emit-module -emit-objc-header -o t.out"
+        let testCommand =
+          "-emit-executable " + inputFile.description
+          + " main.swift lib.swift -module-name createCompilerInvocation -emit-module -emit-objc-header -o t.out"
         var emittedDiagnostics: [Diagnostic] = []
-        #expect(!getSingleFrontendInvocationFromDriverArgumentsV2(driverPath: "swiftc",
-                                                                        argList: testCommand.components(separatedBy: " "),
-                                                                        action: { _ in false },
-                                                                        diagnostics: &emittedDiagnostics,
-                                                                        diagnosticCallback: {_,_ in }))
+        #expect(
+          !getSingleFrontendInvocationFromDriverArgumentsV2(
+            driverPath: "swiftc",
+            argList: testCommand.components(separatedBy: " "),
+            action: { _ in false },
+            diagnostics: &emittedDiagnostics,
+            diagnosticCallback: { _, _ in }
+          )
+        )
       }
       do {
-        let testCommand = "-c " + inputFile.description + " main.swift lib.swift -module-name createCompilerInvocation -emit-module -emit-objc-header"
+        let testCommand =
+          "-c " + inputFile.description
+          + " main.swift lib.swift -module-name createCompilerInvocation -emit-module -emit-objc-header"
         var emittedDiagnostics: [Diagnostic] = []
-        #expect(!getSingleFrontendInvocationFromDriverArgumentsV2(driverPath: "swiftc",
-                                                                        argList: testCommand.components(separatedBy: " "),
-                                                                        action: { _ in false },
-                                                                        diagnostics: &emittedDiagnostics,
-                                                                        diagnosticCallback: {_,_ in }))
+        #expect(
+          !getSingleFrontendInvocationFromDriverArgumentsV2(
+            driverPath: "swiftc",
+            argList: testCommand.components(separatedBy: " "),
+            action: { _ in false },
+            diagnostics: &emittedDiagnostics,
+            diagnosticCallback: { _, _ in }
+          )
+        )
       }
       do {
         let testCommand = inputFile.description + " -enable-batch-mode"
         var emittedDiagnostics: [Diagnostic] = []
-        #expect(!getSingleFrontendInvocationFromDriverArgumentsV2(driverPath: "swiftc",
-                                                                        argList: testCommand.components(separatedBy: " "),
-                                                                        action: { _ in false },
-                                                                        diagnostics: &emittedDiagnostics,
-                                                                        diagnosticCallback: {_,_ in }))
+        #expect(
+          !getSingleFrontendInvocationFromDriverArgumentsV2(
+            driverPath: "swiftc",
+            argList: testCommand.components(separatedBy: " "),
+            action: { _ in false },
+            diagnostics: &emittedDiagnostics,
+            diagnosticCallback: { _, _ in }
+          )
+        )
       }
-      do { // Force no outputs
-        let testCommand = "-swift-version 5 -module-name foo -emit-module -emit-module-path /tmp/foo.swiftmodule -emit-objc-header -emit-objc-header-path /tmp/foo.h -enable-library-evolution -emit-module-interface -emit-module-interface-path /tmp/foo.swiftinterface -emit-library -emit-tbd -emit-tbd-path /tmp/foo.tbd -emit-dependencies -serialize-diagnostics " + inputFile.description
+      do {  // Force no outputs
+        let testCommand =
+          "-swift-version 5 -module-name foo -emit-module -emit-module-path /tmp/foo.swiftmodule -emit-objc-header -emit-objc-header-path /tmp/foo.h -enable-library-evolution -emit-module-interface -emit-module-interface-path /tmp/foo.swiftinterface -emit-library -emit-tbd -emit-tbd-path /tmp/foo.tbd -emit-dependencies -serialize-diagnostics "
+          + inputFile.description
         var resultingFrontendArgs: [String] = []
         var emittedDiagnostics: [Diagnostic] = []
-        #expect(!getSingleFrontendInvocationFromDriverArgumentsV2(driverPath: "swiftc",
-                                                                        argList: testCommand.components(separatedBy: " "),
-                                                                        action: { args in
-                                                                          resultingFrontendArgs = args
-                                                                          return false
-                                                                        },
-                                                                        diagnostics: &emittedDiagnostics,
-                                                                        diagnosticCallback: {_,_ in },
-                                                                        forceNoOutputs: true))
+        #expect(
+          !getSingleFrontendInvocationFromDriverArgumentsV2(
+            driverPath: "swiftc",
+            argList: testCommand.components(separatedBy: " "),
+            action: { args in
+              resultingFrontendArgs = args
+              return false
+            },
+            diagnostics: &emittedDiagnostics,
+            diagnosticCallback: { _, _ in },
+            forceNoOutputs: true
+          )
+        )
         #expect(!resultingFrontendArgs.contains("-emit-module-interface-path"))
         #expect(!resultingFrontendArgs.contains("-emit-objc-header"))
         #expect(!resultingFrontendArgs.contains("-emit-objc-header-path"))
@@ -83,13 +109,17 @@ import CToolingTestShim
 
       // Expected failure scenarios:
       do {
-        let testCommand = "-v" // No inputs
+        let testCommand = "-v"  // No inputs
         var emittedDiagnostics: [Diagnostic] = []
-        #expect(getSingleFrontendInvocationFromDriverArgumentsV2(driverPath: "swiftc",
-                                                                  argList: testCommand.components(separatedBy: " "),
-                                                                  action: { _ in false },
-                                                                  diagnostics: &emittedDiagnostics,
-                                                                  diagnosticCallback: {_,_ in }))
+        #expect(
+          getSingleFrontendInvocationFromDriverArgumentsV2(
+            driverPath: "swiftc",
+            argList: testCommand.components(separatedBy: " "),
+            action: { _ in false },
+            diagnostics: &emittedDiagnostics,
+            diagnosticCallback: { _, _ in }
+          )
+        )
         let errorMessage = try #require(emittedDiagnostics.first?.message.text)
         #expect(errorMessage == "unable to handle compilation, expected exactly one frontend job")
       }
@@ -110,62 +140,88 @@ import CToolingTestShim
       do {
         let testCommand = inputFile.description
         var emittedDiagnostics: [Diagnostic] = []
-        #expect(!getSingleFrontendInvocationFromDriverArgumentsV3(driverPath: "swiftc",
-                                                                        argList: testCommand.components(separatedBy: " "),
-                                                                        action: { _ in false },
-                                                                        diagnostics: &emittedDiagnostics,
-                                                                        diagnosticCallback: {_,_ in },
-                                                                        env: env,
-                                                                        executor: executor))
+        #expect(
+          !getSingleFrontendInvocationFromDriverArgumentsV3(
+            driverPath: "swiftc",
+            argList: testCommand.components(separatedBy: " "),
+            action: { _ in false },
+            diagnostics: &emittedDiagnostics,
+            diagnosticCallback: { _, _ in },
+            env: env,
+            executor: executor
+          )
+        )
       }
       do {
-        let testCommand = "-emit-executable " + inputFile.description + " main.swift lib.swift -module-name createCompilerInvocation -emit-module -emit-objc-header -o t.out"
+        let testCommand =
+          "-emit-executable " + inputFile.description
+          + " main.swift lib.swift -module-name createCompilerInvocation -emit-module -emit-objc-header -o t.out"
         var emittedDiagnostics: [Diagnostic] = []
-        #expect(!getSingleFrontendInvocationFromDriverArgumentsV3(driverPath: "swiftc",
-                                                                        argList: testCommand.components(separatedBy: " "),
-                                                                        action: { _ in false },
-                                                                        diagnostics: &emittedDiagnostics,
-                                                                        diagnosticCallback: {_,_ in },
-                                                                        env: env,
-                                                                        executor: executor))
+        #expect(
+          !getSingleFrontendInvocationFromDriverArgumentsV3(
+            driverPath: "swiftc",
+            argList: testCommand.components(separatedBy: " "),
+            action: { _ in false },
+            diagnostics: &emittedDiagnostics,
+            diagnosticCallback: { _, _ in },
+            env: env,
+            executor: executor
+          )
+        )
       }
       do {
-        let testCommand = "-c " + inputFile.description + " main.swift lib.swift -module-name createCompilerInvocation -emit-module -emit-objc-header"
+        let testCommand =
+          "-c " + inputFile.description
+          + " main.swift lib.swift -module-name createCompilerInvocation -emit-module -emit-objc-header"
         var emittedDiagnostics: [Diagnostic] = []
-        #expect(!getSingleFrontendInvocationFromDriverArgumentsV3(driverPath: "swiftc",
-                                                                        argList: testCommand.components(separatedBy: " "),
-                                                                        action: { _ in false },
-                                                                        diagnostics: &emittedDiagnostics,
-                                                                        diagnosticCallback: {_,_ in },
-                                                                        env: env,
-                                                                        executor: executor))
+        #expect(
+          !getSingleFrontendInvocationFromDriverArgumentsV3(
+            driverPath: "swiftc",
+            argList: testCommand.components(separatedBy: " "),
+            action: { _ in false },
+            diagnostics: &emittedDiagnostics,
+            diagnosticCallback: { _, _ in },
+            env: env,
+            executor: executor
+          )
+        )
       }
       do {
         let testCommand = inputFile.description + " -enable-batch-mode"
         var emittedDiagnostics: [Diagnostic] = []
-        #expect(!getSingleFrontendInvocationFromDriverArgumentsV3(driverPath: "swiftc",
-                                                                        argList: testCommand.components(separatedBy: " "),
-                                                                        action: { _ in false },
-                                                                        diagnostics: &emittedDiagnostics,
-                                                                        diagnosticCallback: {_,_ in },
-                                                                        env: env,
-                                                                        executor: executor))
+        #expect(
+          !getSingleFrontendInvocationFromDriverArgumentsV3(
+            driverPath: "swiftc",
+            argList: testCommand.components(separatedBy: " "),
+            action: { _ in false },
+            diagnostics: &emittedDiagnostics,
+            diagnosticCallback: { _, _ in },
+            env: env,
+            executor: executor
+          )
+        )
       }
-      do { // Force no outputs
-        let testCommand = "-swift-version 5 -module-name foo -emit-module -emit-module-path /tmp/foo.swiftmodule -emit-objc-header -emit-objc-header-path /tmp/foo.h -enable-library-evolution -emit-module-interface -emit-module-interface-path /tmp/foo.swiftinterface -emit-library -emit-tbd -emit-tbd-path /tmp/foo.tbd -emit-dependencies -serialize-diagnostics " + inputFile.description
+      do {  // Force no outputs
+        let testCommand =
+          "-swift-version 5 -module-name foo -emit-module -emit-module-path /tmp/foo.swiftmodule -emit-objc-header -emit-objc-header-path /tmp/foo.h -enable-library-evolution -emit-module-interface -emit-module-interface-path /tmp/foo.swiftinterface -emit-library -emit-tbd -emit-tbd-path /tmp/foo.tbd -emit-dependencies -serialize-diagnostics "
+          + inputFile.description
         var resultingFrontendArgs: [String] = []
         var emittedDiagnostics: [Diagnostic] = []
-        #expect(!getSingleFrontendInvocationFromDriverArgumentsV3(driverPath: "swiftc",
-                                                                        argList: testCommand.components(separatedBy: " "),
-                                                                        action: { args in
-                                                                          resultingFrontendArgs = args
-                                                                          return false
-                                                                        },
-                                                                        diagnostics: &emittedDiagnostics,
-                                                                        diagnosticCallback: {_,_ in },
-                                                                        env: env,
-                                                                        executor: executor,
-                                                                        forceNoOutputs: true))
+        #expect(
+          !getSingleFrontendInvocationFromDriverArgumentsV3(
+            driverPath: "swiftc",
+            argList: testCommand.components(separatedBy: " "),
+            action: { args in
+              resultingFrontendArgs = args
+              return false
+            },
+            diagnostics: &emittedDiagnostics,
+            diagnosticCallback: { _, _ in },
+            env: env,
+            executor: executor,
+            forceNoOutputs: true
+          )
+        )
         #expect(!resultingFrontendArgs.contains("-emit-module-interface-path"))
         #expect(!resultingFrontendArgs.contains("-emit-objc-header"))
         #expect(!resultingFrontendArgs.contains("-emit-objc-header-path"))
@@ -175,15 +231,19 @@ import CToolingTestShim
 
       // Expected failure scenarios:
       do {
-        let testCommand = "-v" // No inputs
+        let testCommand = "-v"  // No inputs
         var emittedDiagnostics: [Diagnostic] = []
-        #expect(getSingleFrontendInvocationFromDriverArgumentsV3(driverPath: "swiftc",
-                                                                       argList: testCommand.components(separatedBy: " "),
-                                                                       action: { _ in false },
-                                                                       diagnostics: &emittedDiagnostics,
-                                                                       diagnosticCallback: {_,_ in },
-                                                                       env: env,
-                                                                       executor: executor))
+        #expect(
+          getSingleFrontendInvocationFromDriverArgumentsV3(
+            driverPath: "swiftc",
+            argList: testCommand.components(separatedBy: " "),
+            action: { _ in false },
+            diagnostics: &emittedDiagnostics,
+            diagnosticCallback: { _, _ in },
+            env: env,
+            executor: executor
+          )
+        )
         let errorMessage = try #require(emittedDiagnostics.first?.message.text)
         #expect(errorMessage == "unable to handle compilation, expected exactly one frontend job")
       }
@@ -204,62 +264,88 @@ import CToolingTestShim
       do {
         let testCommand = inputFile.description
         var emittedDiagnostics: [Diagnostic] = []
-        #expect(!getSingleFrontendInvocationFromDriverArgumentsV4(driverPath: "swiftc",
-                                                                        argList: testCommand.components(separatedBy: " "),
-                                                                        action: { _ in false },
-                                                                        diagnostics: &emittedDiagnostics,
-                                                                        diagnosticCallback: {_,_ in },
-                                                                        env: env,
-                                                                        executor: executor))
+        #expect(
+          !getSingleFrontendInvocationFromDriverArgumentsV4(
+            driverPath: "swiftc",
+            argList: testCommand.components(separatedBy: " "),
+            action: { _ in false },
+            diagnostics: &emittedDiagnostics,
+            diagnosticCallback: { _, _ in },
+            env: env,
+            executor: executor
+          )
+        )
       }
       do {
-        let testCommand = "-emit-executable " + inputFile.description + " main.swift lib.swift -module-name createCompilerInvocation -emit-module -emit-objc-header -o t.out"
+        let testCommand =
+          "-emit-executable " + inputFile.description
+          + " main.swift lib.swift -module-name createCompilerInvocation -emit-module -emit-objc-header -o t.out"
         var emittedDiagnostics: [Diagnostic] = []
-        #expect(!getSingleFrontendInvocationFromDriverArgumentsV4(driverPath: "swiftc",
-                                                                        argList: testCommand.components(separatedBy: " "),
-                                                                        action: { _ in false },
-                                                                        diagnostics: &emittedDiagnostics,
-                                                                        diagnosticCallback: {_,_ in },
-                                                                        env: env,
-                                                                        executor: executor))
+        #expect(
+          !getSingleFrontendInvocationFromDriverArgumentsV4(
+            driverPath: "swiftc",
+            argList: testCommand.components(separatedBy: " "),
+            action: { _ in false },
+            diagnostics: &emittedDiagnostics,
+            diagnosticCallback: { _, _ in },
+            env: env,
+            executor: executor
+          )
+        )
       }
       do {
-        let testCommand = "-c " + inputFile.description + " main.swift lib.swift -module-name createCompilerInvocation -emit-module -emit-objc-header"
+        let testCommand =
+          "-c " + inputFile.description
+          + " main.swift lib.swift -module-name createCompilerInvocation -emit-module -emit-objc-header"
         var emittedDiagnostics: [Diagnostic] = []
-        #expect(!getSingleFrontendInvocationFromDriverArgumentsV4(driverPath: "swiftc",
-                                                                        argList: testCommand.components(separatedBy: " "),
-                                                                        action: { _ in false },
-                                                                        diagnostics: &emittedDiagnostics,
-                                                                        diagnosticCallback: {_,_ in },
-                                                                        env: env,
-                                                                        executor: executor))
+        #expect(
+          !getSingleFrontendInvocationFromDriverArgumentsV4(
+            driverPath: "swiftc",
+            argList: testCommand.components(separatedBy: " "),
+            action: { _ in false },
+            diagnostics: &emittedDiagnostics,
+            diagnosticCallback: { _, _ in },
+            env: env,
+            executor: executor
+          )
+        )
       }
       do {
         let testCommand = inputFile.description + " -enable-batch-mode"
         var emittedDiagnostics: [Diagnostic] = []
-        #expect(!getSingleFrontendInvocationFromDriverArgumentsV4(driverPath: "swiftc",
-                                                                        argList: testCommand.components(separatedBy: " "),
-                                                                        action: { _ in false },
-                                                                        diagnostics: &emittedDiagnostics,
-                                                                        diagnosticCallback: {_,_ in },
-                                                                        env: env,
-                                                                        executor: executor))
+        #expect(
+          !getSingleFrontendInvocationFromDriverArgumentsV4(
+            driverPath: "swiftc",
+            argList: testCommand.components(separatedBy: " "),
+            action: { _ in false },
+            diagnostics: &emittedDiagnostics,
+            diagnosticCallback: { _, _ in },
+            env: env,
+            executor: executor
+          )
+        )
       }
-      do { // Force no outputs
-        let testCommand = "-module-name foo -emit-module -emit-module-path /tmp/foo.swiftmodule -emit-objc-header -emit-objc-header-path /tmp/foo.h -enable-library-evolution -emit-module-interface -emit-module-interface-path /tmp/foo.swiftinterface -emit-library -emit-tbd -emit-tbd-path /tmp/foo.tbd -emit-dependencies -serialize-diagnostics " + inputFile.description
+      do {  // Force no outputs
+        let testCommand =
+          "-module-name foo -emit-module -emit-module-path /tmp/foo.swiftmodule -emit-objc-header -emit-objc-header-path /tmp/foo.h -enable-library-evolution -emit-module-interface -emit-module-interface-path /tmp/foo.swiftinterface -emit-library -emit-tbd -emit-tbd-path /tmp/foo.tbd -emit-dependencies -serialize-diagnostics "
+          + inputFile.description
         var resultingFrontendArgs: [String] = []
         var emittedDiagnostics: [Diagnostic] = []
-        #expect(!getSingleFrontendInvocationFromDriverArgumentsV4(driverPath: "swiftc",
-                                                                        argList: testCommand.components(separatedBy: " "),
-                                                                        action: { args in
-                                                                          resultingFrontendArgs = args
-                                                                          return false
-                                                                        },
-                                                                        diagnostics: &emittedDiagnostics,
-                                                                        diagnosticCallback: {_,_ in },
-                                                                        env: env,
-                                                                        executor: executor,
-                                                                        forceNoOutputs: true))
+        #expect(
+          !getSingleFrontendInvocationFromDriverArgumentsV4(
+            driverPath: "swiftc",
+            argList: testCommand.components(separatedBy: " "),
+            action: { args in
+              resultingFrontendArgs = args
+              return false
+            },
+            diagnostics: &emittedDiagnostics,
+            diagnosticCallback: { _, _ in },
+            env: env,
+            executor: executor,
+            forceNoOutputs: true
+          )
+        )
         #expect(!resultingFrontendArgs.contains("-emit-module-interface-path"))
         #expect(!resultingFrontendArgs.contains("-emit-objc-header"))
         #expect(!resultingFrontendArgs.contains("-emit-objc-header-path"))
@@ -269,15 +355,19 @@ import CToolingTestShim
 
       // Expected failure scenarios:
       do {
-        let testCommand = "-v" // No inputs
+        let testCommand = "-v"  // No inputs
         var emittedDiagnostics: [Diagnostic] = []
-        #expect(getSingleFrontendInvocationFromDriverArgumentsV4(driverPath: "swiftc",
-                                                                       argList: testCommand.components(separatedBy: " "),
-                                                                       action: { _ in false },
-                                                                       diagnostics: &emittedDiagnostics,
-                                                                       diagnosticCallback: {_,_ in },
-                                                                       env: env,
-                                                                       executor: executor))
+        #expect(
+          getSingleFrontendInvocationFromDriverArgumentsV4(
+            driverPath: "swiftc",
+            argList: testCommand.components(separatedBy: " "),
+            action: { _ in false },
+            diagnostics: &emittedDiagnostics,
+            diagnosticCallback: { _, _ in },
+            env: env,
+            executor: executor
+          )
+        )
         let errorMessage = try #require(emittedDiagnostics.first?.message.text)
         #expect(errorMessage == "unable to handle compilation, expected exactly one frontend job")
       }
@@ -297,62 +387,88 @@ import CToolingTestShim
       do {
         let testCommand = inputFile.description
         var emittedDiagnostics: [Diagnostic] = []
-        #expect(!getSingleFrontendInvocationFromDriverArgumentsV5(driverPath: "swiftc",
-                                                                        argList: testCommand.components(separatedBy: " "),
-                                                                        action: { _ in false },
-                                                                        diagnostics: &emittedDiagnostics,
-                                                                        diagnosticCallback: {_,_ in },
-                                                                        envBlock: env,
-                                                                        executor: executor))
+        #expect(
+          !getSingleFrontendInvocationFromDriverArgumentsV5(
+            driverPath: "swiftc",
+            argList: testCommand.components(separatedBy: " "),
+            action: { _ in false },
+            diagnostics: &emittedDiagnostics,
+            diagnosticCallback: { _, _ in },
+            envBlock: env,
+            executor: executor
+          )
+        )
       }
       do {
-        let testCommand = "-emit-executable " + inputFile.description + " main.swift lib.swift -module-name createCompilerInvocation -emit-module -emit-objc-header -o t.out"
+        let testCommand =
+          "-emit-executable " + inputFile.description
+          + " main.swift lib.swift -module-name createCompilerInvocation -emit-module -emit-objc-header -o t.out"
         var emittedDiagnostics: [Diagnostic] = []
-        #expect(!getSingleFrontendInvocationFromDriverArgumentsV5(driverPath: "swiftc",
-                                                                        argList: testCommand.components(separatedBy: " "),
-                                                                        action: { _ in false },
-                                                                        diagnostics: &emittedDiagnostics,
-                                                                        diagnosticCallback: {_,_ in },
-                                                                        envBlock: env,
-                                                                        executor: executor))
+        #expect(
+          !getSingleFrontendInvocationFromDriverArgumentsV5(
+            driverPath: "swiftc",
+            argList: testCommand.components(separatedBy: " "),
+            action: { _ in false },
+            diagnostics: &emittedDiagnostics,
+            diagnosticCallback: { _, _ in },
+            envBlock: env,
+            executor: executor
+          )
+        )
       }
       do {
-        let testCommand = "-c " + inputFile.description + " main.swift lib.swift -module-name createCompilerInvocation -emit-module -emit-objc-header"
+        let testCommand =
+          "-c " + inputFile.description
+          + " main.swift lib.swift -module-name createCompilerInvocation -emit-module -emit-objc-header"
         var emittedDiagnostics: [Diagnostic] = []
-        #expect(!getSingleFrontendInvocationFromDriverArgumentsV5(driverPath: "swiftc",
-                                                                        argList: testCommand.components(separatedBy: " "),
-                                                                        action: { _ in false },
-                                                                        diagnostics: &emittedDiagnostics,
-                                                                        diagnosticCallback: {_,_ in },
-                                                                        envBlock: env,
-                                                                        executor: executor))
+        #expect(
+          !getSingleFrontendInvocationFromDriverArgumentsV5(
+            driverPath: "swiftc",
+            argList: testCommand.components(separatedBy: " "),
+            action: { _ in false },
+            diagnostics: &emittedDiagnostics,
+            diagnosticCallback: { _, _ in },
+            envBlock: env,
+            executor: executor
+          )
+        )
       }
       do {
         let testCommand = inputFile.description + " -enable-batch-mode"
         var emittedDiagnostics: [Diagnostic] = []
-        #expect(!getSingleFrontendInvocationFromDriverArgumentsV5(driverPath: "swiftc",
-                                                                        argList: testCommand.components(separatedBy: " "),
-                                                                        action: { _ in false },
-                                                                        diagnostics: &emittedDiagnostics,
-                                                                        diagnosticCallback: {_,_ in },
-                                                                        envBlock: env,
-                                                                        executor: executor))
+        #expect(
+          !getSingleFrontendInvocationFromDriverArgumentsV5(
+            driverPath: "swiftc",
+            argList: testCommand.components(separatedBy: " "),
+            action: { _ in false },
+            diagnostics: &emittedDiagnostics,
+            diagnosticCallback: { _, _ in },
+            envBlock: env,
+            executor: executor
+          )
+        )
       }
-      do { // Force no outputs
-        let testCommand = "-swift-version 5 -module-name foo -emit-module -emit-module-path /tmp/foo.swiftmodule -emit-objc-header -emit-objc-header-path /tmp/foo.h -enable-library-evolution -emit-module-interface -emit-module-interface-path /tmp/foo.swiftinterface -emit-library -emit-tbd -emit-tbd-path /tmp/foo.tbd -emit-dependencies -serialize-diagnostics " + inputFile.description
+      do {  // Force no outputs
+        let testCommand =
+          "-swift-version 5 -module-name foo -emit-module -emit-module-path /tmp/foo.swiftmodule -emit-objc-header -emit-objc-header-path /tmp/foo.h -enable-library-evolution -emit-module-interface -emit-module-interface-path /tmp/foo.swiftinterface -emit-library -emit-tbd -emit-tbd-path /tmp/foo.tbd -emit-dependencies -serialize-diagnostics "
+          + inputFile.description
         var resultingFrontendArgs: [String] = []
         var emittedDiagnostics: [Diagnostic] = []
-        #expect(!getSingleFrontendInvocationFromDriverArgumentsV5(driverPath: "swiftc",
-                                                                        argList: testCommand.components(separatedBy: " "),
-                                                                        action: { args in
-                                                                          resultingFrontendArgs = args
-                                                                          return false
-                                                                        },
-                                                                        diagnostics: &emittedDiagnostics,
-                                                                        diagnosticCallback: {_,_ in },
-                                                                        envBlock: env,
-                                                                        executor: executor,
-                                                                        forceNoOutputs: true))
+        #expect(
+          !getSingleFrontendInvocationFromDriverArgumentsV5(
+            driverPath: "swiftc",
+            argList: testCommand.components(separatedBy: " "),
+            action: { args in
+              resultingFrontendArgs = args
+              return false
+            },
+            diagnostics: &emittedDiagnostics,
+            diagnosticCallback: { _, _ in },
+            envBlock: env,
+            executor: executor,
+            forceNoOutputs: true
+          )
+        )
         #expect(!resultingFrontendArgs.contains("-emit-module-interface-path"))
         #expect(!resultingFrontendArgs.contains("-emit-objc-header"))
         #expect(!resultingFrontendArgs.contains("-emit-objc-header-path"))
@@ -362,15 +478,19 @@ import CToolingTestShim
 
       // Expected failure scenarios:
       do {
-        let testCommand = "-v" // No inputs
+        let testCommand = "-v"  // No inputs
         var emittedDiagnostics: [Diagnostic] = []
-        #expect(getSingleFrontendInvocationFromDriverArgumentsV5(driverPath: "swiftc",
-                                                                       argList: testCommand.components(separatedBy: " "),
-                                                                       action: { _ in false },
-                                                                       diagnostics: &emittedDiagnostics,
-                                                                       diagnosticCallback: {_,_ in },
-                                                                       envBlock: env,
-                                                                       executor: executor))
+        #expect(
+          getSingleFrontendInvocationFromDriverArgumentsV5(
+            driverPath: "swiftc",
+            argList: testCommand.components(separatedBy: " "),
+            action: { _ in false },
+            diagnostics: &emittedDiagnostics,
+            diagnosticCallback: { _, _ in },
+            envBlock: env,
+            executor: executor
+          )
+        )
         let errorMessage = try #require(emittedDiagnostics.first?.message.text)
         #expect(errorMessage == "unable to handle compilation, expected exactly one frontend job")
       }
@@ -385,7 +505,9 @@ import CToolingTestShim
 
       // Basic compilation test
       do {
-        let testCommandStr = "-emit-executable " + inputFile.description + " main.swift lib.swift -module-name createCompilerInvocation -emit-module -emit-objc-header -o t.out"
+        let testCommandStr =
+          "-emit-executable " + inputFile.description
+          + " main.swift lib.swift -module-name createCompilerInvocation -emit-module -emit-objc-header -o t.out"
         let testCommand = testCommandStr.split(separator: " ").compactMap { String($0) }
 
         // Invoke the C shim from CToolingTestShim which calls the `getSingleFrontendInvocationFromDriverArgumentsV2`
@@ -400,7 +522,8 @@ import CToolingTestShim
                 return false
               },
               { diagKind, diagMessage in },
-              false)
+              false
+            )
           }
         }
         #expect(!failed)
@@ -418,7 +541,8 @@ import CToolingTestShim
               CBridgedArgList!,
               { argc, argvPtr in false },
               { diagKind, diagMessage in },
-              false)
+              false
+            )
           }
         }
         #expect(diagFailed)

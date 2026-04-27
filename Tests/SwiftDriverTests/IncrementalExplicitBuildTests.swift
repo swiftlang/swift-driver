@@ -91,7 +91,7 @@ struct IncrementalExplicitBuildTests: DiagVerifiable {
 
     let GInterfacePath = h.explicitSwiftDependenciesPath.appending(component: "G.swiftinterface")
     h.touch(GInterfacePath)
-    h.touch(GInterfacePath) // touch twice to make sure it is newer than build output.
+    h.touch(GInterfacePath)  // touch twice to make sure it is newer than build output.
 
     try await h.doABuild(
       "update dependency (G) interface timestamp",
@@ -296,7 +296,7 @@ struct IncrementalExplicitBuildTests: DiagVerifiable {
     h.touch(pathToGModule)
     // Touch one of the inputs to actually trigger the incremental build.
     try h.touch("other")
-    try h.touch("other") // touch twice to make sure it is newer than build output.
+    try h.touch("other")  // touch twice to make sure it is newer than build output.
 
     try await h.doABuild(
       "update dependency (G) result timestamp",
@@ -324,7 +324,8 @@ struct IncrementalExplicitBuildTests: DiagVerifiable {
 
   // An unchanged binary dependency should not invalidate upstream dependencies.
   @Test(arguments: TestBuildConfig.explicitOnlyConfigs)
-  func explicitIncrementalBuildUnchangedBinaryDependencyDoesNotInvalidateUpstream(config: TestBuildConfig) async throws {
+  func explicitIncrementalBuildUnchangedBinaryDependencyDoesNotInvalidateUpstream(config: TestBuildConfig) async throws
+  {
     let h = try IncrementalTestHarness(config: config)
     h.replace(contentsOf: "other", with: "import J;")
 
@@ -345,7 +346,7 @@ struct IncrementalExplicitBuildTests: DiagVerifiable {
 
     // Touch one of the inputs to actually trigger the incremental build.
     try h.touch("other")
-    try h.touch("other") // touch twice to make sure it is newer than build output.
+    try h.touch("other")  // touch twice to make sure it is newer than build output.
 
     // Touch the output of a dependency of 'G', to ensure that it is newer than 'G', but 'G' still
     // does not get "invalidated".
@@ -404,7 +405,7 @@ struct IncrementalExplicitBuildTests: DiagVerifiable {
 
     // Touch one of the inputs to actually trigger the incremental build.
     try h.touch("other")
-    try h.touch("other") // touch twice to make sure it is newer than build output.
+    try h.touch("other")  // touch twice to make sure it is newer than build output.
 
     // Touch 'G.swiftmodule' to trigger the dependency scanner to re-scan it.
     h.touch(newPathToGModule)

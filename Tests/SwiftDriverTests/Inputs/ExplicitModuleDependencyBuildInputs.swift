@@ -450,7 +450,7 @@ enum ModuleDependenciesInputs {
           "sourceFiles": [
           ],
           "directDependencies" : [
-    
+
           ],
           "details" : {
             "swift" : {
@@ -613,4 +613,3 @@ enum ModuleDependenciesInputs {
     """
   }
 }
-

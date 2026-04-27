@@ -12,12 +12,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Testing
 @_spi(Testing) import SwiftDriver
+import Testing
 
 @Suite struct MultidictionaryTests {
 
-  private func multidictionaryWith<K: Hashable, V: Hashable>(_ keysAndValues: Dictionary<K, [V]>) -> Multidictionary<K, V>{
+  private func multidictionaryWith<K: Hashable, V: Hashable>(_ keysAndValues: [K: [V]]) -> Multidictionary<K, V> {
     var dict = Multidictionary<K, V>()
     for (k, vals) in keysAndValues {
       for v in vals {

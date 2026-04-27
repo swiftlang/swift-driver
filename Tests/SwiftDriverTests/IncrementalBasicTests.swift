@@ -172,7 +172,9 @@ struct IncrementalBasicTests: DiagVerifiable {
     h.touch(
       try AbsolutePath(validating: h.explicitSwiftDependenciesPath.appending(component: "E.swiftinterface").pathString)
     )
-    let driver = try await h.doABuildWithoutExpectations(arguments: h.commonArgs + extraArguments + h.sdkArgumentsForTesting)
+    let driver = try await h.doABuildWithoutExpectations(
+      arguments: h.commonArgs + extraArguments + h.sdkArgumentsForTesting
+    )
     let mandatoryJobs = try #require(driver.incrementalCompilationState?.mandatoryJobsInOrder)
     let mandatoryJobInputs = mandatoryJobs.flatMap { $0.inputs }.map { $0.file.basename }
     #expect(
@@ -189,7 +191,9 @@ struct IncrementalBasicTests: DiagVerifiable {
     let extraArguments = ["-experimental-emit-module-separately", "-emit-module", "-enable-incremental-file-hashing"]
     try await h.buildInitialState(extraArguments: extraArguments)
     h.replace(contentsOf: "main", with: "let foo = 2")
-    let driver = try await h.doABuildWithoutExpectations(arguments: h.commonArgs + extraArguments + h.sdkArgumentsForTesting)
+    let driver = try await h.doABuildWithoutExpectations(
+      arguments: h.commonArgs + extraArguments + h.sdkArgumentsForTesting
+    )
     let mandatoryJobs = try #require(driver.incrementalCompilationState?.mandatoryJobsInOrder)
     let mandatoryJobInputs = mandatoryJobs.flatMap { $0.inputs }.map { $0.file.basename }
     #expect(

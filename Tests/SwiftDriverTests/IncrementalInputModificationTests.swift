@@ -149,7 +149,9 @@ struct IncrementalInputModificationTests: DiagVerifiable {
   @Test func nullBuildArgumentsNotAffectingIncrementalBuilds() async throws {
     let h = try IncrementalTestHarness()
     try await h.buildInitialState(extraArguments: ["-driver-batch-size-limit", "5", "-debug-diagnostic-names"])
-    let driver = try await h.checkNullBuild(extraArguments: ["-driver-batch-size-limit", "10", "-diagnostic-style", "swift"])
+    let driver = try await h.checkNullBuild(extraArguments: [
+      "-driver-batch-size-limit", "10", "-diagnostic-style", "swift",
+    ])
     let mandatoryJobs = try #require(driver.incrementalCompilationState?.mandatoryJobsInOrder)
     #expect(mandatoryJobs.isEmpty)
   }

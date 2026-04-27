@@ -12,9 +12,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+@_spi(Testing) import SwiftDriver
 import Testing
 
-@_spi(Testing) import SwiftDriver
 import class TSCBasic.DiagnosticsEngine
 
 @Suite struct TripleTests {
@@ -675,11 +675,15 @@ import class TSCBasic.DiagnosticsEngine
   }
 
   func assertNormalizesEqual(
-    _ input: String, _ expected: String,
+    _ input: String,
+    _ expected: String,
     sourceLocation: SourceLocation = #_sourceLocation
   ) {
-    #expect(Triple(input, normalizing: true).triple == expected,
-                   "normalizing '\(input)'", sourceLocation: sourceLocation)
+    #expect(
+      Triple(input, normalizing: true).triple == expected,
+      "normalizing '\(input)'",
+      sourceLocation: sourceLocation
+    )
   }
 
   func normalize(_ string: String) -> String {
@@ -740,7 +744,7 @@ import class TSCBasic.DiagnosticsEngine
       Triple.Arch.aarch64.rawValue,
       Triple.Vendor.amd.rawValue,
       Triple.OS.aix.rawValue,
-      Triple.Environment.android.rawValue
+      Triple.Environment.android.rawValue,
     ]
 
     func testPermutations(with replacement: String, at i: Int, of count: Int) {
@@ -750,7 +754,7 @@ import class TSCBasic.DiagnosticsEngine
 
       forAllPermutations(count) { indices in
         let permutation =
-            indices.map { i in components[i] }.joined(separator: "-")
+          indices.map { i in components[i] }.joined(separator: "-")
         #expect(normalize(permutation) == expected)
       }
     }
@@ -775,22 +779,38 @@ import class TSCBasic.DiagnosticsEngine
   @Test func normalizeSpecialCases() {
     // Various real-world funky triples.  The value returned by GCC's config.sub
     // is given in the comment.
-    assertNormalizesEqual("i386-mingw32",
-              "i386-unknown-windows-gnu") // i386-pc-mingw32
-    assertNormalizesEqual("x86_64-linux-gnu",
-              "x86_64-unknown-linux-gnu") // x86_64-pc-linux-gnu
-    assertNormalizesEqual("i486-linux-gnu",
-              "i486-unknown-linux-gnu") // i486-pc-linux-gnu
-    assertNormalizesEqual("i386-redhat-linux",
-              "i386-redhat-linux") // i386-redhat-linux-gnu
-    assertNormalizesEqual("i686-linux",
-              "i686-unknown-linux") // i686-pc-linux-gnu
-    assertNormalizesEqual("arm-none-eabi",
-              "arm-unknown-none-eabi") // arm-none-eabi
-    assertNormalizesEqual("wasm32-wasi",
-              "wasm32-unknown-wasi") // wasm32-unknown-wasi
-    assertNormalizesEqual("wasm64-wasi",
-              "wasm64-unknown-wasi") // wasm64-unknown-wasi
+    assertNormalizesEqual(
+      "i386-mingw32",
+      "i386-unknown-windows-gnu"
+    )  // i386-pc-mingw32
+    assertNormalizesEqual(
+      "x86_64-linux-gnu",
+      "x86_64-unknown-linux-gnu"
+    )  // x86_64-pc-linux-gnu
+    assertNormalizesEqual(
+      "i486-linux-gnu",
+      "i486-unknown-linux-gnu"
+    )  // i486-pc-linux-gnu
+    assertNormalizesEqual(
+      "i386-redhat-linux",
+      "i386-redhat-linux"
+    )  // i386-redhat-linux-gnu
+    assertNormalizesEqual(
+      "i686-linux",
+      "i686-unknown-linux"
+    )  // i686-pc-linux-gnu
+    assertNormalizesEqual(
+      "arm-none-eabi",
+      "arm-unknown-none-eabi"
+    )  // arm-none-eabi
+    assertNormalizesEqual(
+      "wasm32-wasi",
+      "wasm32-unknown-wasi"
+    )  // wasm32-unknown-wasi
+    assertNormalizesEqual(
+      "wasm64-wasi",
+      "wasm64-unknown-wasi"
+    )  // wasm64-unknown-wasi
   }
 
   @Test func normalizeWindows() {
@@ -807,59 +827,95 @@ import class TSCBasic.DiagnosticsEngine
     assertNormalizesEqual("x86_64-win32", "x86_64-unknown-windows-msvc")
     assertNormalizesEqual("x86_64-pc-mingw32", "x86_64-pc-windows-gnu")
     assertNormalizesEqual("x86_64-mingw32", "x86_64-unknown-windows-gnu")
-    assertNormalizesEqual("x86_64-pc-mingw32-w64",
-              "x86_64-pc-windows-gnu")
-    assertNormalizesEqual("x86_64-mingw32-w64",
-              "x86_64-unknown-windows-gnu")
+    assertNormalizesEqual(
+      "x86_64-pc-mingw32-w64",
+      "x86_64-pc-windows-gnu"
+    )
+    assertNormalizesEqual(
+      "x86_64-mingw32-w64",
+      "x86_64-unknown-windows-gnu"
+    )
 
     assertNormalizesEqual("i686-pc-win32-elf", "i686-pc-windows-elf")
     assertNormalizesEqual("i686-win32-elf", "i686-unknown-windows-elf")
     assertNormalizesEqual("i686-pc-win32-macho", "i686-pc-windows-macho")
-    assertNormalizesEqual("i686-win32-macho",
-              "i686-unknown-windows-macho")
+    assertNormalizesEqual(
+      "i686-win32-macho",
+      "i686-unknown-windows-macho"
+    )
 
     assertNormalizesEqual("x86_64-pc-win32-elf", "x86_64-pc-windows-elf")
-    assertNormalizesEqual("x86_64-win32-elf",
-              "x86_64-unknown-windows-elf")
-    assertNormalizesEqual("x86_64-pc-win32-macho",
-              "x86_64-pc-windows-macho")
-    assertNormalizesEqual("x86_64-win32-macho",
-              "x86_64-unknown-windows-macho")
+    assertNormalizesEqual(
+      "x86_64-win32-elf",
+      "x86_64-unknown-windows-elf"
+    )
+    assertNormalizesEqual(
+      "x86_64-pc-win32-macho",
+      "x86_64-pc-windows-macho"
+    )
+    assertNormalizesEqual(
+      "x86_64-win32-macho",
+      "x86_64-unknown-windows-macho"
+    )
 
-    assertNormalizesEqual("i686-pc-windows-cygnus",
-              "i686-pc-windows-cygnus")
+    assertNormalizesEqual(
+      "i686-pc-windows-cygnus",
+      "i686-pc-windows-cygnus"
+    )
     assertNormalizesEqual("i686-pc-windows-gnu", "i686-pc-windows-gnu")
-    assertNormalizesEqual("i686-pc-windows-itanium",
-              "i686-pc-windows-itanium")
+    assertNormalizesEqual(
+      "i686-pc-windows-itanium",
+      "i686-pc-windows-itanium"
+    )
     assertNormalizesEqual("i686-pc-windows-msvc", "i686-pc-windows-msvc")
 
-    assertNormalizesEqual("i686-pc-windows-elf-elf",
-              "i686-pc-windows-elf")
+    assertNormalizesEqual(
+      "i686-pc-windows-elf-elf",
+      "i686-pc-windows-elf"
+    )
 
     assertNormalizesEqual("i686-unknown-windows-coff", "i686-unknown-windows-coff")
     assertNormalizesEqual("x86_64-unknown-windows-coff", "x86_64-unknown-windows-coff")
   }
 
   @Test func normalizeARM() {
-    assertNormalizesEqual("armv6-netbsd-eabi",
-              "armv6-unknown-netbsd-eabi")
-    assertNormalizesEqual("armv7-netbsd-eabi",
-              "armv7-unknown-netbsd-eabi")
-    assertNormalizesEqual("armv6eb-netbsd-eabi",
-              "armv6eb-unknown-netbsd-eabi")
-    assertNormalizesEqual("armv7eb-netbsd-eabi",
-              "armv7eb-unknown-netbsd-eabi")
-    assertNormalizesEqual("armv6-netbsd-eabihf",
-              "armv6-unknown-netbsd-eabihf")
-    assertNormalizesEqual("armv7-netbsd-eabihf",
-              "armv7-unknown-netbsd-eabihf")
-    assertNormalizesEqual("armv6eb-netbsd-eabihf",
-              "armv6eb-unknown-netbsd-eabihf")
-    assertNormalizesEqual("armv7eb-netbsd-eabihf",
-              "armv7eb-unknown-netbsd-eabihf")
+    assertNormalizesEqual(
+      "armv6-netbsd-eabi",
+      "armv6-unknown-netbsd-eabi"
+    )
+    assertNormalizesEqual(
+      "armv7-netbsd-eabi",
+      "armv7-unknown-netbsd-eabi"
+    )
+    assertNormalizesEqual(
+      "armv6eb-netbsd-eabi",
+      "armv6eb-unknown-netbsd-eabi"
+    )
+    assertNormalizesEqual(
+      "armv7eb-netbsd-eabi",
+      "armv7eb-unknown-netbsd-eabi"
+    )
+    assertNormalizesEqual(
+      "armv6-netbsd-eabihf",
+      "armv6-unknown-netbsd-eabihf"
+    )
+    assertNormalizesEqual(
+      "armv7-netbsd-eabihf",
+      "armv7-unknown-netbsd-eabihf"
+    )
+    assertNormalizesEqual(
+      "armv6eb-netbsd-eabihf",
+      "armv6eb-unknown-netbsd-eabihf"
+    )
+    assertNormalizesEqual(
+      "armv7eb-netbsd-eabihf",
+      "armv7eb-unknown-netbsd-eabihf"
+    )
 
-    assertNormalizesEqual("armv7-suse-linux-gnueabi",
-              "armv7-suse-linux-gnueabihf")
+    assertNormalizesEqual(
+      "armv7-suse-linux-gnueabi",
+      "armv7-suse-linux-gnueabihf"
+    )
 
     var T: Triple
     T = Triple("armv6--netbsd-eabi")
@@ -1111,45 +1167,39 @@ import class TSCBasic.DiagnosticsEngine
     #expect(.wasm == Triple("wasm32-unknown-wasi").objectFormat)
     #expect(.wasm == Triple("wasm64-unknown-wasi").objectFormat)
 
-    #expect(.wasm ==
-              Triple("wasm32-unknown-unknown-wasm").objectFormat)
-    #expect(.wasm ==
-              Triple("wasm64-unknown-unknown-wasm").objectFormat)
-    #expect(.wasm ==
-              Triple("wasm32-wasi-wasm").objectFormat)
-    #expect(.wasm ==
-              Triple("wasm64-wasi-wasm").objectFormat)
-    #expect(.wasm ==
-              Triple("wasm32-unknown-wasi-wasm").objectFormat)
-    #expect(.wasm ==
-              Triple("wasm64-unknown-wasi-wasm").objectFormat)
+    #expect(.wasm == Triple("wasm32-unknown-unknown-wasm").objectFormat)
+    #expect(.wasm == Triple("wasm64-unknown-unknown-wasm").objectFormat)
+    #expect(.wasm == Triple("wasm32-wasi-wasm").objectFormat)
+    #expect(.wasm == Triple("wasm64-wasi-wasm").objectFormat)
+    #expect(.wasm == Triple("wasm32-unknown-wasi-wasm").objectFormat)
+    #expect(.wasm == Triple("wasm64-unknown-wasi-wasm").objectFormat)
 
     #expect(.xcoff == Triple("powerpc-ibm-aix").objectFormat)
     #expect(.xcoff == Triple("powerpc64-ibm-aix").objectFormat)
     #expect(.xcoff == Triple("powerpc---xcoff").objectFormat)
     #expect(.xcoff == Triple("powerpc64---xcoff").objectFormat)
 
-//    let MSVCNormalized = Triple("i686-pc-windows-msvc-elf", normalizing: true)
-//    #expect(.elf == MSVCNormalized.objectFormat)
+    //    let MSVCNormalized = Triple("i686-pc-windows-msvc-elf", normalizing: true)
+    //    #expect(.elf == MSVCNormalized.objectFormat)
 
-//    let GNUWindowsNormalized = Triple("i686-pc-windows-gnu-elf", normalizing: true)
-//    #expect(.elf == GNUWindowsNormalized.objectFormat)
+    //    let GNUWindowsNormalized = Triple("i686-pc-windows-gnu-elf", normalizing: true)
+    //    #expect(.elf == GNUWindowsNormalized.objectFormat)
 
-//    let CygnusNormalized = Triple("i686-pc-windows-cygnus-elf", normalizing: true)
-//    #expect(.elf == CygnusNormalized.objectFormat)
+    //    let CygnusNormalized = Triple("i686-pc-windows-cygnus-elf", normalizing: true)
+    //    #expect(.elf == CygnusNormalized.objectFormat)
 
     let CygwinNormalized = Triple("i686-pc-cygwin-elf", normalizing: true)
     #expect(.elf == CygwinNormalized.objectFormat)
 
-//    var T = Triple("")
-//    T.setObjectFormat(.ELF)
-//    #expect(.ELF == T.objectFormat)
-//
-//    T.setObjectFormat(.MachO)
-//    #expect(.MachO == T.objectFormat)
-//
-//    T.setObjectFormat(.XCOFF)
-//    #expect(.XCOFF == T.objectFormat)
+    //    var T = Triple("")
+    //    T.setObjectFormat(.ELF)
+    //    #expect(.ELF == T.objectFormat)
+    //
+    //    T.setObjectFormat(.MachO)
+    //    #expect(.MachO == T.objectFormat)
+    //
+    //    T.setObjectFormat(.XCOFF)
+    //    #expect(.XCOFF == T.objectFormat)
   }
 
   static let jetPacks = Triple.FeatureAvailability(
@@ -1177,39 +1227,68 @@ import class TSCBasic.DiagnosticsEngine
     }
 
     guard let matchedEnvironment = match(platform) else {
-      Issue.record("Unexpected case: \(platform) from \(triple)",
-        sourceLocation: sourceLocation)
+      Issue.record(
+        "Unexpected case: \(platform) from \(triple)",
+        sourceLocation: sourceLocation
+      )
       return
     }
 
-    #expect(matchedEnvironment == environment,
-                   "environment == .simulator", sourceLocation: sourceLocation)
+    #expect(
+      matchedEnvironment == environment,
+      "environment == .simulator",
+      sourceLocation: sourceLocation
+    )
 
     if let macOSVersion = macOSVersion {
-      #expect(triple.version(for: .macOS) == macOSVersion,
-                     "macOS version", sourceLocation: sourceLocation)
+      #expect(
+        triple.version(for: .macOS) == macOSVersion,
+        "macOS version",
+        sourceLocation: sourceLocation
+      )
     }
     if let iOSVersion = iOSVersion {
-      #expect(triple.version(for: .iOS(.device)) == iOSVersion,
-                     "iOS device version", sourceLocation: sourceLocation)
-      #expect(triple.version(for: .iOS(.simulator)) == iOSVersion,
-                     "iOS simulator version", sourceLocation: sourceLocation)
+      #expect(
+        triple.version(for: .iOS(.device)) == iOSVersion,
+        "iOS device version",
+        sourceLocation: sourceLocation
+      )
+      #expect(
+        triple.version(for: .iOS(.simulator)) == iOSVersion,
+        "iOS simulator version",
+        sourceLocation: sourceLocation
+      )
     }
     if let tvOSVersion = tvOSVersion {
-      #expect(triple.version(for: .tvOS(.device)) == tvOSVersion,
-                     "tvOS device version", sourceLocation: sourceLocation)
-      #expect(triple.version(for: .tvOS(.simulator)) == tvOSVersion,
-                     "tvOS simulator version", sourceLocation: sourceLocation)
+      #expect(
+        triple.version(for: .tvOS(.device)) == tvOSVersion,
+        "tvOS device version",
+        sourceLocation: sourceLocation
+      )
+      #expect(
+        triple.version(for: .tvOS(.simulator)) == tvOSVersion,
+        "tvOS simulator version",
+        sourceLocation: sourceLocation
+      )
     }
     if let watchOSVersion = watchOSVersion {
-      #expect(triple.version(for: .watchOS(.device)) == watchOSVersion,
-                     "watchOS device version", sourceLocation: sourceLocation)
-      #expect(triple.version(for: .watchOS(.simulator)) == watchOSVersion,
-                     "watchOS simulator version", sourceLocation: sourceLocation)
+      #expect(
+        triple.version(for: .watchOS(.device)) == watchOSVersion,
+        "watchOS device version",
+        sourceLocation: sourceLocation
+      )
+      #expect(
+        triple.version(for: .watchOS(.simulator)) == watchOSVersion,
+        "watchOS simulator version",
+        sourceLocation: sourceLocation
+      )
     }
 
-    #expect(triple.supports(Self.jetPacks) == shouldHaveJetPacks,
-                   "FeatureAvailability version check", sourceLocation: sourceLocation)
+    #expect(
+      triple.supports(Self.jetPacks) == shouldHaveJetPacks,
+      "FeatureAvailability version check",
+      sourceLocation: sourceLocation
+    )
   }
 
   @Test func darwinPlatform() {
@@ -1238,145 +1317,175 @@ import class TSCBasic.DiagnosticsEngine
     let macOS3 = Triple("i386-apple-macos10.60.9")
     let macOS4 = Triple("i386-apple-darwin19")
 
-    assertDarwinPlatformCorrect(macOS1,
-                                case: macOS,
-                                environment: .device,
-                                macOSVersion: .init(10, 12, 0),
-                                iOSVersion: .init(5, 0, 0),
-                                tvOSVersion: .init(9, 0, 0),
-                                watchOSVersion: .init(2, 0, 0),
-                                shouldHaveJetPacks: false)
-    assertDarwinPlatformCorrect(macOS2,
-                                case: macOS,
-                                environment: .device,
-                                macOSVersion: .init(10, 50, 0),
-                                iOSVersion: .init(5, 0, 0),
-                                tvOSVersion: .init(9, 0, 0),
-                                watchOSVersion: .init(2, 0, 0),
-                                shouldHaveJetPacks: true)
-    assertDarwinPlatformCorrect(macOS3,
-                                case: macOS,
-                                environment: .device,
-                                macOSVersion: .init(10, 60, 9),
-                                iOSVersion: .init(5, 0, 0),
-                                tvOSVersion: .init(9, 0, 0),
-                                watchOSVersion: .init(2, 0, 0),
-                                shouldHaveJetPacks: true)
-    assertDarwinPlatformCorrect(macOS4,
-                                case: macOS,
-                                environment: .device,
-                                macOSVersion: .init(10, 15, 0),
-                                iOSVersion: .init(5, 0, 0),
-                                tvOSVersion: .init(9, 0, 0),
-                                watchOSVersion: .init(2, 0, 0),
-                                shouldHaveJetPacks: false)
+    assertDarwinPlatformCorrect(
+      macOS1,
+      case: macOS,
+      environment: .device,
+      macOSVersion: .init(10, 12, 0),
+      iOSVersion: .init(5, 0, 0),
+      tvOSVersion: .init(9, 0, 0),
+      watchOSVersion: .init(2, 0, 0),
+      shouldHaveJetPacks: false
+    )
+    assertDarwinPlatformCorrect(
+      macOS2,
+      case: macOS,
+      environment: .device,
+      macOSVersion: .init(10, 50, 0),
+      iOSVersion: .init(5, 0, 0),
+      tvOSVersion: .init(9, 0, 0),
+      watchOSVersion: .init(2, 0, 0),
+      shouldHaveJetPacks: true
+    )
+    assertDarwinPlatformCorrect(
+      macOS3,
+      case: macOS,
+      environment: .device,
+      macOSVersion: .init(10, 60, 9),
+      iOSVersion: .init(5, 0, 0),
+      tvOSVersion: .init(9, 0, 0),
+      watchOSVersion: .init(2, 0, 0),
+      shouldHaveJetPacks: true
+    )
+    assertDarwinPlatformCorrect(
+      macOS4,
+      case: macOS,
+      environment: .device,
+      macOSVersion: .init(10, 15, 0),
+      iOSVersion: .init(5, 0, 0),
+      tvOSVersion: .init(9, 0, 0),
+      watchOSVersion: .init(2, 0, 0),
+      shouldHaveJetPacks: false
+    )
 
     let iOS1 = Triple("x86_64-apple-ios13.0-simulator")
-    let iOS2 = Triple("powerpc-apple-ios50.0") // FIXME: should test with ARM
+    let iOS2 = Triple("powerpc-apple-ios50.0")  // FIXME: should test with ARM
     let iOS3 = Triple("x86_64-apple-ios60.0-macabi")
 
-    assertDarwinPlatformCorrect(iOS1,
-                                case: iOS,
-                                environment: .simulator,
-                                macOSVersion: .init(10, 4, 0),
-                                iOSVersion: .init(13, 0, 0),
-                                tvOSVersion: nil,
-                                watchOSVersion: nil,
-                                shouldHaveJetPacks: false)
-    assertDarwinPlatformCorrect(iOS2,
-                                case: iOS,
-                                environment: .device,
-                                macOSVersion: .init(10, 4, 0),
-                                iOSVersion: .init(50, 0, 0),
-                                tvOSVersion: nil,
-                                watchOSVersion: nil,
-                                shouldHaveJetPacks: true)
-    assertDarwinPlatformCorrect(iOS3,
-                                case: iOS,
-                                environment: .catalyst,
-                                macOSVersion: .init(10, 4, 0),
-                                iOSVersion: .init(60, 0, 0),
-                                tvOSVersion: nil,
-                                watchOSVersion: nil,
-                                shouldHaveJetPacks: true)
+    assertDarwinPlatformCorrect(
+      iOS1,
+      case: iOS,
+      environment: .simulator,
+      macOSVersion: .init(10, 4, 0),
+      iOSVersion: .init(13, 0, 0),
+      tvOSVersion: nil,
+      watchOSVersion: nil,
+      shouldHaveJetPacks: false
+    )
+    assertDarwinPlatformCorrect(
+      iOS2,
+      case: iOS,
+      environment: .device,
+      macOSVersion: .init(10, 4, 0),
+      iOSVersion: .init(50, 0, 0),
+      tvOSVersion: nil,
+      watchOSVersion: nil,
+      shouldHaveJetPacks: true
+    )
+    assertDarwinPlatformCorrect(
+      iOS3,
+      case: iOS,
+      environment: .catalyst,
+      macOSVersion: .init(10, 4, 0),
+      iOSVersion: .init(60, 0, 0),
+      tvOSVersion: nil,
+      watchOSVersion: nil,
+      shouldHaveJetPacks: true
+    )
 
     let tvOS1 = Triple("x86_64-apple-tvos13.0-simulator")
-    let tvOS2 = Triple("powerpc-apple-tvos50.0") // FIXME: should test with ARM
+    let tvOS2 = Triple("powerpc-apple-tvos50.0")  // FIXME: should test with ARM
     let tvOS3 = Triple("x86_64-apple-tvos60.0-simulator")
 
-    assertDarwinPlatformCorrect(tvOS1,
-                                case: tvOS,
-                                environment: .simulator,
-                                macOSVersion: .init(10, 4, 0),
-                                iOSVersion: .init(13, 0, 0),
-                                tvOSVersion: .init(13, 0, 0),
-                                watchOSVersion: nil,
-                                shouldHaveJetPacks: false)
-    assertDarwinPlatformCorrect(tvOS2,
-                                case: tvOS,
-                                environment: .device,
-                                macOSVersion: .init(10, 4, 0),
-                                iOSVersion: .init(50, 0, 0),
-                                tvOSVersion: .init(50, 0, 0),
-                                watchOSVersion: nil,
-                                shouldHaveJetPacks: true)
-    assertDarwinPlatformCorrect(tvOS3,
-                                case: tvOS,
-                                environment: .simulator,
-                                macOSVersion: .init(10, 4, 0),
-                                iOSVersion: .init(60, 0, 0),
-                                tvOSVersion: .init(60, 0, 0),
-                                watchOSVersion: nil,
-                                shouldHaveJetPacks: true)
+    assertDarwinPlatformCorrect(
+      tvOS1,
+      case: tvOS,
+      environment: .simulator,
+      macOSVersion: .init(10, 4, 0),
+      iOSVersion: .init(13, 0, 0),
+      tvOSVersion: .init(13, 0, 0),
+      watchOSVersion: nil,
+      shouldHaveJetPacks: false
+    )
+    assertDarwinPlatformCorrect(
+      tvOS2,
+      case: tvOS,
+      environment: .device,
+      macOSVersion: .init(10, 4, 0),
+      iOSVersion: .init(50, 0, 0),
+      tvOSVersion: .init(50, 0, 0),
+      watchOSVersion: nil,
+      shouldHaveJetPacks: true
+    )
+    assertDarwinPlatformCorrect(
+      tvOS3,
+      case: tvOS,
+      environment: .simulator,
+      macOSVersion: .init(10, 4, 0),
+      iOSVersion: .init(60, 0, 0),
+      tvOSVersion: .init(60, 0, 0),
+      watchOSVersion: nil,
+      shouldHaveJetPacks: true
+    )
 
     let watchOS1 = Triple("x86_64-apple-watchos6.0-simulator")
-    let watchOS2 = Triple("powerpc-apple-watchos50.0") // FIXME: should test with ARM
+    let watchOS2 = Triple("powerpc-apple-watchos50.0")  // FIXME: should test with ARM
     let watchOS3 = Triple("x86_64-apple-watchos60.0-simulator")
 
-    assertDarwinPlatformCorrect(watchOS1,
-                                case: watchOS,
-                                environment: .simulator,
-                                macOSVersion: .init(10, 4, 0),
-                                iOSVersion: nil,
-                                tvOSVersion: nil,
-                                watchOSVersion: .init(6, 0, 0),
-                                shouldHaveJetPacks: false)
-    assertDarwinPlatformCorrect(watchOS2,
-                                case: watchOS,
-                                environment: .device,
-                                macOSVersion: .init(10, 4, 0),
-                                iOSVersion: nil,
-                                tvOSVersion: nil,
-                                watchOSVersion: .init(50, 0, 0),
-                                shouldHaveJetPacks: true)
-    assertDarwinPlatformCorrect(watchOS3,
-                                case: watchOS,
-                                environment: .simulator,
-                                macOSVersion: .init(10, 4, 0),
-                                iOSVersion: nil,
-                                tvOSVersion: nil,
-                                watchOSVersion: .init(60, 0, 0),
-                                shouldHaveJetPacks: true)
+    assertDarwinPlatformCorrect(
+      watchOS1,
+      case: watchOS,
+      environment: .simulator,
+      macOSVersion: .init(10, 4, 0),
+      iOSVersion: nil,
+      tvOSVersion: nil,
+      watchOSVersion: .init(6, 0, 0),
+      shouldHaveJetPacks: false
+    )
+    assertDarwinPlatformCorrect(
+      watchOS2,
+      case: watchOS,
+      environment: .device,
+      macOSVersion: .init(10, 4, 0),
+      iOSVersion: nil,
+      tvOSVersion: nil,
+      watchOSVersion: .init(50, 0, 0),
+      shouldHaveJetPacks: true
+    )
+    assertDarwinPlatformCorrect(
+      watchOS3,
+      case: watchOS,
+      environment: .simulator,
+      macOSVersion: .init(10, 4, 0),
+      iOSVersion: nil,
+      tvOSVersion: nil,
+      watchOSVersion: .init(60, 0, 0),
+      shouldHaveJetPacks: true
+    )
 
     let firmware1 = Triple("arm64-apple-firmware1.0")
     let firmware2 = Triple("powerpc-apple-firmware1.0")
 
-    assertDarwinPlatformCorrect(firmware1,
-                                case: Firmware,
-                                environment: .device,
-                                macOSVersion: .init(10, 4, 0),
-                                iOSVersion: nil,
-                                tvOSVersion: nil,
-                                watchOSVersion: nil,
-                                shouldHaveJetPacks: true)
-    assertDarwinPlatformCorrect(firmware2,
-                                case: Firmware,
-                                environment: .device,
-                                macOSVersion: .init(10, 4, 0),
-                                iOSVersion: nil,
-                                tvOSVersion: nil,
-                                watchOSVersion: nil,
-                                shouldHaveJetPacks: true)
+    assertDarwinPlatformCorrect(
+      firmware1,
+      case: Firmware,
+      environment: .device,
+      macOSVersion: .init(10, 4, 0),
+      iOSVersion: nil,
+      tvOSVersion: nil,
+      watchOSVersion: nil,
+      shouldHaveJetPacks: true
+    )
+    assertDarwinPlatformCorrect(
+      firmware2,
+      case: Firmware,
+      environment: .device,
+      macOSVersion: .init(10, 4, 0),
+      iOSVersion: nil,
+      tvOSVersion: nil,
+      watchOSVersion: nil,
+      shouldHaveJetPacks: true
+    )
   }
 
   @Test func clangOSLibName() {
@@ -1390,7 +1499,7 @@ import class TSCBasic.DiagnosticsEngine
 
   @Test func toolchainSelection() {
     let diagnostics = DiagnosticsEngine()
-    struct None { }
+    struct None {}
 
     func assertToolchain<T>(
       _ rawTriple: String,
@@ -1403,12 +1512,14 @@ import class TSCBasic.DiagnosticsEngine
         if None.self is T.Type {
           Issue.record(
             "Expected None but found \(actual) for triple \(rawTriple).",
-            sourceLocation: sourceLocation)
+            sourceLocation: sourceLocation
+          )
         } else {
           #expect(
             actual is T.Type,
             "Expected \(T.self) but found \(actual) for triple \(rawTriple).",
-            sourceLocation: sourceLocation)
+            sourceLocation: sourceLocation
+          )
         }
       } catch {
         if None.self is T.Type {
@@ -1416,7 +1527,8 @@ import class TSCBasic.DiagnosticsEngine
         } else {
           Issue.record(
             "Expected \(T.self) but found None for triple \(rawTriple).",
-            sourceLocation: sourceLocation)
+            sourceLocation: sourceLocation
+          )
         }
       }
     }
@@ -1516,4 +1628,3 @@ extension Triple.Version: ExpressibleByStringLiteral {
     self.init(parse: value)
   }
 }
-

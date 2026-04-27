@@ -12,12 +12,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-@testable @_spi(Testing) import SwiftDriver
 import SwiftDriverExecution
 import SwiftOptions
 import TSCBasic
-import Testing
 import TestUtilities
+import Testing
+
+@testable @_spi(Testing) import SwiftDriver
 
 @Suite struct OutputJobTests {
 
@@ -40,10 +41,13 @@ import TestUtilities
       let driver = try TestDriver(args: [
         "swiftc", main.pathString, utilRelative.pathString,
       ])
-      expectEqual(driver.recordedInputMetadata.mapValues{$0.mTime}, [
-        .init(file: VirtualPath.absolute(main).intern(), type: .swift) : mainMDate,
-        .init(file: VirtualPath.relative(utilRelative).intern(), type: .swift) : utilMDate,
-      ])
+      expectEqual(
+        driver.recordedInputMetadata.mapValues { $0.mTime },
+        [
+          .init(file: VirtualPath.absolute(main).intern(), type: .swift): mainMDate,
+          .init(file: VirtualPath.relative(utilRelative).intern(), type: .swift): utilMDate,
+        ]
+      )
     }
   }
 
@@ -77,72 +81,7 @@ import TestUtilities
 
   @Test func outputFileMapLoading() async throws {
     let objroot: AbsolutePath =
-        try AbsolutePath(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build")
-
-    let contents = ByteString("""
-    {
-      "": {
-        "swift-dependencies": "\(objroot.appending(components: "main.swiftdeps").nativePathString(escaped: true))"
-      },
-      "/tmp/foo/Sources/foo/foo.swift": {
-        "dependencies": "\(objroot.appending(components: "foo.d").nativePathString(escaped: true))",
-        "object": "\(objroot.appending(components: "foo.swift.o").nativePathString(escaped: true))",
-        "swiftmodule": "\(objroot.appending(components: "foo~partial.swiftmodule").nativePathString(escaped: true))",
-        "swift-dependencies": "\(objroot.appending(components: "foo.swiftdeps").nativePathString(escaped: true))"
-      }
-    }
-    """.utf8)
-
-    try await withTemporaryDirectory { dir in
-      let file = dir.appending(component: "file")
-      try await assertNoDiagnostics { diags in
-        try localFileSystem.writeFileContents(file, bytes: contents)
-        let outputFileMap = try OutputFileMap.load(fileSystem: localFileSystem, file: .absolute(file), diagnosticEngine: diags)
-
-        let object = try outputFileMap.getOutput(inputFile: VirtualPath.intern(path: "/tmp/foo/Sources/foo/foo.swift"), outputType: .object)
-        #expect(VirtualPath.lookup(object).name == objroot.appending(components: "foo.swift.o").pathString)
-
-        let mainDeps = try outputFileMap.getOutput(inputFile: VirtualPath.intern(path: ""), outputType: .swiftDeps)
-        #expect(VirtualPath.lookup(mainDeps).name == objroot.appending(components: "main.swiftdeps").pathString)
-      }
-    }
-  }
-
-  @Test func findingObjectPathFromllvmBCPath() async throws {
-    let objroot: AbsolutePath =
-        try AbsolutePath(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build")
-
-    let contents = ByteString(
-      """
-      {
-        "": {
-          "swift-dependencies": "\(objroot.appending(components: "main.swiftdeps").nativePathString(escaped: true))"
-        },
-        "/tmp/foo/Sources/foo/foo.swift": {
-          "dependencies": "\(objroot.appending(components: "foo.d").nativePathString(escaped: true))",
-          "object": "\(objroot.appending(components: "foo.swift.o").nativePathString(escaped: true))",
-          "swiftmodule": "\(objroot.appending(components: "foo~partial.swiftmodule").nativePathString(escaped: true))",
-          "swift-dependencies": "\(objroot.appending(components: "foo.swiftdeps").nativePathString(escaped: true))",
-          "llvm-bc": "\(objroot.appending(components: "foo.swift.bc").nativePathString(escaped: true))"
-        }
-      }
-      """.utf8
-    )
-    try await withTemporaryDirectory { dir in
-      let file = dir.appending(component: "file")
-      try await assertNoDiagnostics { diags in
-        try localFileSystem.writeFileContents(file, bytes: contents)
-        let outputFileMap = try OutputFileMap.load(fileSystem: localFileSystem, file: .absolute(file), diagnosticEngine: diags)
-
-        let obj = try outputFileMap.getOutput(inputFile: VirtualPath.intern(path: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.swift.bc"), outputType: .object)
-        #expect(VirtualPath.lookup(obj).name == objroot.appending(components: "foo.swift.o").pathString)
-      }
-    }
-  }
-
-  @Test func outputFileMapLoadingDocAndSourceinfo() async throws {
-    let objroot: AbsolutePath =
-        try AbsolutePath(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build")
+      try AbsolutePath(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build")
 
     let contents = ByteString(
       """
@@ -164,13 +103,106 @@ import TestUtilities
       let file = dir.appending(component: "file")
       try await assertNoDiagnostics { diags in
         try localFileSystem.writeFileContents(file, bytes: contents)
-        let outputFileMap = try OutputFileMap.load(fileSystem: localFileSystem, file: .absolute(file), diagnosticEngine: diags)
+        let outputFileMap = try OutputFileMap.load(
+          fileSystem: localFileSystem,
+          file: .absolute(file),
+          diagnosticEngine: diags
+        )
 
-        let doc = try outputFileMap.getOutput(inputFile: VirtualPath.intern(path: "/tmp/foo/Sources/foo/foo.swift"), outputType: .swiftDocumentation)
+        let object = try outputFileMap.getOutput(
+          inputFile: VirtualPath.intern(path: "/tmp/foo/Sources/foo/foo.swift"),
+          outputType: .object
+        )
+        #expect(VirtualPath.lookup(object).name == objroot.appending(components: "foo.swift.o").pathString)
+
+        let mainDeps = try outputFileMap.getOutput(inputFile: VirtualPath.intern(path: ""), outputType: .swiftDeps)
+        #expect(VirtualPath.lookup(mainDeps).name == objroot.appending(components: "main.swiftdeps").pathString)
+      }
+    }
+  }
+
+  @Test func findingObjectPathFromllvmBCPath() async throws {
+    let objroot: AbsolutePath =
+      try AbsolutePath(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build")
+
+    let contents = ByteString(
+      """
+      {
+        "": {
+          "swift-dependencies": "\(objroot.appending(components: "main.swiftdeps").nativePathString(escaped: true))"
+        },
+        "/tmp/foo/Sources/foo/foo.swift": {
+          "dependencies": "\(objroot.appending(components: "foo.d").nativePathString(escaped: true))",
+          "object": "\(objroot.appending(components: "foo.swift.o").nativePathString(escaped: true))",
+          "swiftmodule": "\(objroot.appending(components: "foo~partial.swiftmodule").nativePathString(escaped: true))",
+          "swift-dependencies": "\(objroot.appending(components: "foo.swiftdeps").nativePathString(escaped: true))",
+          "llvm-bc": "\(objroot.appending(components: "foo.swift.bc").nativePathString(escaped: true))"
+        }
+      }
+      """.utf8
+    )
+    try await withTemporaryDirectory { dir in
+      let file = dir.appending(component: "file")
+      try await assertNoDiagnostics { diags in
+        try localFileSystem.writeFileContents(file, bytes: contents)
+        let outputFileMap = try OutputFileMap.load(
+          fileSystem: localFileSystem,
+          file: .absolute(file),
+          diagnosticEngine: diags
+        )
+
+        let obj = try outputFileMap.getOutput(
+          inputFile: VirtualPath.intern(path: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.swift.bc"),
+          outputType: .object
+        )
+        #expect(VirtualPath.lookup(obj).name == objroot.appending(components: "foo.swift.o").pathString)
+      }
+    }
+  }
+
+  @Test func outputFileMapLoadingDocAndSourceinfo() async throws {
+    let objroot: AbsolutePath =
+      try AbsolutePath(validating: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build")
+
+    let contents = ByteString(
+      """
+      {
+        "": {
+          "swift-dependencies": "\(objroot.appending(components: "main.swiftdeps").nativePathString(escaped: true))"
+        },
+        "/tmp/foo/Sources/foo/foo.swift": {
+          "dependencies": "\(objroot.appending(components: "foo.d").nativePathString(escaped: true))",
+          "object": "\(objroot.appending(components: "foo.swift.o").nativePathString(escaped: true))",
+          "swiftmodule": "\(objroot.appending(components: "foo~partial.swiftmodule").nativePathString(escaped: true))",
+          "swift-dependencies": "\(objroot.appending(components: "foo.swiftdeps").nativePathString(escaped: true))"
+        }
+      }
+      """.utf8
+    )
+
+    try await withTemporaryDirectory { dir in
+      let file = dir.appending(component: "file")
+      try await assertNoDiagnostics { diags in
+        try localFileSystem.writeFileContents(file, bytes: contents)
+        let outputFileMap = try OutputFileMap.load(
+          fileSystem: localFileSystem,
+          file: .absolute(file),
+          diagnosticEngine: diags
+        )
+
+        let doc = try outputFileMap.getOutput(
+          inputFile: VirtualPath.intern(path: "/tmp/foo/Sources/foo/foo.swift"),
+          outputType: .swiftDocumentation
+        )
         #expect(VirtualPath.lookup(doc).name == objroot.appending(components: "foo~partial.swiftdoc").pathString)
 
-        let source = try outputFileMap.getOutput(inputFile: VirtualPath.intern(path: "/tmp/foo/Sources/foo/foo.swift"), outputType: .swiftSourceInfoFile)
-        #expect(VirtualPath.lookup(source).name == objroot.appending(components: "foo~partial.swiftsourceinfo").pathString)
+        let source = try outputFileMap.getOutput(
+          inputFile: VirtualPath.intern(path: "/tmp/foo/Sources/foo/foo.swift"),
+          outputType: .swiftSourceInfoFile
+        )
+        #expect(
+          VirtualPath.lookup(source).name == objroot.appending(components: "foo~partial.swiftsourceinfo").pathString
+        )
       }
     }
   }
@@ -215,87 +247,151 @@ import TestUtilities
         var driver = try TestDriver(args: [
           "swiftc", "-c",
           "-output-file-map", file.pathString,
-          "-module-name", "test", "/tmp/second.swift", "/tmp/main.swift"
+          "-module-name", "test", "/tmp/second.swift", "/tmp/main.swift",
         ])
         var jobs = try await driver.planBuild()
 
-        try expectJobInvocationMatches(jobs[0], .flag("-o"), .path(.absolute(.init(validating: "/tmp/build1/second.o"))))
-        try expectJobInvocationMatches(jobs[0], .flag("-index-unit-output-path"), .path(.absolute(.init(validating: "/tmp/build2/second.o"))))
+        try expectJobInvocationMatches(
+          jobs[0],
+          .flag("-o"),
+          .path(.absolute(.init(validating: "/tmp/build1/second.o")))
+        )
+        try expectJobInvocationMatches(
+          jobs[0],
+          .flag("-index-unit-output-path"),
+          .path(.absolute(.init(validating: "/tmp/build2/second.o")))
+        )
 
         try expectJobInvocationMatches(jobs[1], .flag("-o"), .path(.absolute(.init(validating: "/tmp/build1/main.o"))))
-        try expectJobInvocationMatches(jobs[1], .flag("-index-unit-output-path"), .path(.absolute(.init(validating: "/tmp/build2/main.o"))))
+        try expectJobInvocationMatches(
+          jobs[1],
+          .flag("-index-unit-output-path"),
+          .path(.absolute(.init(validating: "/tmp/build2/main.o")))
+        )
 
         // b) with filelists
         driver = try TestDriver(args: [
           "swiftc", "-c", "-driver-filelist-threshold=0",
           "-output-file-map", file.pathString,
-          "-module-name", "test", "/tmp/second.swift", "/tmp/main.swift"
+          "-module-name", "test", "/tmp/second.swift", "/tmp/main.swift",
         ])
         jobs = try await driver.planBuild()
-        try expectEqual(getFileListElements(for: "-output-filelist", job: jobs[0]),
-                       [.absolute(try .init(validating: "/tmp/build1/second.o"))])
-        try expectEqual(getFileListElements(for: "-index-unit-output-path-filelist", job: jobs[0]),
-                       [.absolute(try .init(validating: "/tmp/build2/second.o"))])
-        try expectEqual(getFileListElements(for: "-output-filelist", job: jobs[1]),
-                       [.absolute(try .init(validating: "/tmp/build1/main.o"))])
-        try expectEqual(getFileListElements(for: "-index-unit-output-path-filelist", job: jobs[1]),
-                       [.absolute(try .init(validating: "/tmp/build2/main.o"))])
+        try expectEqual(
+          getFileListElements(for: "-output-filelist", job: jobs[0]),
+          [.absolute(try .init(validating: "/tmp/build1/second.o"))]
+        )
+        try expectEqual(
+          getFileListElements(for: "-index-unit-output-path-filelist", job: jobs[0]),
+          [.absolute(try .init(validating: "/tmp/build2/second.o"))]
+        )
+        try expectEqual(
+          getFileListElements(for: "-output-filelist", job: jobs[1]),
+          [.absolute(try .init(validating: "/tmp/build1/main.o"))]
+        )
+        try expectEqual(
+          getFileListElements(for: "-index-unit-output-path-filelist", job: jobs[1]),
+          [.absolute(try .init(validating: "/tmp/build2/main.o"))]
+        )
 
         // 2. Batch mode (two primary files)
         // a) without filelists
         driver = try TestDriver(args: [
           "swiftc", "-c", "-enable-batch-mode", "-driver-batch-count", "1",
           "-output-file-map", file.pathString,
-          "-module-name", "test", "/tmp/second.swift", "/tmp/main.swift"
+          "-module-name", "test", "/tmp/second.swift", "/tmp/main.swift",
         ])
         jobs = try await driver.planBuild()
 
-        try expectJobInvocationMatches(jobs[0], .flag("-o"), .path(.absolute(.init(validating: "/tmp/build1/second.o"))))
-        try expectJobInvocationMatches(jobs[0], .flag("-index-unit-output-path"), .path(.absolute(.init(validating: "/tmp/build2/second.o"))))
+        try expectJobInvocationMatches(
+          jobs[0],
+          .flag("-o"),
+          .path(.absolute(.init(validating: "/tmp/build1/second.o")))
+        )
+        try expectJobInvocationMatches(
+          jobs[0],
+          .flag("-index-unit-output-path"),
+          .path(.absolute(.init(validating: "/tmp/build2/second.o")))
+        )
 
         try expectJobInvocationMatches(jobs[0], .flag("-o"), .path(.absolute(.init(validating: "/tmp/build1/main.o"))))
-        try expectJobInvocationMatches(jobs[0], .flag("-index-unit-output-path"), .path(.absolute(.init(validating: "/tmp/build2/main.o"))))
+        try expectJobInvocationMatches(
+          jobs[0],
+          .flag("-index-unit-output-path"),
+          .path(.absolute(.init(validating: "/tmp/build2/main.o")))
+        )
 
         // b) with filelists
         driver = try TestDriver(args: [
           "swiftc", "-c", "-driver-filelist-threshold=0",
           "-enable-batch-mode", "-driver-batch-count", "1",
           "-output-file-map", file.pathString,
-          "-module-name", "test", "/tmp/second.swift", "/tmp/main.swift"
+          "-module-name", "test", "/tmp/second.swift", "/tmp/main.swift",
         ])
         jobs = try await driver.planBuild()
-        try expectEqual(getFileListElements(for: "-output-filelist", job: jobs[0]),
-                       [.absolute(try .init(validating: "/tmp/build1/second.o")), .absolute(try .init(validating: "/tmp/build1/main.o"))])
-        try expectEqual(getFileListElements(for: "-index-unit-output-path-filelist", job: jobs[0]),
-                       [.absolute(try .init(validating: "/tmp/build2/second.o")), .absolute(try .init(validating: "/tmp/build2/main.o"))])
+        try expectEqual(
+          getFileListElements(for: "-output-filelist", job: jobs[0]),
+          [
+            .absolute(try .init(validating: "/tmp/build1/second.o")),
+            .absolute(try .init(validating: "/tmp/build1/main.o")),
+          ]
+        )
+        try expectEqual(
+          getFileListElements(for: "-index-unit-output-path-filelist", job: jobs[0]),
+          [
+            .absolute(try .init(validating: "/tmp/build2/second.o")),
+            .absolute(try .init(validating: "/tmp/build2/main.o")),
+          ]
+        )
 
         // 3. Multi-threaded WMO
         // a) without filelists
         driver = try TestDriver(args: [
           "swiftc", "-c", "-whole-module-optimization", "-num-threads", "2",
           "-output-file-map", file.pathString,
-          "-module-name", "test", "/tmp/second.swift", "/tmp/main.swift"
+          "-module-name", "test", "/tmp/second.swift", "/tmp/main.swift",
         ])
         jobs = try await driver.planBuild()
 
-        try expectJobInvocationMatches(jobs[0], .flag("-o"), .path(.absolute(.init(validating: "/tmp/build1/second.o"))))
-        try expectJobInvocationMatches(jobs[0], .flag("-index-unit-output-path"), .path(.absolute(.init(validating: "/tmp/build2/second.o"))))
+        try expectJobInvocationMatches(
+          jobs[0],
+          .flag("-o"),
+          .path(.absolute(.init(validating: "/tmp/build1/second.o")))
+        )
+        try expectJobInvocationMatches(
+          jobs[0],
+          .flag("-index-unit-output-path"),
+          .path(.absolute(.init(validating: "/tmp/build2/second.o")))
+        )
 
         try expectJobInvocationMatches(jobs[0], .flag("-o"), .path(.absolute(.init(validating: "/tmp/build1/main.o"))))
-        try expectJobInvocationMatches(jobs[0], .flag("-index-unit-output-path"), .path(.absolute(.init(validating: "/tmp/build2/main.o"))))
+        try expectJobInvocationMatches(
+          jobs[0],
+          .flag("-index-unit-output-path"),
+          .path(.absolute(.init(validating: "/tmp/build2/main.o")))
+        )
 
         // b) with filelists
         driver = try TestDriver(args: [
           "swiftc", "-c", "-driver-filelist-threshold=0",
           "-whole-module-optimization", "-num-threads", "2",
           "-output-file-map", file.pathString,
-          "-module-name", "test", "/tmp/second.swift", "/tmp/main.swift"
+          "-module-name", "test", "/tmp/second.swift", "/tmp/main.swift",
         ])
         jobs = try await driver.planBuild()
-        try expectEqual(getFileListElements(for: "-output-filelist", job: jobs[0]),
-                       [.absolute(try .init(validating: "/tmp/build1/second.o")), .absolute(try .init(validating: "/tmp/build1/main.o"))])
-        try expectEqual(getFileListElements(for: "-index-unit-output-path-filelist", job: jobs[0]),
-                       [.absolute(try .init(validating: "/tmp/build2/second.o")), .absolute(try .init(validating: "/tmp/build2/main.o"))])
+        try expectEqual(
+          getFileListElements(for: "-output-filelist", job: jobs[0]),
+          [
+            .absolute(try .init(validating: "/tmp/build1/second.o")),
+            .absolute(try .init(validating: "/tmp/build1/main.o")),
+          ]
+        )
+        try expectEqual(
+          getFileListElements(for: "-index-unit-output-path-filelist", job: jobs[0]),
+          [
+            .absolute(try .init(validating: "/tmp/build2/second.o")),
+            .absolute(try .init(validating: "/tmp/build2/main.o")),
+          ]
+        )
 
         // 4. Index-file (single primary)
         driver = try TestDriver(args: [
@@ -303,12 +399,20 @@ import TestUtilities
           "-module-name", "test", "/tmp/second.swift", "/tmp/main.swift",
           "-index-file", "-index-file-path", "/tmp/second.swift",
           "-disable-batch-mode", "-o", "/tmp/build1/second.o",
-          "-index-unit-output-path", "/tmp/build2/second.o"
+          "-index-unit-output-path", "/tmp/build2/second.o",
         ])
         jobs = try await driver.planBuild()
 
-        try expectJobInvocationMatches(jobs[0], .flag("-o"), .path(.absolute(.init(validating: "/tmp/build1/second.o"))))
-        try expectJobInvocationMatches(jobs[0], .flag("-index-unit-output-path"), .path(.absolute(.init(validating: "/tmp/build2/second.o"))))
+        try expectJobInvocationMatches(
+          jobs[0],
+          .flag("-o"),
+          .path(.absolute(.init(validating: "/tmp/build1/second.o")))
+        )
+        try expectJobInvocationMatches(
+          jobs[0],
+          .flag("-index-unit-output-path"),
+          .path(.absolute(.init(validating: "/tmp/build2/second.o")))
+        )
       }
     }
   }
@@ -319,19 +423,22 @@ import TestUtilities
     // Rather than writing VirtualPath(path:...) over and over again, make strings, then fix it
     let stringyEntries: [String: [FileType: String]] = [
       "": [.swiftDeps: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/main.swiftdeps"],
-      "foo.swift" : [
+      "foo.swift": [
         .dependencies: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.d",
         .object: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.swift.o",
         .swiftModule: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo~partial.swiftmodule",
-        .swiftDeps: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.swiftdeps"
-        ]
+        .swiftDeps: "/tmp/foo/.build/x86_64-apple-macosx/debug/foo.build/foo.swiftdeps",
+      ],
     ]
-    let pathyEntries = try Dictionary(uniqueKeysWithValues:
-      stringyEntries.map { try
-        (
-          VirtualPath.intern(path: $0.key),
-          Dictionary(uniqueKeysWithValues: $0.value.map { try ($0.key, VirtualPath.intern(path: $0.value))})
-        )})
+    let pathyEntries = try Dictionary(
+      uniqueKeysWithValues:
+        stringyEntries.map {
+          try (
+            VirtualPath.intern(path: $0.key),
+            Dictionary(uniqueKeysWithValues: $0.value.map { try ($0.key, VirtualPath.intern(path: $0.value)) })
+          )
+        }
+    )
     let sampleOutputFileMap = OutputFileMap(entries: pathyEntries)
 
     try withTemporaryDirectory { dir in
@@ -339,7 +446,11 @@ import TestUtilities
       try sampleOutputFileMap.store(fileSystem: localFileSystem, file: file)
       let contentsForDebugging = try localFileSystem.readFileContents(file).cString
       _ = contentsForDebugging
-      let recoveredOutputFileMap = try OutputFileMap.load(fileSystem: localFileSystem, file: .absolute(file), diagnosticEngine: DiagnosticsEngine())
+      let recoveredOutputFileMap = try OutputFileMap.load(
+        fileSystem: localFileSystem,
+        file: .absolute(file),
+        diagnosticEngine: DiagnosticsEngine()
+      )
       #expect(sampleOutputFileMap == recoveredOutputFileMap)
     }
   }
@@ -349,38 +460,45 @@ import TestUtilities
 
     let stringyEntries: [String: [FileType: String]] = [
       "": [.swiftDeps: "foo.build/main.swiftdeps"],
-      "foo.swift" : [
+      "foo.swift": [
         .dependencies: "foo.build/foo.d",
         .object: "foo.build/foo.swift.o",
         .swiftModule: "foo.build/foo~partial.swiftmodule",
-        .swiftDeps: "foo.build/foo.swiftdeps"
-      ]
+        .swiftDeps: "foo.build/foo.swiftdeps",
+      ],
     ]
 
     let root = localFileSystem.currentWorkingDirectory!.appending(components: "foo_root")
 
     let resolvedStringyEntries: [String: [FileType: String]] = [
       "": [.swiftDeps: root.appending(components: "foo.build", "main.swiftdeps").pathString],
-      root.appending(component: "foo.swift").pathString : [
+      root.appending(component: "foo.swift").pathString: [
         .dependencies: root.appending(components: "foo.build", "foo.d").pathString,
         .object: root.appending(components: "foo.build", "foo.swift.o").pathString,
         .swiftModule: root.appending(components: "foo.build", "foo~partial.swiftmodule").pathString,
-        .swiftDeps: root.appending(components: "foo.build", "foo.swiftdeps").pathString
-      ]
+        .swiftDeps: root.appending(components: "foo.build", "foo.swiftdeps").pathString,
+      ],
     ]
 
     func outputFileMapFromStringyEntries(
       _ entries: [String: [FileType: String]]
     ) throws -> OutputFileMap {
-      .init(entries: Dictionary(uniqueKeysWithValues: try entries.map { try (
-        VirtualPath.intern(path: $0.key),
-        $0.value.mapValues(VirtualPath.intern(path:))
-      )}))
+      .init(
+        entries: Dictionary(
+          uniqueKeysWithValues: try entries.map {
+            try (
+              VirtualPath.intern(path: $0.key),
+              $0.value.mapValues(VirtualPath.intern(path:))
+            )
+          }
+        )
+      )
     }
 
     let sampleOutputFileMap =
       try outputFileMapFromStringyEntries(stringyEntries)
-    let resolvedOutputFileMap = sampleOutputFileMap
+    let resolvedOutputFileMap =
+      sampleOutputFileMap
       .resolveRelativePaths(relativeTo: root)
     let expectedOutputFileMap =
       try outputFileMapFromStringyEntries(resolvedStringyEntries)
@@ -394,30 +512,34 @@ import TestUtilities
 
     try withTemporaryDirectory(dir: cwd, removeTreeOnDeinit: true) { path in
       let outputFileMap = path.appending(component: "outputFileMap.json")
-      try localFileSystem.writeFileContents(outputFileMap, bytes:
-        """
-        {
-          "": {
-            "swift-dependencies": "build/main.swiftdeps"
-          },
-          "main.swift": {
-            "object": "build/main.o",
-            "dependencies": "build/main.o.d"
-          },
-          "util.swift": {
-            "object": "build/util.o",
-            "dependencies": "build/util.o.d"
+      try localFileSystem.writeFileContents(
+        outputFileMap,
+        bytes:
+          """
+          {
+            "": {
+              "swift-dependencies": "build/main.swiftdeps"
+            },
+            "main.swift": {
+              "object": "build/main.o",
+              "dependencies": "build/main.o.d"
+            },
+            "util.swift": {
+              "object": "build/util.o",
+              "dependencies": "build/util.o.d"
+            }
           }
-        }
-        """
+          """
       )
       let outputFileMapRelative = outputFileMap.relative(to: cwd).pathString
       // FIXME: Needs a better way to check that outputFileMap correctly loaded
-      #expect(throws: Never.self) { try TestDriver(args: [
-        "swiftc",
-        "-output-file-map", outputFileMapRelative,
-        "main.swift", "util.swift",
-      ]) }
+      #expect(throws: Never.self) {
+        try TestDriver(args: [
+          "swiftc",
+          "-output-file-map", outputFileMapRelative,
+          "main.swift", "util.swift",
+        ])
+      }
     }
   }
 
@@ -434,20 +556,34 @@ import TestUtilities
       let diags = DiagnosticsEngine()
       let fooPath = path.appending(component: "foo.rsp")
       let barPath = path.appending(component: "bar.rsp")
-#if os(Windows)
-      try localFileSystem.writeFileContents(fooPath, bytes:
-        .init("hello\nbye\n\"bye to you\"\n@\(barPath.nativePathString(escaped: true))".utf8)
+      #if os(Windows)
+      try localFileSystem.writeFileContents(
+        fooPath,
+        bytes:
+          .init("hello\nbye\n\"bye to you\"\n@\(barPath.nativePathString(escaped: true))".utf8)
       )
-#else
-      try localFileSystem.writeFileContents(fooPath, bytes:
-        .init("hello\nbye\nbye\\ to\\ you\n@\(barPath.nativePathString(escaped: true))".utf8)
+      #else
+      try localFileSystem.writeFileContents(
+        fooPath,
+        bytes:
+          .init("hello\nbye\nbye\\ to\\ you\n@\(barPath.nativePathString(escaped: true))".utf8)
       )
-#endif
-      try localFileSystem.writeFileContents(barPath, bytes:
-        .init("from\nbar\n@\(fooPath.nativePathString(escaped: true))".utf8)
+      #endif
+      try localFileSystem.writeFileContents(
+        barPath,
+        bytes:
+          .init("from\nbar\n@\(fooPath.nativePathString(escaped: true))".utf8)
       )
-      let args = try Driver.expandResponseFiles(["swift", "compiler", "-Xlinker", "@loader_path", "@" + fooPath.pathString, "something"], fileSystem: localFileSystem, diagnosticsEngine: diags)
-      #expect(args == ["swift", "compiler", "-Xlinker", "@loader_path", "hello", "bye", "bye to you", "from", "bar", "something"])
+      let args = try Driver.expandResponseFiles(
+        ["swift", "compiler", "-Xlinker", "@loader_path", "@" + fooPath.pathString, "something"],
+        fileSystem: localFileSystem,
+        diagnosticsEngine: diags
+      )
+      #expect(
+        args == [
+          "swift", "compiler", "-Xlinker", "@loader_path", "hello", "bye", "bye to you", "from", "bar", "something",
+        ]
+      )
       #expect(diags.diagnostics.count == 1)
       #expect(diags.diagnostics.first?.description.contains("is recursively expanded") ?? false)
     }
@@ -460,15 +596,23 @@ import TestUtilities
       let diags = DiagnosticsEngine()
       let fooPath = path.appending(component: "foo.rsp")
       let barPath = path.appending(component: "bar.rsp")
-#if os(Windows)
+      #if os(Windows)
       try localFileSystem.writeFileContents(fooPath, bytes: "hello\nbye\n\"bye to you\"\n@bar.rsp")
-#else
+      #else
       try localFileSystem.writeFileContents(fooPath, bytes: "hello\nbye\nbye\\ to\\ you\n@bar.rsp")
-#endif
+      #endif
       try localFileSystem.writeFileContents(barPath, bytes: "from\nbar\n@foo.rsp")
 
-      let args = try Driver.expandResponseFiles(["swift", "compiler", "-Xlinker", "@loader_path", "@foo.rsp", "something"], fileSystem: fs, diagnosticsEngine: diags)
-      #expect(args == ["swift", "compiler", "-Xlinker", "@loader_path", "hello", "bye", "bye to you", "from", "bar", "something"])
+      let args = try Driver.expandResponseFiles(
+        ["swift", "compiler", "-Xlinker", "@loader_path", "@foo.rsp", "something"],
+        fileSystem: fs,
+        diagnosticsEngine: diags
+      )
+      #expect(
+        args == [
+          "swift", "compiler", "-Xlinker", "@loader_path", "hello", "bye", "bye to you", "from", "bar", "something",
+        ]
+      )
       #expect(diags.diagnostics.count == 1)
       #expect(diags.diagnostics.first!.description.contains("is recursively expanded"))
     }
@@ -484,15 +628,23 @@ import TestUtilities
       let diags = DiagnosticsEngine()
       let fooPath = path.appending(components: "subdir", "foo.rsp")
       let barPath = path.appending(components: "subdir", "bar.rsp")
-#if os(Windows)
+      #if os(Windows)
       try localFileSystem.writeFileContents(fooPath, bytes: "hello\nbye\n\"bye to you\"\n@subdir/bar.rsp")
-#else
+      #else
       try localFileSystem.writeFileContents(fooPath, bytes: "hello\nbye\nbye\\ to\\ you\n@subdir/bar.rsp")
-#endif
+      #endif
       try localFileSystem.writeFileContents(barPath, bytes: "from\nbar\n@subdir/foo.rsp")
 
-      let args = try Driver.expandResponseFiles(["swift", "compiler", "-Xlinker", "@loader_path", "@subdir/foo.rsp", "something"], fileSystem: fs, diagnosticsEngine: diags)
-      #expect(args == ["swift", "compiler", "-Xlinker", "@loader_path", "hello", "bye", "bye to you", "from", "bar", "something"])
+      let args = try Driver.expandResponseFiles(
+        ["swift", "compiler", "-Xlinker", "@loader_path", "@subdir/foo.rsp", "something"],
+        fileSystem: fs,
+        diagnosticsEngine: diags
+      )
+      #expect(
+        args == [
+          "swift", "compiler", "-Xlinker", "@loader_path", "hello", "bye", "bye to you", "from", "bar", "something",
+        ]
+      )
       #expect(diags.diagnostics.count == 1)
       #expect(diags.diagnostics.first!.description.contains("is recursively expanded"))
     }
@@ -500,65 +652,104 @@ import TestUtilities
 
   /// Tests how response files tokens such as spaces, comments, escaping characters and quotes, get parsed and expanded.
   @Test func responseFileTokenization() throws {
-    try withTemporaryDirectory { path  in
+    try withTemporaryDirectory { path in
       let diags = DiagnosticsEngine()
       let fooPath = path.appending(component: "foo.rsp")
       let barPath = path.appending(component: "bar.rsp")
       let escapingPath = path.appending(component: "escaping.rsp")
 
-#if os(Windows)
-      try localFileSystem.writeFileContents(fooPath, bytes:
-        .init(("""
-        a\\b c\\\\d e\\\\\"f g\" h\\\"i j\\\\\\\"k \"lmn\" o pqr \"st \\\"u\" \\v"
-        @\(barPath.nativePathString(escaped: true))
-        """).utf8)
+      #if os(Windows)
+      try localFileSystem.writeFileContents(
+        fooPath,
+        bytes:
+          .init(
+            ("""
+            a\\b c\\\\d e\\\\\"f g\" h\\\"i j\\\\\\\"k \"lmn\" o pqr \"st \\\"u\" \\v"
+            @\(barPath.nativePathString(escaped: true))
+            """).utf8
+          )
       )
-      try localFileSystem.writeFileContents(barPath, bytes:
-       .init((#"""
-        -Xswiftc -use-ld=lld
-        -Xcc -IS:\Library\sqlite-3.36.0\usr\include
-        -Xlinker -LS:\Library\sqlite-3.36.0\usr\lib
-        """#).utf8)
+      try localFileSystem.writeFileContents(
+        barPath,
+        bytes:
+          .init(
+            (#"""
+            -Xswiftc -use-ld=lld
+            -Xcc -IS:\Library\sqlite-3.36.0\usr\include
+            -Xlinker -LS:\Library\sqlite-3.36.0\usr\lib
+            """#).utf8
+          )
       )
-      let args = try Driver.expandResponseFiles(["@\(fooPath.pathString)"], fileSystem: localFileSystem, diagnosticsEngine: diags)
-      #expect(args == ["a\\b", "c\\\\d", "e\\f g", "h\"i", "j\\\"k", "lmn", "o", "pqr", "st \"u", "\\v", "-Xswiftc", "-use-ld=lld", "-Xcc", "-IS:\\Library\\sqlite-3.36.0\\usr\\include", "-Xlinker", "-LS:\\Library\\sqlite-3.36.0\\usr\\lib"])
-#else
-      try localFileSystem.writeFileContents(fooPath, bytes:
-        .init((#"""
-          Command1 --kkc
-          //This is a comment
-          // this is another comment
-          but this is \\\\\a command
-          @\#(barPath.nativePathString(escaped: true))
-          @NotAFile
-          -flag="quoted string with a \"quote\" inside" -another-flag
+      let args = try Driver.expandResponseFiles(
+        ["@\(fooPath.pathString)"],
+        fileSystem: localFileSystem,
+        diagnosticsEngine: diags
+      )
+      #expect(
+        args == [
+          "a\\b", "c\\\\d", "e\\f g", "h\"i", "j\\\"k", "lmn", "o", "pqr", "st \"u", "\\v", "-Xswiftc", "-use-ld=lld",
+          "-Xcc", "-IS:\\Library\\sqlite-3.36.0\\usr\\include", "-Xlinker", "-LS:\\Library\\sqlite-3.36.0\\usr\\lib",
+        ]
+      )
+      #else
+      try localFileSystem.writeFileContents(
+        fooPath,
+        bytes:
+          .init(
+            (#"""
+            Command1 --kkc
+            //This is a comment
+            // this is another comment
+            but this is \\\\\a command
+            @\#(barPath.nativePathString(escaped: true))
+            @NotAFile
+            -flag="quoted string with a \"quote\" inside" -another-flag
+            """#
+              + "\nthis  line\thas        lots \t  of    whitespace").utf8
+          )
+      )
+
+      try localFileSystem.writeFileContents(
+        barPath,
+        bytes:
+          #"""
+          swift
+          "rocks!"
+          compiler
+          -Xlinker
+
+          @loader_path
+          mkdir "Quoted Dir"
+          cd Unquoted\ Dir
+          // Bye!
           """#
-          + "\nthis  line\thas        lots \t  of    whitespace").utf8
-        )
       )
 
-      try localFileSystem.writeFileContents(barPath, bytes:
-        #"""
-        swift
-        "rocks!"
-        compiler
-        -Xlinker
-
-        @loader_path
-        mkdir "Quoted Dir"
-        cd Unquoted\ Dir
-        // Bye!
-        """#
+      try localFileSystem.writeFileContents(
+        escapingPath,
+        bytes:
+          "swift\n--driver-mode=swiftc\n-v\r\n//comment\n\"the end\""
       )
-
-      try localFileSystem.writeFileContents(escapingPath, bytes:
-        "swift\n--driver-mode=swiftc\n-v\r\n//comment\n\"the end\""
+      let args = try Driver.expandResponseFiles(
+        ["@" + fooPath.pathString],
+        fileSystem: localFileSystem,
+        diagnosticsEngine: diags
       )
-      let args = try Driver.expandResponseFiles(["@" + fooPath.pathString], fileSystem: localFileSystem, diagnosticsEngine: diags)
-      #expect(args == ["Command1", "--kkc", "but", "this", "is", #"\\a"#, "command", #"swift"#, "rocks!" ,"compiler", "-Xlinker", "@loader_path", "mkdir", "Quoted Dir", "cd", "Unquoted Dir", "@NotAFile", #"-flag=quoted string with a "quote" inside"#, "-another-flag", "this", "line", "has", "lots", "of", "whitespace"])
-      let escapingArgs = try Driver.expandResponseFiles(["@" + escapingPath.pathString], fileSystem: localFileSystem, diagnosticsEngine: diags)
-      #expect(escapingArgs == ["swift", "--driver-mode=swiftc", "-v","the end"])
-#endif
+      #expect(
+        args == [
+          "Command1", "--kkc", "but", "this", "is", #"\\a"#, "command", #"swift"#, "rocks!", "compiler", "-Xlinker",
+          "@loader_path", "mkdir", "Quoted Dir", "cd", "Unquoted Dir", "@NotAFile",
+          #"-flag=quoted string with a "quote" inside"#, "-another-flag", "this", "line", "has", "lots", "of",
+          "whitespace",
+        ]
+      )
+      let escapingArgs = try Driver.expandResponseFiles(
+        ["@" + escapingPath.pathString],
+        fileSystem: localFileSystem,
+        diagnosticsEngine: diags
+      )
+      #expect(escapingArgs == ["swift", "--driver-mode=swiftc", "-v", "the end"])
+      #endif
     }
   }
 
@@ -624,8 +815,10 @@ import TestUtilities
         #expect(jobs.count == 1)
         #expect(jobs[0].kind == .interpret)
         let interpretJob = jobs[0]
-        let resolver = try ArgsResolver(fileSystem: localFileSystem,
-                                        temporaryDirectory: .absolute(resolverTempDirPath))
+        let resolver = try ArgsResolver(
+          fileSystem: localFileSystem,
+          temporaryDirectory: .absolute(resolverTempDirPath)
+        )
         let resolvedArgs: [String] = try resolver.resolveArgumentList(for: interpretJob, useResponseFiles: .forced)
         #expect(resolvedArgs.count == 3)
         #expect(resolvedArgs[1] == "-frontend")
@@ -648,7 +841,7 @@ import TestUtilities
       let resolver = try ArgsResolver(fileSystem: localFileSystem)
       let resolved: ResolvedCommandLine = try resolver.resolveArgumentList(for: interpretJob, useResponseFiles: .forced)
       guard case .usingResponseFile(resolved: let resolvedArgs, responseFileContents: let contents) = resolved else {
-          Issue.record("Argument wasn't a response file")
+        Issue.record("Argument wasn't a response file")
         return
       }
       #expect(resolvedArgs.count == 3)
@@ -683,7 +876,8 @@ import TestUtilities
       let resolver = try ArgsResolver(fileSystem: localFileSystem)
       var driver = try TestDriver(
         args: ["swiftc", "-emit-module"] + manyArgs
-          + ["-module-name", "foo", "foo.swift", "bar.swift"])
+          + ["-module-name", "foo", "foo.swift", "bar.swift"]
+      )
       let jobs = try await driver.planBuild().removingAutolinkExtractJobs()
       expectEqual(jobs.count, 3)
       expectEqual(Set(jobs.map { $0.kind }), Set([.emitModule, .compile]))
@@ -708,7 +902,8 @@ import TestUtilities
     do {
       let resolver = try ArgsResolver(fileSystem: localFileSystem)
       var driver = try TestDriver(
-        args: ["swiftc", "-emit-pcm"] + manyArgs + ["-module-name", "foo", "foo.modulemap"])
+        args: ["swiftc", "-emit-pcm"] + manyArgs + ["-module-name", "foo", "foo.modulemap"]
+      )
       let jobs = try await driver.planBuild().removingAutolinkExtractJobs()
       #expect(jobs.count == 1)
       #expect(jobs[0].kind == .generatePCM)
@@ -725,7 +920,11 @@ import TestUtilities
     do {
       let root = localFileSystem.currentWorkingDirectory!.appending(components: "foo", "bar")
 
-      var driver = try TestDriver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-emit-symbol-graph", "-emit-symbol-graph-dir", "/foo/bar/", "-symbol-graph-pretty-print", "-emit-library"])
+      var driver = try TestDriver(args: [
+        "swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path",
+        rebase("Test.swiftmodule", at: root), "-emit-symbol-graph", "-emit-symbol-graph-dir", "/foo/bar/",
+        "-symbol-graph-pretty-print", "-emit-library",
+      ])
       let plannedJobs = try await driver.planBuild().removingAutolinkExtractJobs()
 
       // We don't know the output file of the symbol graph, just make sure the flag is passed along.
@@ -738,7 +937,11 @@ import TestUtilities
     do {
       let root = localFileSystem.currentWorkingDirectory!.appending(components: "foo", "bar")
 
-      var driver = try TestDriver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-emit-symbol-graph", "-emit-symbol-graph-dir", "/foo/bar/", "-symbol-graph-skip-synthesized-members", "-emit-library"])
+      var driver = try TestDriver(args: [
+        "swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path",
+        rebase("Test.swiftmodule", at: root), "-emit-symbol-graph", "-emit-symbol-graph-dir", "/foo/bar/",
+        "-symbol-graph-skip-synthesized-members", "-emit-library",
+      ])
       let plannedJobs = try await driver.planBuild().removingAutolinkExtractJobs()
 
       // We don't know the output file of the symbol graph, just make sure the flag is passed along.
@@ -751,7 +954,11 @@ import TestUtilities
     do {
       let root = localFileSystem.currentWorkingDirectory!.appending(components: "foo", "bar")
 
-      var driver = try TestDriver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-emit-symbol-graph", "-emit-symbol-graph-dir", "/foo/bar/", "-symbol-graph-skip-inherited-docs", "-emit-library"])
+      var driver = try TestDriver(args: [
+        "swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path",
+        rebase("Test.swiftmodule", at: root), "-emit-symbol-graph", "-emit-symbol-graph-dir", "/foo/bar/",
+        "-symbol-graph-skip-inherited-docs", "-emit-library",
+      ])
       let plannedJobs = try await driver.planBuild().removingAutolinkExtractJobs()
 
       // We don't know the output file of the symbol graph, just make sure the flag is passed along.
@@ -764,7 +971,11 @@ import TestUtilities
     do {
       let root = localFileSystem.currentWorkingDirectory!.appending(components: "foo", "bar")
 
-      var driver = try TestDriver(args: ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path", rebase("Test.swiftmodule", at: root), "-emit-symbol-graph", "-emit-symbol-graph-dir", "/foo/bar/", "-symbol-graph-shorten-output-names"])
+      var driver = try TestDriver(args: [
+        "swiftc", "foo.swift", "bar.swift", "-module-name", "Test", "-emit-module-path",
+        rebase("Test.swiftmodule", at: root), "-emit-symbol-graph", "-emit-symbol-graph-dir", "/foo/bar/",
+        "-symbol-graph-shorten-output-names",
+      ])
       let plannedJobs = try await driver.planBuild().removingAutolinkExtractJobs()
 
       expectJobInvocationMatches(plannedJobs[0], .flag("-symbol-graph-shorten-output-names"))
@@ -783,7 +994,7 @@ import TestUtilities
       #expect(try emitModuleJob.outputs[1].file == toPath("foo.swiftdoc"))
       #expect(try emitModuleJob.outputs[2].file == toPath("foo.swiftsourceinfo"))
       if driver.targetTriple.isDarwin {
-          #expect(try emitModuleJob.outputs[3].file == toPath("foo.abi.json"))
+        #expect(try emitModuleJob.outputs[3].file == toPath("foo.abi.json"))
       }
     }
     // implicit with Project/ Directory
@@ -791,9 +1002,11 @@ import TestUtilities
       try await withTemporaryDirectory { path in
         let projectDirPath = path.appending(component: "Project")
         try localFileSystem.createDirectory(projectDirPath)
-        var driver = try TestDriver(args: ["swiftc", "-emit-module",
-                                       path.appending(component: "foo.swift").description,
-                                       "-o", path.appending(component: "foo.swiftmodule").description])
+        var driver = try TestDriver(args: [
+          "swiftc", "-emit-module",
+          path.appending(component: "foo.swift").description,
+          "-o", path.appending(component: "foo.swiftmodule").description,
+        ])
         let plannedJobs = try await driver.planBuild()
         let emitModuleJob = plannedJobs[0]
         expectJobInvocationMatches(emitModuleJob, .flag("-emit-module-source-info-path"))
@@ -816,7 +1029,7 @@ import TestUtilities
       #expect(try emitModuleJob.outputs[0].file == toPath("foo.swiftmodule"))
       #expect(try emitModuleJob.outputs[1].file == toPath("foo.swiftdoc"))
       if driver.targetTriple.isDarwin {
-          #expect(try emitModuleJob.outputs[2].file == toPath("foo.abi.json"))
+        #expect(try emitModuleJob.outputs[2].file == toPath("foo.abi.json"))
       }
     }
   }
@@ -826,8 +1039,13 @@ import TestUtilities
     envVars["SWIFT_DRIVER_LD_EXEC"] = try ld.nativePathString(escaped: false)
 
     do {
-      var driver = try TestDriver(args: ["swiftc", "-emit-module", "./a.swift", "./b.swift", "./c.swift", "-module-name", "main", "-target", "x86_64-apple-macosx10.9", "-driver-filelist-threshold=0", "-no-emit-module-separately"],
-                              env: envVars)
+      var driver = try TestDriver(
+        args: [
+          "swiftc", "-emit-module", "./a.swift", "./b.swift", "./c.swift", "-module-name", "main", "-target",
+          "x86_64-apple-macosx10.9", "-driver-filelist-threshold=0", "-no-emit-module-separately",
+        ],
+        env: envVars
+      )
       let plannedJobs = try await driver.planBuild()
 
       let jobA = plannedJobs[0]
@@ -853,8 +1071,13 @@ import TestUtilities
     }
 
     do {
-      var driver = try TestDriver(args: ["swiftc", "-c", "./a.swift", "./b.swift", "./c.swift", "-module-name", "main", "-target", "x86_64-apple-macosx10.9", "-driver-filelist-threshold=0", "-whole-module-optimization"],
-                              env: envVars)
+      var driver = try TestDriver(
+        args: [
+          "swiftc", "-c", "./a.swift", "./b.swift", "./c.swift", "-module-name", "main", "-target",
+          "x86_64-apple-macosx10.9", "-driver-filelist-threshold=0", "-whole-module-optimization",
+        ],
+        env: envVars
+      )
       let plannedJobs = try await driver.planBuild()
       let job = plannedJobs[0]
       let inputsFlag = job.commandLine.firstIndex(of: .flag("-filelist"))!
@@ -883,8 +1106,13 @@ import TestUtilities
     }
 
     do {
-      var driver = try TestDriver(args: ["swiftc", "-c", "./a.swift", "./b.swift", "./c.swift", "-module-name", "main", "-target", "x86_64-apple-macosx10.9", "-driver-filelist-threshold=0", "-whole-module-optimization", "-num-threads", "1"],
-                              env: envVars)
+      var driver = try TestDriver(
+        args: [
+          "swiftc", "-c", "./a.swift", "./b.swift", "./c.swift", "-module-name", "main", "-target",
+          "x86_64-apple-macosx10.9", "-driver-filelist-threshold=0", "-whole-module-optimization", "-num-threads", "1",
+        ],
+        env: envVars
+      )
       let plannedJobs = try await driver.planBuild()
       let job = plannedJobs[0]
       let outputsFlag = job.commandLine.firstIndex(of: .flag("-output-filelist"))!
@@ -901,8 +1129,13 @@ import TestUtilities
     }
 
     do {
-      var driver = try TestDriver(args: ["swiftc", "-emit-library", "./a.swift", "./b.swift", "./c.swift", "-module-name", "main", "-target", "x86_64-apple-macosx10.9", "-driver-filelist-threshold=0"],
-                              env: envVars)
+      var driver = try TestDriver(
+        args: [
+          "swiftc", "-emit-library", "./a.swift", "./b.swift", "./c.swift", "-module-name", "main", "-target",
+          "x86_64-apple-macosx10.9", "-driver-filelist-threshold=0",
+        ],
+        env: envVars
+      )
       let plannedJobs = try await driver.planBuild()
       let job = plannedJobs[3]
       let inputsFlag = job.commandLine.firstIndex(of: .flag("-filelist"))!
@@ -922,8 +1155,13 @@ import TestUtilities
     }
 
     do {
-      var driver = try TestDriver(args: ["swiftc", "-emit-library", "./a.swift", "./b.swift", "./c.swift", "-module-name", "main", "-target", "x86_64-apple-macosx10.9", "-driver-filelist-threshold=0", "-whole-module-optimization", "-num-threads", "1"],
-                              env: envVars)
+      var driver = try TestDriver(
+        args: [
+          "swiftc", "-emit-library", "./a.swift", "./b.swift", "./c.swift", "-module-name", "main", "-target",
+          "x86_64-apple-macosx10.9", "-driver-filelist-threshold=0", "-whole-module-optimization", "-num-threads", "1",
+        ],
+        env: envVars
+      )
       let plannedJobs = try await driver.planBuild()
       let job = plannedJobs[1]
       let inputsFlag = job.commandLine.firstIndex(of: .flag("-filelist"))!
@@ -956,7 +1194,9 @@ import TestUtilities
     }
 
     do {
-      var driver = try TestDriver(args: ["swiftc", "-typecheck", "-wmo", "a.swift", "b.swift", "-driver-filelist-threshold=0"])
+      var driver = try TestDriver(args: [
+        "swiftc", "-typecheck", "-wmo", "a.swift", "b.swift", "-driver-filelist-threshold=0",
+      ])
       let plannedJobs = try await driver.planBuild()
 
       let jobA = plannedJobs[0]
@@ -994,38 +1234,49 @@ import TestUtilities
       let two = path.appending(component: "needs to escape spaces.swift")
       let three = path.appending(component: "another'one.swift")
       let four = path.appending(component: "4.swift")
-      try localFileSystem.writeFileContents(one, bytes:
-        """
-        public struct A {}
-        """
+      try localFileSystem.writeFileContents(
+        one,
+        bytes:
+          """
+          public struct A {}
+          """
       )
-      try localFileSystem.writeFileContents(two, bytes:
-        """
-        struct B {}
-        """
+      try localFileSystem.writeFileContents(
+        two,
+        bytes:
+          """
+          struct B {}
+          """
       )
-      try localFileSystem.writeFileContents(three, bytes:
-        """
-        struct C {}
-        """
+      try localFileSystem.writeFileContents(
+        three,
+        bytes:
+          """
+          struct C {}
+          """
       )
-      try localFileSystem.writeFileContents(four, bytes:
-        """
-        struct D {}
-        """
+      try localFileSystem.writeFileContents(
+        four,
+        bytes:
+          """
+          struct D {}
+          """
       )
 
       let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
-      let invocationArguments = ["swiftc",
-                                 "-parse-as-library",
-                                 "-emit-library",
-                                 "-driver-filelist-threshold", "0",
-                                 "-module-cache-path", moduleCachePath.nativePathString(escaped: false),
-                                 "-working-directory", path.nativePathString(escaped: false),
-                                 one.nativePathString(escaped: false),
-                                 two.nativePathString(escaped: false),
-                                 three.nativePathString(escaped: false),
-                                 four.nativePathString(escaped: false)] + sdkArgumentsForTesting
+      let invocationArguments =
+        [
+          "swiftc",
+          "-parse-as-library",
+          "-emit-library",
+          "-driver-filelist-threshold", "0",
+          "-module-cache-path", moduleCachePath.nativePathString(escaped: false),
+          "-working-directory", path.nativePathString(escaped: false),
+          one.nativePathString(escaped: false),
+          two.nativePathString(escaped: false),
+          three.nativePathString(escaped: false),
+          four.nativePathString(escaped: false),
+        ] + sdkArgumentsForTesting
       var driver = try TestDriver(args: invocationArguments)
       let jobs = try await driver.planBuild()
       try await driver.run(jobs: jobs)

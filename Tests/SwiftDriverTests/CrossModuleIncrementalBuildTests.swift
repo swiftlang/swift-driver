@@ -12,12 +12,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Testing
-import TSCBasic
-
 @_spi(Testing) import SwiftDriver
 import SwiftOptions
+import TSCBasic
 import TestUtilities
+import Testing
 
 @Suite(.enabled(if: sdkArgumentsAvailable)) struct CrossModuleIncrementalBuildTests {
   func makeOutputFileMap(
@@ -31,17 +30,19 @@ import TestUtilities
       "": {
         "swift-dependencies": "\(workingDirectory.appending(component: "\(module).swiftdeps").nativePathString(escaped: true))"
       }
-    """.appending(files.map { file in
-      """
-      ,
-      "\(file.nativePathString(escaped: true))": {
-        "dependencies": "\(transform(file.basenameWithoutExt) + ".d")",
-        "object": "\(transform(file.nativePathString(escaped: true)) + ".o")",
-        "swiftmodule": "\(transform(file.basenameWithoutExt) + "~partial.swiftmodule")",
-        "swift-dependencies": "\(transform(file.basenameWithoutExt) + ".swiftdeps")"
-        }
-      """
-    }.joined(separator: "\n").appending("\n}"))
+    """.appending(
+      files.map { file in
+        """
+        ,
+        "\(file.nativePathString(escaped: true))": {
+          "dependencies": "\(transform(file.basenameWithoutExt) + ".d")",
+          "object": "\(transform(file.nativePathString(escaped: true)) + ".o")",
+          "swiftmodule": "\(transform(file.basenameWithoutExt) + "~partial.swiftmodule")",
+          "swift-dependencies": "\(transform(file.basenameWithoutExt) + ".swiftdeps")"
+          }
+        """
+      }.joined(separator: "\n").appending("\n}")
+    )
   }
 
   @Test func changingOutputFileMap() async throws {
@@ -54,21 +55,24 @@ import TestUtilities
 
       let ofm = path.appending(component: "ofm.json")
       try localFileSystem.writeFileContents(ofm) {
-        $0.send(self.makeOutputFileMap(in: path, module: "MagicKit", for: [ magic ]) {
-          $0 + "-some_suffix"
-        })
+        $0.send(
+          self.makeOutputFileMap(in: path, module: "MagicKit", for: [magic]) {
+            $0 + "-some_suffix"
+          }
+        )
       }
 
-      let driverArgs = [
-        "swiftc",
-        "-incremental",
-        "-emit-module",
-        "-output-file-map", ofm.pathString,
-        "-module-name", "MagicKit",
-        "-working-directory", path.pathString,
-        "-c",
-        magic.pathString,
-      ] + sdkArguments
+      let driverArgs =
+        [
+          "swiftc",
+          "-incremental",
+          "-emit-module",
+          "-output-file-map", ofm.pathString,
+          "-module-name", "MagicKit",
+          "-working-directory", path.pathString,
+          "-c",
+          magic.pathString,
+        ] + sdkArguments
       do {
         var driver = try TestDriver(args: driverArgs)
         let jobs = try await driver.planBuild()
@@ -76,9 +80,11 @@ import TestUtilities
       }
 
       try localFileSystem.writeFileContents(ofm) {
-        $0.send(self.makeOutputFileMap(in: path, module: "MagicKit", for: [ magic ]) {
-          $0 + "-some_other_suffix"
-        })
+        $0.send(
+          self.makeOutputFileMap(in: path, module: "MagicKit", for: [magic]) {
+            $0 + "-some_other_suffix"
+          }
+        )
       }
 
       do {
@@ -100,19 +106,21 @@ import TestUtilities
 
         let ofm = path.appending(component: "ofm.json")
         try localFileSystem.writeFileContents(ofm) {
-          $0.send(self.makeOutputFileMap(in: path, module: "MagicKit", for: [ magic ]))
+          $0.send(self.makeOutputFileMap(in: path, module: "MagicKit", for: [magic]))
         }
 
-        var driver = try TestDriver(args: [
-          "swiftc",
-          "-incremental",
-          "-emit-module",
-          "-output-file-map", ofm.pathString,
-          "-module-name", "MagicKit",
-          "-working-directory", path.pathString,
-          "-c",
-          magic.pathString,
-        ] + sdkArguments)
+        var driver = try TestDriver(
+          args: [
+            "swiftc",
+            "-incremental",
+            "-emit-module",
+            "-output-file-map", ofm.pathString,
+            "-module-name", "MagicKit",
+            "-working-directory", path.pathString,
+            "-c",
+            magic.pathString,
+          ] + sdkArguments
+        )
         let jobs = try await driver.planBuild()
         try await driver.run(jobs: jobs)
       }
@@ -125,20 +133,22 @@ import TestUtilities
 
       let ofm = path.appending(component: "ofm2.json")
       try localFileSystem.writeFileContents(ofm) {
-        $0.send(self.makeOutputFileMap(in: path, module: "theModule", for: [ main ]))
+        $0.send(self.makeOutputFileMap(in: path, module: "theModule", for: [main]))
       }
 
-      var driver = try TestDriver(args: [
-        "swiftc",
-        "-incremental",
-        "-emit-module",
-        "-output-file-map", ofm.pathString,
-        "-module-name", "theModule",
-        "-I", path.pathString,
-        "-working-directory", path.pathString,
-        "-c",
-        main.pathString,
-      ] + sdkArguments)
+      var driver = try TestDriver(
+        args: [
+          "swiftc",
+          "-incremental",
+          "-emit-module",
+          "-output-file-map", ofm.pathString,
+          "-module-name", "theModule",
+          "-I", path.pathString,
+          "-working-directory", path.pathString,
+          "-c",
+          main.pathString,
+        ] + sdkArguments
+      )
 
       let jobs = try await driver.planBuild()
       try await driver.run(jobs: jobs)
@@ -146,10 +156,13 @@ import TestUtilities
       let sourcePath = path.appending(component: "main.swiftdeps")
       let data = try localFileSystem.readFileContents(sourcePath)
       try driver.withModuleDependencyGraph { host in
-        let testGraph = try #require(try SourceFileDependencyGraph(
-          internedStringTable: host.internedStringTable,
-          data: data,
-          fromSwiftModule: false))
+        let testGraph = try #require(
+          try SourceFileDependencyGraph(
+            internedStringTable: host.internedStringTable,
+            data: data,
+            fromSwiftModule: false
+          )
+        )
         #expect(testGraph.majorVersion == 1)
         #expect(testGraph.minorVersion == 0)
         testGraph.verify()
@@ -158,7 +171,8 @@ import TestUtilities
         let swiftmodulePath = ExternalDependency(
           fileName: path.appending(component: "MagicKit.swiftmodule")
             .pathString.intern(in: host),
-          host.internedStringTable)
+          host.internedStringTable
+        )
         testGraph.forEachNode { node in
           if case .externalDepend(swiftmodulePath) = node.key.designator {
             #expect(!foundNode)

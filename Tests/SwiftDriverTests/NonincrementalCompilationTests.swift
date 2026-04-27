@@ -12,25 +12,30 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Testing
-import TSCBasic
-
 @_spi(Testing) import SwiftDriver
 import SwiftOptions
+import TSCBasic
 import TestUtilities
+import Testing
 
 /// Testing the misc machinery for incremental compilation.
 @Suite struct IncrementalMiscTests {
   @Test func readBinarySourceFileDependencyGraph() async throws {
-    let absolutePath = try #require(Fixture.fixturePath(at: try RelativePath(validating: "Incremental"),
-                                                         for: "main.swiftdeps"))
+    let absolutePath = try #require(
+      Fixture.fixturePath(
+        at: try RelativePath(validating: "Incremental"),
+        for: "main.swiftdeps"
+      )
+    )
     let typedFile = TypedVirtualPath(file: VirtualPath.absolute(absolutePath).intern(), type: .swiftDeps)
     try MockIncrementalCompilationSynchronizer.withInternedStringTable { internedStringTable in
       let graph = try #require(
         try SourceFileDependencyGraph(
           contentsOf: typedFile,
           on: localFileSystem,
-          internedStringTable: internedStringTable))
+          internedStringTable: internedStringTable
+        )
+      )
       #expect(graph.majorVersion == 1)
       #expect(graph.minorVersion == 0)
       #expect(graph.compilerVersionString == "Swift version 5.3-dev (LLVM f516ac602c, Swift c39f31febd)")
@@ -72,14 +77,20 @@ import TestUtilities
   }
 
   @Test func readComplexSourceFileDependencyGraph() async throws {
-    let absolutePath = try #require(Fixture.fixturePath(at: try RelativePath(validating: "Incremental"),
-                                                         for: "hello.swiftdeps"))
-    try MockIncrementalCompilationSynchronizer.withInternedStringTable{ internedStringTable in
+    let absolutePath = try #require(
+      Fixture.fixturePath(
+        at: try RelativePath(validating: "Incremental"),
+        for: "hello.swiftdeps"
+      )
+    )
+    try MockIncrementalCompilationSynchronizer.withInternedStringTable { internedStringTable in
       let graph = try #require(
         try SourceFileDependencyGraph(
           contentsOf: TypedVirtualPath(file: VirtualPath.absolute(absolutePath).intern(), type: .swiftDeps),
           on: localFileSystem,
-          internedStringTable: internedStringTable))
+          internedStringTable: internedStringTable
+        )
+      )
       #expect(graph.majorVersion == 1)
       #expect(graph.minorVersion == 0)
       #expect(graph.compilerVersionString == "Swift version 5.3-dev (LLVM 4510748e505acd4, Swift 9f07d884c97eaf4)")
@@ -89,7 +100,7 @@ import TestUtilities
       var foundNode = false
       graph.forEachNode { node in
         if case let .member(context: context, name: name) = node.key.designator,
-           node.sequenceNumber == 25
+          node.sequenceNumber == 25
         {
           #expect(!foundNode)
           foundNode = true
@@ -107,8 +118,10 @@ import TestUtilities
       graph.forEachArc { defNode, useNode in
         if defNode.sequenceNumber == 0 && useNode.sequenceNumber == 10 {
           switch (defNode.key.designator, useNode.key.designator) {
-          case let (.sourceFileProvide(name: defName),
-                    .potentialMember(context: useContext)):
+          case let (
+            .sourceFileProvide(name: defName),
+            .potentialMember(context: useContext)
+          ):
             #expect(!foundEdge)
             foundEdge = true
 
@@ -128,24 +141,33 @@ import TestUtilities
   }
 
   @Test func extractSourceFileDependencyGraphFromSwiftModule() async throws {
-    let absolutePath = try #require(Fixture.fixturePath(at: try RelativePath(validating: "Incremental"),
-                                                         for: "hello.swiftmodule"))
+    let absolutePath = try #require(
+      Fixture.fixturePath(
+        at: try RelativePath(validating: "Incremental"),
+        for: "hello.swiftmodule"
+      )
+    )
     let data = try localFileSystem.readFileContents(absolutePath)
     try MockIncrementalCompilationSynchronizer.withInternedStringTable { internedStringTable in
       let graph = try #require(
-        try SourceFileDependencyGraph(internedStringTable: internedStringTable,
-                                      data: data,
-                                      fromSwiftModule: true))
+        try SourceFileDependencyGraph(
+          internedStringTable: internedStringTable,
+          data: data,
+          fromSwiftModule: true
+        )
+      )
       #expect(graph.majorVersion == 1)
       #expect(graph.minorVersion == 0)
-      #expect(graph.compilerVersionString == "Apple Swift version 5.3-dev (LLVM 240312aa7333e90, Swift 15bf0478ad7c47c)")
+      #expect(
+        graph.compilerVersionString == "Apple Swift version 5.3-dev (LLVM 240312aa7333e90, Swift 15bf0478ad7c47c)"
+      )
       graph.verify()
 
       // Check that a node chosen at random appears as expected.
       var foundNode = false
       graph.forEachNode { node in
         if case .nominal(context: "5hello3FooV".intern(in: internedStringTable)) = node.key.designator,
-           node.sequenceNumber == 4
+          node.sequenceNumber == 4
         {
           #expect(!foundNode)
           foundNode = true
@@ -210,15 +232,17 @@ import TestUtilities
       let other = path.appending(component: "other.swift")
       try localFileSystem.writeFileContents(other, bytes: "let bar = 2")
 
-      try await assertDriverDiagnostics(args: [
-        "swiftc", "-module-name", "theModule", "-working-directory", path.pathString,
-        main.pathString, other.pathString
-      ] + otherArgs + sdkArguments) {driver, verifier in
+      try await assertDriverDiagnostics(
+        args: [
+          "swiftc", "-module-name", "theModule", "-working-directory", path.pathString,
+          main.pathString, other.pathString,
+        ] + otherArgs + sdkArguments
+      ) { driver, verifier in
         verifier.forbidUnexpected(.error, .warning, .note, .remark, .ignored)
 
-        expectations.forEach {verifier.expect($0)}
+        expectations.forEach { verifier.expect($0) }
         if driver.isAutolinkExtractJobNeeded {
-          autolinkExpectations.forEach {verifier.expect($0)}
+          autolinkExpectations.forEach { verifier.expect($0) }
         }
 
         let jobs = try await driver.planBuild()
@@ -236,31 +260,35 @@ import TestUtilities
     //    Job finished: {compile: main.o <= main.swift}
     //    Job finished: {compile: other.o <= other.swift}
 
-    try await runDriver( with: [
-      "-c",
-      "-driver-show-job-lifecycle",
-      "-driver-show-incremental",
-    ],
-    expecting: [
-      .remark("Starting Compiling main.swift"),
-      .remark("Finished Compiling main.swift"),
-      .remark("Starting Compiling other.swift"),
-      .remark("Finished Compiling other.swift"),
-    ],
-    alsoExpectingWhenAutolinking: [
-      .remark("Starting Extracting autolink information for module theModule"),
-      .remark("Finished Extracting autolink information for module theModule"),
-    ])
+    try await runDriver(
+      with: [
+        "-c",
+        "-driver-show-job-lifecycle",
+        "-driver-show-incremental",
+      ],
+      expecting: [
+        .remark("Starting Compiling main.swift"),
+        .remark("Finished Compiling main.swift"),
+        .remark("Starting Compiling other.swift"),
+        .remark("Finished Compiling other.swift"),
+      ],
+      alsoExpectingWhenAutolinking: [
+        .remark("Starting Extracting autolink information for module theModule"),
+        .remark("Finished Extracting autolink information for module theModule"),
+      ]
+    )
 
   }
   @Test func noIncremental() async throws {
-    try await runDriver( with: [
-      "-c",
-      "-incremental",
-    ],
-    expecting: [
-      .warning("ignoring -incremental (currently requires an output file map)")
-    ])
+    try await runDriver(
+      with: [
+        "-c",
+        "-incremental",
+      ],
+      expecting: [
+        .warning("ignoring -incremental (currently requires an output file map)")
+      ]
+    )
     // Legacy driver output:
     //    <unknown>:0: warning: ignoring -incremental (currently requires an output file map)
   }

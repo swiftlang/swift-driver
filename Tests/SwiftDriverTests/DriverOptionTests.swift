@@ -12,11 +12,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-@testable @_spi(Testing) import SwiftDriver
 import SwiftOptions
 import TSCBasic
-import Testing
 import TestUtilities
+import Testing
+
+@testable @_spi(Testing) import SwiftDriver
 
 @Suite struct DriverOptionTests {
 
@@ -92,8 +93,13 @@ import TestUtilities
     try await assertArgs(".build/debug/swiftc", parseTo: .batch, leaving: [])
     try await assertArgs("swiftc", "--driver-mode=swift", parseTo: .interactive, leaving: [])
     try await assertArgs("swift", "-zelda", parseTo: .interactive, leaving: ["-zelda"])
-    try await assertArgs("swiftc", "--driver-mode=swift", "swiftc",
-                         parseTo: .interactive, leaving: ["swiftc"])
+    try await assertArgs(
+      "swiftc",
+      "--driver-mode=swift",
+      "swiftc",
+      parseTo: .interactive,
+      leaving: ["swiftc"]
+    )
     try await assertArgsThrow("driver")
     try await assertArgsThrow("swiftc", "--driver-mode=blah")
     try await assertArgsThrow("swiftc", "--driver-mode=")
@@ -112,7 +118,9 @@ import TestUtilities
       let driver1 = try TestDriver(args: ["swiftc", "main.swift", "-whole-module-optimization"])
       #expect(driver1.compilerMode == .singleCompile)
 
-      let driver2 = try TestDriver(args: ["swiftc", "main.swift", "-whole-module-optimization", "-no-whole-module-optimization"])
+      let driver2 = try TestDriver(args: [
+        "swiftc", "main.swift", "-whole-module-optimization", "-no-whole-module-optimization",
+      ])
       #expect(driver2.compilerMode == .standardCompile)
 
       let driver3 = try TestDriver(args: ["swiftc", "main.swift", "-g"])
@@ -128,31 +136,35 @@ import TestUtilities
   }
 
   @Test func relativeOptionOrdering() async throws {
-    var driver = try TestDriver(args: ["swiftc", "foo.swift",
-                                   "-F", "/path/to/frameworks",
-                                   "-I", "/path/to/modules",
-                                   "-Fsystem", "/path/to/systemframeworks",
-                                   "-Isystem", "/path/to/systemmodules",
-                                   "-F", "/path/to/more/frameworks",
-                                   "-I", "/path/to/more/modules"])
+    var driver = try TestDriver(args: [
+      "swiftc", "foo.swift",
+      "-F", "/path/to/frameworks",
+      "-I", "/path/to/modules",
+      "-Fsystem", "/path/to/systemframeworks",
+      "-Isystem", "/path/to/systemmodules",
+      "-F", "/path/to/more/frameworks",
+      "-I", "/path/to/more/modules",
+    ])
     let jobs = try await driver.planBuild()
     #expect(jobs[0].kind == .compile)
     // The relative ordering of -F and -Fsystem options should be preserved.
     // The relative ordering of -I and -Isystem, and -F and -Fsystem options should be preserved,
     // but all -I options should come before all -F options.
-    try expectJobInvocationMatches(jobs[0],
-                                     .flag("-I"),
-                                     .path(.absolute(.init(validating: "/path/to/modules"))),
-                                     .flag("-Isystem"),
-                                     .path(.absolute(.init(validating: "/path/to/systemmodules"))),
-                                     .flag("-I"),
-                                     .path(.absolute(.init(validating: "/path/to/more/modules"))),
-                                     .flag("-F"),
-                                     .path(.absolute(.init(validating: "/path/to/frameworks"))),
-                                     .flag("-Fsystem"),
-                                     .path(.absolute(.init(validating: "/path/to/systemframeworks"))),
-                                     .flag("-F"),
-                                     .path(.absolute(.init(validating: "/path/to/more/frameworks"))))
+    try expectJobInvocationMatches(
+      jobs[0],
+      .flag("-I"),
+      .path(.absolute(.init(validating: "/path/to/modules"))),
+      .flag("-Isystem"),
+      .path(.absolute(.init(validating: "/path/to/systemmodules"))),
+      .flag("-I"),
+      .path(.absolute(.init(validating: "/path/to/more/modules"))),
+      .flag("-F"),
+      .path(.absolute(.init(validating: "/path/to/frameworks"))),
+      .flag("-Fsystem"),
+      .path(.absolute(.init(validating: "/path/to/systemframeworks"))),
+      .flag("-F"),
+      .path(.absolute(.init(validating: "/path/to/more/frameworks")))
+    )
   }
 
   @Test func runtimeCompatibilityVersion() async throws {
@@ -161,23 +173,42 @@ import TestUtilities
 
   @Test func inputFiles() throws {
     let driver1 = try TestDriver(args: ["swiftc", "a.swift", "/tmp/b.swift"])
-    try expectEqual(driver1.inputFiles,
-                   [ TypedVirtualPath(file: try toPath("a.swift").intern(), type: .swift),
-                     TypedVirtualPath(file: VirtualPath.absolute(try AbsolutePath(validating: "/tmp/b.swift")).intern(), type: .swift) ])
+    try expectEqual(
+      driver1.inputFiles,
+      [
+        TypedVirtualPath(file: try toPath("a.swift").intern(), type: .swift),
+        TypedVirtualPath(
+          file: VirtualPath.absolute(try AbsolutePath(validating: "/tmp/b.swift")).intern(),
+          type: .swift
+        ),
+      ]
+    )
 
     let workingDirectory = localFileSystem.currentWorkingDirectory!.appending(components: "wobble")
     let tempDirectory = localFileSystem.currentWorkingDirectory!.appending(components: "tmp")
 
-    let driver2 = try TestDriver(args: ["swiftc", "a.swift", "-working-directory", workingDirectory.pathString, rebase("b.swift", at: tempDirectory)])
-    try expectEqual(driver2.inputFiles,
-                   [ TypedVirtualPath(file: VirtualPath.absolute(try AbsolutePath(validating: rebase("a.swift", at: workingDirectory))).intern(), type: .swift),
-                     TypedVirtualPath(file: VirtualPath.absolute(try AbsolutePath(validating: rebase("b.swift", at: tempDirectory))).intern(), type: .swift) ])
+    let driver2 = try TestDriver(args: [
+      "swiftc", "a.swift", "-working-directory", workingDirectory.pathString, rebase("b.swift", at: tempDirectory),
+    ])
+    try expectEqual(
+      driver2.inputFiles,
+      [
+        TypedVirtualPath(
+          file: VirtualPath.absolute(try AbsolutePath(validating: rebase("a.swift", at: workingDirectory))).intern(),
+          type: .swift
+        ),
+        TypedVirtualPath(
+          file: VirtualPath.absolute(try AbsolutePath(validating: rebase("b.swift", at: tempDirectory))).intern(),
+          type: .swift
+        ),
+      ]
+    )
 
     let driver3 = try TestDriver(args: ["swift", "-"])
-    #expect(driver3.inputFiles == [ TypedVirtualPath(file: .standardInput, type: .swift )])
+    #expect(driver3.inputFiles == [TypedVirtualPath(file: .standardInput, type: .swift)])
 
-    let driver4 = try TestDriver(args: ["swift", "-", "-working-directory" , "-wobble"])
-    #expect(driver4.inputFiles == [ TypedVirtualPath(file: .standardInput, type: .swift )])
+    let driver4 = try TestDriver(args: ["swift", "-", "-working-directory", "-wobble"])
+    #expect(driver4.inputFiles == [TypedVirtualPath(file: .standardInput, type: .swift)])
   }
 
   @Test func dashE() async throws {
@@ -192,8 +223,10 @@ import TestUtilities
     let plannedJobs = try await driver1.planBuild().removingAutolinkExtractJobs()
     #expect(plannedJobs.count == 1)
     #expect(plannedJobs[0].kind == .interpret)
-    expectEqual(plannedJobs[0].commandLine.drop(while: { $0 != .flag("--") }),
-                   [.flag("--"), .flag("foo/bar.swift"), .flag("baz/quux.swift")])
+    expectEqual(
+      plannedJobs[0].commandLine.drop(while: { $0 != .flag("--") }),
+      [.flag("--"), .flag("foo/bar.swift"), .flag("baz/quux.swift")]
+    )
 
     #expect(throws: (any Error).self) { try TestDriver(args: ["swiftc", "baz/main.swift", "-e", "print(1)"]) }
   }
@@ -226,34 +259,48 @@ import TestUtilities
   }
 
   @Test func ltoOutputModeClash() throws {
-    let driver1 = try TestDriver(args: ["swiftc", "foo.swift", "-lto=llvm-full", "-static",
-                                    "-emit-library", "-target", "x86_64-apple-macosx10.9"])
+    let driver1 = try TestDriver(args: [
+      "swiftc", "foo.swift", "-lto=llvm-full", "-static",
+      "-emit-library", "-target", "x86_64-apple-macosx10.9",
+    ])
     #expect(driver1.compilerOutputType == .llvmBitcode)
 
-    let driver2 = try TestDriver(args: ["swiftc", "foo.swift", "-lto=llvm-full",
-                                    "-emit-library", "-target", "x86_64-apple-macosx10.9"])
+    let driver2 = try TestDriver(args: [
+      "swiftc", "foo.swift", "-lto=llvm-full",
+      "-emit-library", "-target", "x86_64-apple-macosx10.9",
+    ])
     #expect(driver2.compilerOutputType == .llvmBitcode)
 
-    let driver3 = try TestDriver(args: ["swiftc", "foo.swift", "-lto=llvm-full",
-                                    "c", "-target", "x86_64-apple-macosx10.9"])
+    let driver3 = try TestDriver(args: [
+      "swiftc", "foo.swift", "-lto=llvm-full",
+      "c", "-target", "x86_64-apple-macosx10.9",
+    ])
     #expect(driver3.compilerOutputType == .llvmBitcode)
 
-    let driver4 = try TestDriver(args: ["swiftc", "foo.swift", "-c","-lto=llvm-full",
-                                    "-target", "x86_64-apple-macosx10.9"])
+    let driver4 = try TestDriver(args: [
+      "swiftc", "foo.swift", "-c", "-lto=llvm-full",
+      "-target", "x86_64-apple-macosx10.9",
+    ])
     #expect(driver4.compilerOutputType == .llvmBitcode)
 
-    let driver5 = try TestDriver(args: ["swiftc", "foo.swift", "-c","-lto=llvm-full",
-                                    "-emit-bc", "-target", "x86_64-apple-macosx10.9"])
+    let driver5 = try TestDriver(args: [
+      "swiftc", "foo.swift", "-c", "-lto=llvm-full",
+      "-emit-bc", "-target", "x86_64-apple-macosx10.9",
+    ])
     #expect(driver5.compilerOutputType == .llvmBitcode)
 
-    let driver6 = try TestDriver(args: ["swiftc", "foo.swift", "-emit-bc", "-c","-lto=llvm-full",
-                                    "-target", "x86_64-apple-macosx10.9"])
+    let driver6 = try TestDriver(args: [
+      "swiftc", "foo.swift", "-emit-bc", "-c", "-lto=llvm-full",
+      "-target", "x86_64-apple-macosx10.9",
+    ])
     #expect(driver6.compilerOutputType == .llvmBitcode)
   }
 
   @Test func ltoOutputPath() async throws {
     do {
-      var driver = try TestDriver(args: ["swiftc", "foo.swift", "-lto=llvm-full", "-c", "-target", "x86_64-apple-macosx10.9"])
+      var driver = try TestDriver(args: [
+        "swiftc", "foo.swift", "-lto=llvm-full", "-c", "-target", "x86_64-apple-macosx10.9",
+      ])
       #expect(driver.compilerOutputType == .llvmBitcode)
       #expect(driver.linkerOutputType == nil)
       let jobs = try await driver.planBuild()
@@ -263,7 +310,9 @@ import TestUtilities
     }
 
     do {
-      var driver = try TestDriver(args: ["swiftc", "foo.swift", "-lto=llvm-full", "-c", "-target", "x86_64-apple-macosx10.9", "-o", "foo.o"])
+      var driver = try TestDriver(args: [
+        "swiftc", "foo.swift", "-lto=llvm-full", "-c", "-target", "x86_64-apple-macosx10.9", "-o", "foo.o",
+      ])
       #expect(driver.compilerOutputType == .llvmBitcode)
       #expect(driver.linkerOutputType == nil)
       let jobs = try await driver.planBuild()
@@ -274,28 +323,37 @@ import TestUtilities
   }
 
   @Test func primaryOutputKindsDiagnostics() async throws {
-      try await assertDriverDiagnostics(args: "swift", "-i") {
-        $1.expect(.error("the flag '-i' is no longer required and has been removed; use 'swift input-filename'"))
-      }
+    try await assertDriverDiagnostics(args: "swift", "-i") {
+      $1.expect(.error("the flag '-i' is no longer required and has been removed; use 'swift input-filename'"))
+    }
   }
 
   @Test func filePrefixMapInvalidDiagnostic() async throws {
     try await assertDriverDiagnostics(args: "swiftc", "-c", "foo.swift", "-o", "foo.o", "-file-prefix-map", "invalid") {
-      $1.expect(.error("values for '-file-prefix-map' must be in the format 'original=remapped', but 'invalid' was provided"))
+      $1.expect(
+        .error("values for '-file-prefix-map' must be in the format 'original=remapped', but 'invalid' was provided")
+      )
     }
   }
 
   @Test func filePrefixMapMultiplePassToFrontend() async throws {
-    try await assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-file-prefix-map", "foo=bar", "-file-prefix-map", "dog=doggo") { driver in
-        let jobs = try await driver.planBuild()
-        let commandLine = jobs[0].commandLine
-        let index = commandLine.firstIndex(of: .flag("-file-prefix-map"))
-        let lastIndex = commandLine.lastIndex(of: .flag("-file-prefix-map"))
-        #expect(index != nil)
-        #expect(lastIndex != nil)
-        #expect(index != lastIndex)
-        expectEqual(commandLine[index!.advanced(by: 1)], .flag("foo=bar"))
-        expectEqual(commandLine[lastIndex!.advanced(by: 1)], .flag("dog=doggo"))
+    try await assertNoDriverDiagnostics(
+      args: "swiftc",
+      "foo.swift",
+      "-file-prefix-map",
+      "foo=bar",
+      "-file-prefix-map",
+      "dog=doggo"
+    ) { driver in
+      let jobs = try await driver.planBuild()
+      let commandLine = jobs[0].commandLine
+      let index = commandLine.firstIndex(of: .flag("-file-prefix-map"))
+      let lastIndex = commandLine.lastIndex(of: .flag("-file-prefix-map"))
+      #expect(index != nil)
+      #expect(lastIndex != nil)
+      #expect(index != lastIndex)
+      expectEqual(commandLine[index!.advanced(by: 1)], .flag("foo=bar"))
+      expectEqual(commandLine[lastIndex!.advanced(by: 1)], .flag("dog=doggo"))
     }
   }
 
@@ -303,16 +361,22 @@ import TestUtilities
     // Make sure `-index-include-locals` is only passed to the frontend when
     // requested, not by default.
     try await assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-index-store-path", "/tmp/idx") { driver in
-        let jobs = try await driver.planBuild()
-        let commandLine = jobs[0].commandLine
-        expectCommandLineContains(commandLine, .flag("-index-store-path"))
-        #expect(!commandLine.contains(.flag("-index-include-locals")))
+      let jobs = try await driver.planBuild()
+      let commandLine = jobs[0].commandLine
+      expectCommandLineContains(commandLine, .flag("-index-store-path"))
+      #expect(!commandLine.contains(.flag("-index-include-locals")))
     }
-    try await assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-index-store-path", "/tmp/idx", "-index-include-locals") { driver in
-        let jobs = try await driver.planBuild()
-        let commandLine = jobs[0].commandLine
-        expectCommandLineContains(commandLine, .flag("-index-store-path"))
-        expectCommandLineContains(commandLine, .flag("-index-include-locals"))
+    try await assertNoDriverDiagnostics(
+      args: "swiftc",
+      "foo.swift",
+      "-index-store-path",
+      "/tmp/idx",
+      "-index-include-locals"
+    ) { driver in
+      let jobs = try await driver.planBuild()
+      let commandLine = jobs[0].commandLine
+      expectCommandLineContains(commandLine, .flag("-index-store-path"))
+      expectCommandLineContains(commandLine, .flag("-index-include-locals"))
     }
   }
 
@@ -332,9 +396,22 @@ import TestUtilities
       #expect(driver.debugInfo.format == .dwarf)
     }
 
-    try await assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-debug-prefix-map", "foo=bar=baz", "-debug-prefix-map", "qux=") { driver in
-        let jobs = try await driver.planBuild()
-        expectJobInvocationMatches(jobs[0], .flag("-debug-prefix-map"), .flag("foo=bar=baz"), .flag("-debug-prefix-map"), .flag("qux="))
+    try await assertNoDriverDiagnostics(
+      args: "swiftc",
+      "foo.swift",
+      "-debug-prefix-map",
+      "foo=bar=baz",
+      "-debug-prefix-map",
+      "qux="
+    ) { driver in
+      let jobs = try await driver.planBuild()
+      expectJobInvocationMatches(
+        jobs[0],
+        .flag("-debug-prefix-map"),
+        .flag("foo=bar=baz"),
+        .flag("-debug-prefix-map"),
+        .flag("qux=")
+      )
     }
 
     do {
@@ -346,12 +423,29 @@ import TestUtilities
       expectJobInvocationMatches(jobs[0], .flag("-debug-prefix-map"), .flag("old=new"))
     }
 
-    try await assertDriverDiagnostics(args: "swiftc", "foo.swift", "-debug-prefix-map", "foo", "-debug-prefix-map", "bar") {
-        $1.expect(.error("values for '-debug-prefix-map' must be in the format 'original=remapped', but 'foo' was provided"))
-        $1.expect(.error("values for '-debug-prefix-map' must be in the format 'original=remapped', but 'bar' was provided"))
+    try await assertDriverDiagnostics(
+      args: "swiftc",
+      "foo.swift",
+      "-debug-prefix-map",
+      "foo",
+      "-debug-prefix-map",
+      "bar"
+    ) {
+      $1.expect(
+        .error("values for '-debug-prefix-map' must be in the format 'original=remapped', but 'foo' was provided")
+      )
+      $1.expect(
+        .error("values for '-debug-prefix-map' must be in the format 'original=remapped', but 'bar' was provided")
+      )
     }
 
-    try await assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-emit-module", "-g", "-debug-info-format=codeview") { driver in
+    try await assertNoDriverDiagnostics(
+      args: "swiftc",
+      "foo.swift",
+      "-emit-module",
+      "-g",
+      "-debug-info-format=codeview"
+    ) { driver in
       #expect(driver.debugInfo.level == .astTypes)
       #expect(driver.debugInfo.format == .codeView)
 
@@ -359,7 +453,8 @@ import TestUtilities
       expectJobInvocationMatches(jobs[0], .flag("-debug-info-format=codeview"))
     }
 
-    try await assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-emit-module", "-g", "-debug-info-format=dwarf") { driver in
+    try await assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-emit-module", "-g", "-debug-info-format=dwarf") {
+      driver in
       #expect(driver.debugInfo.format == .dwarf)
 
       let jobs = try await driver.planBuild()
@@ -370,11 +465,18 @@ import TestUtilities
       $1.expect(.error("option '-debug-info-format=' is missing a required argument (-g)"))
     }
 
-    try await assertDriverDiagnostics(args: "swiftc", "foo.swift", "-emit-module", "-g", "-debug-info-format=notdwarf") {
+    try await assertDriverDiagnostics(args: "swiftc", "foo.swift", "-emit-module", "-g", "-debug-info-format=notdwarf")
+    {
       $1.expect(.error("invalid value 'notdwarf' in '-debug-info-format='"))
     }
 
-    try await assertDriverDiagnostics(args: "swiftc", "foo.swift", "-emit-module", "-gdwarf-types", "-debug-info-format=codeview") {
+    try await assertDriverDiagnostics(
+      args: "swiftc",
+      "foo.swift",
+      "-emit-module",
+      "-gdwarf-types",
+      "-debug-info-format=codeview"
+    ) {
       $1.expect(.error("argument '-debug-info-format=codeview' is not allowed with '-gdwarf-types'"))
     }
 
@@ -386,14 +488,22 @@ import TestUtilities
       $1.expect(.error("invalid value '6' in '-dwarf-version="))
     }
 
-    try await assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-g", "-c", "-file-compilation-dir", ".") { driver in
+    try await assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-g", "-c", "-file-compilation-dir", ".") {
+      driver in
       let jobs = try await driver.planBuild()
       let path = try VirtualPath.intern(path: ".")
       expectJobInvocationMatches(jobs[0], .flag("-file-compilation-dir"), .path(VirtualPath.lookup(path)))
     }
 
     let workingDirectory = try AbsolutePath(validating: "/tmp")
-    try await assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-g", "-c", "-working-directory", workingDirectory.nativePathString(escaped: false)) { driver in
+    try await assertNoDriverDiagnostics(
+      args: "swiftc",
+      "foo.swift",
+      "-g",
+      "-c",
+      "-working-directory",
+      workingDirectory.nativePathString(escaped: false)
+    ) { driver in
       let jobs = try await driver.planBuild()
       let path = try VirtualPath.intern(path: workingDirectory.nativePathString(escaped: false))
       expectJobInvocationMatches(jobs[0], .flag("-file-compilation-dir"), .path(VirtualPath.lookup(path)))
@@ -411,19 +521,48 @@ import TestUtilities
   }
 
   @Test func coverageSettings() async throws {
-    try await assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-coverage-prefix-map", "foo=bar=baz", "-coverage-prefix-map", "qux=") { driver in
+    try await assertNoDriverDiagnostics(
+      args: "swiftc",
+      "foo.swift",
+      "-coverage-prefix-map",
+      "foo=bar=baz",
+      "-coverage-prefix-map",
+      "qux="
+    ) { driver in
       let jobs = try await driver.planBuild()
-      expectJobInvocationMatches(jobs[0], .flag("-coverage-prefix-map"), .flag("foo=bar=baz"), .flag("-coverage-prefix-map"), .flag("qux="))
+      expectJobInvocationMatches(
+        jobs[0],
+        .flag("-coverage-prefix-map"),
+        .flag("foo=bar=baz"),
+        .flag("-coverage-prefix-map"),
+        .flag("qux=")
+      )
     }
 
-    try await assertDriverDiagnostics(args: "swiftc", "foo.swift", "-coverage-prefix-map", "foo", "-coverage-prefix-map", "bar") {
-      $1.expect(.error("values for '-coverage-prefix-map' must be in the format 'original=remapped', but 'foo' was provided"))
-      $1.expect(.error("values for '-coverage-prefix-map' must be in the format 'original=remapped', but 'bar' was provided"))
+    try await assertDriverDiagnostics(
+      args: "swiftc",
+      "foo.swift",
+      "-coverage-prefix-map",
+      "foo",
+      "-coverage-prefix-map",
+      "bar"
+    ) {
+      $1.expect(
+        .error("values for '-coverage-prefix-map' must be in the format 'original=remapped', but 'foo' was provided")
+      )
+      $1.expect(
+        .error("values for '-coverage-prefix-map' must be in the format 'original=remapped', but 'bar' was provided")
+      )
     }
   }
 
   @Test func hermeticSealAtLink() async throws {
-    try await assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-experimental-hermetic-seal-at-link", "-lto=llvm-full") { driver in
+    try await assertNoDriverDiagnostics(
+      args: "swiftc",
+      "foo.swift",
+      "-experimental-hermetic-seal-at-link",
+      "-lto=llvm-full"
+    ) { driver in
       let jobs = try await driver.planBuild()
       let commandLine = jobs[0].commandLine
       expectCommandLineContains(commandLine, .flag("-enable-llvm-vfe"))
@@ -437,7 +576,13 @@ import TestUtilities
       $1.expect(.error("-experimental-hermetic-seal-at-link requires -lto=llvm-full or -lto=llvm-thin"))
     }
 
-    try await assertDriverDiagnostics(args: "swiftc", "foo.swift", "-experimental-hermetic-seal-at-link", "-lto=llvm-full", "-enable-library-evolution") {
+    try await assertDriverDiagnostics(
+      args: "swiftc",
+      "foo.swift",
+      "-experimental-hermetic-seal-at-link",
+      "-lto=llvm-full",
+      "-enable-library-evolution"
+    ) {
       $1.expect(.error("Cannot use -experimental-hermetic-seal-at-link with -enable-library-evolution"))
     }
   }
@@ -467,14 +612,22 @@ import TestUtilities
       #expect(driver.moduleOutputInfo.name == "foo")
     }
 
-    try await assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-module-name", "wibble", "bar.swift", "-g") { driver in
+    try await assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-module-name", "wibble", "bar.swift", "-g") {
+      driver in
       let pathHandle = driver.moduleOutputInfo.output?.outputPath
       #expect(matchTemporary(VirtualPath.lookup(pathHandle!), "wibble.swiftmodule"))
       #expect(driver.moduleOutputInfo.name == "wibble")
     }
 
-    try await assertNoDriverDiagnostics(args: "swiftc", "-emit-module", "foo.swift", "-module-name", "wibble", "bar.swift") { driver in
-      let expectedOutput : ModuleOutputInfo.ModuleOutput = .topLevel(try toPath("wibble.swiftmodule").intern())
+    try await assertNoDriverDiagnostics(
+      args: "swiftc",
+      "-emit-module",
+      "foo.swift",
+      "-module-name",
+      "wibble",
+      "bar.swift"
+    ) { driver in
+      let expectedOutput: ModuleOutputInfo.ModuleOutput = .topLevel(try toPath("wibble.swiftmodule").intern())
       #expect(driver.moduleOutputInfo.output == expectedOutput)
       #expect(driver.moduleOutputInfo.name == "wibble")
     }
@@ -484,26 +637,72 @@ import TestUtilities
       #expect(driver.moduleOutputInfo.name == "main")
     }
 
-    try await assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "bar.swift", "-emit-library", "-o", "libWibble.so") { driver in
+    try await assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "bar.swift", "-emit-library", "-o", "libWibble.so")
+    { driver in
       #expect(driver.moduleOutputInfo.name == "Wibble")
     }
 
-    try await assertDriverDiagnostics(args: "swiftc", "foo.swift", "bar.swift", "-emit-library", "-o", "libWibble.so", "-module-name", "Swift") {
-        $1.expect(.error("module name \"Swift\" is reserved for the standard library"))
+    try await assertDriverDiagnostics(
+      args: "swiftc",
+      "foo.swift",
+      "bar.swift",
+      "-emit-library",
+      "-o",
+      "libWibble.so",
+      "-module-name",
+      "Swift"
+    ) {
+      $1.expect(.error("module name \"Swift\" is reserved for the standard library"))
     }
 
-    try await assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "bar.swift", "-emit-module", "-emit-library", "-o", "some/dir/libFoo.so", "-module-name", "MyModule") { driver in
-      let expectedOutput : ModuleOutputInfo.ModuleOutput = .topLevel(try toPath("some/dir/MyModule.swiftmodule").intern())
+    try await assertNoDriverDiagnostics(
+      args: "swiftc",
+      "foo.swift",
+      "bar.swift",
+      "-emit-module",
+      "-emit-library",
+      "-o",
+      "some/dir/libFoo.so",
+      "-module-name",
+      "MyModule"
+    ) { driver in
+      let expectedOutput: ModuleOutputInfo.ModuleOutput = .topLevel(
+        try toPath("some/dir/MyModule.swiftmodule").intern()
+      )
       #expect(driver.moduleOutputInfo.output == expectedOutput)
     }
 
-    try await assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "bar.swift", "-emit-module", "-emit-library", "-o", "/", "-module-name", "MyModule") { driver in
-      let expectedOutput : ModuleOutputInfo.ModuleOutput = .topLevel(try VirtualPath.intern(path: "/MyModule.swiftmodule"))
+    try await assertNoDriverDiagnostics(
+      args: "swiftc",
+      "foo.swift",
+      "bar.swift",
+      "-emit-module",
+      "-emit-library",
+      "-o",
+      "/",
+      "-module-name",
+      "MyModule"
+    ) { driver in
+      let expectedOutput: ModuleOutputInfo.ModuleOutput = .topLevel(
+        try VirtualPath.intern(path: "/MyModule.swiftmodule")
+      )
       #expect(driver.moduleOutputInfo.output == expectedOutput)
     }
 
-    try await assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "bar.swift", "-emit-module", "-emit-library", "-o", "../../some/other/dir/libFoo.so", "-module-name", "MyModule") { driver in
-      let expectedOutput : ModuleOutputInfo.ModuleOutput = .topLevel(try toPath("../../some/other/dir/MyModule.swiftmodule").intern())
+    try await assertNoDriverDiagnostics(
+      args: "swiftc",
+      "foo.swift",
+      "bar.swift",
+      "-emit-module",
+      "-emit-library",
+      "-o",
+      "../../some/other/dir/libFoo.so",
+      "-module-name",
+      "MyModule"
+    ) { driver in
+      let expectedOutput: ModuleOutputInfo.ModuleOutput = .topLevel(
+        try toPath("../../some/other/dir/MyModule.swiftmodule").intern()
+      )
       #expect(driver.moduleOutputInfo.output == expectedOutput)
     }
   }
@@ -516,9 +715,22 @@ import TestUtilities
 
   @Test func packageNameFlag() async throws {
     // -package-name com.perf.my-pkg (valid string)
-    try await assertNoDriverDiagnostics(args: "swiftc", "file.swift", "bar.swift", "-module-name", "MyModule", "-package-name", "com.perf.my-pkg", "-emit-module", "-emit-module-path", "../../path/to/MyModule.swiftmodule") { driver in
+    try await assertNoDriverDiagnostics(
+      args: "swiftc",
+      "file.swift",
+      "bar.swift",
+      "-module-name",
+      "MyModule",
+      "-package-name",
+      "com.perf.my-pkg",
+      "-emit-module",
+      "-emit-module-path",
+      "../../path/to/MyModule.swiftmodule"
+    ) { driver in
       #expect(driver.packageName == "com.perf.my-pkg")
-      let expectedOutput : ModuleOutputInfo.ModuleOutput = .topLevel(try toPath("../../path/to/MyModule.swiftmodule").intern())
+      let expectedOutput: ModuleOutputInfo.ModuleOutput = .topLevel(
+        try toPath("../../path/to/MyModule.swiftmodule").intern()
+      )
       #expect(driver.moduleOutputInfo.output == expectedOutput)
     }
 
@@ -529,7 +741,14 @@ import TestUtilities
     }
 
     // -package-name 123a!@#$ (valid string)
-    try await assertNoDriverDiagnostics(args: "swiftc", "file.swift", "-module-name", "Foo", "-package-name", "123a!@#$") { driver in
+    try await assertNoDriverDiagnostics(
+      args: "swiftc",
+      "file.swift",
+      "-module-name",
+      "Foo",
+      "-package-name",
+      "123a!@#$"
+    ) { driver in
       #expect(driver.packageName == "123a!@#$")
     }
 
@@ -581,12 +800,22 @@ import TestUtilities
     try expectEqual(try TestDriver(args: ["swiftc", "foo.swift", "-o", "a.out"]).moduleOutputInfo.name, "a")
 
     // This is silly, but necessary for compatibility with the integrated driver.
-    try expectEqual(try TestDriver(args: ["swiftc", "foo.swift", "-o", "a.out.optimized"]).moduleOutputInfo.name, "main")
+    try expectEqual(
+      try TestDriver(args: ["swiftc", "foo.swift", "-o", "a.out.optimized"]).moduleOutputInfo.name,
+      "main"
+    )
 
-    try expectEqual(try TestDriver(args: ["swiftc", "foo.swift", "-o", "a.out.optimized", "-module-name", "bar"]).moduleOutputInfo.name, "bar")
+    try expectEqual(
+      try TestDriver(args: ["swiftc", "foo.swift", "-o", "a.out.optimized", "-module-name", "bar"]).moduleOutputInfo
+        .name,
+      "bar"
+    )
     try expectEqual(try TestDriver(args: ["swiftc", "foo.swift", "-o", "+++.out"]).moduleOutputInfo.name, "main")
     try expectEqual(try TestDriver(args: ["swift"]).moduleOutputInfo.name, "REPL")
-    try expectEqual(try TestDriver(args: ["swiftc", "foo.swift", "-emit-library", "-o", "libBaz.dylib"]).moduleOutputInfo.name, "Baz")
+    try expectEqual(
+      try TestDriver(args: ["swiftc", "foo.swift", "-emit-library", "-o", "libBaz.dylib"]).moduleOutputInfo.name,
+      "Baz"
+    )
 
     try await assertDriverDiagnostics(
       args: ["swiftc", "foo.swift", "-module-name", "", "file.foo.swift"]

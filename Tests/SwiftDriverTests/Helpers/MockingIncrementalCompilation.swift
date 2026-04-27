@@ -22,14 +22,17 @@ extension ModuleDependencyGraph {
     blockingConcurrentAccessOrMutation {
       let dependencySource = DependencySource(
         SwiftSourceFile(mock: i),
-        internedStringTable)
+        internedStringTable
+      )
       // optimization
       if let fileNode = nodeFinder.findFileInterfaceNode(forMock: dependencySource),
-         fileNode.isTraced {
+        fileNode.isTraced
+      {
         return true
       }
       if let nodes = nodeFinder.findNodes(for: .known(dependencySource))?.values,
-         nodes.contains(where: {$0.isTraced}) {
+        nodes.contains(where: { $0.isTraced })
+      {
         return true
       }
       return false
@@ -72,7 +75,7 @@ extension DependencySource {
     file.name
   }
 
-  fileprivate  var sourceFileProvidesNameForMocking: InternedString {
+  fileprivate var sourceFileProvidesNameForMocking: InternedString {
     // Only when mocking are these two guaranteed to be the same
     internedFileName
   }
@@ -93,7 +96,7 @@ extension SwiftSourceFile {
 extension ModuleDependencyGraph.NodeFinder {
   func findFileInterfaceNode(
     forMock dependencySource: DependencySource
-  ) -> Graph.Node?  {
+  ) -> Graph.Node? {
     let fileKey = DependencyKey(fileKeyForMockDependencySource: dependencySource)
     return findNode((.known(dependencySource), fileKey))
   }
@@ -101,9 +104,10 @@ extension ModuleDependencyGraph.NodeFinder {
 
 fileprivate extension DependencyKey {
   init(fileKeyForMockDependencySource dependencySource: DependencySource) {
-    self.init(aspect: .interface,
-              designator:
-                .sourceFileProvide(name: dependencySource.sourceFileProvidesNameForMocking)
+    self.init(
+      aspect: .interface,
+      designator:
+        .sourceFileProvide(name: dependencySource.sourceFileProvidesNameForMocking)
     )
   }
 }
@@ -121,7 +125,8 @@ extension BuildRecordInfo {
       actualSwiftVersion: compilerVersion,
       timeBeforeFirstJob: .now(),
       diagnosticEngine: diagnosticEngine,
-      compilationInputModificationDates: [:])
+      compilationInputModificationDates: [:]
+    )
   }
 }
 
@@ -134,16 +139,22 @@ extension IncrementalCompilationState.IncrementalDependencyAndInputSetup {
   ) -> Self {
     // Must set input files in order to avoid graph deserialization from culling
     let inputFiles = outputFileMap.entries.keys
-      .filter {VirtualPath.lookup($0).extension == FileType.swift.rawValue }
-      .map {TypedVirtualPath(file: $0, type: .swift)}
+      .filter { VirtualPath.lookup($0).extension == FileType.swift.rawValue }
+      .map { TypedVirtualPath(file: $0, type: .swift) }
     let buildRecord = BuildRecordInfo.mock(
       diagnosticEngine: diagnosticEngine,
       outputFileMap: outputFileMap,
-      compilerVersion: "for-testing")
-    return Self(options, outputFileMap,
-                buildRecord,
-                nil, inputFiles, fileSystem,
-                diagnosticEngine)
+      compilerVersion: "for-testing"
+    )
+    return Self(
+      options,
+      outputFileMap,
+      buildRecord,
+      nil,
+      inputFiles,
+      fileSystem,
+      diagnosticEngine
+    )
   }
 }
 
@@ -160,7 +171,7 @@ extension Collection where Element: StringProtocol {
 
 // MARK: - Mocking up a ModuleDependencyGraph
 protocol ModuleDependencyGraphMocker {
-  static var mockGraphCreator: MockModuleDependencyGraphCreator {get}
+  static var mockGraphCreator: MockModuleDependencyGraphCreator { get }
 }
 
 struct MockModuleDependencyGraphCreator {
@@ -180,14 +191,16 @@ struct MockModuleDependencyGraphCreator {
   }
 }
 
-
 extension OutputFileMap {
   static func mock(maxIndex: Int) -> Self {
-    OutputFileMap(entries: (0...maxIndex) .reduce(into: [:]) {
-      entries, index in
-      let inputHandle = SwiftSourceFile(mock: index).fileHandle
-      let swiftDepsHandle = SwiftSourceFile(mock: index).fileHandle
-      entries[inputHandle] = [.swiftDeps: swiftDepsHandle]
-    })
+    OutputFileMap(
+      entries: (0...maxIndex).reduce(into: [:]) {
+        entries,
+        index in
+        let inputHandle = SwiftSourceFile(mock: index).fileHandle
+        let swiftDepsHandle = SwiftSourceFile(mock: index).fileHandle
+        entries[inputHandle] = [.swiftDeps: swiftDepsHandle]
+      }
+    )
   }
 }

@@ -108,7 +108,9 @@ func assertNoDiagnostics(
   column: Int = #column,
   do body: (DiagnosticsEngine) async throws -> Void
 ) async rethrows {
-  try await assertDiagnostics(file: file, fileID: fileID, line: line, column: column) { diags, _ in try await body(diags) }
+  try await assertDiagnostics(file: file, fileID: fileID, line: line, column: column) { diags, _ in
+    try await body(diags)
+  }
 }
 
 /// Checks that the diagnostics actually emitted by a `DiagnosticsEngine`

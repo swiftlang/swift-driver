@@ -12,12 +12,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-@testable @_spi(Testing) import SwiftDriver
 import SwiftDriverExecution
 import SwiftOptions
 import TSCBasic
-import Testing
 import TestUtilities
+import Testing
+
+@testable @_spi(Testing) import SwiftDriver
+
 #if canImport(Darwin)
 import Darwin
 #elseif canImport(Glibc)
@@ -43,27 +45,33 @@ func expectEqual<T: Equatable>(
 }
 
 func assertString(
-  _ haystack: String, contains needle: String, _ message: String = "",
+  _ haystack: String,
+  contains needle: String,
+  _ message: String = "",
   sourceLocation: SourceLocation = #_sourceLocation
 ) {
-  #expect(haystack.contains(needle), """
-                \(String(reflecting: needle)) not found in \
-                \(String(reflecting: haystack))\
-                \(message.isEmpty ? "" : ": " + message)
-                """, sourceLocation: sourceLocation)
+  #expect(
+    haystack.contains(needle),
+    """
+    \(String(reflecting: needle)) not found in \
+    \(String(reflecting: haystack))\
+    \(message.isEmpty ? "" : ": " + message)
+    """,
+    sourceLocation: sourceLocation
+  )
 }
 
 // MARK: - Path Helpers
 
 func executableName(_ name: String) -> String {
-#if os(Windows)
+  #if os(Windows)
   if name.count > 4, name.suffix(from: name.index(name.endIndex, offsetBy: -4)) == ".exe" {
     return name
   }
   return "\(name).exe"
-#else
+  #else
   return name
-#endif
+  #endif
 }
 
 func rebase(_ arc: String, at base: AbsolutePath = localFileSystem.currentWorkingDirectory!) -> String {
@@ -110,10 +118,12 @@ var envWithFakeSwiftHelp: ProcessEnvironmentBlock {
 /// Determine if the test's execution environment has LLDB.
 /// Used to skip tests that rely on LLDB in such environments.
 func testEnvHasLLDB() throws -> Bool {
-  let executor = try SwiftDriverExecutor(diagnosticsEngine: DiagnosticsEngine(),
-                                         processSet: ProcessSet(),
-                                         fileSystem: localFileSystem,
-                                         env: ProcessEnv.block)
+  let executor = try SwiftDriverExecutor(
+    diagnosticsEngine: DiagnosticsEngine(),
+    processSet: ProcessSet(),
+    fileSystem: localFileSystem,
+    env: ProcessEnv.block
+  )
   let toolchain: Toolchain
   #if os(macOS)
   toolchain = DarwinToolchain(env: ProcessEnv.block, executor: executor)
@@ -161,8 +171,9 @@ extension Array where Element == Job.ArgTemplate {
       }
       let supplementaryOutputs = self[argIdx + 1]
       guard case let .path(path) = supplementaryOutputs,
-            case let .fileList(_, fileList) = path,
-            case let .outputFileMap(outputFileMap) = fileList else {
+        case let .fileList(_, fileList) = path,
+        case let .outputFileMap(outputFileMap) = fileList
+      else {
         throw StringError("Unexpected argument for output file map")
       }
       return outputFileMap
@@ -178,19 +189,26 @@ extension BidirectionalCollection where Element: Equatable, Index: Strideable, I
   func contains<Elements: Collection>(
     subsequence: Elements
   ) -> Bool
-  where Elements.Element == Element
-  {
-    precondition(!subsequence.isEmpty,  "Subsequence may not be empty")
+  where Elements.Element == Element {
+    precondition(!subsequence.isEmpty, "Subsequence may not be empty")
 
     guard self.count >= subsequence.count else {
       return false
     }
 
-    for index in self.startIndex...self.index(self.endIndex,
-                                              offsetBy: -subsequence.count) {
-      if self[index..<self.index(index,
-                                 offsetBy: subsequence.count)]
-                          .elementsEqual(subsequence) {
+    for index in self
+      .startIndex...self.index(
+        self.endIndex,
+        offsetBy: -subsequence.count
+      )
+    {
+      if self[
+        index..<self.index(
+          index,
+          offsetBy: subsequence.count
+        )
+      ]
+      .elementsEqual(subsequence) {
         return true
       }
     }
