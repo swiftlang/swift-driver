@@ -70,14 +70,22 @@ extension Driver {
     // the planning process. This state contains the module dependency graph and
     // cross-module dependency information.
     let initialIncrementalState =
-      try IncrementalCompilationState.computeIncrementalStateForPlanning(driver: &self)
+      try timeTrace.measure("Incremental State") {
+        try IncrementalCompilationState.computeIncrementalStateForPlanning(driver: &self)
+      }
 
     // For an explicit build, compute the inter-module dependency graph
-    let explicitModulePlanner = try configureExplicitModulePlanner()
+    let explicitModulePlanner =
+      try timeTrace.measure("Configure Explicit Module Planner") {
+        try configureExplicitModulePlanner()
+      }
 
     // Compute the set of all jobs required to build this module
-    let jobsInPhases = try computeJobsForPhasedStandardBuild(explicitModulePlanner: explicitModulePlanner,
-                                                             initialIncrementalState: initialIncrementalState)
+    let jobsInPhases =
+      try timeTrace.measure("Compute Jobs") {
+        try computeJobsForPhasedStandardBuild(explicitModulePlanner: explicitModulePlanner,
+                                              initialIncrementalState: initialIncrementalState)
+      }
 
     // Determine the state for incremental compilation
     let incrementalCompilationState: IncrementalCompilationState?
@@ -127,7 +135,13 @@ extension Driver {
                                                 supportsBridgingHeaderPCHCommand:
                                                   interModuleDependencyOracle.supportsBridgingHeaderPCHCommand,
                                                 supportsScannerPrefixMapPaths:
-                                                  isFrontendArgSupported(.scannerPrefixMapPaths))
+                                                  isFrontendArgSupported(.scannerPrefixMapPaths),
+                                                enableTimeTrace:
+                                                  parsedOptions.hasArgument(.timeTrace),
+                                                timeTraceGranularity:
+                                                  parsedOptions.hasArgument(.timeTraceGranularity)
+                                                  ? UInt(parsedOptions.getLastArgument(.timeTraceGranularity)!.asSingle)
+                                                  : nil)
     } else {
       return nil
     }

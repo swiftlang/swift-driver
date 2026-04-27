@@ -67,6 +67,12 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
   /// status of the scanner prefix mapping option supported by the frontend
   private let supportsScannerPrefixMapPaths: Bool
 
+  /// Whether to emit time trace profiling data for dependency module builds
+  private let enableTimeTrace: Bool
+
+  /// Time trace granularity in microseconds, if specified
+  private let timeTraceGranularity: UInt?
+
   /// Cached command-line additions for all main module compile jobs
   private struct ResolvedModuleDependenciesCommandLineComponents {
     let inputs: [TypedVirtualPath]
@@ -94,7 +100,9 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
               cas: SwiftScanCAS? = nil,
               prefixMap:  [(AbsolutePath, AbsolutePath)] = [],
               supportsBridgingHeaderPCHCommand: Bool = false,
-              supportsScannerPrefixMapPaths: Bool = false) throws {
+              supportsScannerPrefixMapPaths: Bool = false,
+              enableTimeTrace: Bool = false,
+              timeTraceGranularity: UInt? = nil) throws {
     self.dependencyGraph = dependencyGraph
     self.toolchain = toolchain
     self.integratedDriver = integratedDriver
@@ -103,6 +111,8 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
     self.supportsExplicitInterfaceBuild = supportsExplicitInterfaceBuild
     self.supportsBridgingHeaderPCHCommand = supportsBridgingHeaderPCHCommand
     self.supportsScannerPrefixMapPaths = supportsScannerPrefixMapPaths
+    self.enableTimeTrace = enableTimeTrace
+    self.timeTraceGranularity = timeTraceGranularity
     self.cas = cas
     self.prefixMap = prefixMap
     let mainModuleId: ModuleDependencyId = .swift(dependencyGraph.mainModuleName)
@@ -236,6 +246,20 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
         }
       }
 
+      // Add time trace flags so dependency module builds produce profiling data.
+      if enableTimeTrace {
+        let traceFileName = outputModulePath.file.basenameWithoutExt
+          .appendingFileTypeExtension(.timeTrace)
+        let tracePath = outputModulePath.file.parentDirectory
+          .appending(component: traceFileName)
+        commandLine.appendFlag("-emit-time-trace-path")
+        commandLine.appendPath(tracePath)
+        if let granularity = timeTraceGranularity {
+          commandLine.appendFlag("-time-trace-granularity")
+          commandLine.appendFlag(String(granularity))
+        }
+      }
+
       jobs.append(Job(
         moduleName: moduleId.moduleName,
         kind: .compileModuleFromInterface,
@@ -299,6 +323,20 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
           commandLine.appendFlag(key.pathString)
         } else {
           commandLine.appendFlag(value.pathString + "=" + key.pathString)
+        }
+      }
+
+      // Add time trace flags so dependency module builds produce profiling data.
+      if enableTimeTrace {
+        let traceFileName = modulePCMPath.file.basenameWithoutExt
+          .appendingFileTypeExtension(.timeTrace)
+        let tracePath = modulePCMPath.file.parentDirectory
+          .appending(component: traceFileName)
+        commandLine.appendFlag("-emit-time-trace-path")
+        commandLine.appendPath(tracePath)
+        if let granularity = timeTraceGranularity {
+          commandLine.appendFlag("-time-trace-granularity")
+          commandLine.appendFlag(String(granularity))
         }
       }
 

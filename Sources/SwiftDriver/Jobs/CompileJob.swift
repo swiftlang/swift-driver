@@ -96,7 +96,7 @@ extension Driver {
     case .swift, .image, .dSYM, .dependencies, .emitModuleDependencies, .autolink,
          .swiftDocumentation, .swiftInterface, .privateSwiftInterface, .packageSwiftInterface, .swiftSourceInfoFile,
          .diagnostics, .emitModuleDiagnostics, .objcHeader, .swiftDeps, .remap, .tbd,
-         .moduleTrace, .yamlOptimizationRecord, .bitstreamOptimizationRecord, .pcm, .pch,
+         .moduleTrace, .timeTrace, .yamlOptimizationRecord, .bitstreamOptimizationRecord, .pcm, .pch,
          .clangModuleMap, .jsonCompilerFeatures, .jsonTargetInfo, .jsonSwiftArtifacts,
          .indexUnitOutputPath, .modDepCache, .jsonAPIBaseline, .jsonABIBaseline,
          .swiftConstValues, .jsonAPIDescriptor, .moduleSummary, .moduleSemanticInfo, .dependencyScanDiagnostics,
@@ -549,7 +549,7 @@ extension FileType {
 
     case .swift, .dSYM, .autolink, .dependencies, .emitModuleDependencies,
          .swiftDocumentation, .pcm, .diagnostics, .emitModuleDiagnostics,
-         .objcHeader, .image, .swiftDeps, .moduleTrace, .tbd, .yamlOptimizationRecord,
+         .objcHeader, .image, .swiftDeps, .moduleTrace, .timeTrace, .tbd, .yamlOptimizationRecord,
          .bitstreamOptimizationRecord, .swiftInterface, .privateSwiftInterface, .packageSwiftInterface,
          .swiftSourceInfoFile, .clangModuleMap, .jsonSwiftArtifacts,
          .indexUnitOutputPath, .modDepCache, .jsonAPIBaseline, .jsonABIBaseline,

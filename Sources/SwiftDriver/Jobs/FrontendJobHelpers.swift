@@ -274,6 +274,7 @@ extension Driver {
     try commandLine.appendLast(.traceStatsEvents, from: &parsedOptions)
     try commandLine.appendLast(.profileStatsEvents, from: &parsedOptions)
     try commandLine.appendLast(.profileStatsEntities, from: &parsedOptions)
+    try commandLine.appendLast(.timeTraceGranularity, from: &parsedOptions)
     try commandLine.appendLast(.solverShrinkUnsolvedThreshold, from: &parsedOptions)
     try commandLine.appendLast(in: .O, from: &parsedOptions)
     try commandLine.appendLast(.RemoveRuntimeAsserts, from: &parsedOptions)
@@ -996,6 +997,12 @@ extension Driver {
             flag: "-save-optimization-record-path")
         }
       }
+
+      try addOutputOfType(
+        outputType: .timeTrace,
+        finalOutputPath: timeTraceOutputPath,
+        input: input,
+        flag: "-emit-time-trace-path")
     }
 
     let optRecordTypeWarning = self.optimizationRecordFileType ?? .yamlOptimizationRecord
@@ -1094,9 +1101,15 @@ extension Driver {
                                       output: TypedVirtualPath(file: tracePath, type: .moduleTrace)))
     }
 
+    // Separate time trace pairs from supplementary output pairs.
+    // Time trace is not a supplementary output — it must not go into the
+    // supplementary output file map (which feeds the CAS caching layer).
+    let timeTracePairs = flaggedInputOutputPairs.filter { $0.flag == "-emit-time-trace-path" }
+    let supplementaryPairs = flaggedInputOutputPairs.filter { $0.flag != "-emit-time-trace-path" }
+
     // When we have multiple opt records in flaggedInputOutputPairs, we must use a supplementary
     // output file map to pass all the per-file paths to the frontend.
-    let hasMultipleOptRecords = flaggedInputOutputPairs
+    let hasMultipleOptRecords = supplementaryPairs
       .filter { $0.flag == "-save-optimization-record-path" }.count > 1
 
     if inputsGeneratingCodeCount * FileType.allCases.count > fileListThreshold || hasMultipleOptRecords {
@@ -1121,7 +1134,7 @@ extension Driver {
         entries[firstSourceInputHandle] = [:]
       }
 
-      for flaggedPair in flaggedInputOutputPairs {
+      for flaggedPair in supplementaryPairs {
         try addEntry(&entries, input: flaggedPair.input, output: flaggedPair.output)
       }
       // To match the legacy driver behavior, make sure we add an entry for the
@@ -1138,11 +1151,17 @@ extension Driver {
       commandLine.appendFlag(.supplementaryOutputFileMap)
       commandLine.appendPath(fileList)
     } else {
-      for flaggedPair in flaggedInputOutputPairs {
+      for flaggedPair in supplementaryPairs {
         // Add the appropriate flag.
         commandLine.appendFlag(flaggedPair.flag)
         commandLine.appendPath(flaggedPair.output.file)
       }
+    }
+
+    // Emit time trace paths as direct flags (not in supplementary output file map).
+    for flaggedPair in timeTracePairs {
+      commandLine.appendFlag(flaggedPair.flag)
+      commandLine.appendPath(flaggedPair.output.file)
     }
 
     return flaggedInputOutputPairs.map { $0.output }

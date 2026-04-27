@@ -123,6 +123,7 @@ add_library(SwiftDriver
   Utilities/Sanitizer.swift
   Utilities/StringAdditions.swift
   Utilities/System.swift
+  Utilities/TimeTrace.swift
   Utilities/Triple+Platforms.swift
   Utilities/Triple.swift
   Utilities/TypedVirtualPath.swift

@@ -595,6 +595,11 @@ extension Option {
   public static let formalCxxInteroperabilityMode: Option = Option("-formal-cxx-interoperability-mode=", .joined, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<cxx-interop-version>|off", helpText: "What version of C++ interoperability a textual interface was originally generated with")
   public static let framework: Option = Option("-framework", .separate, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Specifies a framework which should be linked against", group: .linkerOption)
   public static let frontendParseableOutput: Option = Option("-frontend-parseable-output", .flag, attributes: [.frontend, .noDriver, .cacheInvariant], helpText: "Emit textual output in a parseable format")
+  public static let timeTrace: Option = Option("-time-trace", .flag, attributes: [.noInteractive, .cacheInvariant], helpText: "Turn on time profiler, emit trace output as JSON")
+  public static let timeTraceGranularityEQ: Option = Option("-time-trace-granularity=", .joined, alias: Option.timeTraceGranularity, attributes: [.frontend, .noInteractive, .cacheInvariant])
+  public static let timeTraceGranularity: Option = Option("-time-trace-granularity", .separate, attributes: [.frontend, .noInteractive, .cacheInvariant], metaVar: "<microseconds>", helpText: "Minimum time granularity (in microseconds) for time trace events")
+  public static let timeTracePathEQ: Option = Option("-emit-time-trace-path=", .joined, alias: Option.timeTracePath, attributes: [.frontend, .noInteractive, .argumentIsPath, .cacheInvariant])
+  public static let timeTracePath: Option = Option("-emit-time-trace-path", .separate, attributes: [.frontend, .noInteractive, .argumentIsPath, .cacheInvariant], metaVar: "<path>", helpText: "Emit time trace output to <path>")
   public static let Fsystem: Option = Option("-Fsystem", .separate, attributes: [.frontend, .synthesizeInterface, .argumentIsPath], helpText: "Add directory to system framework search path")
   public static let functionSections: Option = Option("-function-sections", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Emit functions to separate sections.")
   public static let F: Option = Option("-F", .joinedOrSeparate, attributes: [.frontend, .synthesizeInterface, .argumentIsPath], helpText: "Add directory to framework search path")
@@ -1620,6 +1625,11 @@ extension Option {
       Option.formalCxxInteroperabilityMode,
       Option.framework,
       Option.frontendParseableOutput,
+      Option.timeTrace,
+      Option.timeTraceGranularity,
+      Option.timeTraceGranularityEQ,
+      Option.timeTracePath,
+      Option.timeTracePathEQ,
       Option.Fsystem,
       Option.functionSections,
       Option.F,

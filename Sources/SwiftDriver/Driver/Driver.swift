@@ -411,6 +411,12 @@ public struct Driver {
   /// Path to the loaded module trace file.
   let loadedModuleTracePath: VirtualPath.Handle?
 
+  /// Path to the time trace profiling output file.
+  let timeTraceOutputPath: VirtualPath.Handle?
+
+  /// Time trace profiler, active when `-time-trace` is passed.
+  var timeTrace = TimeTrace()
+
   /// Path to the TBD file (text-based dylib).
   let tbdPath: VirtualPath.Handle?
 
@@ -1335,6 +1341,15 @@ public struct Driver {
         moduleName: moduleOutputInfo.name)
     }
 
+    self.timeTraceOutputPath = try Self.computeSupplementaryOutputPath(
+        &parsedOptions, type: .timeTrace, isOutputOptions: [.timeTrace],
+        outputPath: .timeTracePath,
+        compilerOutputType: compilerOutputType,
+        compilerMode: compilerMode,
+        emitModuleSeparately: emitModuleSeparately,
+        outputFileMap: self.outputFileMap,
+        moduleName: moduleOutputInfo.name)
+
     self.tbdPath = try Self.computeSupplementaryOutputPath(
         &parsedOptions, type: .tbd, isOutputOptions: [.emitTbd],
         outputPath: .emitTbdPath,
@@ -1429,11 +1444,16 @@ public struct Driver {
                               swiftInterfacePath: self.moduleOutputPaths.swiftInterfacePath,
                               diagnosticEngine: diagnosticsEngine)
 
+    self.timeTrace = TimeTrace(enabled: parsedOptions.hasArgument(.timeTrace))
+
     try verifyOutputOptions()
   }
 
   public mutating func planBuild() throws -> [Job] {
-    let (jobs, incrementalCompilationState, explicitModulePlanner) = try planPossiblyIncrementalBuild()
+    let (jobs, incrementalCompilationState, explicitModulePlanner) =
+      try timeTrace.measure("Plan Build") {
+        try planPossiblyIncrementalBuild()
+      }
     self.incrementalCompilationState = incrementalCompilationState
     self.intermoduleDependencyGraph = explicitModulePlanner?.dependencyGraph
     return jobs
@@ -1964,11 +1984,15 @@ extension Driver {
         defer {
           writeIncrementalBuildInformation(jobs)
         }
-        try performTheBuild(allJobs: childJobs,
-                            jobExecutionDelegate: toolExecutionDelegate,
-                            forceResponseFiles: forceResponseFiles)
+        try timeTrace.measure("Execute Jobs") {
+          try performTheBuild(allJobs: childJobs,
+                              jobExecutionDelegate: toolExecutionDelegate,
+                              forceResponseFiles: forceResponseFiles)
+        }
       }
     }
+
+    try writeDriverTimeTrace()
 
     // If we have a job to run in-place, do so at the end.
     if let inPlaceJob = inPlaceJob {
@@ -1999,6 +2023,25 @@ extension Driver {
         diagnosticEngine.emit(.warn_unused_option(option))
       }
     }
+  }
+
+  /// Write the driver's time trace to a `.driver.time-trace.json` file alongside
+  /// the frontend's time trace output. The file is automatically discovered by
+  /// SwiftPM's `importCompilerTimeTraces(under:)` because it ends in `.time-trace.json`.
+  public mutating func writeDriverTimeTrace() throws {
+    guard timeTrace.enabled,
+          let tracePathHandle = timeTraceOutputPath else { return }
+    let tracePath = VirtualPath.lookup(tracePathHandle)
+    // Frontend trace: foo.time-trace.json → Driver trace: foo.driver.time-trace.json
+    let pathString = tracePath.name
+    let driverPathString = pathString.replacingOccurrences(
+      of: ".time-trace.json", with: ".driver.time-trace.json")
+    guard driverPathString != pathString else { return }
+
+    let driverTracePath = try VirtualPath.intern(path: driverPathString)
+    let resolvedPath = VirtualPath.lookup(driverTracePath)
+      .resolvedRelativePath(base: workingDirectory ?? fileSystem.currentWorkingDirectory!)
+    try timeTrace.write(to: resolvedPath.name)
   }
 
   mutating func createToolExecutionDelegate() -> ToolExecutionDelegate {

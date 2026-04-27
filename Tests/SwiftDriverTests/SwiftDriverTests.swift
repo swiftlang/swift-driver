@@ -6464,6 +6464,43 @@ final class SwiftDriverTests: XCTestCase {
     }
   }
 
+  func testTimeTracePath() throws {
+    do {
+      var driver = try Driver(args: ["swiftc", "-c", "-time-trace", "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      let tracedJobs = try plannedJobs.filter {
+        $0.commandLine.contains(subsequence: ["-emit-time-trace-path",
+                                               .path(.relative(try .init(validating: "foo.time-trace.json")))])
+      }
+      XCTAssertEqual(tracedJobs.count, 1)
+    }
+    do {
+      var driver = try Driver(args: ["swiftc", "-c",
+                                     "-time-trace",
+                                     "foo.swift", "bar.swift", "baz.swift"])
+      let plannedJobs = try driver.planBuild()
+      // In multi-file mode, each compile job gets a per-file time trace path
+      for name in ["foo", "bar", "baz"] {
+        let tracedJobs = try plannedJobs.filter {
+          $0.commandLine.contains(subsequence: ["-emit-time-trace-path",
+                                                .path(.relative(try .init(validating: "\(name).time-trace.json")))])
+        }
+        XCTAssertEqual(tracedJobs.count, 1, "Expected per-file time trace path for \(name).swift")
+      }
+    }
+    do {
+      var driver = try Driver(args: ["swiftc", "-c",
+                                     "-time-trace",
+                                     "-time-trace-granularity", "100",
+                                     "foo.swift"])
+      let plannedJobs = try driver.planBuild()
+      let tracedJobs = plannedJobs.filter {
+        $0.commandLine.contains(subsequence: ["-time-trace-granularity", "100"])
+      }
+      XCTAssertGreaterThanOrEqual(tracedJobs.count, 1)
+    }
+  }
+
   func testVerifyDebugInfo() throws {
     let commonArgs = [
       "swiftc", "foo.swift", "bar.swift",
