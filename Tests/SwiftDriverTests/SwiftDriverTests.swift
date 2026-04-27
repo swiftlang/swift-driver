@@ -5638,6 +5638,29 @@ final class SwiftDriverTests: XCTestCase {
     #endif
   }
 
+  func testDisableDeploymentTargetValidationForParseStdlib() throws {
+    XCTAssertNoThrow(try Driver(args: ["swiftc", "-c", "-target", "armv7k-apple-watchos10.0", "-parse-stdlib", "-disable-deployment-target-validation-for-parse-stdlib", "foo.swift"]))
+
+    // Without -parse-stdlib, the flag emits a warning and validation still runs.
+    try assertDiagnostics { diags, verifier in
+      verifier.expect(.warning("-disable-deployment-target-validation-for-parse-stdlib is ignored without -parse-stdlib"))
+      XCTAssertThrowsError(try Driver(args: ["swiftc", "-c", "-target", "armv7k-apple-watchos10.0", "-disable-deployment-target-validation-for-parse-stdlib", "foo.swift"], diagnosticsEngine: diags)) { error in
+        guard case DarwinToolchain.ToolchainValidationError.invalidDeploymentTargetForIR(platform: .watchOS(.device), version: Triple.Version(9, 0, 0), archName: "armv7k") = error else {
+          XCTFail("Unexpected error: \(error)")
+          return
+        }
+      }
+    }
+
+    // Without -disable-deployment-target-validation-for-parse-stdlib, the existing deployment target validation still fires.
+    XCTAssertThrowsError(try Driver(args: ["swiftc", "-c", "-target", "armv7k-apple-watchos10.0", "foo.swift"])) { error in
+      guard case DarwinToolchain.ToolchainValidationError.invalidDeploymentTargetForIR(platform: .watchOS(.device), version: Triple.Version(9, 0, 0), archName: "armv7k") = error else {
+        XCTFail("Unexpected error: \(error)")
+        return
+      }
+    }
+  }
+
   func testProfileArgValidation() throws {
     try assertDriverDiagnostics(args: ["swiftc", "foo.swift", "-profile-generate", "-profile-use=profile.profdata"]) {
       $1.expect(.error(Driver.Error.conflictingOptions(.profileGenerate, .profileUse)))

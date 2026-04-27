@@ -768,6 +768,7 @@ extension Option {
   public static let parseAsLibrary: Option = Option("-parse-as-library", .flag, attributes: [.frontend, .noInteractive], helpText: "Parse the input file(s) as libraries, not scripts")
   public static let parseSil: Option = Option("-parse-sil", .flag, attributes: [.frontend, .noInteractive], helpText: "Parse the input file as SIL code, not Swift source")
   public static let parseStdlib: Option = Option("-parse-stdlib", .flag, attributes: [.helpHidden, .frontend, .moduleInterface], helpText: "Parse the input file(s) as the Swift standard library")
+  public static let disableDeploymentTargetValidationForParseStdlib: Option = Option("-disable-deployment-target-validation-for-parse-stdlib", .flag, attributes: [.helpHidden, .frontend, .moduleInterface], helpText: "Disable deployment target validation when building the Swift standard library")
   public static let parseableOutput: Option = Option("-parseable-output", .flag, attributes: [.noInteractive, .doesNotAffectIncrementalBuild], helpText: "Emit textual output in a parseable format")
   public static let parse: Option = Option("-parse", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Parse input file(s)", group: .modes)
   public static let pcMacro: Option = Option("-pc-macro", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Apply the 'program counter simulation' macro")
@@ -1793,6 +1794,7 @@ extension Option {
       Option.parseAsLibrary,
       Option.parseSil,
       Option.parseStdlib,
+      Option.disableDeploymentTargetValidationForParseStdlib,
       Option.parseableOutput,
       Option.parse,
       Option.pcMacro,

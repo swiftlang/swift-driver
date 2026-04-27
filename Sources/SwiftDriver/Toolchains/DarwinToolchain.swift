@@ -216,7 +216,8 @@ public final class DarwinToolchain: Toolchain {
     #endif
     // Validating apple platforms deployment targets.
     try validateDeploymentTarget(&parsedOptions, targetTriple: targetTriple,
-                                 compilerOutputType: compilerOutputType)
+                                 compilerOutputType: compilerOutputType,
+                                 diagnosticsEngine: diagnosticsEngine)
     if let targetVariantTriple = targetVariantTriple,
        !targetTriple.isValidForZipperingWithTriple(targetVariantTriple) {
       throw ToolchainValidationError.unsupportedTargetVariant(variant: targetVariantTriple)
@@ -254,10 +255,23 @@ public final class DarwinToolchain: Toolchain {
   }
 
   func validateDeploymentTarget(_ parsedOptions: inout ParsedOptions,
-                                targetTriple: Triple, compilerOutputType: FileType?) throws {
+                                targetTriple: Triple,
+                                compilerOutputType: FileType?,
+                                diagnosticsEngine: DiagnosticsEngine) throws {
     guard let os = targetTriple.os else {
       return
     }
+
+    if parsedOptions.hasArgument(.disableDeploymentTargetValidationForParseStdlib) {
+       if parsedOptions.hasArgument(.parseStdlib){
+         return
+       } else {
+         diagnosticsEngine.emit(
+           .warning("-disable-deployment-target-validation-for-parse-stdlib is ignored without -parse-stdlib"),
+           location: nil
+         )
+       }
+     }
 
     // Embedded Swift should accept all target triples / OS versions / arch combinations
     guard !parsedOptions.isEmbeddedEnabled else {
