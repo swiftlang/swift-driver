@@ -1112,7 +1112,7 @@ extension Driver {
         } else {
           // Primary inputs are expected to appear in the output file map even
           // if they have no corresponding outputs.
-          entries[input.fileHandle] = [:]
+          entries[remapEntryKey(input.fileHandle)] = [:]
         }
       }
 
@@ -1123,7 +1123,7 @@ extension Driver {
         guard let firstSourceInputHandle = inputFiles.first(where:{ $0.type == .swift })?.fileHandle  else {
           fatalError("Formulating swift-frontend invocation without any input .swift files")
         }
-        entries[firstSourceInputHandle] = [:]
+        entries[remapEntryKey(firstSourceInputHandle)] = [:]
       }
 
       for flaggedPair in flaggedInputOutputPairs {
@@ -1135,7 +1135,7 @@ extension Driver {
         guard let idxOutput = inputOutputMap[indexFilePath]?.first else {
           continue
         }
-        entries[indexFilePath.fileHandle] = [.indexData: idxOutput.fileHandle]
+        entries[remapEntryKey(indexFilePath.fileHandle)] = [.indexData: idxOutput.fileHandle]
       }
       let outputFileMap = OutputFileMap(entries: entries)
       let fileList = try VirtualPath.createUniqueFilelist(RelativePath(validating: "supplementaryOutputs"),
@@ -1178,8 +1178,16 @@ extension Driver {
       }
       entryInput = firstSourceInputHandle
     }
-    let inputEntry = isCachingEnabled ? remapPath(VirtualPath.lookup(entryInput)).intern() : entryInput
-    entries[inputEntry, default: [:]][output.type] = output.fileHandle
+    entries[remapEntryKey(entryInput), default: [:]][output.type] = output.fileHandle
+  }
+
+  /// Remap a supplementary output file map key through the caching prefix map.
+  /// Entries in the frontend supplementary output map are keyed by source file
+  /// path; when caching is enabled those keys must be prefix-mapped to match
+  /// the paths the frontend sees via `-primary-file` and friends.
+  mutating func remapEntryKey(_ handle: VirtualPath.Handle) -> VirtualPath.Handle {
+    guard isCachingEnabled else { return handle }
+    return remapPath(VirtualPath.lookup(handle)).intern()
   }
 
   mutating func addPluginPathArguments(commandLine: inout [Job.ArgTemplate], skipMacroSearchPath: Bool) throws {
