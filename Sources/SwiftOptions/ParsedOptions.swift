@@ -86,6 +86,19 @@ extension ParsedOption: CustomStringConvertible {
   }
 }
 
+extension ParsedOption {
+  public var effectiveArgument: Argument {
+    if option.isAlias {
+      switch option.aliasArgs.count {
+        case 0: return .none
+        case 1: return .single(option.aliasArgs.first!)
+        default: return .multiple(option.aliasArgs)
+      }
+    }
+    return argument
+  }
+}
+
 /// Capture a list of command-line arguments that have been parsed
 /// into a list of options with their arguments.
 public struct ParsedOptions {

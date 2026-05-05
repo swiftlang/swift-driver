@@ -747,6 +747,21 @@ extension Driver {
       )
     }
 
+    if parsedOptions.hasArgument(.Rhelp) {
+      var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
+      commandLine.append(contentsOf: [.flag("-frontend"), .flag("-Rhelp-swiftc")])
+      return Job(
+        moduleName: moduleOutputInfo.name,
+        kind: .remarkHelp,
+        tool: try toolchain.resolvedTool(.swiftCompiler),
+        commandLine: commandLine,
+        inputs: [],
+        primaryInputs: [],
+        outputs: [],
+        requiresInPlaceExecution: true
+      )
+    }
+
     if parsedOptions.hasArgument(.version) || parsedOptions.hasArgument(.version_) {
       return Job(
         moduleName: moduleOutputInfo.name,

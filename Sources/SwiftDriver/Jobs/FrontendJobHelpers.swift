@@ -103,7 +103,7 @@ extension Driver {
            .help, .link, .verifyDebugInfo, .scanDependencies,
            .emitSupportedFeatures, .moduleWrap,
            .generateAPIBaseline, .generateABIBaseline, .compareAPIBaseline,
-           .compareABIBaseline, .printSupportedFeatures:
+           .compareABIBaseline, .printSupportedFeatures, .remarkHelp:
         jobNeedPathRemap = false
       }
     } else {
@@ -245,9 +245,17 @@ extension Driver {
     try commandLine.appendLast(.parseStdlib, from: &parsedOptions)
     try commandLine.appendLast(.valueRecursionThreshold, from: &parsedOptions)
     try commandLine.appendLast(.warnSwift3ObjcInference, from: &parsedOptions)
-    try commandLine.appendLast(.remarkLoadingModule, from: &parsedOptions)
     try commandLine.appendLast(.RpassEQ, from: &parsedOptions)
     try commandLine.appendLast(.RpassMissedEQ, from: &parsedOptions)
+    // Remap -Rhelp to -Rhelp-swiftc and -R <group> to -Rswiftc <group> to
+    // exclude frontend-only groups when invoked from the driver.
+    if parsedOptions.hasArgument(.Rhelp) {
+      commandLine.appendFlag(.RhelpSwiftc)
+    }
+    for opt in parsedOptions.arguments(for: .enableRemark) {
+      commandLine.appendFlag(.enableRemarkSwiftc)
+      commandLine.appendFlag(opt.effectiveArgument.asSingle)
+    }
     try commandLine.appendLast(.suppressRemarks, from: &parsedOptions)
     try commandLine.appendLast(.suppressWarnings, from: &parsedOptions)
     try commandLine.appendLast(.profileGenerate, from: &parsedOptions)
