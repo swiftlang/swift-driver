@@ -1296,8 +1296,7 @@ struct CachingBuildTests {
     }
   }
 
-  // Test not stable on platforms other than macOS.
-  @Test(.requireHostOS(.macosx)) func casSizeLimiting() async throws {
+  @Test(.flaky("cas resizing sometimes fails")) func casSizeLimiting() async throws {
     try await withTemporaryDirectory { path in
       let moduleCachePath = path.appending(component: "ModuleCache")
       let casPath = path.appending(component: "cas")
