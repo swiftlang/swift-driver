@@ -195,6 +195,70 @@ private func checkCachingBuildJobDependencies(
 @Suite(.enabled(if: cachingFeatureSupported, "caching not supported"))
 struct CachingBuildTests {
 
+  /// A scenario exercising `-supplementary-output-file-map` emission with
+  /// caching + prefix mapping enabled.
+  struct PrefixMapSupplementaryMapScenario: Sendable, CustomTestStringConvertible {
+    enum OptRecord: Sendable {
+      case none
+      /// `-save-optimization-record` (paths derived per-file / module).
+      case derived
+      /// `-save-optimization-record` + `-save-optimization-record-path <path>`.
+      case explicitPath
+    }
+
+    let name: String
+    let modeArgs: [String]
+    let emitModule: Bool
+    let optRecord: OptRecord
+    let sourceCount: Int
+    let expectedOutputs: [FileType]
+
+    var testDescription: String { name }
+
+    static let all: [PrefixMapSupplementaryMapScenario] = [
+      .init(
+        name: "WMO + emit-module",
+        modeArgs: ["-wmo"],
+        emitModule: true,
+        optRecord: .none,
+        sourceCount: 1,
+        expectedOutputs: []
+      ),
+      .init(
+        name: "WMO + -save-optimization-record-path",
+        modeArgs: ["-wmo"],
+        emitModule: false,
+        optRecord: .explicitPath,
+        sourceCount: 1,
+        expectedOutputs: [.yamlOptimizationRecord]
+      ),
+      .init(
+        name: "Multi-threaded WMO + derived opt records",
+        modeArgs: ["-wmo", "-num-threads", "2"],
+        emitModule: false,
+        optRecord: .derived,
+        sourceCount: 2,
+        expectedOutputs: [.yamlOptimizationRecord]
+      ),
+      .init(
+        name: "Batch + derived opt records",
+        modeArgs: [],
+        emitModule: false,
+        optRecord: .derived,
+        sourceCount: 2,
+        expectedOutputs: [.yamlOptimizationRecord]
+      ),
+      .init(
+        name: "Batch + -save-optimization-record-path",
+        modeArgs: [],
+        emitModule: false,
+        optRecord: .explicitPath,
+        sourceCount: 2,
+        expectedOutputs: []
+      ),
+    ]
+  }
+
   @Test func cachingBuildJobs() async throws {
     let (stdlibPath, shimsPath, _, hostTriple) = try getDriverArtifactsForScanning()
     try await withTemporaryDirectory { path in
@@ -1041,6 +1105,83 @@ struct CachingBuildTests {
         }
       }
       #expect(!driver.diagnosticEngine.hasErrors)
+    }
+  }
+
+  /// With caching + prefix mapping, the supplementary output file map must
+  /// only be keyed by prefix-mapped source paths — never by the original
+  /// pre-mapping path. Covers WMO + batch with/without opt records.
+  @Test(
+    .skipHostOS(.win32, comment: "Skipping due to improper path mapping handling."),
+    .requireFrontendArgSupport(.scannerPrefixMapPaths),
+    arguments: PrefixMapSupplementaryMapScenario.all
+  )
+  func supplementaryOutputMapPrefixMap(_ scenario: PrefixMapSupplementaryMapScenario) async throws {
+    try await withTemporaryDirectory { path in
+      let sources = (0..<scenario.sourceCount).map { path.appending(component: "main\($0 + 1).swift") }
+      for source in sources {
+        try localFileSystem.writeFileContents(source) { $0.send("import C;") }
+      }
+
+      let cHeadersPath = try testInputsPath.appending(components: "ExplicitModuleBuilds", "CHeaders")
+      let swiftModuleInterfacesPath = try testInputsPath.appending(components: "ExplicitModuleBuilds", "Swift")
+      let casPath = path.appending(component: "cas")
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+
+      var args: [String] = [
+        "swiftc",
+        "-I", cHeadersPath.nativePathString(escaped: false),
+        "-I", swiftModuleInterfacesPath.nativePathString(escaped: false),
+        "-explicit-module-build",
+        "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: false),
+        "-working-directory", path.nativePathString(escaped: false),
+        "-disable-clang-target",
+        "-scanner-prefix-map", path.description + "=/^tmp",
+        "-driver-filelist-threshold=0",
+        "-module-name", "Test",
+      ]
+      args += scenario.modeArgs
+      if scenario.emitModule {
+        args += [
+          "-emit-module",
+          "-emit-module-path", path.appending(component: "Test.swiftmodule").nativePathString(escaped: false),
+        ]
+      }
+      switch scenario.optRecord {
+      case .none: break
+      case .derived:
+        args += ["-save-optimization-record"]
+      case .explicitPath:
+        args += [
+          "-save-optimization-record",
+          "-save-optimization-record-path", path.appending(component: "Test.opt.yaml").nativePathString(escaped: false),
+        ]
+      }
+      args += sources.map { $0.nativePathString(escaped: false) }
+      args += sdkArgumentsForTesting
+
+      var driver = try TestDriver(args: args)
+      let compileJobs = try await driver.planBuild().filter { $0.kind == .compile }
+      #expect(!compileJobs.isEmpty, "Expected at least one compile job")
+
+      for compileJob in compileJobs {
+        let outFileMap = try compileJob.commandLine.supplementaryOutputFilemap
+        var sawMappedKey = false
+        for (keyHandle, outputs) in outFileMap.entries {
+          let keyPath = VirtualPath.lookup(keyHandle).name
+          #expect(
+            !keyPath.hasPrefix(path.pathString),
+            "Supplementary output map has entry keyed by unmapped path '\(keyPath)' (outputs: \(outputs))"
+          )
+          if keyPath.hasPrefix("/^tmp") { sawMappedKey = true }
+        }
+        #expect(sawMappedKey, "Supplementary output map has no key under mapped prefix '/^tmp'")
+
+        for outputType in scenario.expectedOutputs {
+          let found = outFileMap.entries.values.contains { $0.keys.contains(outputType) }
+          #expect(found, "Supplementary output map missing expected output type \(outputType)")
+        }
+      }
     }
   }
 
