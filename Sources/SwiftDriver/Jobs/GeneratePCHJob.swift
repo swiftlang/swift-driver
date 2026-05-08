@@ -67,7 +67,7 @@ extension Driver {
 
     // New compute and add inputs and outputs.
     if parsedOptions.hasArgument(.pchOutputDir) &&
-       !parsedOptions.contains(.driverExplicitModuleBuild) {
+       !isExplicitModuleBuildEnabled {
       try commandLine.appendLast(.pchOutputDir, from: &parsedOptions)
     } else {
       commandLine.appendFlag(.o)

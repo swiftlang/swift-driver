@@ -575,7 +575,7 @@ extension Option {
   public static let explicitAutoLinking: Option = Option("-explicit-auto-linking", .flag, attributes: [], helpText: "Instead of linker-load directives, have the driver specify all link dependencies on the linker invocation. Requires '-explicit-module-build'.")
   public static let explicitDependencyGraphFormat: Option = Option("-explicit-dependency-graph-format=", .joined, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Specify the explicit dependency graph output format to either 'json' or 'dot'")
   public static let explicitInterfaceModuleBuild: Option = Option("-explicit-interface-module-build", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Use the specified command-line to build the module from interface, instead of flags specified in the interface")
-  public static let driverExplicitModuleBuild: Option = Option("-explicit-module-build", .flag, attributes: [.helpHidden], helpText: "Prebuild module dependencies to make them explicit")
+  public static let driverExplicitModuleBuild: Option = Option("-explicit-module-build", .flag, attributes: [], helpText: "Prebuild module dependencies to make them explicit")
   public static let explicitSwiftModuleMap: Option = Option("-explicit-swift-module-map-file", .separate, attributes: [.frontend, .noDriver], metaVar: "<path>", helpText: "Specify a JSON file containing information of explicit Swift modules")
   public static let exportAs: Option = Option("-export-as", .separate, attributes: [.frontend, .moduleInterface], helpText: "Module name to use when referenced in clients module interfaces")
   public static let externalPassPipelineFilename: Option = Option("-external-pass-pipeline-filename", .separate, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<pass_pipeline_file>", helpText: "Use the pass pipeline defined by <pass_pipeline_file>")
@@ -732,6 +732,7 @@ extension Option {
   public static let noColorDiagnostics: Option = Option("-no-color-diagnostics", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Do not print diagnostics in color")
   public static let noEmitModuleSeparatelyWMO: Option = Option("-no-emit-module-separately-wmo", .flag, attributes: [.helpHidden], helpText: "Force emitting the swiftmodule in the same job in wmo builds")
   public static let noEmitModuleSeparately: Option = Option("-no-emit-module-separately", .flag, attributes: [.helpHidden], helpText: "Force using merge-module as the incremental build mode")
+  public static let driverNoExplicitModuleBuild: Option = Option("-no-explicit-module-build", .flag, attributes: [], helpText: "Opt out of the default explicit-module-build behavior for swiftc")
   public static let noLinkObjcRuntime: Option = Option("-no-link-objc-runtime", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Deprecated")
   public static let noParallelScan: Option = Option("-no-parallel-scan", .flag, attributes: [.frontend, .noDriver], helpText: "Perform dependency scanning in a single-threaded fashion.")
   public static let noScannerModuleValidation: Option = Option("-no-scanner-module-validation", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Do not validate binary modules in scanner and delegate the validation to swift-frontend")
@@ -1757,6 +1758,7 @@ extension Option {
       Option.noColorDiagnostics,
       Option.noEmitModuleSeparatelyWMO,
       Option.noEmitModuleSeparately,
+      Option.driverNoExplicitModuleBuild,
       Option.noLinkObjcRuntime,
       Option.noParallelScan,
       Option.noScannerModuleValidation,

@@ -423,7 +423,7 @@ public final class DarwinToolchain: Toolchain {
     // If not specified otherwise, we should use the same triple as -target
     if !driver.parsedOptions.hasArgument(.disableClangTarget) &&
         driver.isFrontendArgSupported(.clangTarget) &&
-        driver.parsedOptions.contains(.driverExplicitModuleBuild) {
+        driver.isExplicitModuleBuildEnabled {
       // The common target triple for all Clang dependencies of this compilation,
       // both direct and transitive is computed as:
       // 1. An explicitly-specified `-clang-target` argument to this driver invocation

@@ -83,7 +83,7 @@ extension Driver {
       break
     }
 
-    let isPlanJobForExplicitModule = parsedOptions.contains(.driverExplicitModuleBuild) && explicitModulePlanner != nil
+    let isPlanJobForExplicitModule = isExplicitModuleBuildEnabled && explicitModulePlanner != nil
     let jobNeedPathRemap: Bool
     // If in ExplicitModuleBuild mode and the dependency graph has been computed, add module
     // dependencies.
@@ -497,7 +497,7 @@ extension Driver {
         // the pch in the pchOutputDir and can start an implicit build in case
         // of a lookup failure.
         if parsedOptions.contains(.pchOutputDir) &&
-           !parsedOptions.contains(.driverExplicitModuleBuild) {
+           !isExplicitModuleBuildEnabled {
           commandLine.appendFlag(importBridgingHeaderFlag)
           try addPathArgument(VirtualPath.lookup(importedObjCHeader), to:&commandLine, remap: jobNeedPathRemap)
           try commandLine.appendLast(.pchOutputDir, from: &parsedOptions)
