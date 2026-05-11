@@ -217,7 +217,8 @@ def handle_invocation(args):
       install(args, args.build_path, targets)
     else:
       bin_path = swiftpm_bin_path(swift_exec, swiftpm_args, env)
-      swiftpm('build', swift_exec, swiftpm_args, env)
+      if not args.install_only:
+        swiftpm('build', swift_exec, swiftpm_args, env)
       non_darwin_install(args, bin_path)
   else:
     assert False, 'unknown action \'{}\''.format(args.action)
@@ -615,6 +616,7 @@ def main():
     parser.add_argument('--verbose', '-v', action='store_true', help='enable verbose output')
     parser.add_argument('--local_compiler_build', action='store_true', help='driver is being built for use with a local compiler build')
     parser.add_argument('--enable-asan', action='store_true', help='driver is being built with ASAN support')
+    parser.add_argument("--install-only", action="store_true", default=False, help="when true, installs without rebuilding")
 
   subparsers = parser.add_subparsers(title='subcommands', dest='action', metavar='action')
   clean_parser = subparsers.add_parser('clean', help='clean the package')
