@@ -301,7 +301,8 @@ def handle_invocation(args):
             install(args, args.build_path, targets)
         else:
             bin_path = swiftpm_bin_path(swift_exec, swiftpm_args, env)
-            swiftpm("build", swift_exec, swiftpm_args, env)
+            if not args.install_only:
+                swiftpm("build", swift_exec, swiftpm_args, env)
             non_darwin_install(args, bin_path)
     else:
         assert False, "unknown action '{}'".format(args.action)
@@ -1101,6 +1102,12 @@ def main():
             "--caching-enable-mccas",
             action="store_true",
             help="enable CAS backend and CAS-friendly debug info",
+        )
+        parser.add_argument(
+            "--install-only",
+            action="store_true",
+            default=False,
+            help="when true, installs without rebuilding",
         )
 
     subparsers = parser.add_subparsers(
