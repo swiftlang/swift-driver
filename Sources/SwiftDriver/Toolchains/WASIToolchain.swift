@@ -41,7 +41,13 @@ public final class WASIToolchain: WebAssemblyToolchainProtocol {
 
   public let dummyForTestingObjectFormat = Triple.ObjectFormat.wasm
 
-  public init(env: ProcessEnvironmentBlock, executor: DriverExecutor, fileSystem: FileSystem = localFileSystem, compilerExecutableDir: AbsolutePath? = nil, toolDirectory: AbsolutePath? = nil) {
+  public init(
+    env: ProcessEnvironmentBlock,
+    executor: DriverExecutor,
+    fileSystem: FileSystem = localFileSystem,
+    compilerExecutableDir: AbsolutePath? = nil,
+    toolDirectory: AbsolutePath? = nil
+  ) {
     self.env = env
     self.executor = executor
     self.fileSystem = fileSystem
@@ -54,17 +60,22 @@ public final class WASIToolchain: WebAssemblyToolchainProtocol {
     case .executable:
       return moduleName
     case .dynamicLibrary:
-      // Wasm doesn't support dynamic libraries yet, but we'll report the error later.
+      // Wasm doesn't support dynamic libraries yet; `addPlatformSpecificLinkerArgs`
+      // throws `dynamicLibrariesUnsupportedForTarget` for the `.dynamicLibrary` case
+      // when the link job is built.
       return ""
     case .staticLibrary:
       return "lib\(moduleName).a"
     }
   }
 
-  public func validateArgs(_ parsedOptions: inout ParsedOptions,
-                           targetTriple: Triple, targetVariantTriple: Triple?,
-                           compilerOutputType: FileType?,
-                           diagnosticsEngine: DiagnosticsEngine) throws {
+  public func validateArgs(
+    _ parsedOptions: inout ParsedOptions,
+    targetTriple: Triple,
+    targetVariantTriple: Triple?,
+    compilerOutputType: FileType?,
+    diagnosticsEngine: DiagnosticsEngine
+  ) throws {
     for arg in parsedOptions.arguments(for: .XemccLinker) {
       diagnosticsEngine.emit(
         .warning_xemcc_linker_unsupported_for_non_emscripten(arg.argument.asSingle))
