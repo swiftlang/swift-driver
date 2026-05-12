@@ -3566,8 +3566,10 @@ extension Triple {
       return GenericUnixToolchain.self
     case .freeBSD, .haiku, .openbsd:
       return GenericUnixToolchain.self
-    case .wasi, .emscripten:
-      return WebAssemblyToolchain.self
+    case .wasi:
+      return WASIToolchain.self
+    case .emscripten:
+      return EmscriptenToolchain.self
     case .win32:
       return WindowsToolchain.self
     case .noneOS:
@@ -3671,12 +3673,6 @@ extension Driver {
                                        fileSystem: fileSystem,
                                        compilerExecutableDir: compilerExecutableDir,
                                        toolDirectory: toolDir)
-
-    // Pass the target triple to WebAssemblyToolchain for output filename decisions
-    if let wasmToolchain = toolchain as? WebAssemblyToolchain,
-       let target = explicitTarget {
-      wasmToolchain.targetTriple = target
-    }
 
     let frontendOverride = try FrontendOverride(&parsedOptions, diagnosticsEngine)
     return (toolchain, frontendOverride.prefixArgs)

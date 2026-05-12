@@ -1224,7 +1224,7 @@ import CRT
       await #expect {
         try await driver.planBuild()
       } throws: { error in
-        guard case WebAssemblyToolchain.Error.interactiveModeUnsupportedForTarget("wasm32-unknown-wasi") = error else {
+        guard case WASIToolchain.Error.interactiveModeUnsupportedForTarget("wasm32-unknown-wasi") = error else {
           return false
         }
         return true
@@ -1239,7 +1239,7 @@ import CRT
       await #expect {
         try await driver.planBuild()
       } throws: { error in
-        guard case WebAssemblyToolchain.Error.dynamicLibrariesUnsupportedForTarget("wasm32-unknown-wasi") = error else {
+        guard case WASIToolchain.Error.dynamicLibrariesUnsupportedForTarget("wasm32-unknown-wasi") = error else {
           return false
         }
         return true
@@ -1254,7 +1254,7 @@ import CRT
       await #expect {
         try await driver.planBuild()
       } throws: { error in
-        guard case WebAssemblyToolchain.Error.dynamicLibrariesUnsupportedForTarget("wasm32-unknown-wasi") = error else {
+        guard case WASIToolchain.Error.dynamicLibrariesUnsupportedForTarget("wasm32-unknown-wasi") = error else {
           return false
         }
         return true
@@ -1265,7 +1265,7 @@ import CRT
       #expect {
         try TestDriver(args: ["swiftc", "-target", "wasm32-unknown-wasi", "foo.swift", "-sanitize=thread"], env: env)
       } throws: { error in
-        guard case WebAssemblyToolchain.Error.sanitizersUnsupportedForTarget("wasm32-unknown-wasi") = error else {
+        guard case WASIToolchain.Error.sanitizersUnsupportedForTarget("wasm32-unknown-wasi") = error else {
           return false
         }
         return true
