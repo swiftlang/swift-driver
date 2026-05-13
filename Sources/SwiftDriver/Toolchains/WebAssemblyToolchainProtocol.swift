@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014 - 2025 Apple Inc. and the Swift project authors
+// Copyright (c) 2014 - 2026 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -17,90 +17,55 @@ import SwiftOptions
 import struct TSCBasic.AbsolutePath
 import protocol TSCBasic.DiagnosticData
 import protocol TSCBasic.FileSystem
-import var TSCBasic.localFileSystem
 import typealias TSCBasic.ProcessEnvironmentBlock
 
-/// Toolchain for WebAssembly-based systems.
-public final class WebAssemblyToolchain: Toolchain {
-  @_spi(Testing) public enum Error: Swift.Error, DiagnosticData {
-    case interactiveModeUnsupportedForTarget(String)
-    case dynamicLibrariesUnsupportedForTarget(String)
-    case sanitizersUnsupportedForTarget(String)
-    case profilingUnsupportedForTarget(String)
-    case missingExternalDependency(String)
+@_spi(Testing) public enum WebAssemblyToolchainError: Swift.Error, DiagnosticData {
+  case interactiveModeUnsupportedForTarget(String)
+  case dynamicLibrariesUnsupportedForTarget(String)
+  case sanitizersUnsupportedForTarget(String)
+  case profilingUnsupportedForTarget(String)
+  case missingExternalDependency(String)
 
-    public var description: String {
-      switch self {
-      case .interactiveModeUnsupportedForTarget(let triple):
-        return "interactive mode is unsupported for target '\(triple)'; use 'swiftc' instead"
-      case .dynamicLibrariesUnsupportedForTarget(let triple):
-        return "dynamic libraries are unsupported for target '\(triple)'"
-      case .sanitizersUnsupportedForTarget(let triple):
-        return "sanitizers are unsupported for target '\(triple)'"
-      case .profilingUnsupportedForTarget(let triple):
-        return "profiling is unsupported for target '\(triple)'"
-      case .missingExternalDependency(let dependency):
-        return "missing external dependency '\(dependency)'"
-      }
+  public var description: String {
+    switch self {
+    case .interactiveModeUnsupportedForTarget(let triple):
+      return "interactive mode is unsupported for target '\(triple)'; use 'swiftc' instead"
+    case .dynamicLibrariesUnsupportedForTarget(let triple):
+      return "dynamic libraries are unsupported for target '\(triple)'"
+    case .sanitizersUnsupportedForTarget(let triple):
+      return "sanitizers are unsupported for target '\(triple)'"
+    case .profilingUnsupportedForTarget(let triple):
+      return "profiling is unsupported for target '\(triple)'"
+    case .missingExternalDependency(let dependency):
+      return "missing external dependency '\(dependency)'"
     }
   }
+}
 
-  public let env: ProcessEnvironmentBlock
+/// Shared behavior for WebAssembly-based toolchains (`WASIToolchain` for
+/// WASI, `EmscriptenToolchain` for wasm32-unknown-emscripten). Not part of the
+/// public API — visible only within `SwiftDriver`.
+protocol WebAssemblyToolchainProtocol: Toolchain, AnyObject {
+  var toolPaths: [Tool: AbsolutePath] { get set }
+}
 
-  /// The executor used to run processes used to find tools and retrieve target info.
-  public let executor: DriverExecutor
-
-  /// The file system to use for queries.
-  public let fileSystem: FileSystem
-
-  /// Doubles as path cache and point for overriding normal lookup
-  private var toolPaths = [Tool: AbsolutePath]()
-
-  public let compilerExecutableDir: AbsolutePath?
-
-  public let toolDirectory: AbsolutePath?
-
-  public let dummyForTestingObjectFormat = Triple.ObjectFormat.wasm
-
-  public init(env: ProcessEnvironmentBlock, executor: DriverExecutor, fileSystem: FileSystem = localFileSystem, compilerExecutableDir: AbsolutePath? = nil, toolDirectory: AbsolutePath? = nil) {
-    self.env = env
-    self.executor = executor
-    self.fileSystem = fileSystem
-    self.compilerExecutableDir = compilerExecutableDir
-    self.toolDirectory = toolDirectory
-  }
-
-  public func makeLinkerOutputFilename(moduleName: String, type: LinkOutputType) -> String {
-    switch type {
-    case .executable:
-      return moduleName
-    case .dynamicLibrary:
-      // Wasm doesn't support dynamic libraries yet, but we'll report the error later.
-      return ""
-    case .staticLibrary:
-      return "lib\(moduleName).a"
-    }
-  }
-
+extension WebAssemblyToolchainProtocol {
   public func addAutoLinkFlags(for linkLibraries: [LinkLibraryInfo], to commandLine: inout [Job.ArgTemplate]) {
     for linkLibrary in linkLibraries {
       commandLine.appendFlag("-l\(linkLibrary.linkName)")
     }
   }
 
-  /// Retrieve the absolute path for a given tool.
   public func getToolPath(_ tool: Tool) throws -> AbsolutePath {
-    // Check the cache
     if let toolPath = toolPaths[tool] {
       return toolPath
     }
-    let path = try lookupToolPath(tool)
-    // Cache the path
+    let path = try lookupWebAssemblyToolPath(tool)
     toolPaths[tool] = path
     return path
   }
 
-  private func lookupToolPath(_ tool: Tool) throws -> AbsolutePath {
+  private func lookupWebAssemblyToolPath(_ tool: Tool) throws -> AbsolutePath {
     switch tool {
     case .swiftCompiler:
       return try lookup(executable: "swift-frontend")
@@ -125,6 +90,8 @@ public final class WebAssemblyToolchain: Toolchain {
       return try lookup(executable: "swift-help")
     case .swiftAPIDigester:
       return try lookup(executable: "swift-api-digester")
+    case .emcc:
+      return try lookup(executable: "emcc")
     }
   }
 
@@ -153,7 +120,7 @@ public final class WebAssemblyToolchain: Toolchain {
     case .address:
       return "libclang_rt.\(sanitizer.runtimeLibraryName!)-\(targetTriple.archName).a"
     default:
-      throw Error.sanitizersUnsupportedForTarget(targetTriple.triple)
+      throw WebAssemblyToolchainError.sanitizersUnsupportedForTarget(targetTriple.triple)
     }
   }
 
@@ -161,6 +128,6 @@ public final class WebAssemblyToolchain: Toolchain {
                                                               parsedOptions: inout ParsedOptions,
                                                               sdkPath: VirtualPath.Handle?,
                                                               targetInfo: FrontendTargetInfo) throws -> ProcessEnvironmentBlock {
-    throw Error.interactiveModeUnsupportedForTarget(targetInfo.target.triple.triple)
+    throw WebAssemblyToolchainError.interactiveModeUnsupportedForTarget(targetInfo.target.triple.triple)
   }
 }

@@ -182,6 +182,34 @@ import CRT
           expectJobInvocationMatches(frontendJobs[1], .flag("-B"), .path(.absolute(tmpDir)))
         }
       }
+
+      // Emscripten toolchain — emcc should NOT get -B
+      do {
+        var env = ProcessEnv.block
+        env["SWIFT_DRIVER_SWIFT_AUTOLINK_EXTRACT_EXEC"] = "//bin/swift-autolink-extract"
+        env["SWIFT_DRIVER_EMCC_EXEC"] = "//bin/emcc"
+
+        try await withTemporaryDirectory { resourceDir in
+          try localFileSystem.writeFileContents(
+            resourceDir.appending(components: "emscripten", "static-executable-args.lnk")
+          ) {
+            $0.send("garbage")
+          }
+          var driver = try TestDriver(
+            args: [
+              "swiftc",
+              "-target", "wasm32-unknown-emscripten",
+              "-resource-dir", resourceDir.pathString,
+              "-tools-directory", tmpDir.pathString,
+              "foo.swift",
+            ],
+            env: env
+          )
+          let frontendJobs = try await driver.planBuild().removingAutolinkExtractJobs()
+          let linkJob = frontendJobs.last!
+          #expect(!linkJob.commandLine.contains(.flag("-B")))
+        }
+      }
     }
   }
 

@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014 - 2025 Apple Inc. and the Swift project authors
+// Copyright (c) 2014 - 2026 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -18,7 +18,7 @@ import func TSCBasic.lookupExecutablePath
 import protocol TSCBasic.FileSystem
 import struct TSCBasic.AbsolutePath
 
-extension WebAssemblyToolchain {
+extension WASIToolchain {
   public func addPlatformSpecificLinkerArgs(
     to commandLine: inout [Job.ArgTemplate],
     parsedOptions: inout ParsedOptions,
@@ -35,6 +35,11 @@ extension WebAssemblyToolchain {
     case .dynamicLibrary:
       throw Error.dynamicLibrariesUnsupportedForTarget(targetTriple.triple)
     case .executable:
+      // `guard` throws, so ordering vs. `linkerPath` computation is semantically equivalent
+      guard !parsedOptions.hasArgument(.noStaticStdlib, .noStaticExecutable) else {
+        throw Error.dynamicLibrariesUnsupportedForTarget(targetTriple.triple)
+      }
+
       if !targetTriple.triple.isEmpty {
         commandLine.appendFlag("-target")
         commandLine.appendFlag(targetTriple.triple)
@@ -51,29 +56,30 @@ extension WebAssemblyToolchain {
 
       // Configure the toolchain.
       //
-      // By default use the system `clang` to perform the link.  We use `clang` for
-      // the driver here because we do not wish to select a particular C++ runtime.
-      // Furthermore, until C++ interop is enabled, we cannot have a dependency on
-      // C++ code from pure Swift code.  If linked libraries are C++ based, they
-      // should properly link C++.  In the case of static linking, the user can
-      // explicitly specify the C++ runtime to link against.  This is particularly
-      // important for platforms like android where as it is a Linux platform, the
-      // default C++ runtime is `libstdc++` which is unsupported on the target but
-      // as the builds are usually cross-compiled from Linux, libstdc++ is going to
-      // be present.  This results in linking the wrong version of libstdc++
-      // generating invalid binaries.  It is also possible to use different C++
-      // runtimes than the default C++ runtime for the platform (e.g. libc++ on
-      // Windows rather than msvcprt).  When C++ interop is enabled, we will need to
-      // surface this via a driver flag.  For now, opt for the simpler approach of
-      // just using `clang` and avoid a dependency on the C++ runtime.
-      var clangPath = try getToolPath(.clang)
+      // We use `clang` to perform the link. We use `clang` for the driver here
+      // because we do not wish to select a particular C++ runtime. Furthermore,
+      // until C++ interop is enabled, we cannot have a dependency on C++ code
+      // from pure Swift code. If linked libraries are C++ based, they should
+      // properly link C++. In the case of static linking, the user can
+      // explicitly specify the C++ runtime to link against. This is
+      // particularly important for platforms like android where as it is a
+      // Linux platform, the default C++ runtime is `libstdc++` which is
+      // unsupported on the target but as the builds are usually cross-compiled
+      // from Linux, libstdc++ is going to be present. This results in linking
+      // the wrong version of libstdc++ generating invalid binaries. It is also
+      // possible to use different C++ runtimes than the default C++ runtime
+      // for the platform (e.g. libc++ on Windows rather than msvcprt). When
+      // C++ interop is enabled, we will need to surface this via a driver flag.
+      // For now, opt for the simpler approach of just using `clang` and avoid a
+      // dependency on the C++ runtime.
+      var linkerPath = try getToolPath(.clang)
       if let toolsDirPath = parsedOptions.getLastArgument(.toolsDirectory) {
         // FIXME: What if this isn't an absolute path?
         let toolsDir = try AbsolutePath(validating: toolsDirPath.asSingle)
 
         // If there is a clang in the toolchain folder, use that instead.
         if let tool = lookupExecutablePath(filename: "clang", searchPaths: [toolsDir]) {
-          clangPath = tool
+          linkerPath = tool
         }
 
         // Look for binutils in the toolchain folder.
@@ -81,40 +87,13 @@ extension WebAssemblyToolchain {
         commandLine.appendPath(toolsDir)
       }
 
-      guard !parsedOptions.hasArgument(.noStaticStdlib, .noStaticExecutable) else {
-        throw Error.dynamicLibrariesUnsupportedForTarget(targetTriple.triple)
-      }
-
-      let runtimePaths = try runtimeLibraryPaths(
-        for: targetInfo,
+      let runtimePaths = try addSharedWebAssemblyLinkerPreamble(
+        to: &commandLine,
         parsedOptions: &parsedOptions,
-        sdkPath: targetInfo.sdkPath?.path,
-        isShared: false
+        inputs: inputs,
+        lto: lto,
+        targetInfo: targetInfo
       )
-
-      if !parsedOptions.hasArgument(.nostartfiles) && !parsedOptions.isEmbeddedEnabled {
-        let swiftrtPath = VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
-          .appending(
-            components: targetTriple.platformName() ?? "",
-            targetTriple.archName,
-            "swiftrt.o"
-          )
-        commandLine.appendPath(swiftrtPath)
-      }
-
-      let inputFiles: [Job.ArgTemplate] = inputs.compactMap { input in
-        // Autolink inputs are handled specially
-        if input.type == .autolink {
-          return .responseFilePath(input.file)
-        } else if input.type == .object {
-          return .path(input.file)
-        } else if lto != nil && input.type == .llvmBitcode {
-          return .path(input.file)
-        } else {
-          return nil
-        }
-      }
-      commandLine.append(contentsOf: inputFiles)
 
       // Prefer -sysroot as the native sysroot path if provided.
       if let sysroot = parsedOptions.getLastArgument(.sysroot)?.asSingle {
@@ -155,7 +134,7 @@ extension WebAssemblyToolchain {
         commandLine.appendFlag(optArg)
       }
 
-      // Explicitly pass the target to the linker
+      // Explicitly pass the target to the linker.
       commandLine.appendFlag("--target=\(targetTriple.triple)")
 
       // WebAssembly doesn't reserve low addresses as its ABI. But without
@@ -180,49 +159,21 @@ extension WebAssemblyToolchain {
       commandLine.appendFlag(.Xlinker)
       commandLine.appendFlag("stack-size=\(SWIFT_WASM_DEFAULT_STACK_SIZE)")
 
-      // Delegate to Clang for sanitizers. It will figure out the correct linker
-      // options.
-      if linkerOutputType == .executable && !sanitizers.isEmpty {
-        let sanitizerNames = sanitizers
-          .map { $0.rawValue }
-          .sorted() // Sort so we get a stable, testable order
-          .joined(separator: ",")
-        commandLine.appendFlag("-fsanitize=\(sanitizerNames)")
-      }
-
-      if parsedOptions.hasArgument(.profileGenerate) {
-        let libProfile = VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
-          .appending(components: "clang", "lib", targetTriple.osName,
-                                 "libclang_rt.profile-\(targetTriple.archName).a")
-        commandLine.appendPath(libProfile)
-      }
-
-      if let lto = lto {
-        switch lto {
-        case .llvmFull:
-          commandLine.appendFlag("-flto=full")
-        case .llvmThin:
-          commandLine.appendFlag("-flto=thin")
-        }
-      }
-
-      // Run clang++ in verbose mode if "-v" is set
-      try commandLine.appendLast(.v, from: &parsedOptions)
-
-      // These custom arguments should be right before the object file at the
-      // end.
-      try commandLine.appendAllExcept(
-        includeList: [.linkerOption],
-        excludeList: [.l],
-        from: &parsedOptions
+      try addSharedWebAssemblyLinkerTail(
+        to: &commandLine,
+        parsedOptions: &parsedOptions,
+        sanitizers: sanitizers,
+        lto: lto,
+        targetInfo: targetInfo,
+        linkerOutputType: linkerOutputType
       )
-      addLinkedLibArgs(to: &commandLine, parsedOptions: &parsedOptions)
+
       try addExtraClangLinkerArgs(to: &commandLine, parsedOptions: &parsedOptions)
 
-        // This should be the last option, for convenience in checking output.
+      // This should be the last option, for convenience in checking output.
       commandLine.appendFlag(.o)
       commandLine.appendPath(outputFile)
-      return try resolvedTool(.clang, pathOverride: clangPath)
+      return try resolvedTool(.clang, pathOverride: linkerPath)
     case .staticLibrary:
       // We're using 'ar' as a linker
       commandLine.appendFlag("crs")

@@ -24,7 +24,8 @@ or Xcode's build system.
 - <doc:SwiftDriver/Toolchain>
 - <doc:SwiftDriver/DarwinToolchain>
 - <doc:SwiftDriver/GenericUnixToolchain>
-- <doc:SwiftDriver/WebAssemblyToolchain>
+- <doc:SwiftDriver/WASIToolchain>
+- <doc:SwiftDriver/EmscriptenToolchain>
 
 ### Incremental Builds
 

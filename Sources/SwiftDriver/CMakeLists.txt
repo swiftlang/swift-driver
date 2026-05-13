@@ -78,6 +78,7 @@ add_library(SwiftDriver
   Jobs/DarwinToolchain+LinkerSupport.swift
   Jobs/EmitModuleJob.swift
   Jobs/EmitSupportedFeaturesJob.swift
+  Jobs/EmscriptenToolchain+LinkerSupport.swift
   Jobs/FrontendJobHelpers.swift
   Jobs/GenerateDSYMJob.swift
   Jobs/GeneratePCHJob.swift
@@ -96,14 +97,17 @@ add_library(SwiftDriver
   Jobs/Toolchain+LinkerSupport.swift
   Jobs/VerifyDebugInfoJob.swift
   Jobs/VerifyModuleInterfaceJob.swift
-  Jobs/WebAssemblyToolchain+LinkerSupport.swift
+  Jobs/WASIToolchain+LinkerSupport.swift
+  Jobs/WebAssemblyToolchainProtocol+LinkerSupport.swift
   Jobs/WindowsToolchain+LinkerSupport.swift
   Jobs/PrebuiltModulesJob.swift
 
   Toolchains/DarwinToolchain.swift
+  Toolchains/EmscriptenToolchain.swift
   Toolchains/GenericUnixToolchain.swift
   Toolchains/Toolchain.swift
-  Toolchains/WebAssemblyToolchain.swift
+  Toolchains/WASIToolchain.swift
+  Toolchains/WebAssemblyToolchainProtocol.swift
   Toolchains/WindowsToolchain.swift
 
   ToolingInterface/SimpleExecutor.swift
