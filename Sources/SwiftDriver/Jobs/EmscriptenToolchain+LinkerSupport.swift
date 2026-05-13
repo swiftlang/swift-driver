@@ -119,12 +119,12 @@ extension EmscriptenToolchain {
         parsedOptions: &parsedOptions,
         sanitizers: sanitizers,
         lto: lto,
-        targetInfo: targetInfo,
-        linkerOutputType: linkerOutputType
+        targetInfo: targetInfo
       )
 
-      // `emcc` supports `-Xlinker` for passing flags to `wasm-ld`, but
-      // `-Xclang-linker` is `clang`-specific and must not be forwarded.
+      // `emcc` supports `-Xlinker` for passing flags to `wasm-ld`. `-Xclang-linker`
+      // is intentionally not forwarded here; `EmscriptenToolchain.validateArgs`
+      // emits a warning at parse time directing users to `-Xemcc-linker` instead.
       for linkerOpt in parsedOptions.arguments(for: .Xlinker) {
         commandLine.appendFlag(.Xlinker)
         commandLine.appendFlag(linkerOpt.argument.asSingle)
