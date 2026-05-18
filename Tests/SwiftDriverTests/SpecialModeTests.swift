@@ -622,13 +622,7 @@ import CRT
 
   @Test func printOutputFileMap() async throws {
     try await withTemporaryDirectory { path in
-      // Replace the error stream with one we capture here.
-      let errorStream = stderrStream
-
       let root = localFileSystem.currentWorkingDirectory!.appending(components: "build")
-
-      let errorOutputFile = path.appending(component: "dummy_error_stream")
-      TSCBasic.stderrStream = try ThreadSafeOutputByteStream(LocalFileOutputByteStream(errorOutputFile))
 
       let libObj: AbsolutePath = root.appending(component: "lib.o")
       let mainObj: AbsolutePath = root.appending(component: "main.o")
@@ -664,7 +658,7 @@ import CRT
         "-output-file-map", outputFileMap.nativePathString(escaped: false),
       ])
       try await driver.run(jobs: [])
-      let invocationError = try localFileSystem.readFileContents(errorOutputFile).description
+      let invocationError = driver.capturedStderr
 
       #expect(
         invocationError.contains(
@@ -681,9 +675,6 @@ import CRT
           "\(dummyInput.nativePathString(escaped: false)) -> object: \"\(basicOutputFileMapObj.nativePathString(escaped: false))\""
         )
       )
-
-      // Restore the error stream to what it was
-      TSCBasic.stderrStream = errorStream
     }
   }
 

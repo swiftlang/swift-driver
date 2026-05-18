@@ -2953,7 +2953,7 @@ func getStdlibShimsPaths(_ driver: Driver) throws -> (AbsolutePath, AbsolutePath
         )
       }
 
-      let _ = try await withHijackedOutputStream {
+      do {
         let diagnosticEngine = DiagnosticsEngine()
         var driver = try TestDriver(
           args: baseCommandLine + [
@@ -2966,7 +2966,7 @@ func getStdlibShimsPaths(_ driver: Driver) throws -> (AbsolutePath, AbsolutePath
         let _ = try await driver.planBuild()
       }
 
-      let output = try await withHijackedOutputStream {
+      do {
         let diagnosticEngine = DiagnosticsEngine()
         var driver = try TestDriver(
           args: baseCommandLine + [
@@ -2977,10 +2977,11 @@ func getStdlibShimsPaths(_ driver: Driver) throws -> (AbsolutePath, AbsolutePath
           diagnosticsEngine: diagnosticEngine
         )
         let _ = try await driver.planBuild()
+        let output = driver.capturedStdout
+        #expect(output.contains("\"mainModuleName\" : \"testPrintingExplicitDependencyGraph\""))
       }
-      #expect(output.contains("\"mainModuleName\" : \"testPrintingExplicitDependencyGraph\""))
 
-      let output2 = try await withHijackedOutputStream {
+      do {
         let diagnosticEngine = DiagnosticsEngine()
         var driver = try TestDriver(
           args: baseCommandLine + [
@@ -2991,10 +2992,11 @@ func getStdlibShimsPaths(_ driver: Driver) throws -> (AbsolutePath, AbsolutePath
           diagnosticsEngine: diagnosticEngine
         )
         let _ = try await driver.planBuild()
+        let output2 = driver.capturedStdout
+        #expect(output2.contains("\"testPrintingExplicitDependencyGraph\" [shape=box, style=bold, color=navy"))
       }
-      #expect(output2.contains("\"testPrintingExplicitDependencyGraph\" [shape=box, style=bold, color=navy"))
 
-      let output3 = try await withHijackedOutputStream {
+      do {
         let diagnosticEngine = DiagnosticsEngine()
         var driver = try TestDriver(
           args: baseCommandLine + [
@@ -3004,8 +3006,9 @@ func getStdlibShimsPaths(_ driver: Driver) throws -> (AbsolutePath, AbsolutePath
           diagnosticsEngine: diagnosticEngine
         )
         let _ = try await driver.planBuild()
+        let output3 = driver.capturedStdout
+        #expect(output3.contains("\"mainModuleName\" : \"testPrintingExplicitDependencyGraph\""))
       }
-      #expect(output3.contains("\"mainModuleName\" : \"testPrintingExplicitDependencyGraph\""))
     }
   }
 
