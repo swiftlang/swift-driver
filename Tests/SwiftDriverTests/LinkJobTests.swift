@@ -24,11 +24,16 @@ import Testing
 
   private var ld: AbsolutePath { get throws { try makeLdStub() } }
 
-  @Test func linking() async throws {
+  private var defaultEnv: ProcessEnvironmentBlock {
     var env = ProcessEnv.block
     env["SWIFT_DRIVER_TESTS_ENABLE_EXEC_PATH_FALLBACK"] = "1"
     env["SWIFT_DRIVER_SWIFT_AUTOLINK_EXTRACT_EXEC"] = "/garbage/swift-autolink-extract"
     env["SWIFT_DRIVER_DSYMUTIL_EXEC"] = "/garbage/dsymutil"
+    return env
+  }
+
+  @Test func linking() async throws {
+    let env = defaultEnv
 
     let commonArgs = ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test"]
 
@@ -758,80 +763,6 @@ import Testing
     }
 
     do {
-      // Emscripten executable linking — uses emcc -s settings instead of -Xlinker
-      try await withTemporaryDirectory { path in
-        try localFileSystem.writeFileContents(
-          path.appending(components: "emscripten", "static-executable-args.lnk")
-        ) {
-          $0.send("garbage")
-        }
-        var driver = try TestDriver(
-          args: commonArgs + [
-            "-emit-executable", "-Ounchecked",
-            "-target", "wasm32-unknown-emscripten",
-            "-Xlinker", "--export=myFunc",
-            "-Xclang-linker", "-resource-dir",
-            "-Xclang-linker", "/fake/clang/dir",
-            "-Xemcc-linker", "-sENVIRONMENT=shell",
-            "-Xemcc-linker", "-sALLOW_MEMORY_GROWTH",
-            "-resource-dir", path.pathString,
-          ],
-          env: env
-        )
-        let plannedJobs = try await driver.planBuild()
-        let linkJob = plannedJobs.last!
-        let cmd = linkJob.commandLine
-
-        // emcc supports -Xlinker for passing flags to wasm-ld
-        #expect(cmd.contains(subsequence: [.flag("-Xlinker"), .flag("--export=myFunc")]))
-        // -Xclang-linker is clang-specific — should NOT be forwarded to emcc
-        #expect(!cmd.contains(.flag("-resource-dir")))
-        #expect(!cmd.contains(.flag("/fake/clang/dir")))
-
-        // -Xemcc-linker flags appear directly in emcc command (not wrapped in -Xlinker)
-        #expect(cmd.contains(.flag("-sENVIRONMENT=shell")))
-        #expect(cmd.contains(.flag("-sALLOW_MEMORY_GROWTH")))
-        // They must NOT be preceded by -Xlinker (that would forward them to wasm-ld)
-        #expect(!cmd.contains(subsequence: [.flag("-Xlinker"), .flag("-sENVIRONMENT=shell")]))
-
-        // Linker flags should use emcc -s settings
-        #expect(cmd.contains(.flag("-sGLOBAL_BASE=4096")))
-        #expect(cmd.contains(.flag("-sTABLE_BASE=4096")))
-        #expect(cmd.contains(.flag("-sSTACK_SIZE=\(128 * 1024)")))
-        #expect(cmd.contains(.flag("-O3")))
-        #expect(try linkJob.outputs[0].file == toPath("Test.js"))
-
-        // emcc manages its own target, sysroot, and system libraries
-        #expect(!cmd.contains(subsequence: ["-target", "wasm32-unknown-emscripten"]))
-        #expect(!cmd.contains(.flag("--sysroot")))
-        #expect(!cmd.contains(.flag("-ldlmalloc")))
-        #expect(!cmd.contains(.flag("-lstandalonewasm")))
-      }
-    }
-
-    do {
-      // -Xclang-linker should warn for Emscripten targets
-      try await withTemporaryDirectory { resourceDir in
-        try localFileSystem.writeFileContents(
-          resourceDir.appending(components: "emscripten", "static-executable-args.lnk")
-        ) { $0.send("garbage") }
-
-        try await assertDriverDiagnostics(
-          args: ["swiftc", "-no-color-diagnostics",
-                 "-target", "wasm32-unknown-emscripten",
-                 "-resource-dir", resourceDir.pathString,
-                 "-Xclang-linker", "-resource-dir",
-                 "-Xclang-linker", "/fake/path",
-                 "foo.swift"],
-          env: env
-        ) { driver, verifier in
-          verifier.expect(.warning("'-Xclang-linker -resource-dir' is not supported for Emscripten targets; use '-Xemcc-linker' to pass flags to emcc"))
-          verifier.expect(.warning("'-Xclang-linker /fake/path' is not supported for Emscripten targets; use '-Xemcc-linker' to pass flags to emcc"))
-        }
-      }
-    }
-
-    do {
       // -Xemcc-linker should warn for non-Emscripten (WASI) targets
       try await withTemporaryDirectory { resourceDir in
         try localFileSystem.writeFileContents(
@@ -892,6 +823,87 @@ import Testing
       let lastJob = plannedJobs.last!
       #expect(lastJob.tool.name.contains("clang"))
       expectJobInvocationMatches(lastJob, .flag("-fuse-ld=lld"))
+    }
+  }
+
+  @Test(.requireFrontendSupportsTarget("wasm32-unknown-emscripten"))
+  func emscriptenExecutableLinking() async throws {
+    let env = defaultEnv
+    let commonArgs = ["swiftc", "foo.swift", "bar.swift", "-module-name", "Test"]
+
+    // Emscripten executable linking uses emcc -s settings instead of -Xlinker
+    try await withTemporaryDirectory { path in
+      try localFileSystem.writeFileContents(
+        path.appending(components: "emscripten", "static-executable-args.lnk")
+      ) {
+        $0.send("garbage")
+      }
+      var driver = try TestDriver(
+        args: commonArgs + [
+          "-emit-executable", "-Ounchecked",
+          "-target", "wasm32-unknown-emscripten",
+          "-Xlinker", "--export=myFunc",
+          "-Xclang-linker", "-resource-dir",
+          "-Xclang-linker", "/fake/clang/dir",
+          "-Xemcc-linker", "-sENVIRONMENT=shell",
+          "-Xemcc-linker", "-sALLOW_MEMORY_GROWTH",
+          "-resource-dir", path.pathString,
+        ],
+        env: env
+      )
+      let plannedJobs = try await driver.planBuild()
+      let linkJob = plannedJobs.last!
+      let cmd = linkJob.commandLine
+
+      // emcc supports -Xlinker for passing flags to wasm-ld
+      #expect(cmd.contains(subsequence: [.flag("-Xlinker"), .flag("--export=myFunc")]))
+      // -Xclang-linker is clang-specific, so it should not be forwarded to emcc
+      #expect(!cmd.contains(.flag("-resource-dir")))
+      #expect(!cmd.contains(.flag("/fake/clang/dir")))
+
+      // -Xemcc-linker flags appear directly in emcc command (not wrapped in -Xlinker)
+      #expect(cmd.contains(.flag("-sENVIRONMENT=shell")))
+      #expect(cmd.contains(.flag("-sALLOW_MEMORY_GROWTH")))
+      // They must NOT be preceded by -Xlinker (that would forward them to wasm-ld)
+      #expect(!cmd.contains(subsequence: [.flag("-Xlinker"), .flag("-sENVIRONMENT=shell")]))
+
+      // Linker flags should use emcc -s settings
+      #expect(cmd.contains(.flag("-sGLOBAL_BASE=4096")))
+      #expect(cmd.contains(.flag("-sTABLE_BASE=4096")))
+      #expect(cmd.contains(.flag("-sSTACK_SIZE=\(128 * 1024)")))
+      #expect(cmd.contains(.flag("-O3")))
+      #expect(try linkJob.outputs[0].file == toPath("Test.js"))
+
+      // emcc manages its own target, sysroot, and system libraries
+      #expect(!cmd.contains(subsequence: ["-target", "wasm32-unknown-emscripten"]))
+      #expect(!cmd.contains(.flag("--sysroot")))
+      #expect(!cmd.contains(.flag("-ldlmalloc")))
+      #expect(!cmd.contains(.flag("-lstandalonewasm")))
+    }
+  }
+
+  @Test(.requireFrontendSupportsTarget("wasm32-unknown-emscripten"))
+  func emscriptenXclangLinkerWarning() async throws {
+    let env = defaultEnv
+
+    // -Xclang-linker should warn for Emscripten targets
+    try await withTemporaryDirectory { resourceDir in
+      try localFileSystem.writeFileContents(
+        resourceDir.appending(components: "emscripten", "static-executable-args.lnk")
+      ) { $0.send("garbage") }
+
+      try await assertDriverDiagnostics(
+        args: ["swiftc", "-no-color-diagnostics",
+               "-target", "wasm32-unknown-emscripten",
+               "-resource-dir", resourceDir.pathString,
+               "-Xclang-linker", "-resource-dir",
+               "-Xclang-linker", "/fake/path",
+               "foo.swift"],
+        env: env
+      ) { driver, verifier in
+        verifier.expect(.warning("'-Xclang-linker -resource-dir' is not supported for Emscripten targets; use '-Xemcc-linker' to pass flags to emcc"))
+        verifier.expect(.warning("'-Xclang-linker /fake/path' is not supported for Emscripten targets; use '-Xemcc-linker' to pass flags to emcc"))
+      }
     }
   }
 

@@ -123,21 +123,7 @@ import CRT
 
   @Test func toolsDirectory() async throws {
     try await withTemporaryDirectory { tmpDir in
-      let ld = tmpDir.appending(component: executableName("clang"))
-      // tiny PE binary from: https://archive.is/w01DO
-      let contents: ByteString = [
-        0x4d, 0x5a, 0x00, 0x00, 0x50, 0x45, 0x00, 0x00, 0x4c, 0x01, 0x01, 0x00,
-        0x6a, 0x2a, 0x58, 0xc3, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x04, 0x00, 0x03, 0x01, 0x0b, 0x01, 0x08, 0x00, 0x04, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x0c, 0x00, 0x00, 0x00,
-        0x04, 0x00, 0x00, 0x00, 0x0c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x00,
-        0x04, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x68, 0x00, 0x00, 0x00, 0x64, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x02,
-      ]
-      try localFileSystem.writeFileContents(ld, bytes: contents)
-      try localFileSystem.chmod(.executable, path: try AbsolutePath(validating: ld.pathString))
+      let ld = try makeClangStub(in: tmpDir)
 
       // Drop SWIFT_DRIVER_CLANG_EXEC from the environment so it doesn't
       // interfere with tool lookup.
@@ -182,33 +168,37 @@ import CRT
           expectJobInvocationMatches(frontendJobs[1], .flag("-B"), .path(.absolute(tmpDir)))
         }
       }
+    }
+  }
 
-      // Emscripten toolchain — emcc should NOT get -B
-      do {
-        var env = ProcessEnv.block
-        env["SWIFT_DRIVER_SWIFT_AUTOLINK_EXTRACT_EXEC"] = "//bin/swift-autolink-extract"
-        env["SWIFT_DRIVER_EMCC_EXEC"] = "//bin/emcc"
+  @Test(.requireFrontendSupportsTarget("wasm32-unknown-emscripten"))
+  func emscriptenToolsDirectory() async throws {
+    try await withTemporaryDirectory { tmpDir in
+      _ = try makeClangStub(in: tmpDir)
 
-        try await withTemporaryDirectory { resourceDir in
-          try localFileSystem.writeFileContents(
-            resourceDir.appending(components: "emscripten", "static-executable-args.lnk")
-          ) {
-            $0.send("garbage")
-          }
-          var driver = try TestDriver(
-            args: [
-              "swiftc",
-              "-target", "wasm32-unknown-emscripten",
-              "-resource-dir", resourceDir.pathString,
-              "-tools-directory", tmpDir.pathString,
-              "foo.swift",
-            ],
-            env: env
-          )
-          let frontendJobs = try await driver.planBuild().removingAutolinkExtractJobs()
-          let linkJob = frontendJobs.last!
-          #expect(!linkJob.commandLine.contains(.flag("-B")))
+      var env = ProcessEnv.block
+      env["SWIFT_DRIVER_SWIFT_AUTOLINK_EXTRACT_EXEC"] = "//bin/swift-autolink-extract"
+      env["SWIFT_DRIVER_EMCC_EXEC"] = "//bin/emcc"
+
+      try await withTemporaryDirectory { resourceDir in
+        try localFileSystem.writeFileContents(
+          resourceDir.appending(components: "emscripten", "static-executable-args.lnk")
+        ) {
+          $0.send("garbage")
         }
+        var driver = try TestDriver(
+          args: [
+            "swiftc",
+            "-target", "wasm32-unknown-emscripten",
+            "-resource-dir", resourceDir.pathString,
+            "-tools-directory", tmpDir.pathString,
+            "foo.swift",
+          ],
+          env: env
+        )
+        let frontendJobs = try await driver.planBuild().removingAutolinkExtractJobs()
+        let linkJob = frontendJobs.last!
+        #expect(!linkJob.commandLine.contains(.flag("-B")))
       }
     }
   }
