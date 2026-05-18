@@ -30,6 +30,7 @@ import Bionic
 import class TSCBasic.DiagnosticsEngine
 import struct TSCBasic.Diagnostic
 import struct TSCBasic.ProcessResult
+import class TSCBasic.ThreadSafeOutputByteStream
 import var TSCBasic.stderrStream
 import var TSCBasic.stdoutStream
 import class TSCBasic.Process
@@ -60,6 +61,12 @@ import class TSCBasic.Process
   public let diagnosticEngine: DiagnosticsEngine
   public var anyJobHadAbnormalExit: Bool = false
 
+  /// Output stream the delegate writes informational stdout to.
+  public let stdoutStream: ThreadSafeOutputByteStream
+
+  /// Output stream the delegate writes job output and parseable-output messages to.
+  public let stderrStream: ThreadSafeOutputByteStream
+
   private var nextBatchQuasiPID: Int
   private let argsResolver: ArgsResolver
   private var batchJobInputQuasiPIDMap = TwoLevelMap<Job, TypedVirtualPath, Int>()
@@ -70,7 +77,9 @@ import class TSCBasic.Process
                              showJobLifecycle: Bool,
                              argsResolver: ArgsResolver,
                              diagnosticEngine: DiagnosticsEngine,
-                             reproducerCallback: ReproducerCallback? = nil) {
+                             reproducerCallback: ReproducerCallback? = nil,
+                             stdoutStream: ThreadSafeOutputByteStream = TSCBasic.stdoutStream,
+                             stderrStream: ThreadSafeOutputByteStream = TSCBasic.stderrStream) {
     self.mode = mode
     self.buildRecordInfo = buildRecordInfo
     self.showJobLifecycle = showJobLifecycle
@@ -78,6 +87,8 @@ import class TSCBasic.Process
     self.argsResolver = argsResolver
     self.nextBatchQuasiPID = ToolExecutionDelegate.QUASI_PID_START
     self.reproducerCallback = reproducerCallback
+    self.stdoutStream = stdoutStream
+    self.stderrStream = stderrStream
   }
 
   public func jobStarted(job: Job, arguments: [String], pid: Int) {

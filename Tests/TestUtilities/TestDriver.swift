@@ -53,6 +53,13 @@ private struct StderrOutputStream: TextOutputStream {
 package struct TestDriver {
   private var driver: Driver
 
+  /// Per-instance stdout stream. Defaults to an in-memory buffer so tests can read it via
+  /// `capturedStdout` and concurrent tests don't race on `TSCBasic.stdoutStream`.
+  package let stdoutStream: ThreadSafeOutputByteStream
+
+  /// Per-instance stderr stream. See `stdoutStream`.
+  package let stderrStream: ThreadSafeOutputByteStream
+
   /// Create a test driver with the given arguments.
   package init(
     args: [String],
@@ -61,15 +68,24 @@ package struct TestDriver {
     executor: DriverExecutor? = nil,
     fileSystem: FileSystem? = nil,
     integratedDriver: Bool = true,
-    interModuleDependencyOracle: InterModuleDependencyOracle? = nil
+    interModuleDependencyOracle: InterModuleDependencyOracle? = nil,
+    stdoutStream: ThreadSafeOutputByteStream? = nil,
+    stderrStream: ThreadSafeOutputByteStream? = nil
   ) throws {
     let fs = fileSystem ?? localFileSystem
     let diags = diagnosticsEngine ?? DiagnosticsEngine(handlers: [testDiagnosticsHandler])
-    let exec = try executor ?? SwiftDriverExecutor(
-      diagnosticsEngine: diags,
-      processSet: ProcessSet(),
-      fileSystem: fs,
-      env: env)
+    let exec =
+      try executor
+      ?? SwiftDriverExecutor(
+        diagnosticsEngine: diags,
+        processSet: ProcessSet(),
+        fileSystem: fs,
+        env: env
+      )
+    let stdout = stdoutStream ?? ThreadSafeOutputByteStream(BufferedOutputByteStream())
+    let stderr = stderrStream ?? ThreadSafeOutputByteStream(BufferedOutputByteStream())
+    self.stdoutStream = stdout
+    self.stderrStream = stderr
     self.driver = try Driver(
       args: args,
       envBlock: env,
@@ -77,7 +93,24 @@ package struct TestDriver {
       fileSystem: fs,
       executor: exec,
       integratedDriver: integratedDriver,
-      interModuleDependencyOracle: interModuleDependencyOracle)
+      interModuleDependencyOracle: interModuleDependencyOracle,
+      stdoutStream: stdout,
+      stderrStream: stderr
+    )
+  }
+
+  /// The bytes written to `stdoutStream` so far, decoded as UTF-8 with `\r\n` normalized to `\n`.
+  package var capturedStdout: String {
+    stdoutStream.flush()
+    guard let buffer = stdoutStream.stream as? BufferedOutputByteStream else { return "" }
+    return buffer.bytes.description.replacingOccurrences(of: "\r\n", with: "\n")
+  }
+
+  /// The bytes written to `stderrStream` so far, decoded as UTF-8 with `\r\n` normalized to `\n`.
+  package var capturedStderr: String {
+    stderrStream.flush()
+    guard let buffer = stderrStream.stream as? BufferedOutputByteStream else { return "" }
+    return buffer.bytes.description.replacingOccurrences(of: "\r\n", with: "\n")
   }
 
   // MARK: - Async wrappers
@@ -204,9 +237,13 @@ package struct TestDriver {
     baselineABIDir: AbsolutePath? = nil
   ) throws -> ([Job], [Job]) {
     try driver.generatePrebuiltModuleGenerationJobs(
-      with: inputMap, into: prebuiltModuleDir, exhaustive: exhaustive,
-      dotGraphPath: dotGraphPath, currentABIDir: currentABIDir,
-      baselineABIDir: baselineABIDir)
+      with: inputMap,
+      into: prebuiltModuleDir,
+      exhaustive: exhaustive,
+      dotGraphPath: dotGraphPath,
+      currentABIDir: currentABIDir,
+      baselineABIDir: baselineABIDir
+    )
   }
 
   package func querySupportedArgumentsForTest() throws -> Set<String>? {

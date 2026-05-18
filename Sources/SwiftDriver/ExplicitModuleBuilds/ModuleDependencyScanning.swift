@@ -67,7 +67,8 @@ extension Diagnostic.Message {
       if outputFormat == nil || outputFormat == "json" {
         try stdoutStream.send(dependencyGraph.toJSONString())
       } else if outputFormat == "dot" {
-        DOTModuleDependencyGraphSerializer(dependencyGraph).writeDOT(to: &stdoutStream)
+        var stream = stdoutStream
+        DOTModuleDependencyGraphSerializer(dependencyGraph).writeDOT(to: &stream)
       }
       stdoutStream.flush()
     }
