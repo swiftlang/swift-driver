@@ -20,43 +20,7 @@ import Testing
 import var Foundation.EXIT_SUCCESS
 import class Foundation.NSString
 
-@discardableResult
-internal func withHijackedErrorStream(
-  _ body: () async throws -> Void
-) async throws -> String {
-  // Replace the error stream with one we capture here.
-  let errorStream = stderrStream
-  var output: String = ""
-  try await withTemporaryFile { file in
-    TSCBasic.stderrStream = try ThreadSafeOutputByteStream(LocalFileOutputByteStream(file.path))
-    try await body()
-    TSCBasic.stderrStream.flush()
-    output = try "\(localFileSystem.readFileContents(file.path))".replacingOccurrences(of: "\r\n", with: "\n")
-  }
-  // Restore the error stream to what it was
-  TSCBasic.stderrStream = errorStream
-  return output
-}
-
-@discardableResult
-internal func withHijackedOutputStream(
-  _ body: () async throws -> Void
-) async throws -> String {
-  // Replace the error stream with one we capture here.
-  let outputStream = stdoutStream
-  var output: String = ""
-  try await withTemporaryFile { file in
-    TSCBasic.stdoutStream = try ThreadSafeOutputByteStream(LocalFileOutputByteStream(file.path))
-    try await body()
-    TSCBasic.stdoutStream.flush()
-    output = try localFileSystem.readFileContents(file.path).description
-  }
-  // Restore the error stream to what it was
-  TSCBasic.stdoutStream = outputStream
-  return output
-}
-
-@Suite(.serialized) struct ParsableMessageTests {
+@Suite struct ParsableMessageTests {
   @Test func beganMessage() throws {
     let message = BeganMessage(
       pid: 1,
@@ -189,18 +153,17 @@ internal func withHijackedOutputStream(
         let jobs = try await driver.planBuild()
         let compileJob = jobs[0]
         let args: [String] = try resolver.resolveArgumentList(for: compileJob, useResponseFiles: .disabled)
+
         let toolDelegate = ToolExecutionDelegate(
           mode: .parsableOutput,
           buildRecordInfo: nil,
           showJobLifecycle: false,
           argsResolver: resolver,
-          diagnosticEngine: DiagnosticsEngine()
+          diagnosticEngine: DiagnosticsEngine(),
+          stderrStream: driver.stderrStream
         )
-
-        let errorOutput = try await withHijackedErrorStream {
-          // Emit the began messages and examine the output
-          toolDelegate.jobStarted(job: compileJob, arguments: args, pid: 42)
-        }
+        toolDelegate.jobStarted(job: compileJob, arguments: args, pid: 42)
+        let errorOutput = driver.capturedStderr
 
         // There were 3 messages emitted
         #expect(
@@ -311,31 +274,27 @@ internal func withHijackedOutputStream(
         let jobs = try await driver.planBuild()
         let compileJob = jobs[0]
         let args: [String] = try resolver.resolveArgumentList(for: compileJob)
+
         let toolDelegate = ToolExecutionDelegate(
           mode: .parsableOutput,
           buildRecordInfo: nil,
           showJobLifecycle: false,
           argsResolver: resolver,
-          diagnosticEngine: DiagnosticsEngine()
+          diagnosticEngine: DiagnosticsEngine(),
+          stderrStream: driver.stderrStream
         )
+        // First emit the began messages to set up the quasi-PID mapping
+        toolDelegate.jobStarted(job: compileJob, arguments: args, pid: 42)
 
-        let _ = try await withHijackedErrorStream {
-          // First emit the began messages
-          toolDelegate.jobStarted(job: compileJob, arguments: args, pid: 42)
-        }
-
-        // Now hijack the error stream and emit finished messages
-        let errorOutput = try await withHijackedErrorStream {
-          let resultSuccess = ProcessResult(
-            arguments: args,
-            environmentBlock: ProcessEnv.block,
-            exitStatus: ProcessResult.ExitStatus.terminated(code: EXIT_SUCCESS),
-            output: Result.success([]),
-            stderrOutput: Result.success([])
-          )
-          // Emit the finished messages and examine the output
-          toolDelegate.jobFinished(job: compileJob, result: resultSuccess, pid: 42)
-        }
+        let resultSuccess = ProcessResult(
+          arguments: args,
+          environmentBlock: ProcessEnv.block,
+          exitStatus: ProcessResult.ExitStatus.terminated(code: EXIT_SUCCESS),
+          output: Result.success([]),
+          stderrOutput: Result.success([])
+        )
+        toolDelegate.jobFinished(job: compileJob, result: resultSuccess, pid: 42)
+        let errorOutput = driver.capturedStderr
         #expect(
           errorOutput.contains(
             """
@@ -399,18 +358,6 @@ internal func withHijackedOutputStream(
         let jobs = try await driver.planBuild()
         let compileJob = jobs[0]
         let args: [String] = try resolver.resolveArgumentList(for: compileJob)
-        let toolDelegate = ToolExecutionDelegate(
-          mode: .parsableOutput,
-          buildRecordInfo: nil,
-          showJobLifecycle: false,
-          argsResolver: resolver,
-          diagnosticEngine: DiagnosticsEngine()
-        )
-
-        let _ = try await withHijackedErrorStream {
-          // First emit the began messages
-          toolDelegate.jobStarted(job: compileJob, arguments: args, pid: 42)
-        }
 
         #if os(Windows)
         let status = ProcessResult.ExitStatus.terminated(code: EXIT_SUCCESS)
@@ -425,18 +372,26 @@ internal func withHijackedOutputStream(
           """
         #endif
 
-        // Now hijack the error stream and emit finished messages
-        let errorOutput = try await withHijackedErrorStream {
-          let resultSignalled = ProcessResult(
-            arguments: args,
-            environmentBlock: ProcessEnv.block,
-            exitStatus: status,
-            output: Result.success([]),
-            stderrOutput: Result.success([])
-          )
-          // First emit the began messages
-          toolDelegate.jobFinished(job: compileJob, result: resultSignalled, pid: 42)
-        }
+        let toolDelegate = ToolExecutionDelegate(
+          mode: .parsableOutput,
+          buildRecordInfo: nil,
+          showJobLifecycle: false,
+          argsResolver: resolver,
+          diagnosticEngine: DiagnosticsEngine(),
+          stderrStream: driver.stderrStream
+        )
+        // First emit the began messages to set up the quasi-PID mapping
+        toolDelegate.jobStarted(job: compileJob, arguments: args, pid: 42)
+
+        let resultSignalled = ProcessResult(
+          arguments: args,
+          environmentBlock: ProcessEnv.block,
+          exitStatus: status,
+          output: Result.success([]),
+          stderrOutput: Result.success([])
+        )
+        toolDelegate.jobFinished(job: compileJob, result: resultSignalled, pid: 42)
+        let errorOutput = driver.capturedStderr
         #expect(
           errorOutput.contains(
             """
@@ -498,11 +453,10 @@ internal func withHijackedOutputStream(
           integratedDriver: true
         )
         let jobs = try await driver.planBuild()
-        let errorOutput = try await withHijackedErrorStream {
-          await #expect(throws: (any Error).self) {
-            try await driver.run(jobs: jobs)
-          }
+        await #expect(throws: (any Error).self) {
+          try await driver.run(jobs: jobs)
         }
+        let errorOutput = driver.capturedStderr
         #expect(!errorOutput.contains("error: cannot find 'nonexistentPrint' in scope"))
       }
     }
@@ -531,11 +485,10 @@ internal func withHijackedOutputStream(
         #expect(jobs[0].outputs.count == 1)
         let compileArgs = jobs[0].commandLine
         #expect(compileArgs.contains((.flag("-frontend-parseable-output"))))
-        let errorOutput = try await withHijackedErrorStream {
-          try await driver.run(jobs: jobs)
-        }
+        try await driver.run(jobs: jobs)
+        let captured = driver.capturedStderr
         #expect(
-          errorOutput.contains(
+          captured.contains(
             """
             {
               "kind": "began",
@@ -544,7 +497,7 @@ internal func withHijackedOutputStream(
           )
         )
         #expect(
-          errorOutput.contains(
+          captured.contains(
             """
             {
               "kind": "finished",

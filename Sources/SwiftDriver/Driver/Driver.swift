@@ -15,6 +15,7 @@ import SwiftOptions
 
 import class Dispatch.DispatchQueue
 import class TSCBasic.DiagnosticsEngine
+import class TSCBasic.ThreadSafeOutputByteStream
 import class TSCBasic.UnknownLocation
 import enum TSCBasic.ProcessEnv
 import func TSCBasic.withTemporaryDirectory
@@ -656,6 +657,12 @@ public struct Driver {
   /// A global queue for emitting non-interrupted messages into stderr
   public static let stdErrQueue = DispatchQueue(label: "org.swift.driver.emit-to-stderr")
 
+  /// Output stream the driver writes informational stdout to.
+  public let stdoutStream: ThreadSafeOutputByteStream
+
+  /// Output stream the driver writes informational stderr to.
+  public let stderrStream: ThreadSafeOutputByteStream
+
   @_spi(Testing)
   public enum KnownCompilerFeature: String {
     case emit_abi_descriptor = "emit-abi-descriptor"
@@ -747,7 +754,7 @@ public struct Driver {
   /// Handler for emitting diagnostics to stderr.
   public static let stderrDiagnosticsHandler: DiagnosticsEngine.DiagnosticsHandler = { diagnostic in
     stdErrQueue.sync {
-      let stream = stderrStream
+      let stream = TSCBasic.stderrStream
       if !(diagnostic.location is UnknownLocation) {
           stream.send("\(diagnostic.location.description): ")
       }
@@ -854,6 +861,32 @@ public struct Driver {
     )
   }
 
+  @available(*, deprecated, renamed: "init(args:envBlock:diagnosticsOutput:fileSystem:executor:integratedDriver:compilerIntegratedTooling:compilerExecutableDir:interModuleDependencyOracle:stdoutStream:stderrStream:)")
+  @_disfavoredOverload
+  public init(
+    args: [String],
+    envBlock: ProcessEnvironmentBlock = ProcessEnv.block,
+    diagnosticsOutput: DiagnosticsOutput = .engine(DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler])),
+    fileSystem: FileSystem = localFileSystem,
+    executor: DriverExecutor,
+    integratedDriver: Bool = true,
+    compilerIntegratedTooling: Bool = false,
+    compilerExecutableDir: AbsolutePath? = nil,
+    interModuleDependencyOracle: InterModuleDependencyOracle? = nil
+  ) throws {
+    try self.init(
+      args: args,
+      envBlock: envBlock,
+      diagnosticsOutput: diagnosticsOutput,
+      fileSystem: fileSystem,
+      executor: executor,
+      integratedDriver: integratedDriver,
+      compilerIntegratedTooling: compilerIntegratedTooling,
+      compilerExecutableDir: compilerExecutableDir,
+      interModuleDependencyOracle: interModuleDependencyOracle
+    )
+  }
+
   /// Create the driver with the given arguments.
   ///
   /// - Parameter args: The command-line arguments, including the "swift" or "swiftc"
@@ -874,6 +907,8 @@ public struct Driver {
   ///   Used when in `integratedDriver` mode as a substitute for the driver knowing its executable path.
   /// - Parameter interModuleDependencyOracle: An oracle for querying inter-module dependencies,
   ///   shared across different module builds by a build system.
+  /// - Parameter stdoutStream: Stream the driver writes informational stdout to.
+  /// - Parameter stderrStream: Stream the driver writes informational stderr to.
   public init(
     args: [String],
     envBlock: ProcessEnvironmentBlock = ProcessEnv.block,
@@ -883,12 +918,16 @@ public struct Driver {
     integratedDriver: Bool = true,
     compilerIntegratedTooling: Bool = false,
     compilerExecutableDir: AbsolutePath? = nil,
-    interModuleDependencyOracle: InterModuleDependencyOracle? = nil
+    interModuleDependencyOracle: InterModuleDependencyOracle? = nil,
+    stdoutStream: ThreadSafeOutputByteStream = TSCBasic.stdoutStream,
+    stderrStream: ThreadSafeOutputByteStream = TSCBasic.stderrStream
   ) throws {
     self.env = envBlock
     self.fileSystem = fileSystem
     self.integratedDriver = integratedDriver
     self.compilerIntegratedTooling = compilerIntegratedTooling
+    self.stdoutStream = stdoutStream
+    self.stderrStream = stderrStream
 
     let diagnosticsEngine: DiagnosticsEngine
     switch diagnosticsOutput {
@@ -1883,7 +1922,7 @@ extension Driver {
     jobs: [Job]
   ) throws {
     if parsedOptions.hasArgument(.v) {
-      try printVersion(outputStream: &stderrStream)
+      try printVersion(outputStream: stderrStream)
     }
 
     let forceResponseFiles = parsedOptions.contains(.driverForceResponseFiles)
@@ -1923,8 +1962,9 @@ extension Driver {
 
     if parsedOptions.contains(.driverPrintGraphviz) {
       var serializer = DOTJobGraphSerializer(jobs: jobs)
-      serializer.writeDOT(to: &stdoutStream)
-      stdoutStream.flush()
+      var stream = stdoutStream
+      serializer.writeDOT(to: &stream)
+      stream.flush()
       return
     }
 
@@ -2020,7 +2060,9 @@ extension Driver {
       showJobLifecycle: showJobLifecycle,
       argsResolver: executor.resolver,
       diagnosticEngine: diagnosticEngine,
-      reproducerCallback: supportsReproducer ? Driver.generateReproducer : nil)
+      reproducerCallback: supportsReproducer ? Driver.generateReproducer : nil,
+      stdoutStream: stdoutStream,
+      stderrStream: stderrStream)
   }
 
   private mutating func performTheBuild(
@@ -2108,7 +2150,7 @@ extension Driver {
         break
       default:
         while let input = allInputsIterator.next() {
-          Self.printInputIfNew(input, inputIdMap: &inputIdMap, nextId: &nextId)
+          printInputIfNew(input, inputIdMap: &inputIdMap, nextId: &nextId)
         }
       }
       // All input action IDs for this action.
@@ -2131,7 +2173,7 @@ extension Driver {
         }
         if !foundInput {
           while let nextInputAction = allInputsIterator.next() {
-            Self.printInputIfNew(nextInputAction, inputIdMap: &inputIdMap, nextId: &nextId)
+            printInputIfNew(nextInputAction, inputIdMap: &inputIdMap, nextId: &nextId)
             if let id = inputIdMap[input] {
               inputIds.append(id)
               break
@@ -2159,7 +2201,7 @@ extension Driver {
     }
   }
 
-  private static func printInputIfNew(_ input: TypedVirtualPath, inputIdMap: inout [TypedVirtualPath: UInt], nextId: inout UInt) {
+  private func printInputIfNew(_ input: TypedVirtualPath, inputIdMap: inout [TypedVirtualPath: UInt], nextId: inout UInt) {
     if inputIdMap[input] == nil {
       stdoutStream.send("\(nextId): input, ")
       stdoutStream.send("\"\(input.file)\", \(input.type)\n")
@@ -2168,7 +2210,7 @@ extension Driver {
     }
   }
 
-  private func printVersion<S: OutputByteStream>(outputStream: inout S) throws {
+  private func printVersion(outputStream: OutputByteStream) throws {
     outputStream.send("\(frontendTargetInfo.compilerVersion)\n")
     outputStream.send("Target: \(frontendTargetInfo.target.triple.triple)\n")
     outputStream.flush()
