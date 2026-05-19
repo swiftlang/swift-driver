@@ -125,6 +125,29 @@ extension Trait where Self == Testing.ConditionTrait {
     )
   }
 
+  /// Requires that the Swift frontend recognizes the given target triple.
+  ///
+  /// Skips the test when the frontend rejects the triple (e.g. older toolchains
+  /// that predate a target-OS addition). Falls open and runs the test when the
+  /// frontend can't even handle a baseline invocation, so a broken toolchain
+  /// surfaces a real failure instead of silently green-skipping.
+  package static func requireFrontendSupportsTarget(
+    _ targetTriple: String,
+    _ comment: Comment? = nil
+  ) -> Self {
+    let supported: Bool
+    switch targetTriple {
+    case "wasm32-unknown-emscripten":
+      supported = frontendSupportsEmscripten
+    default:
+      supported = probeFrontendForTarget(targetTriple)
+    }
+    return enabled(
+      if: supported,
+      comment ?? "Frontend does not support target '\(targetTriple)'"
+    )
+  }
+
   /// Requires that libSwiftScan supports link library reporting.
   package static func requireScannerSupportsLinkLibraries(_ comment: Comment? = nil) -> Self {
     let supported = (try? _scannerOracle?.supportsLinkLibraries()) ?? false
@@ -231,3 +254,20 @@ let cachingFeatureSupported: Bool = {
   guard let driver = try? TestDriver(args: ["swiftc"]) else { return false }
   return driver.isFeatureSupported(.compilation_caching)
 }()
+
+/// Probe `swift-frontend -print-target-info` for whether it accepts a target triple.
+///
+/// Returns `true` when the frontend handles the triple, `false` when it rejects
+/// it specifically. If the frontend can't construct a baseline driver at all,
+/// returns `true` ("fail open") so a broken toolchain causes a loud test failure
+/// rather than a silent skip.
+package func probeFrontendForTarget(_ targetTriple: String) -> Bool {
+  // Baseline: can the frontend handle a trivial invocation at all?
+  let baselineWorks = (try? TestDriver(args: ["swiftc", "test.swift"])) != nil
+  guard baselineWorks else { return true }
+  return (try? TestDriver(args: ["swiftc", "-target", targetTriple, "test.swift"])) != nil
+}
+
+/// Cached probe result for `wasm32-unknown-emscripten`. Evaluated once per
+/// process at module load (matches `cachingFeatureSupported`).
+private let frontendSupportsEmscripten: Bool = probeFrontendForTarget("wasm32-unknown-emscripten")
