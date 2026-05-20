@@ -72,6 +72,25 @@ public final class IncrementalCompilationState {
       reporter: reporter)
       .compute(batchJobFormer: &driver)
 
+    // Re-populate the external module path map from fresh scanning results.
+    // The deserialized map from priors was already used by FirstWaveComputer
+    // above for currency checks; this overwrites it so that priors serialized
+    // at the end of this build reflect up-to-date paths.
+    if let planner = explicitModulePlanner {
+      initialState.graph.blockingConcurrentAccessOrMutation {
+        let map = Dictionary(uniqueKeysWithValues:
+          planner.dependencyGraph.modules.compactMap {
+            moduleId, moduleInfo -> (String, VirtualPath.Handle)? in
+            guard case .swiftPrebuiltExternal = moduleId,
+                  case .swiftPrebuiltExternal(let details) = moduleInfo.details
+            else { return nil }
+            let abstractPath = moduleId.moduleName + "." + FileType.swiftModule.rawValue
+            return (abstractPath, details.compiledModulePath.path)
+          })
+        initialState.graph.setExternalModulePathMap(map)
+      }
+    }
+
     self.info = initialState.graph.info
 
     self.protectedState = ProtectedState(
