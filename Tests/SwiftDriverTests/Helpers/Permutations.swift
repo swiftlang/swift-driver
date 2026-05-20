@@ -20,9 +20,9 @@ enum FormNextPermutationResult {
 }
 
 extension MutableCollection
-  where
-  Self : BidirectionalCollection,
-  Iterator.Element : Comparable
+where
+  Self: BidirectionalCollection,
+  Iterator.Element: Comparable
 {
   mutating func _reverseSubrange(_ subrange: Range<Index>) {
     if subrange.isEmpty { return }

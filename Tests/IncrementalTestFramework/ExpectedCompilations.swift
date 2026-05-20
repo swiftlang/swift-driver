@@ -11,7 +11,8 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 //===----------------------------------------------------------------------===//
-import XCTest
+
+import Testing
 import TSCBasic
 
 /// The `Source`s expected to be compiled in a `Step`, when incremental imports are either enabled or disabled.
@@ -30,7 +31,7 @@ public struct ExpectedCompilations {
   public static let none = Self(expected: [])
 
   /// Check the actual compilations against what `self` expects.
-  /// Fails an `XCTest assertion` with a somewhat wordy message of things are not hunky-dory.
+  /// Records a test issue with a somewhat wordy message if things are not hunky-dory.
   /// - Parameters:
   ///   - against: The actual compiled sources to check against.
   ///   - step: The `Step` that changed the source, ran the compiler, and needs to check the results.
@@ -42,12 +43,12 @@ public struct ExpectedCompilations {
     let   extraCompilations =  actualsSet.subtracting(expectedSet).map {$0.name}.sorted()
     let missingCompilations = expectedSet.subtracting( actualsSet).map {$0.name}.sorted()
 
-    XCTAssert(extraCompilations.isEmpty,
+    #expect(extraCompilations.isEmpty,
       "Extra compilations: \(extraCompilations), \(context.failMessage(step))",
-      file: context.file, line: context.line)
+      sourceLocation: context.sourceLocation)
 
-    XCTAssert(missingCompilations.isEmpty,
+    #expect(missingCompilations.isEmpty,
       "Missing compilations: \(missingCompilations), \(context.failMessage(step))",
-      file: context.file, line: context.line)
+      sourceLocation: context.sourceLocation)
   }
 }

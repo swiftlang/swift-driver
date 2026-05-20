@@ -11,7 +11,8 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 //===----------------------------------------------------------------------===//
-import XCTest
+
+import Testing
 import TSCBasic
 
 @_spi(Testing) import SwiftDriver
@@ -20,8 +21,8 @@ import IncrementalTestFramework
 
 
 /// Rename an imported member  and see that non-users of the struct are not recompiled.
-class RenameMemberOfImportedStructTest: XCTestCase {
-  func testRenamingMember() throws {
+@Suite struct RenameMemberOfImportedStructTest {
+  @Test func renamingMember() async throws {
 
     // MARK: - Define the imported module
 
@@ -69,6 +70,6 @@ class RenameMemberOfImportedStructTest: XCTestCase {
       Step(adding: ["original"], building: modules, .expecting(whenRenaming)),
       Step(adding: ["renamed"],  building: modules, .expecting(whenRenaming)),
     ]
-    try IncrementalTest.perform(steps)
+    try await IncrementalTest.perform(steps)
   }
 }

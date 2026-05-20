@@ -201,9 +201,9 @@ final class IncrementalTestHarness {
         try! localFileSystem.copy(from: sourceFilePath, to: destinationFilePath)
       }
     }
-
-    Thread.sleep(forTimeInterval: 1)
-    let driver = try! Driver(args: ["swiftc"])
+    // Touch timestamp file, which in process ensures the file system timestamp changed.
+    try! localFileSystem.touch(tempDir.appending(component: "timestamp"))
+    let driver = try! TestDriver(args: ["swiftc"])
     if driver.isFrontendArgSupported(.moduleLoadMode) {
       self.extraExplicitBuildArgs = ["-Xfrontend", "-module-load-mode", "-Xfrontend", "prefer-interface"]
     }
@@ -234,7 +234,7 @@ extension IncrementalTestHarness {
     checkDiagnostics: Bool = false,
     extraArguments: [String] = [],
     overrideExplicit: Bool? = nil
-  ) throws -> Driver {
+  ) async throws -> TestDriver {
     let isExplicit = overrideExplicit ?? config.isExplicitModuleBuild
     let buildExtraArgs =
       isExplicit
@@ -256,7 +256,7 @@ extension IncrementalTestHarness {
       compilingExplicitSwiftDependency("SwiftOnoneSupport")
     }
 
-    return try doABuild(
+    return try await doABuild(
       "initial",
       checkDiagnostics: checkDiagnostics,
       extraArguments: buildExtraArgs,
@@ -275,7 +275,7 @@ extension IncrementalTestHarness {
     checkDiagnostics: Bool = false,
     extraArguments: [String] = [],
     overrideExplicit: Bool? = nil
-  ) throws -> Driver {
+  ) async throws -> TestDriver {
     let isExplicit = overrideExplicit ?? config.isExplicitModuleBuild
     let buildExtraArgs =
       isExplicit
@@ -295,7 +295,7 @@ extension IncrementalTestHarness {
       explicitIncrementalScanCacheSerialized(serializedDepScanCachePath.pathString)
     }
 
-    return try doABuild(
+    return try await doABuild(
       "as is",
       checkDiagnostics: checkDiagnostics,
       extraArguments: buildExtraArgs,
@@ -311,9 +311,9 @@ extension IncrementalTestHarness {
   func checkNoPropagation(
     checkDiagnostics: Bool = false,
     extraArguments: [String] = []
-  ) throws {
+  ) async throws {
     try touch("other")
-    try doABuild(
+    try await doABuild(
       "touch other; non-propagating",
       checkDiagnostics: checkDiagnostics,
       extraArguments: extraArguments,
@@ -341,7 +341,7 @@ extension IncrementalTestHarness {
     checkDiagnostics: Bool = false,
     extraArguments: [String] = [],
     overrideExplicit: Bool? = nil
-  ) throws {
+  ) async throws {
     let isExplicit = overrideExplicit ?? config.isExplicitModuleBuild
     let buildExtraArgs =
       isExplicit
@@ -365,7 +365,7 @@ extension IncrementalTestHarness {
 
     try touch("main")
     try touch("other")
-    try doABuild(
+    try await doABuild(
       "touch both; non-propagating",
       checkDiagnostics: checkDiagnostics,
       extraArguments: buildExtraArgs,
@@ -381,9 +381,9 @@ extension IncrementalTestHarness {
   func checkPropagationOfTopLevelChange(
     checkDiagnostics: Bool = false,
     extraArguments: [String] = []
-  ) throws {
+  ) async throws {
     replace(contentsOf: "main", with: "let foo = \"hello\"")
-    try doABuild(
+    try await doABuild(
       "replace contents of main; propagating into 2nd wave",
       checkDiagnostics: checkDiagnostics,
       extraArguments: extraArguments,
@@ -420,10 +420,10 @@ extension IncrementalTestHarness {
   func checkAlwaysRebuildDependents(
     checkDiagnostics: Bool = false,
     extraArguments: [String] = []
-  ) throws {
+  ) async throws {
     try touch("main")
     let extraArgument = "-driver-always-rebuild-dependents"
-    try doABuild(
+    try await doABuild(
       "touch main; non-propagating but \(extraArgument)",
       checkDiagnostics: checkDiagnostics,
       extraArguments: [extraArgument],
@@ -453,12 +453,12 @@ extension IncrementalTestHarness {
   }
 
   /// Run the full incremental test pipeline (initial → null → no-propagation → touch all → propagation)
-  func runIncrementalPipeline(checkDiagnostics: Bool) throws {
-    try buildInitialState(checkDiagnostics: checkDiagnostics)
-    try checkNullBuild(checkDiagnostics: checkDiagnostics)
-    try checkNoPropagation(checkDiagnostics: checkDiagnostics)
-    try checkReactionToTouchingAll(checkDiagnostics: checkDiagnostics)
-    try checkPropagationOfTopLevelChange(checkDiagnostics: checkDiagnostics)
+  func runIncrementalPipeline(checkDiagnostics: Bool) async throws {
+    try await buildInitialState(checkDiagnostics: checkDiagnostics)
+    try await checkNullBuild(checkDiagnostics: checkDiagnostics)
+    try await checkNoPropagation(checkDiagnostics: checkDiagnostics)
+    try await checkReactionToTouchingAll(checkDiagnostics: checkDiagnostics)
+    try await checkPropagationOfTopLevelChange(checkDiagnostics: checkDiagnostics)
   }
 }
 
@@ -471,8 +471,8 @@ extension IncrementalTestHarness {
   /// - Parameters:
   ///   - newInput: basename without extension of new input file
   ///   - topLevelName: a new top level name defined in the new input
-  func runAddingInputTest(newInput: String, defining topLevelName: String) throws {
-    try buildInitialState(checkDiagnostics: true).withModuleDependencyGraph { initial in
+  func runAddingInputTest(newInput: String, defining topLevelName: String) async throws {
+    try await buildInitialState(checkDiagnostics: true).withModuleDependencyGraph { initial in
       initial.ensureOmits(sourceBasenameWithoutExt: newInput)
       initial.ensureOmits(name: topLevelName)
     }
@@ -485,8 +485,8 @@ extension IncrementalTestHarness {
       derivedData: derivedDataPath,
       to: OFM
     )
-    try checkReactionToAddingInput(newInput: newInput, definingTopLevel: topLevelName)
-    try checkRestorationOfIncrementalityAfterAddition(newInput: newInput, definingTopLevel: topLevelName)
+    try await checkReactionToAddingInput(newInput: newInput, definingTopLevel: topLevelName)
+    try await checkRestorationOfIncrementalityAfterAddition(newInput: newInput, definingTopLevel: topLevelName)
   }
 
   /// Check reaction to adding an input file.
@@ -497,9 +497,9 @@ extension IncrementalTestHarness {
   func checkReactionToAddingInput(
     newInput: String,
     definingTopLevel topLevelName: String
-  ) throws {
+  ) async throws {
     let newInputsPath = inputPath(basename: newInput)
-    let driver = try doABuild(
+    let driver = try await doABuild(
       "after addition of \(newInput)",
       checkDiagnostics: true,
       extraArguments: [newInputsPath.pathString],
@@ -536,9 +536,9 @@ extension IncrementalTestHarness {
   func checkRestorationOfIncrementalityAfterAddition(
     newInput: String,
     definingTopLevel topLevelName: String
-  ) throws {
+  ) async throws {
     let newInputPath = inputPath(basename: newInput)
-    let driver = try doABuild(
+    let driver = try await doABuild(
       "after restoration of \(newInput)",
       checkDiagnostics: true,
       extraArguments: [newInputPath.pathString],
@@ -569,7 +569,7 @@ extension IncrementalTestHarness {
     defining topLevelName: String,
     removeInputFromInvocation: Bool,
     removeSwiftDepsOfRemovedInput: Bool
-  ) throws -> Driver {
+  ) async throws -> TestDriver {
     let extraArguments =
       removeInputFromInvocation
       ? [] : [inputPath(basename: removedInput).pathString]
@@ -578,7 +578,7 @@ extension IncrementalTestHarness {
       removeSwiftDeps(removedInput)
     }
 
-    let driver = try doABuild(
+    let driver = try await doABuild(
       "after removal of \(removedInput)",
       checkDiagnostics: true,
       extraArguments: extraArguments,
@@ -633,7 +633,7 @@ extension IncrementalTestHarness {
     removeInputFromInvocation: Bool,
     removeSwiftDepsOfRemovedInput: Bool,
     removedFileDependsOnChangedFileAndMainWasChanged: Bool
-  ) throws {
+  ) async throws {
     let inputs = ["main", "other"] + (removeInputFromInvocation ? [] : [removedInput])
     let extraArguments =
       removeInputFromInvocation
@@ -647,7 +647,7 @@ extension IncrementalTestHarness {
     let affectedInputsInBuild = affectedInputs.filter(inputs.contains)
     let affectedInputsInInvocationOrder = inputs.filter(affectedInputsInBuild.contains)
 
-    let driver = try doABuild(
+    let driver = try await doABuild(
       "restoring incrementality after removal of \(removedInput)",
       checkDiagnostics: true,
       extraArguments: extraArguments,
@@ -745,8 +745,8 @@ extension IncrementalTestHarness {
     }
   }
 
-  func checkReactionToObsoletePriors() throws {
-    try doABuild(
+  func checkReactionToObsoletePriors() async throws {
+    try await doABuild(
       "check reaction to obsolete priors",
       checkDiagnostics: true,
       extraArguments: [],
@@ -763,8 +763,8 @@ extension IncrementalTestHarness {
   func checkReactionToTouchingSymlinks(
     checkDiagnostics: Bool = false,
     extraArguments: [String] = []
-  ) throws {
-    Thread.sleep(forTimeInterval: 1)
+  ) async throws {
+    try localFileSystem.touch(tempDir.appending(component: "timestamp"))
 
     for (file, _) in self.inputPathsAndContents {
       try localFileSystem.removeFileTree(file)
@@ -772,7 +772,7 @@ extension IncrementalTestHarness {
       try localFileSystem.createSymbolicLink(file, pointingAt: linkTarget, relative: false)
     }
 
-    try doABuild(
+    try await doABuild(
       "touch both symlinks; non-propagating",
       checkDiagnostics: checkDiagnostics,
       extraArguments: extraArguments,
@@ -789,15 +789,15 @@ extension IncrementalTestHarness {
   func checkReactionToTouchingSymlinkTargets(
     checkDiagnostics: Bool = false,
     extraArguments: [String] = []
-  ) throws {
-    Thread.sleep(forTimeInterval: 1)
+  ) async throws {
+    try localFileSystem.touch(tempDir.appending(component: "timestamp"))
 
     for (file, contents) in self.inputPathsAndContents {
       let linkTarget = tempDir.appending(component: "links").appending(component: file.basename)
       try! localFileSystem.writeFileContents(linkTarget) { $0.send(contents) }
     }
 
-    try doABuild(
+    try await doABuild(
       "touch both symlink targets; non-propagating",
       checkDiagnostics: checkDiagnostics,
       extraArguments: extraArguments,
@@ -825,12 +825,12 @@ extension IncrementalTestHarness {
     extraArguments: [String],
     whenAutolinking autolinkExpectedDiags: [Diagnostic.Message],
     @DiagsBuilder expecting expectedDiags: () -> [Diagnostic.Message]
-  ) throws -> Driver {
+  ) async throws -> TestDriver {
     if verboseTestOutput { print("*** starting build \(message) ***", to: &stderrStream); stderrStream.flush() }
 
     let allArgs = commonArgs + extraArguments + sdkArgumentsForTesting
 
-    return try checkDiagnostics
+    return try await checkDiagnostics
       ? doABuild(
         whenAutolinking: autolinkExpectedDiags,
         expecting: expectedDiags(),
@@ -843,8 +843,8 @@ extension IncrementalTestHarness {
     whenAutolinking autolinkExpectedDiags: [Diagnostic.Message],
     expecting expectedDiags: [Diagnostic.Message],
     arguments: [String]
-  ) throws -> Driver {
-    try assertDriverDiagnostics(args: arguments) {
+  ) async throws -> TestDriver {
+    try await assertDriverDiagnostics(args: arguments) {
       driver,
       verifier in
       verifier.forbidUnexpected(.error, .warning, .note, .remark, .ignored)
@@ -853,7 +853,7 @@ extension IncrementalTestHarness {
       if driver.isAutolinkExtractJobNeeded {
         autolinkExpectedDiags.forEach { verifier.expect($0) }
       }
-      doTheCompile(&driver)
+      await doTheCompile(&driver)
       return driver
     }
   }
@@ -863,32 +863,21 @@ extension IncrementalTestHarness {
     whenAutolinking autolinkExpectedDiags: [Diagnostic.Message],
     arguments: [String],
     @DiagsBuilder expecting expectedDiags: () -> [Diagnostic.Message]
-  ) throws -> Driver {
-    try doABuild(whenAutolinking: autolinkExpectedDiags, expecting: expectedDiags(), arguments: arguments)
+  ) async throws -> TestDriver {
+    try await doABuild(whenAutolinking: autolinkExpectedDiags, expecting: expectedDiags(), arguments: arguments)
   }
 
   @discardableResult
-  func doABuildWithoutExpectations(arguments: [String]) throws -> Driver {
-    let diagnosticEngine = DiagnosticsEngine(
-      handlers: verboseTestOutput
-        ? [
-          {
-            print($0, to: &stderrStream); stderrStream.flush()
-          }
-        ] : []
-    )
-    var driver = try Driver(
-      args: arguments,
-      diagnosticsEngine: diagnosticEngine,
-      fileSystem: localFileSystem,
-    )
-    doTheCompile(&driver)
+  func doABuildWithoutExpectations(arguments: [String]) async throws -> TestDriver {
+    var driver = try TestDriver(args: arguments)
+    await doTheCompile(&driver)
     return driver
   }
 
-  func doTheCompile(_ driver: inout Driver) {
-    let jobs = try! driver.planBuild()
-    try? driver.run(jobs: jobs)
+  func doTheCompile(_ driver: inout TestDriver) async {
+    touch(tempDir.appending(component: "timestamp"))
+    let jobs = try! await driver.planBuild()
+    try? await driver.run(jobs: jobs)
   }
 }
 
@@ -902,9 +891,7 @@ extension IncrementalTestHarness {
   }
 
   func touch(_ path: AbsolutePath) {
-    Thread.sleep(forTimeInterval: 1)
-    let existingContents = try! localFileSystem.readFileContents(path)
-    try! localFileSystem.writeFileContents(path) { $0.send(existingContents) }
+    try! localFileSystem.touch(path)
   }
 
   /// Set modification time of a file
@@ -1616,5 +1603,19 @@ extension ModuleDependencyGraph.Node {
 extension Driver {
   func postCompileOutputs() throws -> [TypedVirtualPath] {
     try #require(incrementalCompilationState).jobsAfterCompiles.flatMap { $0.outputs }
+  }
+}
+
+// MARK: - TestDriver graph inspection / post-compile helpers
+
+extension TestDriver {
+  func withModuleDependencyGraph(_ fn: (ModuleDependencyGraph) throws -> Void) throws {
+    try unwrap { try $0.withModuleDependencyGraph(fn) }
+  }
+  func verifyNoGraph() {
+    #expect(incrementalCompilationState == nil)
+  }
+  func postCompileOutputs() throws -> [TypedVirtualPath] {
+    try unwrap { try $0.postCompileOutputs() }
   }
 }

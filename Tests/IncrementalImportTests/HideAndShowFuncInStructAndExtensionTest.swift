@@ -11,7 +11,8 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 //===----------------------------------------------------------------------===//
-import XCTest
+
+import Testing
 import TSCBasic
 
 @_spi(Testing) import SwiftDriver
@@ -21,9 +22,9 @@ import IncrementalTestFramework
 
 /// Add and remove function in imported struct and in imported extension of imported struct.
 /// This is a very complicated test, so it is built programmatically.
-class HideAndShowFuncInStructAndExtensionTests: XCTestCase {
-  func testHideAndShowFuncInStructAndExtension() throws {
-    try IncrementalTest.perform(steps)
+@Suite struct HideAndShowFuncInStructAndExtensionTests {
+  @Test func hideAndShowFuncInStructAndExtension() async throws {
+    try await IncrementalTest.perform(steps)
   }
 }
 

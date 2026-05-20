@@ -19,35 +19,35 @@ import TSCBasic
 import TestUtilities
 import Testing
 
-@Suite(.serialized, .enabled(if: sdkArgumentsAvailable, "SDK not available"))
+@Suite(.enabled(if: sdkArgumentsAvailable, "SDK not available"))
 struct IncrementalExplicitBuildTests: DiagVerifiable {
 
   // MARK: - Simple builds
 
   // Simple re-use of a prior inter-module dependency graph on a null build
-  @Test(.serialized, arguments: TestBuildConfig.availableExplicitConfigs)
+  @Test(arguments: TestBuildConfig.availableExplicitConfigs)
   func explicitIncrementalSimpleBuildCheckDiagnostics(config: TestBuildConfig) async throws {
     let h = try IncrementalTestHarness(config: config)
-    try h.buildInitialState(checkDiagnostics: false)
-    try h.checkNullBuild(checkDiagnostics: true)
+    try await h.buildInitialState(checkDiagnostics: false)
+    try await h.checkNullBuild(checkDiagnostics: true)
   }
 
   // MARK: - Reaction to change (parameterized over all explicit configs)
 
   // Source files have changed but the inter-module dependency graph still up-to-date
-  @Test(.serialized, arguments: TestBuildConfig.availableExplicitConfigs)
+  @Test(arguments: TestBuildConfig.availableExplicitConfigs)
   func reactionToChange(config: TestBuildConfig) async throws {
     let h = try IncrementalTestHarness(config: config)
-    try h.buildInitialState(checkDiagnostics: false)
-    try h.checkReactionToTouchingAll(checkDiagnostics: true)
+    try await h.buildInitialState(checkDiagnostics: false)
+    try await h.checkReactionToTouchingAll(checkDiagnostics: true)
   }
 
-  @Test(.serialized, arguments: TestBuildConfig.cachingConfigs)
+  @Test(arguments: TestBuildConfig.cachingConfigs)
   func incrementalCompilationCachingBasic(config: TestBuildConfig) async throws {
     let h = try IncrementalTestHarness(config: config)
-    try h.buildInitialState(checkDiagnostics: false)
+    try await h.buildInitialState(checkDiagnostics: false)
     try h.touch("other")
-    try h.doABuild(
+    try await h.doABuild(
       "touch other only",
       checkDiagnostics: true,
       extraArguments: h.explicitBuildArgs + h.configCachingArgs,
@@ -83,16 +83,17 @@ struct IncrementalExplicitBuildTests: DiagVerifiable {
   //
   // On this graph, inputs of 'G' are updated, causing it to be re-built
   // as well as all modules on paths from root to it: 'Y', 'H', 'T','J'
-  @Test(.serialized, arguments: TestBuildConfig.explicitOnlyConfigs)
+  @Test(arguments: TestBuildConfig.explicitOnlyConfigs)
   func changedDependencyInvalidatesUpstream(config: TestBuildConfig) async throws {
     let h = try IncrementalTestHarness(config: config)
     h.replace(contentsOf: "other", with: "import Y;import T")
-    try h.buildInitialState(checkDiagnostics: false)
+    try await h.buildInitialState(checkDiagnostics: false)
 
     let GInterfacePath = h.explicitSwiftDependenciesPath.appending(component: "G.swiftinterface")
     h.touch(GInterfacePath)
+    h.touch(GInterfacePath)  // touch twice to make sure it is newer than build output.
 
-    try h.doABuild(
+    try await h.doABuild(
       "update dependency (G) interface timestamp",
       checkDiagnostics: true,
       extraArguments: h.configBuildArgs,
@@ -139,17 +140,17 @@ struct IncrementalExplicitBuildTests: DiagVerifiable {
 
   // Source file and external deps timestamps updated but contents are the same,
   // and file-hashing is enabled.
-  @Test(.serialized, arguments: TestBuildConfig.explicitOnlyConfigs)
+  @Test(arguments: TestBuildConfig.explicitOnlyConfigs)
   func explicitIncrementalBuildWithHashing(config: TestBuildConfig) async throws {
     let h = try IncrementalTestHarness(config: config)
     h.replace(contentsOf: "other", with: "import E;let bar = foo")
-    try h.buildInitialState(extraArguments: ["-enable-incremental-file-hashing"])
+    try await h.buildInitialState(extraArguments: ["-enable-incremental-file-hashing"])
     try h.touch("main")
     try h.touch("other")
     h.touch(
       try AbsolutePath(validating: h.explicitSwiftDependenciesPath.appending(component: "E.swiftinterface").pathString)
     )
-    let driver = try h.checkNullBuild(extraArguments: ["-enable-incremental-file-hashing"])
+    let driver = try await h.checkNullBuild(extraArguments: ["-enable-incremental-file-hashing"])
     let mandatoryJobs = try #require(driver.incrementalCompilationState?.mandatoryJobsInOrder)
     let mandatoryJobInputs = mandatoryJobs.flatMap { $0.inputs }.map { $0.file.basename }
     #expect(!mandatoryJobInputs.contains("main.swift"))
@@ -158,15 +159,15 @@ struct IncrementalExplicitBuildTests: DiagVerifiable {
 
   // External deps timestamp updated but contents are the same, and
   // file-hashing is explicitly disabled.
-  @Test(.serialized, arguments: TestBuildConfig.availableExplicitConfigs)
+  @Test(arguments: TestBuildConfig.availableExplicitConfigs)
   func explicitIncrementalBuildExternalDepsWithoutHashing(config: TestBuildConfig) async throws {
     let h = try IncrementalTestHarness(config: config)
     h.replace(contentsOf: "other", with: "import E;let bar = foo")
-    try h.buildInitialState(extraArguments: ["-disable-incremental-file-hashing"])
+    try await h.buildInitialState(extraArguments: ["-disable-incremental-file-hashing"])
     h.touch(
       try AbsolutePath(validating: h.explicitSwiftDependenciesPath.appending(component: "E.swiftinterface").pathString)
     )
-    let driver = try h.checkNullBuild(extraArguments: ["-disable-incremental-file-hashing"])
+    let driver = try await h.checkNullBuild(extraArguments: ["-disable-incremental-file-hashing"])
     let mandatoryJobs = try #require(driver.incrementalCompilationState?.mandatoryJobsInOrder)
     let mandatoryJobInputs = mandatoryJobs.flatMap { $0.inputs }.map { $0.file.basename }
     #expect(mandatoryJobInputs.contains("other.swift"))
@@ -175,13 +176,13 @@ struct IncrementalExplicitBuildTests: DiagVerifiable {
 
   // Source file timestamps updated but contents are the same, and
   // file-hashing is explicitly disabled.
-  @Test(.serialized, arguments: TestBuildConfig.availableExplicitConfigs)
+  @Test(arguments: TestBuildConfig.availableExplicitConfigs)
   func explicitIncrementalBuildSourceFilesWithoutHashing(config: TestBuildConfig) async throws {
     let h = try IncrementalTestHarness(config: config)
-    try h.buildInitialState(extraArguments: ["-disable-incremental-file-hashing"])
+    try await h.buildInitialState(extraArguments: ["-disable-incremental-file-hashing"])
     try h.touch("main")
     try h.touch("other")
-    let driver = try h.checkNullBuild(extraArguments: ["-disable-incremental-file-hashing"])
+    let driver = try await h.checkNullBuild(extraArguments: ["-disable-incremental-file-hashing"])
     let mandatoryJobs = try #require(driver.incrementalCompilationState?.mandatoryJobsInOrder)
     let mandatoryJobInputs = mandatoryJobs.flatMap { $0.inputs }.map { $0.file.basename }
     #expect(mandatoryJobInputs.contains("other.swift"))
@@ -191,13 +192,13 @@ struct IncrementalExplicitBuildTests: DiagVerifiable {
   // MARK: - Import and dependency change tests
 
   // Adding an import invalidates prior inter-module dependency graph.
-  @Test(.serialized, arguments: TestBuildConfig.explicitOnlyConfigs)
+  @Test(arguments: TestBuildConfig.explicitOnlyConfigs)
   func explicitIncrementalBuildNewImport(config: TestBuildConfig) async throws {
     let h = try IncrementalTestHarness(config: config)
-    try h.buildInitialState(checkDiagnostics: false)
+    try await h.buildInitialState(checkDiagnostics: false)
     // Introduce a new import. This will cause a re-scan and a re-build of 'other.swift'.
     h.replace(contentsOf: "other", with: "import E;let bar = foo")
-    try h.doABuild(
+    try await h.doABuild(
       "add import to 'other'",
       checkDiagnostics: true,
       extraArguments: h.explicitBuildArgs,
@@ -223,23 +224,24 @@ struct IncrementalExplicitBuildTests: DiagVerifiable {
   }
 
   // A dependency has changed one of its inputs.
-  @Test(.serialized, arguments: TestBuildConfig.explicitOnlyConfigs)
+  @Test(arguments: TestBuildConfig.explicitOnlyConfigs)
   func explicitIncrementalBuildChangedDependency(config: TestBuildConfig) async throws {
     let h = try IncrementalTestHarness(config: config)
     // Add an import of 'E' to make sure followup changes has consistent inputs.
     h.replace(contentsOf: "other", with: "import E;let bar = foo")
-    try h.buildInitialState(checkDiagnostics: false)
+    try await h.buildInitialState(checkDiagnostics: false)
 
     let EInterfacePath = h.explicitSwiftDependenciesPath.appending(component: "E.swiftinterface")
     // Just update the time-stamp of one of the module dependencies and use a value
-    // it is defined in.
+    // it is defined in. Touch twice to make sure it is newer than the build product.
+    h.touch(EInterfacePath)
     h.touch(EInterfacePath)
     h.replace(contentsOf: "other", with: "import E;let bar = foo + moduleEValue")
 
     // Changing a dependency will mean that we both re-run the dependency scan,
     // and also ensure that all source-files are re-built with a non-cascading build
     // since the source files themselves have not changed.
-    try h.doABuild(
+    try await h.doABuild(
       "update dependency (E) interface timestamp",
       checkDiagnostics: true,
       extraArguments: h.explicitBuildArgs,
@@ -281,11 +283,11 @@ struct IncrementalExplicitBuildTests: DiagVerifiable {
   // On this graph, after the initial build, if G module binary file is newer
   // than that of J, even if each of the modules is up-to-date w.r.t. their
   // source inputs, we still expect that J gets re-built.
-  @Test(.serialized, arguments: TestBuildConfig.explicitOnlyConfigs)
+  @Test(arguments: TestBuildConfig.explicitOnlyConfigs)
   func explicitIncrementalBuildChangedDependencyBinaryInvalidatesUpstream(config: TestBuildConfig) async throws {
     let h = try IncrementalTestHarness(config: config)
     h.replace(contentsOf: "other", with: "import J;")
-    try h.buildInitialState(checkDiagnostics: false)
+    try await h.buildInitialState(checkDiagnostics: false)
 
     let modCacheEntries = try localFileSystem.getDirectoryContents(h.explicitModuleCacheDir)
     let nameOfGModule = try #require(modCacheEntries.first { $0.hasPrefix("G") && $0.hasSuffix(".swiftmodule") })
@@ -293,9 +295,10 @@ struct IncrementalExplicitBuildTests: DiagVerifiable {
     // Just update the time-stamp of one of the module dependencies' outputs.
     h.touch(pathToGModule)
     // Touch one of the inputs to actually trigger the incremental build.
-    h.touch(h.inputPath(basename: "other"))
+    try h.touch("other")
+    try h.touch("other")  // touch twice to make sure it is newer than build output.
 
-    try h.doABuild(
+    try await h.doABuild(
       "update dependency (G) result timestamp",
       checkDiagnostics: true,
       extraArguments: h.explicitBuildArgs,
@@ -320,7 +323,7 @@ struct IncrementalExplicitBuildTests: DiagVerifiable {
   }
 
   // An unchanged binary dependency should not invalidate upstream dependencies.
-  @Test(.serialized, arguments: TestBuildConfig.explicitOnlyConfigs)
+  @Test(arguments: TestBuildConfig.explicitOnlyConfigs)
   func explicitIncrementalBuildUnchangedBinaryDependencyDoesNotInvalidateUpstream(config: TestBuildConfig) async throws
   {
     let h = try IncrementalTestHarness(config: config)
@@ -328,7 +331,7 @@ struct IncrementalExplicitBuildTests: DiagVerifiable {
 
     // After an initial build, replace the G.swiftinterface with G.swiftmodule
     // and repeat the initial build to settle into the "initial" state for the test.
-    try h.buildInitialState(checkDiagnostics: false)
+    try await h.buildInitialState(checkDiagnostics: false)
     let modCacheEntries = try localFileSystem.getDirectoryContents(h.explicitModuleCacheDir)
     let nameOfGModule = try #require(modCacheEntries.first { $0.hasPrefix("G") && $0.hasSuffix(".swiftmodule") })
     let pathToGModule = h.explicitModuleCacheDir.appending(component: nameOfGModule)
@@ -339,10 +342,11 @@ struct IncrementalExplicitBuildTests: DiagVerifiable {
     try! localFileSystem.removeFileTree(
       try AbsolutePath(validating: h.explicitSwiftDependenciesPath.appending(component: "G.swiftinterface").pathString)
     )
-    try h.buildInitialState(checkDiagnostics: false)
+    try await h.buildInitialState(checkDiagnostics: false)
 
     // Touch one of the inputs to actually trigger the incremental build.
-    h.touch(h.inputPath(basename: "other"))
+    try h.touch("other")
+    try h.touch("other")  // touch twice to make sure it is newer than build output.
 
     // Touch the output of a dependency of 'G', to ensure that it is newer than 'G', but 'G' still
     // does not get "invalidated".
@@ -350,7 +354,7 @@ struct IncrementalExplicitBuildTests: DiagVerifiable {
     let pathToDModule = h.explicitModuleCacheDir.appending(component: nameOfDModule)
     h.touch(pathToDModule)
 
-    try h.doABuild(
+    try await h.doABuild(
       "Unchanged binary dependency (G)",
       checkDiagnostics: true,
       extraArguments: h.explicitBuildArgs,
@@ -379,14 +383,14 @@ struct IncrementalExplicitBuildTests: DiagVerifiable {
   }
 
   // A changed binary dependency causes a rescan.
-  @Test(.serialized, arguments: TestBuildConfig.explicitOnlyConfigs)
+  @Test(arguments: TestBuildConfig.explicitOnlyConfigs)
   func explicitIncrementalBuildChangedBinaryDependencyCausesRescan(config: TestBuildConfig) async throws {
     let h = try IncrementalTestHarness(config: config)
     h.replace(contentsOf: "other", with: "import J;")
 
     // After an initial build, replace the G.swiftinterface with G.swiftmodule
     // and repeat the initial build to settle into the "initial" state for the test.
-    try h.buildInitialState(checkDiagnostics: false)
+    try await h.buildInitialState(checkDiagnostics: false)
     let modCacheEntries = try localFileSystem.getDirectoryContents(h.explicitModuleCacheDir)
     let nameOfGModule = try #require(modCacheEntries.first { $0.hasPrefix("G") && $0.hasSuffix(".swiftmodule") })
     let pathToGModule = h.explicitModuleCacheDir.appending(component: nameOfGModule)
@@ -397,15 +401,16 @@ struct IncrementalExplicitBuildTests: DiagVerifiable {
     try! localFileSystem.removeFileTree(
       try AbsolutePath(validating: h.explicitSwiftDependenciesPath.appending(component: "G.swiftinterface").pathString)
     )
-    try h.buildInitialState(checkDiagnostics: false)
+    try await h.buildInitialState(checkDiagnostics: false)
 
     // Touch one of the inputs to actually trigger the incremental build.
-    h.touch(h.inputPath(basename: "other"))
+    try h.touch("other")
+    try h.touch("other")  // touch twice to make sure it is newer than build output.
 
     // Touch 'G.swiftmodule' to trigger the dependency scanner to re-scan it.
     h.touch(newPathToGModule)
 
-    try h.doABuild(
+    try await h.doABuild(
       "Changed binary dependency (G)",
       checkDiagnostics: true,
       extraArguments: h.explicitBuildArgs,
@@ -442,7 +447,7 @@ struct IncrementalExplicitBuildTests: DiagVerifiable {
 
   // MARK: - Emit module only
 
-  @Test(.serialized, arguments: TestBuildConfig.availableExplicitConfigs)
+  @Test(arguments: TestBuildConfig.availableExplicitConfigs)
   func explicitIncrementalEmitModuleOnly(config: TestBuildConfig) async throws {
     let h = try IncrementalTestHarness(config: config)
 
@@ -461,10 +466,10 @@ struct IncrementalExplicitBuildTests: DiagVerifiable {
       ] + h.inputPathsAndContents.map { $0.0.pathString }.sorted() + h.explicitBuildArgs + h.sdkArgumentsForTesting
 
     // Initial build.
-    _ = try h.doABuildWithoutExpectations(arguments: args)
+    try await h.doABuildWithoutExpectations(arguments: args)
 
     // Subsequent build: ensure module does not get re-emitted since inputs have not changed.
-    _ = try h.doABuild(
+    try await h.doABuild(
       whenAutolinking: h.autolinkLifecycleExpectedDiags,
       arguments: args
     ) {
@@ -477,7 +482,7 @@ struct IncrementalExplicitBuildTests: DiagVerifiable {
     try h.touch("main")
     try h.touch("other")
     // Subsequent build: ensure module re-emitted since inputs changed.
-    _ = try h.doABuild(
+    try await h.doABuild(
       whenAutolinking: h.autolinkLifecycleExpectedDiags,
       arguments: args
     ) {
@@ -494,7 +499,7 @@ struct IncrementalExplicitBuildTests: DiagVerifiable {
 
   @Test(
     .serialized,
-    .skipWindows("CAS cannot be removed on windows when test is running"),
+    .skipHostOS(.win32, comment: "CAS cannot be removed on windows when test is running"),
     arguments: TestBuildConfig.available([.cachingBuild, .cachingPrefixMapped])
   )
   func incrementalCompilationCaching(config: TestBuildConfig) async throws {
@@ -507,7 +512,7 @@ struct IncrementalExplicitBuildTests: DiagVerifiable {
     h.replace(contentsOf: "other", with: "import O;")
 
     // Simplified initial build.
-    try h.doABuild(
+    try await h.doABuild(
       "Initial Simplified Build with Caching",
       checkDiagnostics: false,
       extraArguments: h.explicitBuildArgs + extraArguments,
@@ -522,7 +527,7 @@ struct IncrementalExplicitBuildTests: DiagVerifiable {
     try localFileSystem.removeFileTree(h.casPath)
 
     // Deleting the CAS should cause a full rebuild since all modules are missing from CAS.
-    try h.doABuild(
+    try await h.doABuild(
       "Deleting CAS and rebuild",
       checkDiagnostics: false,
       extraArguments: h.explicitBuildArgs + extraArguments,

@@ -11,7 +11,8 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 //===----------------------------------------------------------------------===//
-import XCTest
+
+import Testing
 import TSCBasic
 
 public struct ExpectedProcessResult {
@@ -35,14 +36,16 @@ public struct ExpectedProcessResult {
       context.fail("failed to run", step)
       return
     }
-    XCTAssertEqual(actualExitCode, expectedExitCode,
-                   context.failMessage(step),
-                   file: context.file, line: context.line)
-    try XCTAssertEqual(output, actual.utf8Output().spm_chomp(),
-                       context.failMessage(step),
-                   file: context.file, line: context.line)
-    try XCTAssertEqual(stderrOutput, actual.utf8stderrOutput().spm_chomp(),
-                       context.failMessage(step),
-                   file: context.file, line: context.line)
+    #expect(actualExitCode == expectedExitCode,
+                   Comment(rawValue: context.failMessage(step)),
+                   sourceLocation: context.sourceLocation)
+    let actualOutput = try actual.utf8Output().spm_chomp()
+    let actualStderr = try actual.utf8stderrOutput().spm_chomp()
+    #expect(output == actualOutput,
+            Comment(rawValue: context.failMessage(step)),
+            sourceLocation: context.sourceLocation)
+    #expect(stderrOutput == actualStderr,
+            Comment(rawValue: context.failMessage(step)),
+            sourceLocation: context.sourceLocation)
   }
 }

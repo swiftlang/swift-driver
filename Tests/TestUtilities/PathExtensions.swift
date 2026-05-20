@@ -41,7 +41,7 @@ extension FileSystem {
   /// Touch a file so its modification time is guaranteed to change.
   ///
   /// If the file does not exist, creates it with empty content. Re-writes the
-  /// file in a loopuntil `lastModificationTime` reports a value different from
+  /// file in a loop until `lastModificationTime` reports a value different from
   /// the original.
   /// This works on filesystems with coarse (1-second) timestamp granularity
   /// without requiring a fixed 1-second sleep.

@@ -11,7 +11,8 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 //===----------------------------------------------------------------------===//
-import XCTest
+
+import Testing
 import TSCBasic
 
 @_spi(Testing) import SwiftDriver
@@ -54,7 +55,7 @@ struct CompiledSourceCollector {
     let wasNew = collectedReadDependencies.insert(dep).inserted
     guard wasNew || dep.hasSuffix(FileType.swift.rawValue)
     else {
-      XCTFail("Swiftmodule \(dep) read twice")
+      Issue.record("Swiftmodule \(dep) read twice")
       return
     }
   }
@@ -67,7 +68,7 @@ struct CompiledSourceCollector {
 
   /// Returns the basenames of the compiled files, e.g. for `/a/b/foo.swift`, returns `foo.swift`.
   var compiledBasenames: [String] {
-    XCTAssertEqual(Set(collectedCompiledBasenames).count, collectedCompiledBasenames.count,
+    #expect(Set(collectedCompiledBasenames).count == collectedCompiledBasenames.count,
                    "No file should be compiled twice")
     return collectedCompiledBasenames
   }

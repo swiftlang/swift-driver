@@ -12,7 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import XCTest
+import Testing
 import IncrementalTestFramework
 
 // This test establishes an "antisymmetric" chain of modules that import one
@@ -23,7 +23,7 @@ import IncrementalTestFramework
 //    ^          x
 //    |          |
 //    ----XXX-----
-class AntisymmetryTest: XCTestCase {
+@Suite struct AntisymmetryTest {
   private let defAdditions = [
     "b-add-struct",
     "b-add-class",
@@ -38,8 +38,8 @@ class AntisymmetryTest: XCTestCase {
     "use-extension",
   ]
 
-  func testAntisymmetricTopLevelDefs() throws {
-    try IncrementalTest.perform([
+  @Test func antisymmetricTopLevelDefs() async throws {
+    try await IncrementalTest.perform([
       // The baseline step is special, we want everything to get built first.
       Step(adding: defAdditions,
            building: [ .B, .A ],
@@ -53,8 +53,8 @@ class AntisymmetryTest: XCTestCase {
     })
   }
 
-  func testAntisymmetricTopLevelUses() throws {
-    try IncrementalTest.perform([
+  @Test func antisymmetricTopLevelUses() async throws {
+    try await IncrementalTest.perform([
       // The baseline step is special, we want everything to get built first.
       Step(adding: defAdditions,
            building: [ .B, .A ],

@@ -11,23 +11,24 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 //===----------------------------------------------------------------------===//
-import XCTest
-import TSCBasic
 
+import TSCBasic
+import XCTest
 
 #if os(macOS)
 internal func bundleRoot() throws -> AbsolutePath {
-    for bundle in Bundle.allBundles where bundle.bundlePath.hasSuffix(".xctest") {
-      return try AbsolutePath(validating: bundle.bundlePath).parentDirectory
-    }
-    fatalError()
+  for bundle in Bundle.allBundles where bundle.bundlePath.hasSuffix(".xctest") {
+    return try AbsolutePath(validating: bundle.bundlePath).parentDirectory
+  }
+  fatalError()
 }
 
 private let packageDirectory = try! AbsolutePath(validating: #file).parentDirectory.parentDirectory.parentDirectory
 
 // The "default" here means lit.py will be invoked as an executable, while otherwise let's use
 // python 3 explicitly.
-private let pythonExec = ProcessEnv.block.keys.contains("SWIFT_DRIVER_INTEGRATION_TESTS_USE_PYTHON_DEFAULT") ? "" : "python3"
+private let pythonExec =
+  ProcessEnv.block.keys.contains("SWIFT_DRIVER_INTEGRATION_TESTS_USE_PYTHON_DEFAULT") ? "" : "python3"
 
 func makeDriverSymlinks(
   in tempDir: AbsolutePath,
@@ -53,7 +54,7 @@ func makeDriverSymlinks(
   // resource directory.
   if let swiftBuildDir = swiftBuildDir {
     let libDir = swiftBuildDir.appending(component: "lib")
-    let tempLibDir = tempDir.appending(component: "lib" )
+    let tempLibDir = tempDir.appending(component: "lib")
     try localFileSystem.createSymbolicLink(tempLibDir, pointingAt: libDir, relative: false)
   }
 
@@ -75,18 +76,41 @@ func printCommand(args: [String], extraEnv: ProcessEnvironmentBlock) {
 }
 #endif
 
-
 final class IntegrationTests: IntegrationTestCase {
+  func testVerboseImmediateMode() throws {
+    // There is nothing particularly macOS-specific about this test other than
+    // the use of some macOS-specific test functionality to determine the
+    // test bundle that contains the swift-driver executable.
+    #if os(macOS)
+    try withTemporaryDirectory { path in
+      let input = path.appending(component: "ImmediateTest.swift")
+      try localFileSystem.writeFileContents(input, bytes: "print(\"Hello, World\")")
+      let binDir = try bundleRoot()
+      let driver = binDir.appending(component: "swift-driver")
+      let args = [driver.description, "--driver-mode=swift", "-v", input.description]
+      // Immediate mode takes over the process with `exec` so we need to create
+      // a separate process to capture its output here
+      let result = try TSCBasic.Process.checkNonZeroExit(
+        arguments: args,
+        environmentBlock: ProcessEnv.block
+      )
+      // Make sure the interpret job description was printed
+      XCTAssertTrue(result.contains("-frontend -interpret \(input.description)"))
+      XCTAssertTrue(result.contains("Hello, World"))
+    }
+    #endif
+  }
+
   // FIXME: This is failing on CI right now.
   func _testSelfHosting() throws {
-  #if os(macOS)
-    try withTemporaryDirectory() { path in
-      let (swift: _, swiftc: compiler) = try makeDriverSymlinks(in: path)
+    #if os(macOS)
+    try withTemporaryDirectory { path in
+      let (swift:_, swiftc:compiler) = try makeDriverSymlinks(in: path)
 
       let buildPath = path.appending(component: "build")
       let args = [
         "swift", "build", "--package-path", packageDirectory.pathString,
-        "--scratch-path", buildPath.pathString
+        "--scratch-path", buildPath.pathString,
       ]
       let extraEnv = [ProcessEnvironmentKey("SWIFT_EXEC"): compiler.pathString]
 
@@ -97,9 +121,12 @@ final class IntegrationTests: IntegrationTestCase {
         environmentBlock: ProcessEnv.block.merging(extraEnv) { $1 }
       )
 
-      XCTAssertTrue(localFileSystem.isExecutableFile(try AbsolutePath(validating: "debug/swift-driver", relativeTo: buildPath)), result)
+      XCTAssertTrue(
+        localFileSystem.isExecutableFile(try AbsolutePath(validating: "debug/swift-driver", relativeTo: buildPath)),
+        result
+      )
     }
-  #endif
+    #endif
   }
 
   // These next few tests run lit test suites from a Swift working copy using
@@ -154,8 +181,8 @@ final class IntegrationTests: IntegrationTestCase {
   }
 
   func runLitTests(suite: String...) throws {
-  #if os(macOS)
-    try withTemporaryDirectory() { tempDir in
+    #if os(macOS)
+    try withTemporaryDirectory { tempDir in
       guard
         let litConfigPathString = ProcessEnv.block["SWIFT_DRIVER_LIT_DIR"]
       else {
@@ -189,8 +216,13 @@ final class IntegrationTests: IntegrationTestCase {
       let frontendFile = swiftBuildDir.appending(components: "bin", "swift-frontend")
 
       /// The path to lit.py.
-      let litFile = swiftRootDir.appending(components: "llvm-project", "llvm", "utils", "lit",
-                                             "lit.py")
+      let litFile = swiftRootDir.appending(
+        components: "llvm-project",
+        "llvm",
+        "utils",
+        "lit",
+        "lit.py"
+      )
 
       /// The path to the test suite we want to run.
       let testDir = suite.reduce(swiftRootDir.appending(component: "swift")) {
@@ -206,8 +238,8 @@ final class IntegrationTests: IntegrationTestCase {
 
       // Make dummy swift and swiftc files with an appropriately-positioned
       // resource directory.
-      let (swift: swift, swiftc: swiftc) =
-          try makeDriverSymlinks(in: tempDir, with: swiftBuildDir)
+      let (swift:swift, swiftc:swiftc) =
+        try makeDriverSymlinks(in: tempDir, with: swiftBuildDir)
 
       let args = [
         litFile.pathString, "-svi", "--time-tests",
@@ -215,7 +247,7 @@ final class IntegrationTests: IntegrationTestCase {
         "--param", "copy_env=SWIFT_DRIVER_SWIFT_FRONTEND_EXEC",
         "--param", "swift_site_config=\(litConfigFile.pathString)",
         "--param", "swift_driver",
-        testDir.pathString
+        testDir.pathString,
       ]
       let commandArgs = pythonExec.isEmpty ? args : [pythonExec] + args
 
@@ -225,7 +257,7 @@ final class IntegrationTests: IntegrationTestCase {
         "SWIFT_FORCE_TEST_NEW_DRIVER": "1",
         "SWIFT_DRIVER_SWIFT_EXEC": swiftFile.pathString,
         "SWIFT_DRIVER_SWIFT_FRONTEND_EXEC": frontendFile.pathString,
-        "LC_ALL": "en_US.UTF-8"
+        "LC_ALL": "en_US.UTF-8",
       ]
 
       printCommand(args: commandArgs, extraEnv: extraEnv)
@@ -239,18 +271,18 @@ final class IntegrationTests: IntegrationTestCase {
       let result = try process.waitUntilExit()
       XCTAssertEqual(result.exitStatus, .terminated(code: EXIT_SUCCESS))
     }
-  #endif
+    #endif
   }
 }
 
 /// A helper class for optionally running integration tests.
 open class IntegrationTestCase: XCTestCase {
-#if os(macOS)
+  #if os(macOS)
   override open class var defaultTestSuite: XCTestSuite {
     if ProcessEnv.block.keys.contains("SWIFT_DRIVER_ENABLE_INTEGRATION_TESTS") {
       return super.defaultTestSuite
     }
     return XCTestSuite(name: String(describing: type(of: self)))
   }
-#endif
+  #endif
 }

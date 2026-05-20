@@ -11,7 +11,8 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 //===----------------------------------------------------------------------===//
-import XCTest
+
+import Testing
 import TSCBasic
 import IncrementalTestFramework
 
@@ -19,8 +20,8 @@ import IncrementalTestFramework
 import SwiftOptions
 
 /// Try adding a more specific function in an extension in the same module
-class SpecificFuncAdditionInExtensionWithinModuleTest: XCTestCase {
-  func testSpecificFuncAdditionInExtensionWithinModule() throws {
+@Suite struct SpecificFuncAdditionInExtensionWithinModuleTest {
+  @Test func specificFuncAdditionInExtensionWithinModule() async throws {
 
     // MARK: - Define the module
     let main = Source(named: "main", containing: """
@@ -60,7 +61,7 @@ class SpecificFuncAdditionInExtensionWithinModuleTest: XCTestCase {
       Step(adding: "specificFuncInExtension", building: [mainModule], .expecting(whenAddOrRmSpecificFunc,          "specific")),
     ]
 
-    try IncrementalTest.perform(steps)
+    try await IncrementalTest.perform(steps)
   }
 }
 

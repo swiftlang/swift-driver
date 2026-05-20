@@ -11,12 +11,14 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 //===----------------------------------------------------------------------===//
+
+import Foundation
 import TSCBasic
 
 @_spi(Testing) import SwiftDriver
 import SwiftOptions
 import TestUtilities
-import XCTest
+import Testing
 
 /// Represents a module to be compiled.
 /// Thus, stores everything needed to invoke the compiler, and how to invoke the compiler.
@@ -67,12 +69,12 @@ public struct Module {
   ///   - addOns: The additional code to send to the compiler.
   ///   - in: The context
   /// - Returns: The `Source`s actually compiled.
-  func compile(addOns: [AddOn], in context: Context) throws -> [Source] {
+  func compile(addOns: [AddOn], in context: Context) async throws -> [Source] {
     if context.verbose {
       print("\n*** compiling \(name) ***")
     }
     try createFiles(adding: addOns, in: context)
-    let compiledBasenames = try invokeDriver(in: context)
+    let compiledBasenames = try await invokeDriver(in: context)
     return try sources(for: compiledBasenames)
   }
 }
@@ -132,7 +134,7 @@ extension Module {
 extension Module {
   /// Invoke the driver to perform the compilation.
   /// - Returns: the basenames of recompiled source files.
-  private func invokeDriver(in context: Context) throws -> [String] {
+  private func invokeDriver(in context: Context) async throws -> [String] {
     var collector = CompiledSourceCollector()
     let handlers = [
       {collector.handle(diagnostic: $0)},
@@ -141,9 +143,9 @@ extension Module {
     let diagnosticsEngine = DiagnosticsEngine(handlers: handlers)
 
     let args = try arguments(in: context)
-    var driver = try Driver(args: args, diagnosticsEngine: diagnosticsEngine)
-    let jobs = try driver.planBuild()
-    try driver.run(jobs: jobs)
+    var driver = try TestDriver(args: args, diagnosticsEngine: diagnosticsEngine)
+    let jobs = try await driver.planBuild()
+    try await driver.run(jobs: jobs)
 
     return collector.compiledBasenames
   }

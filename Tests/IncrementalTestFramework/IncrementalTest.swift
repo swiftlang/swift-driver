@@ -12,7 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import XCTest
+import Testing
 import TSCBasic
 
 @_spi(Testing) import SwiftDriver
@@ -32,35 +32,29 @@ public struct IncrementalTest {
   /// - Parameters:
   ///   - steps: The `Step` to run.
   ///   - verbose: Pass `true` to debug a test. Otherwise, omit.
-  ///   - file: Determines where any test failure messages will appear in Xcode
-  ///   - line: Ditto
+  ///   - sourceLocation: Determines where any test failure messages will appear
   public static func perform(
     _ steps: [Step],
     verbose: Bool = false,
-    file: StaticString = #file,
-    line: UInt = #line
-  ) throws {
-    try perform(steps: steps,
+    sourceLocation: SourceLocation = #_sourceLocation
+  ) async throws {
+    try await perform(steps: steps,
                 verbose: verbose,
-                file: file,
-                line: line)
+                sourceLocation: sourceLocation)
   }
   private static func perform(steps: [Step],
                               verbose: Bool,
-                              file: StaticString,
-                              line: UInt
-  ) throws {
-    try withTemporaryDirectory { rootDir in
-      try localFileSystem.changeCurrentWorkingDirectory(to: rootDir)
+                              sourceLocation: SourceLocation
+  ) async throws {
+    try await withTemporaryDirectory(removeTreeOnDeinit: true) { rootDir in
       for file in try localFileSystem.getDirectoryContents(rootDir) {
         try localFileSystem.removeFileTree(rootDir.appending(component: file))
       }
-      try Self(steps: steps,
+      try await Self(steps: steps,
                context: Context(rootDir: rootDir,
                                 verbose: verbose,
                                 stepIndex: 0,
-                                file: file,
-                                line: line))
+                                sourceLocation: sourceLocation))
         .performSteps()
     }
   }
@@ -69,12 +63,12 @@ public struct IncrementalTest {
     self.steps = steps
     self.context = context
   }
-  private func performSteps() throws {
+  private func performSteps() async throws {
     for (index, step) in steps.enumerated() {
       if context.verbose {
         print("\(index)", terminator: " ")
       }
-      try step.perform(stepIndex: index, in: context)
+      try await step.perform(stepIndex: index, in: context)
     }
     if context.verbose {
       print("")

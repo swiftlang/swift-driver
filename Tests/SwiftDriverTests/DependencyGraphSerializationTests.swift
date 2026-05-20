@@ -12,18 +12,18 @@
 //
 //===----------------------------------------------------------------------===//
 
-import XCTest
 @_spi(Testing) import SwiftDriver
 import TSCBasic
+import Testing
 
-class DependencyGraphSerializationTests: XCTestCase, ModuleDependencyGraphMocker {
+@Suite struct DependencyGraphSerializationTests: ModuleDependencyGraphMocker {
   static let maxIndex = 12
   static let mockGraphCreator = MockModuleDependencyGraphCreator(maxIndex: maxIndex)
 
   /// Unit test of the `ModuleDependencyGraph` serialization
   ///
   /// Ensure that a round-trip fails when the minor version number changes
-  func testSerializedVersionChangeDetection() throws {
+  @Test func serializedVersionChangeDetection() throws {
     let mockPath = VirtualPath.absolute(try AbsolutePath(validating: "/module-dependency-graph"))
     let fs = InMemoryFileSystem()
     let graph = Self.mockGraphCreator.mockUpAGraph()
@@ -35,24 +35,28 @@ class DependencyGraphSerializationTests: XCTestCase, ModuleDependencyGraphMocker
         to: mockPath,
         on: fs,
         buildRecord: graph.buildRecord,
-        mockSerializedGraphVersion: alteredVersion)
+        mockSerializedGraphVersion: alteredVersion
+      )
     }
 
     do {
       let outputFileMap = OutputFileMap.mock(maxIndex: Self.maxIndex)
-      let info = IncrementalCompilationState.IncrementalDependencyAndInputSetup.mock(outputFileMap: outputFileMap, fileSystem: fs)
+      let info = IncrementalCompilationState.IncrementalDependencyAndInputSetup.mock(
+        outputFileMap: outputFileMap,
+        fileSystem: fs
+      )
       try info.blockingConcurrentAccessOrMutation {
-        _ = try ModuleDependencyGraph.read(from: mockPath,
-                                           info: info)
-        XCTFail("Should have thrown an exception")
+        _ = try ModuleDependencyGraph.read(
+          from: mockPath,
+          info: info
+        )
+        Issue.record("Should have thrown an exception")
       }
-    }
-    catch let ModuleDependencyGraph.ReadError.mismatchedSerializedGraphVersion(expected, read) {
-      XCTAssertEqual(expected, currentVersion)
-      XCTAssertEqual(read, alteredVersion)
-    }
-    catch {
-      XCTFail("Threw an unexpected exception: \(error.localizedDescription)")
+    } catch let ModuleDependencyGraph.ReadError.mismatchedSerializedGraphVersion(expected, read) {
+      #expect(expected == currentVersion)
+      #expect(read == alteredVersion)
+    } catch {
+      Issue.record("Threw an unexpected exception: \(error.localizedDescription)")
     }
   }
 
@@ -63,13 +67,18 @@ class DependencyGraphSerializationTests: XCTestCase, ModuleDependencyGraphMocker
 
     try originalGraph.blockingConcurrentMutation {
       try originalGraph.write(
-        to: mockPath, on: fs,
-        buildRecord: originalGraph.buildRecord)
+        to: mockPath,
+        on: fs,
+        buildRecord: originalGraph.buildRecord
+      )
     }
 
-    let info = IncrementalCompilationState.IncrementalDependencyAndInputSetup.mock(outputFileMap: outputFileMap, fileSystem: fs)
+    let info = IncrementalCompilationState.IncrementalDependencyAndInputSetup.mock(
+      outputFileMap: outputFileMap,
+      fileSystem: fs
+    )
     let deserializedGraph = try info.blockingConcurrentAccessOrMutation {
-      try XCTUnwrap(ModuleDependencyGraph.read(from: mockPath, info: info))
+      try #require(try ModuleDependencyGraph.read(from: mockPath, info: info))
     }
 
     let descsToCompare = [originalGraph, deserializedGraph].map {
@@ -78,21 +87,26 @@ class DependencyGraphSerializationTests: XCTestCase, ModuleDependencyGraphMocker
       graph.nodeFinder.forEachNode {
         nodes.insert($0.description(in: graph))
       }
-      let uses: [String: Set<String>] = graph.nodeFinder.usesByDef.reduce(into: Dictionary()) { usesByDef, keyAndNodes in
+      let uses: [String: Set<String>] = graph.nodeFinder.usesByDef.reduce(into: Dictionary()) {
+        usesByDef,
+        keyAndNodes in
         usesByDef[keyAndNodes.0.description(in: graph)] =
-        keyAndNodes.1.reduce(into: Set()) { $0.insert($1.description(in: graph))}
+          keyAndNodes.1.reduce(into: Set()) { $0.insert($1.description(in: graph)) }
       }
       let feds: Set<String> = graph.fingerprintedExternalDependencies.reduce(into: Set()) {
         $0.insert($1.description(in: graph))
       }
       return (nodes, uses, feds)
     }
-    XCTAssertEqual(descsToCompare[0].nodes, descsToCompare[1].nodes, "Round trip node difference!")
-    XCTAssertEqual(descsToCompare[0].uses,  descsToCompare[1].uses, "Round trip def-uses difference!")
-    XCTAssertEqual(descsToCompare[0].feds,  descsToCompare[1].feds, "Round trip fingerprinted external dependency difference!")
+    #expect(descsToCompare[0].nodes == descsToCompare[1].nodes, "Round trip node difference!")
+    #expect(descsToCompare[0].uses == descsToCompare[1].uses, "Round trip def-uses difference!")
+    #expect(
+      descsToCompare[0].feds == descsToCompare[1].feds,
+      "Round trip fingerprinted external dependency difference!"
+    )
   }
 
-  func testRoundTripFixtures() throws {
+  @Test func roundTripFixtures() throws {
     struct GraphFixture {
       var commands: [LoadCommand]
 
@@ -114,10 +128,13 @@ class DependencyGraphSerializationTests: XCTestCase, ModuleDependencyGraphMocker
         .load(index: 6, nodes: [.member: ["m,mm", "n,nn"]]),
         .load(index: 7, nodes: [.member: ["o,oo->", "p,pp->"]]),
         .load(index: 8, nodes: [.externalDepend: ["/foo->", "/bar->"]]),
-        .load(index: 9, nodes: [
-          .nominal: ["a", "b", "c->", "d->"],
-          .topLevel: ["b", "c", "d->", "a->"]
-        ])
+        .load(
+          index: 9,
+          nodes: [
+            .nominal: ["a", "b", "c->", "d->"],
+            .topLevel: ["b", "c", "d->", "a->"],
+          ]
+        ),
       ]),
       GraphFixture(commands: [
         .load(index: 0, nodes: [.topLevel: ["a0", "a->"]]),
@@ -173,7 +190,7 @@ class DependencyGraphSerializationTests: XCTestCase, ModuleDependencyGraphMocker
       ]),
       GraphFixture(commands: [
         .load(index: 0, nodes: [.member: ["a,aa", "b,bb", "c,cc"]]),
-        .load(index: 1, nodes: [.member: ["x,xx->", "b,bb->", "z,zz->"]])
+        .load(index: 1, nodes: [.member: ["x,xx->", "b,bb->", "z,zz->"]]),
       ]),
       GraphFixture(commands: [
         .load(index: 0, nodes: [.nominal: ["a", "b", "c"]]),
@@ -217,7 +234,7 @@ class DependencyGraphSerializationTests: XCTestCase, ModuleDependencyGraphMocker
         .load(index: 0, nodes: [.nominal: ["a"]]),
         .load(index: 1, nodes: [.nominal: ["a->"]]),
         .load(index: 2, nodes: [.nominal: ["b->"]]),
-        .reload(index: 0, nodes: [.nominal: ["a", "b"]])
+        .reload(index: 0, nodes: [.nominal: ["a", "b"]]),
       ]),
       GraphFixture(commands: [
         .reload(index: 1, nodes: [.nominal: ["b", "a->"]])
@@ -227,7 +244,7 @@ class DependencyGraphSerializationTests: XCTestCase, ModuleDependencyGraphMocker
         .load(index: 1, nodes: [.nominal: ["B1", "A1->"]]),
         .load(index: 2, nodes: [.nominal: ["C1", "A2->"]]),
         .load(index: 3, nodes: [.nominal: ["D1"]]),
-        .reload(index: 0, nodes: [.nominal: ["A1", "A2"]], fingerprint: "changed")
+        .reload(index: 0, nodes: [.nominal: ["A1", "A2"]], fingerprint: "changed"),
       ]),
       GraphFixture(commands: [
         .load(index: 0, nodes: [.nominal: ["A"]]),
@@ -258,7 +275,7 @@ class DependencyGraphSerializationTests: XCTestCase, ModuleDependencyGraphMocker
         .load(index: 4, nodes: [.nominal: ["B2", "C2", "A2->B2"]]),
         .load(index: 5, nodes: [.nominal: ["B2->"]]),
         .load(index: 6, nodes: [.nominal: ["C2->"]]),
-        .reload(index: 0, nodes: [.nominal: ["A1@11", "A2@2"]])
+        .reload(index: 0, nodes: [.nominal: ["A1@11", "A2@2"]]),
       ]),
       GraphFixture(commands: [
         .load(index: 0, nodes: [.externalDepend: ["/foo->", "/bar->"]], fingerprint: "ABCDEFG"),
@@ -270,9 +287,9 @@ class DependencyGraphSerializationTests: XCTestCase, ModuleDependencyGraphMocker
       let graph = Self.mockGraphCreator.mockUpAGraph()
       for loadCommand in fixture.commands {
         switch loadCommand {
-        case .load(index: let index, nodes: let nodes, fingerprint: let fingerprint):
+        case .load(let index, let nodes, let fingerprint):
           graph.simulateLoad(index, nodes, fingerprint)
-        case .reload(index: let index, nodes: let nodes, fingerprint: let fingerprint):
+        case .reload(let index, let nodes, let fingerprint):
           _ = graph.simulateReload(index, nodes, fingerprint)
         }
       }
