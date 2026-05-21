@@ -72,14 +72,13 @@ extension WebAssemblyToolchainProtocol {
     parsedOptions: inout ParsedOptions,
     sanitizers: Set<Sanitizer>,
     lto: LTOKind?,
-    targetInfo: FrontendTargetInfo,
-    linkerOutputType: LinkOutputType
+    targetInfo: FrontendTargetInfo
   ) throws {
     let targetTriple = targetInfo.target.triple
 
     // Delegate to Clang for sanitizers. It will figure out the correct linker
     // options.
-    if linkerOutputType == .executable && !sanitizers.isEmpty {
+    if !sanitizers.isEmpty {
       let sanitizerNames = sanitizers
         .map { $0.rawValue }
         .sorted() // Sort so we get a stable, testable order

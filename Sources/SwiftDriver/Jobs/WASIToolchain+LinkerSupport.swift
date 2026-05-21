@@ -164,8 +164,7 @@ extension WASIToolchain {
         parsedOptions: &parsedOptions,
         sanitizers: sanitizers,
         lto: lto,
-        targetInfo: targetInfo,
-        linkerOutputType: linkerOutputType
+        targetInfo: targetInfo
       )
 
       try addExtraClangLinkerArgs(to: &commandLine, parsedOptions: &parsedOptions)
