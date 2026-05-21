@@ -156,7 +156,6 @@ extension WindowsToolchain.ToolchainValidationError {
                            targetTriple: Triple, targetVariantTriple: Triple?,
                            compilerOutputType: FileType?,
                            diagnosticsEngine: DiagnosticsEngine) throws {
-    warnIfEmccLinkerArgs(&parsedOptions, diagnosticsEngine: diagnosticsEngine)
     // TODO(compnerd) validate any options we can
   }
 }

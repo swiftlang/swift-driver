@@ -150,18 +150,6 @@ public final class GenericUnixToolchain: Toolchain {
     return "libclang_rt.\(runtimeLibraryName)-\(targetTriple.archName)\(environment).a"
   }
 
-  // MARK: - Validation
-
-  public func validateArgs(
-    _ parsedOptions: inout ParsedOptions,
-    targetTriple: Triple,
-    targetVariantTriple: Triple?,
-    compilerOutputType: FileType?,
-    diagnosticsEngine: DiagnosticsEngine
-  ) throws {
-    warnIfEmccLinkerArgs(&parsedOptions, diagnosticsEngine: diagnosticsEngine)
-  }
-
   public func addPlatformSpecificCommonFrontendOptions(
     commandLine: inout [Job.ArgTemplate],
     inputs: inout [TypedVirtualPath],

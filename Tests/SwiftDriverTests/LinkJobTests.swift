@@ -763,26 +763,6 @@ import Testing
     }
 
     do {
-      // -Xemcc-linker should warn for non-Emscripten (WASI) targets
-      try await withTemporaryDirectory { resourceDir in
-        try localFileSystem.writeFileContents(
-          resourceDir.appending(components: "wasi", "static-executable-args.lnk")
-        ) { $0.send("garbage") }
-
-        try await assertDriverDiagnostics(
-          args: ["swiftc", "-no-color-diagnostics",
-                 "-target", "wasm32-unknown-wasi",
-                 "-resource-dir", resourceDir.pathString,
-                 "-Xemcc-linker", "-sENVIRONMENT=shell",
-                 "foo.swift"],
-          env: env
-        ) { driver, verifier in
-          verifier.expect(.warning("'-Xemcc-linker -sENVIRONMENT=shell' is only supported for Emscripten targets; use '-Xlinker-driver' to pass flags to the linker driver regardless of target"))
-        }
-      }
-    }
-
-    do {
       // -sysroot is preferred over -sdk as the sysroot passed to the clang linker
       try await withTemporaryDirectory { path in
         try localFileSystem.writeFileContents(path.appending(components: "wasi", "static-executable-args.lnk")) {
@@ -918,6 +898,8 @@ import Testing
       let cmd = plannedJobs.last!.commandLine
       #expect(cmd.contains(.flag("-sALLOW_MEMORY_GROWTH")))
       #expect(cmd.filter { $0 == .flag("-sALLOW_MEMORY_GROWTH") }.count == 1)
+      // Must not be wrapped in -Xlinker; that would forward to wasm-ld instead of emcc.
+      #expect(!cmd.contains(subsequence: [.flag("-Xlinker"), .flag("-sALLOW_MEMORY_GROWTH")]))
     }
 
     // Mixed-options ordering: `-Xclang-linker` args precede `-Xlinker-driver`
@@ -1018,8 +1000,8 @@ import Testing
           "-Xlinker", "--export=myFunc",
           "-Xclang-linker", "-resource-dir",
           "-Xclang-linker", "/fake/clang/dir",
-          "-Xemcc-linker", "-sENVIRONMENT=shell",
-          "-Xemcc-linker", "-sALLOW_MEMORY_GROWTH",
+          "-Xlinker-driver", "-sENVIRONMENT=shell",
+          "-Xlinker-driver", "-sALLOW_MEMORY_GROWTH",
           "-resource-dir", path.pathString,
         ],
         env: env
@@ -1034,7 +1016,7 @@ import Testing
       #expect(!cmd.contains(.flag("-resource-dir")))
       #expect(!cmd.contains(.flag("/fake/clang/dir")))
 
-      // -Xemcc-linker flags appear directly in emcc command (not wrapped in -Xlinker)
+      // -Xlinker-driver flags appear directly in emcc command (not wrapped in -Xlinker)
       #expect(cmd.contains(.flag("-sENVIRONMENT=shell")))
       #expect(cmd.contains(.flag("-sALLOW_MEMORY_GROWTH")))
       // They must NOT be preceded by -Xlinker (that would forward them to wasm-ld)
@@ -1074,48 +1056,9 @@ import Testing
                "foo.swift"],
         env: env
       ) { driver, verifier in
-        verifier.expect(.warning("'-Xclang-linker -resource-dir' is not supported for Emscripten targets; use '-Xemcc-linker' to pass flags directly to emcc, or '-Xlinker-driver' for portable forwarding"))
-        verifier.expect(.warning("'-Xclang-linker /fake/path' is not supported for Emscripten targets; use '-Xemcc-linker' to pass flags directly to emcc, or '-Xlinker-driver' for portable forwarding"))
+        verifier.expect(.warning("'-Xclang-linker -resource-dir' is not supported for Emscripten targets; use '-Xlinker-driver' to pass flags to emcc"))
+        verifier.expect(.warning("'-Xclang-linker /fake/path' is not supported for Emscripten targets; use '-Xlinker-driver' to pass flags to emcc"))
       }
-    }
-  }
-
-  @Test
-  func darwinXemccLinkerWarning() async throws {
-    try await assertDriverDiagnostics(
-      args: ["swiftc", "-no-color-diagnostics",
-             "-target", "x86_64-apple-macos12.0",
-             "-Xemcc-linker", "-sENVIRONMENT=shell",
-             "foo.swift"],
-      env: defaultEnv
-    ) { driver, verifier in
-      verifier.expect(.warning("'-Xemcc-linker -sENVIRONMENT=shell' is only supported for Emscripten targets; use '-Xlinker-driver' to pass flags to the linker driver regardless of target"))
-    }
-  }
-
-  @Test
-  func linuxXemccLinkerWarning() async throws {
-    try await assertDriverDiagnostics(
-      args: ["swiftc", "-no-color-diagnostics",
-             "-target", "x86_64-unknown-linux-gnu",
-             "-Xemcc-linker", "-sENVIRONMENT=shell",
-             "foo.swift"],
-      env: defaultEnv
-    ) { driver, verifier in
-      verifier.expect(.warning("'-Xemcc-linker -sENVIRONMENT=shell' is only supported for Emscripten targets; use '-Xlinker-driver' to pass flags to the linker driver regardless of target"))
-    }
-  }
-
-  @Test
-  func windowsXemccLinkerWarning() async throws {
-    try await assertDriverDiagnostics(
-      args: ["swiftc", "-no-color-diagnostics",
-             "-target", "x86_64-unknown-windows-msvc",
-             "-Xemcc-linker", "-sENVIRONMENT=shell",
-             "foo.swift"],
-      env: defaultEnv
-    ) { driver, verifier in
-      verifier.expect(.warning("'-Xemcc-linker -sENVIRONMENT=shell' is only supported for Emscripten targets; use '-Xlinker-driver' to pass flags to the linker driver regardless of target"))
     }
   }
 

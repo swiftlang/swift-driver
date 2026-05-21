@@ -68,14 +68,4 @@ public final class WASIToolchain: WebAssemblyToolchainProtocol {
       return "lib\(moduleName).a"
     }
   }
-
-  public func validateArgs(
-    _ parsedOptions: inout ParsedOptions,
-    targetTriple: Triple,
-    targetVariantTriple: Triple?,
-    compilerOutputType: FileType?,
-    diagnosticsEngine: DiagnosticsEngine
-  ) throws {
-    warnIfEmccLinkerArgs(&parsedOptions, diagnosticsEngine: diagnosticsEngine)
-  }
 }

@@ -194,10 +194,6 @@ extension Diagnostic.Message {
   }
 
   static func warning_xclang_linker_unsupported_for_emscripten(_ value: String) -> Diagnostic.Message {
-    .warning("'-Xclang-linker \(value)' is not supported for Emscripten targets; use '-Xemcc-linker' to pass flags directly to emcc, or '-Xlinker-driver' for portable forwarding")
-  }
-
-  static func warning_xemcc_linker_unsupported_for_non_emscripten(_ value: String) -> Diagnostic.Message {
-    .warning("'-Xemcc-linker \(value)' is only supported for Emscripten targets; use '-Xlinker-driver' to pass flags to the linker driver regardless of target")
+    .warning("'-Xclang-linker \(value)' is not supported for Emscripten targets; use '-Xlinker-driver' to pass flags to emcc")
   }
 }
