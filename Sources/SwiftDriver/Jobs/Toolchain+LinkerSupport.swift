@@ -110,6 +110,7 @@ extension Toolchain {
       commandLine.appendFlag(linkerOpt.argument.asSingle)
     }
     try commandLine.appendAllArguments(.XclangLinker, from: &parsedOptions)
+    try commandLine.appendAllArguments(.XlinkerDriver, from: &parsedOptions)
   }
 }
 

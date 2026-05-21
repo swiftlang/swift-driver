@@ -12,8 +12,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-import protocol TSCBasic.FileSystem
+import SwiftOptions
+
 import struct TSCBasic.AbsolutePath
+import class TSCBasic.DiagnosticsEngine
+import protocol TSCBasic.FileSystem
 import var TSCBasic.localFileSystem
 import typealias TSCBasic.ProcessEnvironmentBlock
 
@@ -145,6 +148,18 @@ public final class GenericUnixToolchain: Toolchain {
     }
     let environment = (targetTriple.environment == .android) ? "-android" : ""
     return "libclang_rt.\(runtimeLibraryName)-\(targetTriple.archName)\(environment).a"
+  }
+
+  // MARK: - Validation
+
+  public func validateArgs(
+    _ parsedOptions: inout ParsedOptions,
+    targetTriple: Triple,
+    targetVariantTriple: Triple?,
+    compilerOutputType: FileType?,
+    diagnosticsEngine: DiagnosticsEngine
+  ) throws {
+    warnIfEmccLinkerArgs(&parsedOptions, diagnosticsEngine: diagnosticsEngine)
   }
 
   public func addPlatformSpecificCommonFrontendOptions(

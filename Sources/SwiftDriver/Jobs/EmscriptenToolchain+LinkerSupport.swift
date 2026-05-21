@@ -131,6 +131,9 @@ extension EmscriptenToolchain {
       }
       // `-Xemcc-linker` passes arguments directly to `emcc`.
       try commandLine.appendAllArguments(.XemccLinker, from: &parsedOptions)
+      // `-Xlinker-driver` is the portable form; it appends args to whichever
+      // linker driver `swift-driver` is invoking (`emcc` in this case).
+      try commandLine.appendAllArguments(.XlinkerDriver, from: &parsedOptions)
 
       // This should be the last option, for convenience in checking output.
       commandLine.appendFlag(.o)

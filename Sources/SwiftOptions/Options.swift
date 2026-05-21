@@ -1038,6 +1038,7 @@ extension Option {
   public static let XclangLinker: Option = Option("-Xclang-linker", .separate, attributes: [.helpHidden], metaVar: "<arg>", helpText: "Pass <arg> to Clang when it is used for linking.")
   public static let XemccLinker: Option = Option("-Xemcc-linker", .separate, attributes: [.helpHidden], metaVar: "<arg>", helpText: "Pass <arg> to emcc when it is used for linking.")
   public static let Xfrontend: Option = Option("-Xfrontend", .separate, attributes: [.helpHidden], metaVar: "<arg>", helpText: "Pass <arg> to the Swift frontend")
+  public static let XlinkerDriver: Option = Option("-Xlinker-driver", .separate, attributes: [.helpHidden], metaVar: "<arg>", helpText: "Pass <arg> to the linker driver (clang, emcc, etc.) regardless of which one is in use.")
   public static let Xlinker: Option = Option("-Xlinker", .separate, attributes: [.doesNotAffectIncrementalBuild], helpText: "Specifies an option which should be passed to the linker")
   public static let Xllvm: Option = Option("-Xllvm", .separate, attributes: [.helpHidden, .frontend], metaVar: "<arg>", helpText: "Pass <arg> to LLVM.")
   public static let DASHDASH: Option = Option("--", .remaining, attributes: [.frontend, .doesNotAffectIncrementalBuild])
@@ -2064,6 +2065,7 @@ extension Option {
       Option.XclangLinker,
       Option.XemccLinker,
       Option.Xfrontend,
+      Option.XlinkerDriver,
       Option.Xlinker,
       Option.Xllvm,
       Option.DASHDASH,

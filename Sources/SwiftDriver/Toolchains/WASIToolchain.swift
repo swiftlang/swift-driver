@@ -76,9 +76,6 @@ public final class WASIToolchain: WebAssemblyToolchainProtocol {
     compilerOutputType: FileType?,
     diagnosticsEngine: DiagnosticsEngine
   ) throws {
-    for arg in parsedOptions.arguments(for: .XemccLinker) {
-      diagnosticsEngine.emit(
-        .warning_xemcc_linker_unsupported_for_non_emscripten(arg.argument.asSingle))
-    }
+    warnIfEmccLinkerArgs(&parsedOptions, diagnosticsEngine: diagnosticsEngine)
   }
 }

@@ -208,6 +208,7 @@ public final class DarwinToolchain: Toolchain {
                            targetVariantTriple: Triple?,
                            compilerOutputType: FileType?,
                            diagnosticsEngine: DiagnosticsEngine) throws {
+    warnIfEmccLinkerArgs(&parsedOptions, diagnosticsEngine: diagnosticsEngine)
     // On non-darwin hosts, libArcLite won't be found and a warning will be emitted
     // Guard for the sake of tests running on all platforms
     #if canImport(Darwin)
