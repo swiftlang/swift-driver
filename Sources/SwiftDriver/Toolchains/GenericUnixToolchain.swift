@@ -12,11 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-import SwiftOptions
-
-import struct TSCBasic.AbsolutePath
-import class TSCBasic.DiagnosticsEngine
 import protocol TSCBasic.FileSystem
+import struct TSCBasic.AbsolutePath
 import var TSCBasic.localFileSystem
 import typealias TSCBasic.ProcessEnvironmentBlock
 
