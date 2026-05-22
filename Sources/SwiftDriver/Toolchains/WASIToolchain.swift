@@ -68,17 +68,4 @@ public final class WASIToolchain: WebAssemblyToolchainProtocol {
       return "lib\(moduleName).a"
     }
   }
-
-  public func validateArgs(
-    _ parsedOptions: inout ParsedOptions,
-    targetTriple: Triple,
-    targetVariantTriple: Triple?,
-    compilerOutputType: FileType?,
-    diagnosticsEngine: DiagnosticsEngine
-  ) throws {
-    for arg in parsedOptions.arguments(for: .XemccLinker) {
-      diagnosticsEngine.emit(
-        .warning_xemcc_linker_unsupported_for_non_emscripten(arg.argument.asSingle))
-    }
-  }
 }

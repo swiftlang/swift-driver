@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014 - 2019 Apple Inc. and the Swift project authors
+// Copyright (c) 2014 - 2026 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -28,6 +28,7 @@ extension Option {
   public static let abortOnModuleFail_: Option = Option("--abort-on-module-fail", .flag, alias: Option.abortOnModuleFail, attributes: [.noDriver], helpText: "Abort if a module failed to load")
   public static let accessNotesPathEQ: Option = Option("-access-notes-path=", .joined, alias: Option.accessNotesPath, attributes: [.frontend, .argumentIsPath])
   public static let accessNotesPath: Option = Option("-access-notes-path", .separate, attributes: [.frontend, .argumentIsPath], helpText: "Specify YAML file to override attributes on Swift declarations in this module")
+  public static let activePlatformAvailabilityOnly: Option = Option("-active-platform-availability-only", .flag, attributes: [], helpText: "Only emit availability metadata for platforms that are active according to the target")
   public static let aliasModuleNamesInModuleInterface: Option = Option("-alias-module-names-in-module-interface", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "When emitting a module interface, disambiguate modules using distinct alias names")
   public static let allowAvailabilityPlatforms: Option = Option("-allow-availability-platforms", .separate, attributes: [], metaVar: "<platforms>", helpText: "Restrict availability metadata to the given platforms, e.g. 'macOS,Swift'")
   public static let allowNonResilientAccess: Option = Option("-allow-non-resilient-access", .flag, attributes: [.frontend], helpText: "Ensures all contents are generated besides exportable decls in the binary module, so non-resilient access can be allowed")
@@ -103,7 +104,7 @@ extension Option {
   public static let concurrencyModel: Option = Option("-concurrency-model", .separate, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "standard|task-to-thread", helpText: "Which concurrency model is used.  Defaults to standard.")
   public static let conditionalRuntimeRecords: Option = Option("-conditional-runtime-records", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Allow removal of runtime metadata records (public types, protocol conformances) based on whether they're used or unused")
   public static let constGatherProtocolsFile: Option = Option("-const-gather-protocols-file", .separate, attributes: [.frontend, .noDriver, .argumentIsPath], metaVar: "<path>", helpText: "Specify a list of protocols for extraction of conformances 'const values'")
-  public static let constGatherProtocolsList: Option = Option("-const-gather-protocols-list", .separate, attributes: [.argumentIsPath], metaVar: "<path>", helpText: "Specify a list of protocols for extraction of conformances 'const values'")
+  public static let constGatherProtocolsList: Option = Option("-const-gather-protocols-list", .separate, attributes: [.frontend, .argumentIsPath], metaVar: "<path>", helpText: "Specify a list of protocols for extraction of conformances 'const values'")
   public static let continueBuildingAfterErrors: Option = Option("-continue-building-after-errors", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Continue building, even after errors are encountered")
   public static let coveragePrefixMap: Option = Option("-coverage-prefix-map", .separate, attributes: [.frontend], metaVar: "<prefix=replacement>", helpText: "Remap source paths in coverage info")
   public static let CrossModuleOptimization: Option = Option("-cross-module-optimization", .flag, attributes: [.helpHidden, .frontend], helpText: "Perform cross-module optimization")
@@ -163,6 +164,9 @@ extension Option {
   public static let diagnosticDocumentationPath: Option = Option("-diagnostic-documentation-path", .separate, attributes: [.frontend, .noDriver, .cacheInvariant], metaVar: "<path>", helpText: "Path to diagnostic documentation resources")
   public static let diagnosticStyleEQ: Option = Option("-diagnostic-style=", .joined, alias: Option.diagnosticStyle, attributes: [.frontend, .doesNotAffectIncrementalBuild], metaVar: "<style>")
   public static let diagnosticStyle: Option = Option("-diagnostic-style", .separate, attributes: [.frontend, .doesNotAffectIncrementalBuild], metaVar: "<style>", helpText: "The formatting style used when printing diagnostics ('swift' or 'llvm')")
+  public static let swiftDiagnosticsAssertOnError: Option = Option("-diagnostics-assert-on-error", .flag, attributes: [.frontend, .noDriver], helpText: "Trap when an error diagnostic is emitted. For compiler developers only.")
+  public static let swiftDiagnosticsAssertOnGroup: Option = Option("-diagnostics-assert-on-group", .separate, attributes: [.frontend, .noDriver], metaVar: "<diagnostic_group>", helpText: "Trap when any diagnostic in the given group is emitted. For compiler developers only.")
+  public static let swiftDiagnosticsAssertOnWarning: Option = Option("-diagnostics-assert-on-warning", .flag, attributes: [.frontend, .noDriver], helpText: "Trap when a warning diagnostic is emitted. For compiler developers only.")
   public static let diagnosticsEditorMode: Option = Option("-diagnostics-editor-mode", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Diagnostics will be used in editor")
   public static let digesterBreakageAllowlistPath: Option = Option("-digester-breakage-allowlist-path", .separate, attributes: [.noInteractive, .argumentIsPath], metaVar: "<path>", helpText: "The path to a list of permitted breaking changes the API digester should ignore")
   public static let digesterMode: Option = Option("-digester-mode", .separate, attributes: [.noInteractive], metaVar: "<api|abi>", helpText: "Whether the API digester should run in API or ABI mode (defaults to API checking)")
@@ -322,12 +326,14 @@ extension Option {
   public static let driverUseFrontendPath: Option = Option("-driver-use-frontend-path", .separate, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Use the given executable to perform compilations. Arguments can be passed as a ';' separated list", group: .internalDebug)
   public static let driverVerifyFineGrainedDependencyGraphAfterEveryImport: Option = Option("-driver-verify-fine-grained-dependency-graph-after-every-import", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Debug DriverGraph by verifying it after every import", group: .internalDebug)
   public static let driverWarnUnusedOptions: Option = Option("-driver-warn-unused-options", .flag, attributes: [.helpHidden], helpText: "Emit warnings for any provided options which are unused by the driver")
+  public static let dumpAbstractLayout: Option = Option("-dump-abstract-layout", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Dump abstract layout information for Clang-backed types")
   public static let dumpApiPath: Option = Option("-dump-api-path", .separate, attributes: [.frontend, .noDriver, .cacheInvariant], helpText: "The path to output swift interface files for the compiled source files")
   public static let dumpAstFormat: Option = Option("-dump-ast-format", .separate, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], metaVar: "<format>", helpText: "Desired format for -dump-ast output ('default', 'json', or 'json-zlib'); no format is guaranteed stable across different compiler versions")
   public static let dumpAst: Option = Option("-dump-ast", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Parse and type-check input file(s) and dump AST(s)", group: .modes)
   public static let dumpAvailabilityScopes: Option = Option("-dump-availability-scopes", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Dump availability scopes to stderr")
   public static let dumpClangDiagnostics: Option = Option("-dump-clang-diagnostics", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Dump Clang diagnostics to stderr")
   public static let dumpClangLookupTables: Option = Option("-dump-clang-lookup-tables", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Dump the importer's Swift-name-to-Clang-name lookup tables to stderr")
+  public static let dumpHiddenTypeLayouts: Option = Option("-dump-hidden-type-layouts", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Dump every hidden-type layout known to this compilation, including those deserialized from imported swiftmodules")
   public static let dumpInterfaceHash: Option = Option("-dump-interface-hash", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Parse input file(s) and dump interface token hash(es)", group: .modes)
   public static let dumpJit: Option = Option("-dump-jit", .joinedOrSeparate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Dump JIT contents")
   public static let dumpMacroExpansions: Option = Option("-dump-macro-expansions", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Dumps the results of each macro expansion")
@@ -345,6 +351,7 @@ extension Option {
   public static let dwarfVersion: Option = Option("-dwarf-version=", .joined, attributes: [.frontend], metaVar: "<version>", helpText: "DWARF debug info version to produce if requested")
   public static let dynamicMemberLookupDepthLimitEQ: Option = Option("-dynamic-member-lookup-depth-limit=", .joined, attributes: [.helpHidden, .frontend, .noDriver], helpText: "The maximum number of dynamic member lookups that can be chained to resolve a member reference")
   public static let D: Option = Option("-D", .joinedOrSeparate, attributes: [.frontend], helpText: "Marks a conditional compilation flag as true")
+  public static let eagerMacroChecking: Option = Option("-eager-macro-checking", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable eager type-checking of declarations in macro expansions")
   public static let embedBitcodeMarker: Option = Option("-embed-bitcode-marker", .flag, attributes: [.frontend, .noInteractive], helpText: "Embed placeholder LLVM IR data as a marker")
   public static let embedBitcode: Option = Option("-embed-bitcode", .flag, attributes: [.frontend, .noInteractive], helpText: "Embed LLVM IR bitcode as data")
   public static let embedTbdForModule: Option = Option("-embed-tbd-for-module", .separate, attributes: [.frontend], helpText: "Embed symbols from the module in the emitted tbd file")
@@ -402,6 +409,7 @@ extension Option {
   public static let emitParse: Option = Option("-emit-parse", .flag, alias: Option.dumpParse, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild])
   public static let emitPch: Option = Option("-emit-pch", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Emit PCH for imported Objective-C header file", group: .modes)
   public static let emitPcm: Option = Option("-emit-pcm", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Emit a precompiled Clang module from a module map", group: .modes)
+  public static let emitPolyglotAst: Option = Option("-emit-polyglot-ast", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Parse the Objective-C input file and emit polyglot AST as JSON", group: .modes)
   public static let emitPrivateModuleInterfacePath: Option = Option("-emit-private-module-interface-path", .separate, attributes: [.helpHidden, .frontend, .noInteractive, .argumentIsPath, .supplementaryOutput, .cacheInvariant], metaVar: "<path>", helpText: "Output private module interface file to <path>")
   public static let emitReferenceDependenciesPath: Option = Option("-emit-reference-dependencies-path", .separate, attributes: [.frontend, .noDriver, .cacheInvariant], metaVar: "<path>", helpText: "Output Swift-style dependencies file to <path>")
   public static let emitReferenceDependencies: Option = Option("-emit-reference-dependencies", .flag, attributes: [.frontend, .noDriver], helpText: "Emit a Swift-style dependencies file")
@@ -575,7 +583,7 @@ extension Option {
   public static let explicitAutoLinking: Option = Option("-explicit-auto-linking", .flag, attributes: [], helpText: "Instead of linker-load directives, have the driver specify all link dependencies on the linker invocation. Requires '-explicit-module-build'.")
   public static let explicitDependencyGraphFormat: Option = Option("-explicit-dependency-graph-format=", .joined, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Specify the explicit dependency graph output format to either 'json' or 'dot'")
   public static let explicitInterfaceModuleBuild: Option = Option("-explicit-interface-module-build", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Use the specified command-line to build the module from interface, instead of flags specified in the interface")
-  public static let driverExplicitModuleBuild: Option = Option("-explicit-module-build", .flag, attributes: [.helpHidden], helpText: "Prebuild module dependencies to make them explicit")
+  public static let driverExplicitModuleBuild: Option = Option("-explicit-module-build", .flag, attributes: [], helpText: "Prebuild module dependencies to make them explicit")
   public static let explicitSwiftModuleMap: Option = Option("-explicit-swift-module-map-file", .separate, attributes: [.frontend, .noDriver], metaVar: "<path>", helpText: "Specify a JSON file containing information of explicit Swift modules")
   public static let exportAs: Option = Option("-export-as", .separate, attributes: [.frontend, .moduleInterface], helpText: "Module name to use when referenced in clients module interfaces")
   public static let externalPassPipelineFilename: Option = Option("-external-pass-pipeline-filename", .separate, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<pass_pipeline_file>", helpText: "Use the pass pipeline defined by <pass_pipeline_file>")
@@ -732,6 +740,7 @@ extension Option {
   public static let noColorDiagnostics: Option = Option("-no-color-diagnostics", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Do not print diagnostics in color")
   public static let noEmitModuleSeparatelyWMO: Option = Option("-no-emit-module-separately-wmo", .flag, attributes: [.helpHidden], helpText: "Force emitting the swiftmodule in the same job in wmo builds")
   public static let noEmitModuleSeparately: Option = Option("-no-emit-module-separately", .flag, attributes: [.helpHidden], helpText: "Force using merge-module as the incremental build mode")
+  public static let driverNoExplicitModuleBuild: Option = Option("-no-explicit-module-build", .flag, attributes: [], helpText: "Opt out of the default explicit-module-build behavior for swiftc")
   public static let noLinkObjcRuntime: Option = Option("-no-link-objc-runtime", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Deprecated")
   public static let noParallelScan: Option = Option("-no-parallel-scan", .flag, attributes: [.frontend, .noDriver], helpText: "Perform dependency scanning in a single-threaded fashion.")
   public static let noScannerModuleValidation: Option = Option("-no-scanner-module-validation", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Do not validate binary modules in scanner and delegate the validation to swift-frontend")
@@ -887,6 +896,7 @@ extension Option {
   public static let silOutputDir: Option = Option("-sil-output-dir", .separate, attributes: [.argumentIsPath, .supplementaryOutput], metaVar: "<dir>", helpText: "Output SIL files to directory <dir> as additional output during compilation")
   public static let silOutputPath: Option = Option("-sil-output-path", .separate, attributes: [.frontend, .noDriver, .cacheInvariant], metaVar: "<path>", helpText: "Output SIL to <path> as additional output during compilation")
   public static let silOwnershipVerifyAll: Option = Option("-sil-ownership-verify-all", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Verify ownership after each transform")
+  public static let silRegionIsolationAssertOnUnknownPattern: Option = Option("-sil-region-isolation-assert-on-unknown-pattern", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Abort if SIL region isolation detects an unknown pattern. For compiler developers only.")
   public static let silStopOptznsBeforeLoweringOwnership: Option = Option("-sil-stop-optzns-before-lowering-ownership", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Stop optimizing at SIL time before we lower ownership from SIL. Intended only for SIL ossa tests")
   public static let silUnrollThreshold: Option = Option("-sil-unroll-threshold", .separate, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<250>", helpText: "Controls the aggressiveness of loop unrolling")
   public static let silVerifyAll: Option = Option("-sil-verify-all", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Verify SIL after each transform")
@@ -894,6 +904,7 @@ extension Option {
   public static let skipInheritedDocs: Option = Option("-skip-inherited-docs", .flag, attributes: [.helpHidden, .frontend, .noInteractive, .supplementaryOutput], helpText: "Skip emitting doc comments for members inherited through classes or default implementations")
   public static let skipProtocolImplementations: Option = Option("-skip-protocol-implementations", .flag, attributes: [.helpHidden, .frontend, .noInteractive, .supplementaryOutput], helpText: "Skip emitting symbols that are implementations of protocol requirements or inherited from protocol extensions")
   public static let skipSynthesizedMembers: Option = Option("-skip-synthesized-members", .flag, attributes: [.noDriver], helpText: "Skip members inherited through classes or default implementations")
+  public static let solverDisableBindingOptimizations: Option = Option("-solver-disable-binding-optimizations", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable experimental optimizations to speed up type variable binding")
   public static let solverDisableCrashOnValidSalvage: Option = Option("-solver-disable-crash-on-valid-salvage", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Accept valid solutions in diagnostic mode")
   public static let solverDisableOptimizeOperatorDefaults: Option = Option("-solver-disable-optimize-operator-defaults", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable experimental optimization to sometimes skip operators in protocol extensions")
   public static let solverDisablePerformanceHacks: Option = Option("-solver-disable-performance-hacks", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable various constraint solver performance optimizations that have been subsumed by subsequent improvements")
@@ -901,6 +912,7 @@ extension Option {
   public static let solverDisablePruneDisjunctions: Option = Option("-solver-disable-prune-disjunctions", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable experimental disjunction pruning algorithm for lookahead in the solver")
   public static let solverDisableSplitter: Option = Option("-solver-disable-splitter", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable the component splitter phase of expression type checking")
   public static let solverDisableTransitiveConformance: Option = Option("-solver-disable-transitive-conformance", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable transitive conformance constraint optimization")
+  public static let solverEnableBindingOptimizations: Option = Option("-solver-enable-binding-optimizations", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental optimizations to speed up type variable binding")
   public static let solverEnableCrashOnValidSalvage: Option = Option("-solver-enable-crash-on-valid-salvage", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Reject valid solutions in diagnostic mode")
   public static let solverEnableOptimizeOperatorDefaults: Option = Option("-solver-enable-optimize-operator-defaults", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental optimization to sometimes skip operators in protocol extensions")
   public static let solverEnablePerformanceHacks: Option = Option("-solver-enable-performance-hacks", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enble various constraint solver performance optimizations that have been subsumed by subsequent improvements")
@@ -1014,6 +1026,10 @@ extension Option {
   public static let v: Option = Option("-v", .flag, attributes: [.doesNotAffectIncrementalBuild, .synthesizeInterface], helpText: "Show commands to run and use verbose output")
   public static let warnConcurrency: Option = Option("-warn-concurrency", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Warn about code that is unsafe according to the Swift Concurrency model and will become ill-formed in a future language version")
   public static let warnImplicitOverrides: Option = Option("-warn-implicit-overrides", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Warn about implicit overrides of protocol members")
+  public static let warnLongExpressionTypeCheckingScopesEQ: Option = Option("-warn-long-expression-type-checking-scopes=", .joined, alias: Option.warnLongExpressionTypeCheckingScopes, attributes: [.helpHidden, .frontend, .noDriver])
+  public static let warnLongExpressionTypeCheckingScopes: Option = Option("-warn-long-expression-type-checking-scopes", .separate, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<n>", helpText: "Warns when type-checking an expression uses more than <n> solver scopes")
+  public static let warnLongExpressionTypeCheckingTrailEQ: Option = Option("-warn-long-expression-type-checking-trail=", .joined, alias: Option.warnLongExpressionTypeCheckingTrail, attributes: [.helpHidden, .frontend, .noDriver])
+  public static let warnLongExpressionTypeCheckingTrail: Option = Option("-warn-long-expression-type-checking-trail", .separate, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<n>", helpText: "Warns when type-checking an expression uses more than <n> solver trail steps")
   public static let warnLongExpressionTypeCheckingEQ: Option = Option("-warn-long-expression-type-checking=", .joined, alias: Option.warnLongExpressionTypeChecking, attributes: [.helpHidden, .frontend, .noDriver])
   public static let warnLongExpressionTypeChecking: Option = Option("-warn-long-expression-type-checking", .separate, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<n>", helpText: "Warns when type-checking an expression takes longer than <n> ms")
   public static let warnLongFunctionBodiesEQ: Option = Option("-warn-long-function-bodies=", .joined, alias: Option.warnLongFunctionBodies, attributes: [.helpHidden, .frontend, .noDriver])
@@ -1033,11 +1049,12 @@ extension Option {
   public static let wmo: Option = Option("-wmo", .flag, alias: Option.wholeModuleOptimization, attributes: [.helpHidden, .frontend, .noInteractive])
   public static let workingDirectoryEQ: Option = Option("-working-directory=", .joined, alias: Option.workingDirectory)
   public static let workingDirectory: Option = Option("-working-directory", .separate, metaVar: "<path>", helpText: "Resolve file paths relative to the specified directory")
+  public static let writeOutputHashXattr: Option = Option("-write-output-hash-xattr", .flag, attributes: [.frontend, .cacheInvariant], helpText: "When caching, write the output file's hash (as determined by the CAS hashing schema) as a file extended attribute.")
   public static let Wwarning: Option = Option("-Wwarning", .separate, attributes: [.helpHidden, .frontend], metaVar: "<diagnostic_group>", helpText: "Treat this warning group as warning", group: .warningTreating)
   public static let Xcc: Option = Option("-Xcc", .separate, attributes: [.frontend, .synthesizeInterface], metaVar: "<arg>", helpText: "Pass <arg> to the C/C++/Objective-C compiler")
   public static let XclangLinker: Option = Option("-Xclang-linker", .separate, attributes: [.helpHidden], metaVar: "<arg>", helpText: "Pass <arg> to Clang when it is used for linking.")
-  public static let XemccLinker: Option = Option("-Xemcc-linker", .separate, attributes: [.helpHidden], metaVar: "<arg>", helpText: "Pass <arg> to emcc when it is used for linking.")
   public static let Xfrontend: Option = Option("-Xfrontend", .separate, attributes: [.helpHidden], metaVar: "<arg>", helpText: "Pass <arg> to the Swift frontend")
+  public static let XlinkerDriver: Option = Option("-Xlinker-driver", .separate, attributes: [.helpHidden], metaVar: "<arg>", helpText: "Pass <arg> to the linker driver (clang, emcc, etc.) regardless of which one is in use.")
   public static let Xlinker: Option = Option("-Xlinker", .separate, attributes: [.doesNotAffectIncrementalBuild], helpText: "Specifies an option which should be passed to the linker")
   public static let Xllvm: Option = Option("-Xllvm", .separate, attributes: [.helpHidden, .frontend], metaVar: "<arg>", helpText: "Pass <arg> to LLVM.")
   public static let DASHDASH: Option = Option("--", .remaining, attributes: [.frontend, .doesNotAffectIncrementalBuild])
@@ -1054,6 +1071,7 @@ extension Option {
       Option.abortOnModuleFail_,
       Option.accessNotesPathEQ,
       Option.accessNotesPath,
+      Option.activePlatformAvailabilityOnly,
       Option.aliasModuleNamesInModuleInterface,
       Option.allowAvailabilityPlatforms,
       Option.allowNonResilientAccess,
@@ -1189,6 +1207,9 @@ extension Option {
       Option.diagnosticDocumentationPath,
       Option.diagnosticStyleEQ,
       Option.diagnosticStyle,
+      Option.swiftDiagnosticsAssertOnError,
+      Option.swiftDiagnosticsAssertOnGroup,
+      Option.swiftDiagnosticsAssertOnWarning,
       Option.diagnosticsEditorMode,
       Option.digesterBreakageAllowlistPath,
       Option.digesterMode,
@@ -1348,12 +1369,14 @@ extension Option {
       Option.driverUseFrontendPath,
       Option.driverVerifyFineGrainedDependencyGraphAfterEveryImport,
       Option.driverWarnUnusedOptions,
+      Option.dumpAbstractLayout,
       Option.dumpApiPath,
       Option.dumpAstFormat,
       Option.dumpAst,
       Option.dumpAvailabilityScopes,
       Option.dumpClangDiagnostics,
       Option.dumpClangLookupTables,
+      Option.dumpHiddenTypeLayouts,
       Option.dumpInterfaceHash,
       Option.dumpJit,
       Option.dumpMacroExpansions,
@@ -1371,6 +1394,7 @@ extension Option {
       Option.dwarfVersion,
       Option.dynamicMemberLookupDepthLimitEQ,
       Option.D,
+      Option.eagerMacroChecking,
       Option.embedBitcodeMarker,
       Option.embedBitcode,
       Option.embedTbdForModule,
@@ -1428,6 +1452,7 @@ extension Option {
       Option.emitParse,
       Option.emitPch,
       Option.emitPcm,
+      Option.emitPolyglotAst,
       Option.emitPrivateModuleInterfacePath,
       Option.emitReferenceDependenciesPath,
       Option.emitReferenceDependencies,
@@ -1758,6 +1783,7 @@ extension Option {
       Option.noColorDiagnostics,
       Option.noEmitModuleSeparatelyWMO,
       Option.noEmitModuleSeparately,
+      Option.driverNoExplicitModuleBuild,
       Option.noLinkObjcRuntime,
       Option.noParallelScan,
       Option.noScannerModuleValidation,
@@ -1913,6 +1939,7 @@ extension Option {
       Option.silOutputDir,
       Option.silOutputPath,
       Option.silOwnershipVerifyAll,
+      Option.silRegionIsolationAssertOnUnknownPattern,
       Option.silStopOptznsBeforeLoweringOwnership,
       Option.silUnrollThreshold,
       Option.silVerifyAll,
@@ -1920,6 +1947,7 @@ extension Option {
       Option.skipInheritedDocs,
       Option.skipProtocolImplementations,
       Option.skipSynthesizedMembers,
+      Option.solverDisableBindingOptimizations,
       Option.solverDisableCrashOnValidSalvage,
       Option.solverDisableOptimizeOperatorDefaults,
       Option.solverDisablePerformanceHacks,
@@ -1927,6 +1955,7 @@ extension Option {
       Option.solverDisablePruneDisjunctions,
       Option.solverDisableSplitter,
       Option.solverDisableTransitiveConformance,
+      Option.solverEnableBindingOptimizations,
       Option.solverEnableCrashOnValidSalvage,
       Option.solverEnableOptimizeOperatorDefaults,
       Option.solverEnablePerformanceHacks,
@@ -2040,6 +2069,10 @@ extension Option {
       Option.v,
       Option.warnConcurrency,
       Option.warnImplicitOverrides,
+      Option.warnLongExpressionTypeCheckingScopesEQ,
+      Option.warnLongExpressionTypeCheckingScopes,
+      Option.warnLongExpressionTypeCheckingTrailEQ,
+      Option.warnLongExpressionTypeCheckingTrail,
       Option.warnLongExpressionTypeCheckingEQ,
       Option.warnLongExpressionTypeChecking,
       Option.warnLongFunctionBodiesEQ,
@@ -2059,11 +2092,12 @@ extension Option {
       Option.wmo,
       Option.workingDirectoryEQ,
       Option.workingDirectory,
+      Option.writeOutputHashXattr,
       Option.Wwarning,
       Option.Xcc,
       Option.XclangLinker,
-      Option.XemccLinker,
       Option.Xfrontend,
+      Option.XlinkerDriver,
       Option.Xlinker,
       Option.Xllvm,
       Option.DASHDASH,

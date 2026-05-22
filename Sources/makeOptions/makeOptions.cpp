@@ -217,15 +217,17 @@ int makeOptions_main() {
   auto &out = std::cout;
 
   out <<
-      "//===--------------- Options.swift - Swift Driver Options -----------------===//\n"
+      "//===----------------------------------------------------------------------===//\n"
       "//\n"
       "// This source file is part of the Swift open source project\n"
       "//\n"
-      "// Copyright (c) 2014 - 2019 Apple Inc. and the Swift project authors\n"
+      "// Copyright (c) 2014 - 2026 Apple Inc. and the Swift project authors\n"
       "// Licensed under Apache License v2.0\n"
       "//\n"
       "// See LICENSE.txt for license information\n"
       "// See CONTRIBUTORS.txt for the list of Swift project authors\n"
+      "//\n"
+      "// SPDX-License-Identifier: Apache-2.0\n"
       "//\n"
       "//===----------------------------------------------------------------------===//\n"
       "//\n"

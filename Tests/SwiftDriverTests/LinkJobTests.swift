@@ -763,26 +763,6 @@ import Testing
     }
 
     do {
-      // -Xemcc-linker should warn for non-Emscripten (WASI) targets
-      try await withTemporaryDirectory { resourceDir in
-        try localFileSystem.writeFileContents(
-          resourceDir.appending(components: "wasi", "static-executable-args.lnk")
-        ) { $0.send("garbage") }
-
-        try await assertDriverDiagnostics(
-          args: ["swiftc", "-no-color-diagnostics",
-                 "-target", "wasm32-unknown-wasi",
-                 "-resource-dir", resourceDir.pathString,
-                 "-Xemcc-linker", "-sENVIRONMENT=shell",
-                 "foo.swift"],
-          env: env
-        ) { driver, verifier in
-          verifier.expect(.warning("'-Xemcc-linker -sENVIRONMENT=shell' is only supported for Emscripten targets"))
-        }
-      }
-    }
-
-    do {
       // -sysroot is preferred over -sdk as the sysroot passed to the clang linker
       try await withTemporaryDirectory { path in
         try localFileSystem.writeFileContents(path.appending(components: "wasi", "static-executable-args.lnk")) {
@@ -826,6 +806,181 @@ import Testing
     }
   }
 
+  @Test(.requireFrontendSupportsTarget("wasm32-unknown-emscripten"),
+        .requireFrontendSupportsTarget("wasm32-unknown-wasi"))
+  func xlinkerDriverIsForwardedToEachToolchain() async throws {
+    let env = defaultEnv
+    let commonArgs = ["swiftc", "foo.swift", "-module-name", "Test"]
+
+    // Darwin (clang as linker driver)
+    do {
+      var driver = try TestDriver(
+        args: commonArgs + [
+          "-emit-library", "-L", "/tmp",
+          "-Xlinker-driver", "-fuse-ld=lld",
+          "-target", "x86_64-apple-macos12.0",
+        ],
+        env: env
+      )
+      let plannedJobs = try await driver.planBuild()
+      let cmd = plannedJobs.last!.commandLine
+      #expect(cmd.contains(.flag("-fuse-ld=lld")))
+      #expect(cmd.filter { $0 == .flag("-fuse-ld=lld") }.count == 1)
+    }
+
+    // GenericUnix / Linux (clang as linker driver)
+    do {
+      var driver = try TestDriver(
+        args: commonArgs + [
+          "-emit-library",
+          "-Xlinker-driver", "-fuse-ld=gold",
+          "-target", "x86_64-unknown-linux-gnu",
+        ],
+        env: env
+      )
+      let plannedJobs = try await driver.planBuild().removingAutolinkExtractJobs()
+      let cmd = plannedJobs.last!.commandLine
+      #expect(cmd.contains(.flag("-fuse-ld=gold")))
+      #expect(cmd.filter { $0 == .flag("-fuse-ld=gold") }.count == 1)
+    }
+
+    // Windows (clang as linker driver)
+    do {
+      var driver = try TestDriver(
+        args: commonArgs + [
+          "-emit-library",
+          "-Xlinker-driver", "-rtlib=compiler-rt",
+          "-target", "x86_64-unknown-windows-msvc",
+        ],
+        env: env
+      )
+      let plannedJobs = try await driver.planBuild().removingAutolinkExtractJobs()
+      let cmd = plannedJobs.last!.commandLine
+      #expect(cmd.contains(.flag("-rtlib=compiler-rt")))
+      #expect(cmd.filter { $0 == .flag("-rtlib=compiler-rt") }.count == 1)
+    }
+
+    // WASI (clang as linker driver)
+    try await withTemporaryDirectory { path in
+      try localFileSystem.writeFileContents(
+        path.appending(components: "wasi", "static-executable-args.lnk")
+      ) { $0.send("garbage") }
+      var driver = try TestDriver(
+        args: commonArgs + [
+          "-emit-executable",
+          "-target", "wasm32-unknown-wasi",
+          "-resource-dir", path.pathString,
+          "-Xlinker-driver", "-fno-stack-protector",
+        ],
+        env: env
+      )
+      let plannedJobs = try await driver.planBuild()
+      let cmd = plannedJobs.last!.commandLine
+      #expect(cmd.contains(.flag("-fno-stack-protector")))
+      #expect(cmd.filter { $0 == .flag("-fno-stack-protector") }.count == 1)
+    }
+
+    // Emscripten (emcc as linker driver)
+    try await withTemporaryDirectory { path in
+      try localFileSystem.writeFileContents(
+        path.appending(components: "emscripten", "static-executable-args.lnk")
+      ) { $0.send("garbage") }
+      var driver = try TestDriver(
+        args: commonArgs + [
+          "-emit-executable",
+          "-target", "wasm32-unknown-emscripten",
+          "-resource-dir", path.pathString,
+          "-Xlinker-driver", "-sALLOW_MEMORY_GROWTH",
+        ],
+        env: env
+      )
+      let plannedJobs = try await driver.planBuild()
+      let cmd = plannedJobs.last!.commandLine
+      #expect(cmd.contains(.flag("-sALLOW_MEMORY_GROWTH")))
+      #expect(cmd.filter { $0 == .flag("-sALLOW_MEMORY_GROWTH") }.count == 1)
+      // Must not be wrapped in -Xlinker; that would forward to wasm-ld instead of emcc.
+      #expect(!cmd.contains(subsequence: [.flag("-Xlinker"), .flag("-sALLOW_MEMORY_GROWTH")]))
+    }
+
+    // Mixed-options ordering: `-Xclang-linker` args precede `-Xlinker-driver`
+    // args in the command line, giving callers predictable last-wins semantics
+    // at the linker-driver level.
+    do {
+      var driver = try TestDriver(
+        args: commonArgs + [
+          "-emit-library",
+          "-Xclang-linker", "-from-clang-linker",
+          "-Xlinker-driver", "-from-linker-driver",
+          "-target", "x86_64-apple-macos12.0",
+        ],
+        env: env
+      )
+      let plannedJobs = try await driver.planBuild()
+      let cmd = plannedJobs.last!.commandLine
+      #expect(cmd.contains(subsequence: [
+        .flag("-from-clang-linker"),
+        .flag("-from-linker-driver"),
+      ]))
+    }
+
+    // Source-order preservation: two `-Xlinker-driver` args appear in the
+    // command line in the order they were written, so callers can rely on
+    // ordering for flags where it matters (e.g., `-L` library search paths).
+    do {
+      var driver = try TestDriver(
+        args: commonArgs + [
+          "-emit-library",
+          "-Xlinker-driver", "-from-first",
+          "-Xlinker-driver", "-from-second",
+          "-target", "x86_64-apple-macos12.0",
+        ],
+        env: env
+      )
+      let plannedJobs = try await driver.planBuild()
+      let cmd = plannedJobs.last!.commandLine
+      #expect(cmd.contains(subsequence: [
+        .flag("-from-first"),
+        .flag("-from-second"),
+      ]))
+    }
+
+    // Static-library output: `-Xlinker-driver` is NOT forwarded to the
+    // archiver (`ar`/`link.exe`). Tested on Darwin (which has its own static
+    // path via `libtool`) AND on Emscripten (which has a separate `ar`-based
+    // static path), so the contract is verified across structurally distinct
+    // toolchain implementations.
+    do {
+      var driver = try TestDriver(
+        args: commonArgs + [
+          "-emit-library", "-static",
+          "-Xlinker-driver", "-fuse-ld=lld",
+          "-target", "x86_64-apple-macos12.0",
+        ],
+        env: env
+      )
+      let plannedJobs = try await driver.planBuild()
+      let cmd = plannedJobs.last!.commandLine
+      #expect(!cmd.contains(.flag("-fuse-ld=lld")))
+    }
+    try await withTemporaryDirectory { path in
+      try localFileSystem.writeFileContents(
+        path.appending(components: "emscripten", "static-executable-args.lnk")
+      ) { $0.send("garbage") }
+      var driver = try TestDriver(
+        args: commonArgs + [
+          "-emit-library", "-static",
+          "-target", "wasm32-unknown-emscripten",
+          "-resource-dir", path.pathString,
+          "-Xlinker-driver", "-sALLOW_MEMORY_GROWTH",
+        ],
+        env: env
+      )
+      let plannedJobs = try await driver.planBuild()
+      let cmd = plannedJobs.last!.commandLine
+      #expect(!cmd.contains(.flag("-sALLOW_MEMORY_GROWTH")))
+    }
+  }
+
   @Test(.requireFrontendSupportsTarget("wasm32-unknown-emscripten"))
   func emscriptenExecutableLinking() async throws {
     let env = defaultEnv
@@ -845,8 +1000,8 @@ import Testing
           "-Xlinker", "--export=myFunc",
           "-Xclang-linker", "-resource-dir",
           "-Xclang-linker", "/fake/clang/dir",
-          "-Xemcc-linker", "-sENVIRONMENT=shell",
-          "-Xemcc-linker", "-sALLOW_MEMORY_GROWTH",
+          "-Xlinker-driver", "-sENVIRONMENT=shell",
+          "-Xlinker-driver", "-sALLOW_MEMORY_GROWTH",
           "-resource-dir", path.pathString,
         ],
         env: env
@@ -861,7 +1016,7 @@ import Testing
       #expect(!cmd.contains(.flag("-resource-dir")))
       #expect(!cmd.contains(.flag("/fake/clang/dir")))
 
-      // -Xemcc-linker flags appear directly in emcc command (not wrapped in -Xlinker)
+      // -Xlinker-driver flags appear directly in emcc command (not wrapped in -Xlinker)
       #expect(cmd.contains(.flag("-sENVIRONMENT=shell")))
       #expect(cmd.contains(.flag("-sALLOW_MEMORY_GROWTH")))
       // They must NOT be preceded by -Xlinker (that would forward them to wasm-ld)
@@ -901,8 +1056,8 @@ import Testing
                "foo.swift"],
         env: env
       ) { driver, verifier in
-        verifier.expect(.warning("'-Xclang-linker -resource-dir' is not supported for Emscripten targets; use '-Xemcc-linker' to pass flags to emcc"))
-        verifier.expect(.warning("'-Xclang-linker /fake/path' is not supported for Emscripten targets; use '-Xemcc-linker' to pass flags to emcc"))
+        verifier.expect(.warning("'-Xclang-linker -resource-dir' is not supported for Emscripten targets; use '-Xlinker-driver' to pass flags to emcc"))
+        verifier.expect(.warning("'-Xclang-linker /fake/path' is not supported for Emscripten targets; use '-Xlinker-driver' to pass flags to emcc"))
       }
     }
   }

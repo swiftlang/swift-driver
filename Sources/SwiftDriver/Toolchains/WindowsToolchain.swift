@@ -155,7 +155,7 @@ extension WindowsToolchain.ToolchainValidationError {
   public func validateArgs(_ parsedOptions: inout ParsedOptions,
                            targetTriple: Triple, targetVariantTriple: Triple?,
                            compilerOutputType: FileType?,
-                           diagnosticEngine: DiagnosticsEngine) throws {
+                           diagnosticsEngine: DiagnosticsEngine) throws {
     // TODO(compnerd) validate any options we can
   }
 }
