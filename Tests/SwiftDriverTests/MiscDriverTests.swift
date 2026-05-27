@@ -843,6 +843,24 @@ import CRT
     }
   }
 
+  @Test func ipiClangModule() async throws {
+    // Single flag is forwarded.
+    do {
+      var driver = try TestDriver(args: ["swiftc", "-ipi-clang-module", "Foo", "foo.swift"])
+      let plannedJobs = try await driver.planBuild()
+      expectJobInvocationMatches(plannedJobs[0], .flag("-ipi-clang-module"), .flag("Foo"))
+    }
+
+    // Multiple flags are all forwarded (appendAll, not appendLast).
+    do {
+      var driver = try TestDriver(args: ["swiftc", "-ipi-clang-module", "Foo", "-ipi-clang-module", "Bar", "foo.swift"])
+      let plannedJobs = try await driver.planBuild()
+      expectJobInvocationMatches(plannedJobs[0],
+                                 .flag("-ipi-clang-module"), .flag("Foo"),
+                                 .flag("-ipi-clang-module"), .flag("Bar"))
+    }
+  }
+
   @Test func prebuiltModuleCacheFlags() async throws {
     var envVars = ProcessEnv.block
     envVars["SWIFT_DRIVER_LD_EXEC"] = try ld.nativePathString(escaped: false)
