@@ -482,6 +482,11 @@ extension Driver {
     }
     addCacheReplayMapping(to: &commandLine)
 
+    if kind == .scanDependencies && isFrontendArgSupported(.scannerCasFs) {
+      try commandLine.appendAll(.scannerCasFs, from: &parsedOptions)
+      try commandLine.appendAll(.casFsEscape, from: &parsedOptions)
+    }
+
     // Pass through any subsystem flags.
     try commandLine.appendAll(.Xllvm, from: &parsedOptions)
 
