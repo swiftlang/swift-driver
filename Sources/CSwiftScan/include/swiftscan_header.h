@@ -20,7 +20,7 @@
 #include <stdint.h>
 
 #define SWIFTSCAN_VERSION_MAJOR 2
-#define SWIFTSCAN_VERSION_MINOR 3
+#define SWIFTSCAN_VERSION_MINOR 4
 
 //=== Public Scanner Data Types -------------------------------------------===//
 
@@ -97,6 +97,7 @@ typedef void *swiftscan_scanner_t;
 //=== CAS/Caching Specification -------------------------------------------===//
 typedef struct swiftscan_cas_options_s *swiftscan_cas_options_t;
 typedef struct swiftscan_cas_s *swiftscan_cas_t;
+typedef struct swiftscan_cas_fs_builder_s *swiftscan_cas_fs_builder_t;
 typedef struct swiftscan_cached_compilation_s *swiftscan_cached_compilation_t;
 typedef struct swiftscan_cached_output_s *swiftscan_cached_output_t;
 typedef struct swiftscan_cache_replay_instance_s
@@ -308,6 +309,16 @@ typedef struct {
   swiftscan_cas_t (*swiftscan_cas_create_from_options)(
       swiftscan_cas_options_t options, swiftscan_string_ref_t *error);
   void (*swiftscan_cas_dispose)(swiftscan_cas_t cas);
+  swiftscan_cas_fs_builder_t (*swiftscan_cas_fs_builder_create)(swiftscan_cas_t);
+  void (*swiftscan_cas_fs_builder_dispose)(swiftscan_cas_fs_builder_t);
+  bool (*swiftscan_cas_fs_builder_ingest_path)(swiftscan_cas_fs_builder_t,
+                                            const char *path, bool recursive,
+                                            swiftscan_string_ref_t *error);
+  bool (*swiftscan_cas_fs_builder_merge_root)(swiftscan_cas_fs_builder_t,
+                                           const char *root_id, const char *path,
+                                           swiftscan_string_ref_t *error);
+  swiftscan_string_ref_t (*swiftscan_cas_fs_builder_finish)(
+      swiftscan_cas_fs_builder_t, swiftscan_string_ref_t *error);
   swiftscan_string_ref_t (*swiftscan_cas_store)(swiftscan_cas_t cas,
                                                 uint8_t *data, unsigned size,
                                                 swiftscan_string_ref_t *error);
