@@ -129,6 +129,10 @@ extension Diagnostic.Message {
     return .error("bad module alias \"\(arg)\"")
   }
 
+  static func warning_flag_deprecated(_ option: Option) -> Diagnostic.Message {
+    return .warning("'\(option.spelling)' is deprecated")
+  }
+
   static var error_empty_package_name: Diagnostic.Message {
     return .error("package-name is empty")
   }
