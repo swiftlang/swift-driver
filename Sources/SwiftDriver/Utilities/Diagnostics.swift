@@ -196,4 +196,8 @@ extension Diagnostic.Message {
   static func warning_xclang_linker_unsupported_for_emscripten(_ value: String) -> Diagnostic.Message {
     .warning("'-Xclang-linker \(value)' is not supported for Emscripten targets; use '-Xlinker-driver' to pass flags to emcc")
   }
+
+  static var warning_frontend_parseable_output_deprecated: Diagnostic.Message {
+    .warning("'-use-frontend-parseable-output' is no longer supported")
+  }
 }

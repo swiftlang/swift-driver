@@ -602,7 +602,6 @@ extension Option {
   public static let forceStructTypeLayouts: Option = Option("-force-struct-type-layouts", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Force type layout based lowering for structs")
   public static let formalCxxInteroperabilityMode: Option = Option("-formal-cxx-interoperability-mode=", .joined, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<cxx-interop-version>|off", helpText: "What version of C++ interoperability a textual interface was originally generated with")
   public static let framework: Option = Option("-framework", .separate, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Specifies a framework which should be linked against", group: .linkerOption)
-  public static let frontendParseableOutput: Option = Option("-frontend-parseable-output", .flag, attributes: [.frontend, .noDriver, .cacheInvariant], helpText: "Emit textual output in a parseable format")
   public static let Fsystem: Option = Option("-Fsystem", .separate, attributes: [.frontend, .synthesizeInterface, .argumentIsPath], helpText: "Add directory to system framework search path")
   public static let functionSections: Option = Option("-function-sections", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Emit functions to separate sections.")
   public static let F: Option = Option("-F", .joinedOrSeparate, attributes: [.frontend, .synthesizeInterface, .argumentIsPath], helpText: "Add directory to framework search path")
@@ -1645,7 +1644,6 @@ extension Option {
       Option.forceStructTypeLayouts,
       Option.formalCxxInteroperabilityMode,
       Option.framework,
-      Option.frontendParseableOutput,
       Option.Fsystem,
       Option.functionSections,
       Option.F,

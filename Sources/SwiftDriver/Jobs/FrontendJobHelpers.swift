@@ -568,11 +568,6 @@ extension Driver {
       commandLine.appendFlags("-package-name", packageName)
     }
 
-    // Enable frontend Parseable-output, if needed.
-    if parsedOptions.contains(.useFrontendParseableOutput) {
-      commandLine.appendFlag("-frontend-parseable-output")
-    }
-
     if let protocolsList = parsedOptions.getLastArgument(.constGatherProtocolsList)?.asSingle {
       let path = try VirtualPath(path: protocolsList)
       // Before the compiler supports proper const gather protocol list, the path cannot be prefix mapped.
@@ -1378,12 +1373,6 @@ extension Driver {
     reproJob.commandLine.appendFlag(.genReproducer)
     reproJob.commandLine.appendFlag(.genReproducerDir)
     reproJob.commandLine.appendPath(output)
-    reproJob.commandLine.removeAll {
-      guard case let .flag(opt) = $0 else {
-        return false
-      }
-      return opt == Option.frontendParseableOutput.spelling
-    }
     reproJob.outputs.removeAll()
     reproJob.outputCacheKeys.removeAll()
     return reproJob
