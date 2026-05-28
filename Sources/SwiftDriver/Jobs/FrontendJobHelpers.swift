@@ -195,15 +195,24 @@ extension Driver {
     }
 
     // If caching is enabled and this is planning arguments for a job where prefix map can be applied,
-    // do not include search path options like include paths, vfsoverlay or module cache path since swift-frontend does not
+    // do not include search path options like include paths or vfsoverlay since swift-frontend does not
     // need to perform searching in those jobs.
     // TODO: Can the options be dropped from all explicit module builds?
     if !enableCaching || !jobNeedPathRemap {
       try addAllArgumentsWithPath(.I, .Isystem, to: &commandLine, remap: jobNeedPathRemap)
       try addAllArgumentsWithPath(.F, .Fsystem, to: &commandLine, remap: jobNeedPathRemap)
       try addAllArgumentsWithPath(.vfsoverlay, to: &commandLine, remap: jobNeedPathRemap)
+    }
 
+    // In explicit module build mode, the module cache and Clang build session
+    // are only consulted by the dependency scanner.
+    if !parsedOptions.contains(.driverExplicitModuleBuild) || kind == .scanDependencies {
       try commandLine.appendLast(.moduleCachePath, from: &parsedOptions)
+      if isFrontendArgSupported(.validateClangModulesOnce),
+         isFrontendArgSupported(.clangBuildSessionFile) {
+        try commandLine.appendLast(.validateClangModulesOnce, from: &parsedOptions)
+        try commandLine.appendLast(.clangBuildSessionFile, from: &parsedOptions)
+      }
     }
 
     if let gccToolchain = parsedOptions.getLastArgument(.gccToolchain) {
@@ -382,14 +391,6 @@ extension Driver {
 
     if isFrontendArgSupported(.publicModuleName) {
       try commandLine.appendLast(.publicModuleName, from: &parsedOptions)
-    }
-
-    // Pass down -validate-clang-modules-once if we are working with a compiler that
-    // supports it.
-    if isFrontendArgSupported(.validateClangModulesOnce),
-       isFrontendArgSupported(.clangBuildSessionFile) {
-      try commandLine.appendLast(.validateClangModulesOnce, from: &parsedOptions)
-      try commandLine.appendLast(.clangBuildSessionFile, from: &parsedOptions)
     }
 
     if isFrontendArgSupported(.emitClangHeaderMinAccess) {
