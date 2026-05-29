@@ -17,6 +17,7 @@ import class Dispatch.DispatchQueue
 
 import class TSCBasic.DiagnosticsEngine
 import protocol TSCBasic.FileSystem
+import struct TSCBasic.AbsolutePath
 
 // Initial incremental state computation
 extension IncrementalCompilationState {
@@ -56,7 +57,8 @@ extension IncrementalCompilationState {
           buildRecordInfo,
           reporter, driver.inputFiles,
           driver.fileSystem,
-          driver.diagnosticEngine
+          driver.diagnosticEngine,
+          prefixMapping: driver.prefixMapping
         ).computeInitialStateForPlanning(driver: &driver)
     else {
       Self.removeDependencyGraphFile(driver)
@@ -114,6 +116,10 @@ extension IncrementalCompilationState {
     @_spi(Testing) public let inputFiles: [TypedVirtualPath]
     @_spi(Testing) public let fileSystem: FileSystem
 
+    /// Prefix mapping from the driver, used to reverse-map paths in .swiftdeps
+    /// files that were written with prefix mapping active.
+    @_spi(Testing) public let prefixMapping: [(AbsolutePath, AbsolutePath)]
+
     /// The state managing incremental compilation gets mutated every time a compilation job completes.
     /// This queue ensures that the access and mutation of that state is thread-safe.
     @_spi(Testing) public let incrementalCompilationQueue: DispatchQueue
@@ -147,7 +153,8 @@ extension IncrementalCompilationState {
       _ reporter: IncrementalCompilationState.Reporter?,
       _ inputFiles: [TypedVirtualPath],
       _ fileSystem: FileSystem,
-      _ diagnosticEngine: DiagnosticsEngine
+      _ diagnosticEngine: DiagnosticsEngine,
+      prefixMapping: [(AbsolutePath, AbsolutePath)] = []
     ) {
       self.outputFileMap = outputFileMap
       self.buildRecordInfo = buildRecordInfo
@@ -155,6 +162,7 @@ extension IncrementalCompilationState {
       self.options = options
       self.inputFiles = inputFiles
       self.fileSystem = fileSystem
+      self.prefixMapping = prefixMapping
       assert(outputFileMap.onlySourceFilesHaveSwiftDeps())
       self.diagnosticEngine = diagnosticEngine
       self.incrementalCompilationQueue = DispatchQueue(
@@ -180,6 +188,27 @@ extension IncrementalCompilationState {
     /// - Returns: true iff this file was in the command-line invocation of the driver
     func isPartOfBuild(_ sourceFile: SwiftSourceFile) -> Bool {
       return self.inputFiles.contains(sourceFile.typedFile)
+    }
+
+    /// Reverse prefix-map a path string that was written with prefix mapping
+    /// active. Converts e.g. "/^tmp/foo.swift" back to "/real/path/foo.swift".
+    func reverseMapPath(_ mappedPath: String) -> String {
+      guard !prefixMapping.isEmpty,
+            let mappedAbsPath = try? AbsolutePath(validating: mappedPath)
+      else {
+        return mappedPath
+      }
+      for (original, mapped) in prefixMapping {
+        if mappedAbsPath.isDescendantOfOrEqual(to: mapped) {
+          return original.appending(mappedAbsPath.relative(to: mapped)).pathString
+        }
+      }
+      return mappedPath
+    }
+
+    /// A closure for deserialization routines to reverse prefix-mapped paths.
+    var pathReverser: (String) -> String {
+      { self.reverseMapPath($0) }
     }
   }
 }

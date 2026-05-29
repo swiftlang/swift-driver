@@ -77,7 +77,8 @@ extension DependencySource {
       info.reporter?.report("Reading dependencies from \(description)")
       return try SourceFileDependencyGraph.read(from: fileToRead,
                                                 on: info.fileSystem,
-                                                internedStringTable: internedStringTable)
+                                                internedStringTable: internedStringTable,
+                                                pathReverser: info.pathReverser)
     }
     catch {
       let msg = "Could not read \(fileToRead) \(error.localizedDescription)"
