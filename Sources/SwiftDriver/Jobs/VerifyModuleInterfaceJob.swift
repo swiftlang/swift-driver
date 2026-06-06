@@ -51,7 +51,7 @@ extension Driver {
       outputs.append(TypedVirtualPath(file: outputPath, type: .diagnostics))
     }
 
-    if parsedOptions.contains(.driverExplicitModuleBuild) && supportExplicitModuleVerifyInterface() {
+    if isExplicitModuleBuildEnabled && supportExplicitModuleVerifyInterface() {
       commandLine.appendFlag("-explicit-interface-module-build")
       if let key = try computeCacheKeyForInterface(emitModuleJob: emitModuleJob, interfaceKind: interfaceInput.type) {
         commandLine.appendFlag("-input-file-key")

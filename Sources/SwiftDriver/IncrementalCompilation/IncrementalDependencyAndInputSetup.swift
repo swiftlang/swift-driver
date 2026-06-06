@@ -90,7 +90,7 @@ extension IncrementalCompilationState {
                                      default: true) {
         driver.diagnosticEngine.emit(.warning("ignoring obseleted option -disable-incremental-imports"))
     }
-    if driver.parsedOptions.contains(.driverExplicitModuleBuild) {
+    if driver.isExplicitModuleBuildEnabled {
       options.formUnion(.explicitModuleBuild)
     }
     if driver.parsedOptions.hasFlag(positive: .enableIncrementalFileHashing,
