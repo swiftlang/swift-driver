@@ -78,6 +78,7 @@ extension Option {
   public static let casBackendMode: Option = Option("-cas-backend-mode=", .joined, attributes: [.frontend, .noDriver], metaVar: "native|casid|verify", helpText: "CASBackendMode for output kind")
   public static let casBackend: Option = Option("-cas-backend", .flag, attributes: [.frontend, .noDriver], helpText: "Enable using CASBackend for object file output")
   public static let casEmitCasidFile: Option = Option("-cas-emit-casid-file", .flag, attributes: [.frontend, .noDriver], helpText: "Emit .casid file next to object file when CAS Backend is enabled")
+  public static let casFsEscape: Option = Option("-cas-fs-escape", .separate, attributes: [.frontend, .cacheInvariant], metaVar: "<path>", helpText: "Path for using the underlying file system instead of CASFS")
   public static let casPath: Option = Option("-cas-path", .separate, attributes: [.frontend, .cacheInvariant], metaVar: "<path>", helpText: "Path to CAS")
   public static let casPluginOption: Option = Option("-cas-plugin-option", .separate, attributes: [.frontend, .cacheInvariant], metaVar: "<name>=<option>", helpText: "Option pass to CAS Plugin")
   public static let casPluginPath: Option = Option("-cas-plugin-path", .separate, attributes: [.frontend, .cacheInvariant], metaVar: "<path>", helpText: "Path to CAS Plugin")
@@ -872,6 +873,7 @@ extension Option {
   public static let saveOptimizationRecord: Option = Option("-save-optimization-record", .flag, attributes: [.frontend], helpText: "Generate a YAML optimization record file")
   public static let saveTemps: Option = Option("-save-temps", .flag, attributes: [.noInteractive, .doesNotAffectIncrementalBuild], helpText: "Save intermediate compilation results")
   public static let scanDependencies: Option = Option("-scan-dependencies", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Scan dependencies of the given Swift sources", group: .modes)
+  public static let scannerCasFs: Option = Option("-scanner-cas-fs", .separate, attributes: [.frontend, .cacheInvariant], helpText: "Configure the filesystem to read from the provided CAS tree during dep-scanning")
   public static let scannerDebugWriteOutput: Option = Option("-scanner-debug-write-output", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Write generated output from scanner for debugging purpose")
   public static let scannerModuleValidation: Option = Option("-scanner-module-validation", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Validate binary modules in the dependency scanner")
   public static let scannerOutputDir: Option = Option("-scanner-output-dir", .separate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Directory for generated files from swift dependency scanner")
@@ -1125,6 +1127,7 @@ extension Option {
       Option.casBackendMode,
       Option.casBackend,
       Option.casEmitCasidFile,
+      Option.casFsEscape,
       Option.casPath,
       Option.casPluginOption,
       Option.casPluginPath,
@@ -1919,6 +1922,7 @@ extension Option {
       Option.saveOptimizationRecord,
       Option.saveTemps,
       Option.scanDependencies,
+      Option.scannerCasFs,
       Option.scannerDebugWriteOutput,
       Option.scannerModuleValidation,
       Option.scannerOutputDir,

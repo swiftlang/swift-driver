@@ -169,6 +169,44 @@ public final class CacheReplayResult {
   }
 }
 
+public final class CASFSBuilder {
+  let ptr: swiftscan_cas_fs_builder_t
+  private let lib: SwiftScan
+
+  init(_ ptr: swiftscan_cas_fs_builder_t, lib: SwiftScan) {
+    self.ptr = ptr
+    self.lib = lib
+  }
+
+  deinit {
+    lib.api.swiftscan_cas_fs_builder_dispose(ptr)
+  }
+
+  public func ingestPath(_ path: String, recursive: Bool) throws {
+    let failed = try lib.handleCASError { err_msg in
+      lib.api.swiftscan_cas_fs_builder_ingest_path(ptr, path, recursive, &err_msg)
+    }
+    assert(!failed)
+  }
+
+  public func mergeRoot(_ root: String) throws {
+    let failed = try lib.handleCASError { err_msg in
+      lib.api.swiftscan_cas_fs_builder_merge_root(ptr, root, nil, &err_msg)
+    }
+    assert(!failed)
+  }
+
+  public func finish() throws -> String {
+    let casid = try lib.handleCASError { err_msg in
+      lib.api.swiftscan_cas_fs_builder_finish(ptr, &err_msg)
+    }
+    defer {
+      lib.api.swiftscan_string_dispose(casid)
+    }
+    return try lib.toSwiftString(casid)
+  }
+}
+
 public final class SwiftScanCAS {
   let cas: swiftscan_cas_t
   private var scanner: SwiftScan!
@@ -207,6 +245,17 @@ public final class SwiftScanCAS {
       scanner.api.swiftscan_cas_store(cas, bytes, UInt32(data.count), &err_msg)
     }
     return try scanner.toSwiftString(casid)
+  }
+
+  public var supportsCASSandbox: Bool {
+    scanner.supportsCASSandbox
+  }
+
+  public func createCASFSBuilder() throws -> CASFSBuilder {
+    guard supportsCASSandbox else {
+      throw DependencyScanningError.casError("CASFSBuilder is not supported")
+    }
+    return CASFSBuilder(scanner.api.swiftscan_cas_fs_builder_create(cas)!, lib: scanner)
   }
 
   public var supportsSizeManagement: Bool {

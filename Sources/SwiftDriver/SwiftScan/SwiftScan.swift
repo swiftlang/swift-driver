@@ -282,6 +282,10 @@ private extension String {
            api.swiftscan_cas_prune_ondisk_data != nil
   }
 
+  @_spi(Testing) public var supportsCASSandbox : Bool {
+    return api.swiftscan_cas_fs_builder_create != nil
+  }
+
   @_spi(Testing) public var supportsBridgingHeaderPCHCommand : Bool {
     return api.swiftscan_swift_textual_detail_get_bridging_pch_command_line != nil
   }
@@ -517,6 +521,12 @@ private extension swiftscan_functions_t {
     self.swiftscan_cache_compute_key = loadOptional("swiftscan_cache_compute_key")
     self.swiftscan_cache_compute_key_from_input_index = loadOptional("swiftscan_cache_compute_key_from_input_index")
     self.swiftscan_cas_store = loadOptional("swiftscan_cas_store")
+
+    self.swiftscan_cas_fs_builder_create = loadOptional("swiftscan_cas_fs_builder_create")
+    self.swiftscan_cas_fs_builder_dispose = loadOptional("swiftscan_cas_fs_builder_dispose")
+    self.swiftscan_cas_fs_builder_ingest_path = loadOptional("swiftscan_cas_fs_builder_ingest_path")
+    self.swiftscan_cas_fs_builder_merge_root = loadOptional("swiftscan_cas_fs_builder_merge_root")
+    self.swiftscan_cas_fs_builder_finish = loadOptional("swiftscan_cas_fs_builder_finish")
 
     self.swiftscan_cache_query = loadOptional("swiftscan_cache_query")
     self.swiftscan_cache_query_async = loadOptional("swiftscan_cache_query_async")
