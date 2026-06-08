@@ -2332,6 +2332,64 @@ func getStdlibShimsPaths(_ driver: Driver) throws -> (AbsolutePath, AbsolutePath
     }
   }
 
+  /// Test that `-module-cache-path`, `-validate-clang-modules-once`, and
+  /// `-clang-build-session-file` are passed only to the dependency scanner
+  /// when explicit module build is enabled.
+  @Test(.requireFrontendArgSupport(.clangBuildSessionFile))
+  func explicitModuleBuildScanOnlyFlags() async throws {
+    let flagTest = try TestDriver(args: ["swiftc", "-typecheck", "foo.swift"])
+    guard flagTest.isFrontendArgSupported(.validateClangModulesOnce) else {
+      return
+    }
+
+    let (stdLibPath, shimsPath, _, _) = try getDriverArtifactsForScanning()
+    try await withTemporaryDirectory { path in
+      let main = path.appending(component: "testExplicitModuleBuildScanOnlyFlags.swift")
+      try localFileSystem.writeFileContents(main, bytes: "")
+      let moduleCachePath = path.appending(component: "ModuleCache")
+      try localFileSystem.createDirectory(moduleCachePath)
+      let sessionFile = path.appending(component: "test.session")
+      try localFileSystem.writeFileContents(sessionFile, bytes: "")
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+
+      let args: [String] = [
+        "swiftc",
+        "-explicit-module-build",
+        "-module-cache-path", moduleCachePath.nativePathString(escaped: false),
+        "-validate-clang-modules-once",
+        "-clang-build-session-file", sessionFile.nativePathString(escaped: false),
+        "-I", stdLibPath.nativePathString(escaped: false),
+        "-I", shimsPath.nativePathString(escaped: false),
+        "-working-directory", path.nativePathString(escaped: false),
+        main.nativePathString(escaped: false),
+      ] + sdkArgumentsForTesting
+
+      // The dependency-scanner invocation receives all three flags.
+      var driver = try TestDriver(args: args)
+      let scanJob = try driver.dependencyScanningJob()
+      expectJobInvocationMatches(scanJob, .flag("-module-cache-path"))
+      expectJobInvocationMatches(scanJob, .flag("-validate-clang-modules-once"))
+      expectJobInvocationMatches(scanJob, .flag("-clang-build-session-file"))
+
+      // Other planned frontend jobs do not.
+      let jobs = try await driver.planBuild()
+      for job in jobs where job.kind == .compile {
+        #expect(
+          !job.commandLine.contains(.flag("-module-cache-path")),
+          "\(job.kind) should not contain -module-cache-path"
+        )
+        #expect(
+          !job.commandLine.contains(.flag("-validate-clang-modules-once")),
+          "\(job.kind) should not contain -validate-clang-modules-once"
+        )
+        #expect(
+          !job.commandLine.contains(.flag("-clang-build-session-file")),
+          "\(job.kind) should not contain -clang-build-session-file"
+        )
+      }
+    }
+  }
+
   @Test(.requireScannerSupportsPerScanDiagnostics()) func dependencyScanningFailure() async throws {
     let (stdlibPath, shimsPath, toolchain, _) = try getDriverArtifactsForScanning()
 
