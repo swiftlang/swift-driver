@@ -698,6 +698,81 @@ import CRT
     #endif
   }
 
+  func assertEmbeddedPluginPathOrder(
+    triple: String
+  ) async throws {
+    let sdkRoot = try testInputsPath.appending(
+      components: ["Platform Checks", "iPhoneOS.platform", "Developer", "SDKs", "iPhoneOS13.0.sdk"])
+
+    try await withTemporaryDirectory { resourceDir in
+      try localFileSystem.createDirectory(
+        resourceDir.appending(components: "embedded", triple, "Swift.swiftmodule"),
+        recursive: true)
+
+      var driver = try TestDriver(args: [
+        "swiftc", "-typecheck", "foo.swift",
+        "-target", triple,
+        "-enable-experimental-feature", "Embedded",
+        "-sdk", VirtualPath.absolute(sdkRoot).name,
+        "-resource-dir", resourceDir.pathString,
+      ])
+      guard driver.isFrontendArgSupported(.pluginPath) else { return }
+
+      let jobs = try await driver.planBuild().removingAutolinkExtractJobs()
+      let job = try #require(jobs.first)
+
+      let toolchainPluginIdx = try #require(
+        job.commandLine.firstIndex(of: .flag("-plugin-path")),
+        "Expected toolchain -plugin-path to be emitted for \(triple)")
+
+      // For toolchains that emit `-external-plugin-path` (Darwin), `-plugin-path`
+      // must come first so resource-dir plugins win the first-emplace race in
+      // PluginLoader. For toolchains that don't (GenericUnix etc.), we only
+      // assert that the toolchain plugin path is present — there is no
+      // `-external-plugin-path` to compare against.
+      guard driver.isFrontendArgSupported(.externalPluginPath) else { return }
+      guard let externalPluginIdx =
+        job.commandLine.firstIndex(of: .flag("-external-plugin-path")) else { return }
+      #expect(toolchainPluginIdx < externalPluginIdx,
+              "-plugin-path must precede -external-plugin-path so the toolchain libSwiftMacros wins (\(triple))")
+    }
+  }
+
+  // Check that we pass the toolchain plugin path before the external plugin
+  // path for embedded targets.
+  @Test(.requireFrontendSupportsTarget("armv6-apple-none-macho"))
+  func embeddedPluginPath_armv6_apple_none_macho() async throws {
+    try await assertEmbeddedPluginPathOrder(triple: "armv6-apple-none-macho")
+  }
+  @Test(.requireFrontendSupportsTarget("armv7-apple-none-macho"))
+  func embeddedPluginPath_armv7_apple_none_macho() async throws {
+    try await assertEmbeddedPluginPathOrder(triple: "armv7-apple-none-macho")
+  }
+  @Test(.requireFrontendSupportsTarget("armv7em-apple-none-macho"))
+  func embeddedPluginPath_armv7em_apple_none_macho() async throws {
+    try await assertEmbeddedPluginPathOrder(triple: "armv7em-apple-none-macho")
+  }
+  @Test(.requireFrontendSupportsTarget("arm64-apple-none-macho"))
+  func embeddedPluginPath_arm64_apple_none_macho() async throws {
+    try await assertEmbeddedPluginPathOrder(triple: "arm64-apple-none-macho")
+  }
+  @Test(.requireFrontendSupportsTarget("wasm32-unknown-none-wasm"))
+  func embeddedPluginPath_wasm32_unknown_none_wasm() async throws {
+    try await assertEmbeddedPluginPathOrder(triple: "wasm32-unknown-none-wasm")
+  }
+  @Test(.requireFrontendSupportsTarget("armv6-none-none-eabi"))
+  func embeddedPluginPath_armv6_none_none_eabi() async throws {
+    try await assertEmbeddedPluginPathOrder(triple: "armv6-none-none-eabi")
+  }
+  @Test(.requireFrontendSupportsTarget("riscv32-none-none-eabi"))
+  func embeddedPluginPath_riscv32_none_none_eabi() async throws {
+    try await assertEmbeddedPluginPathOrder(triple: "riscv32-none-none-eabi")
+  }
+  @Test(.requireFrontendSupportsTarget("x86_64-unknown-none-elf"))
+  func embeddedPluginPath_x86_64_unknown_none_elf() async throws {
+    try await assertEmbeddedPluginPathOrder(triple: "x86_64-unknown-none-elf")
+  }
+
   @Test func workingDirectoryForImplicitOutputs() async throws {
     let workingDirectory = localFileSystem.currentWorkingDirectory!.appending(components: "Foo", "Bar")
 
