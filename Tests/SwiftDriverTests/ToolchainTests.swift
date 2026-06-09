@@ -698,7 +698,23 @@ import CRT
     #endif
   }
 
-  func assertEmbeddedPluginPathOrder(
+  static let supportedEmbeddedTriples: [String] = [
+    "armv6-apple-none-macho",
+    "armv7-apple-none-macho",
+    "armv7em-apple-none-macho",
+    "arm64-apple-none-macho",
+    "wasm32-unknown-none-wasm",
+    "armv6-none-none-eabi",
+    "riscv32-none-none-eabi",
+    "x86_64-unknown-none-elf",
+  ].filter(probeFrontendForTarget)
+
+  // Check that we pass the toolchain plugin path before the external plugin
+  // path for embedded targets.
+  @Test(.disabled(if: ToolchainTests.supportedEmbeddedTriples.isEmpty,
+      "Frontend does not support any of the embedded target triples"),
+    arguments: ToolchainTests.supportedEmbeddedTriples)
+  func embeddedPluginPathOrder(
     triple: String
   ) async throws {
     let sdkRoot = try testInputsPath.appending(
@@ -736,41 +752,6 @@ import CRT
       #expect(toolchainPluginIdx < externalPluginIdx,
               "-plugin-path must precede -external-plugin-path so the toolchain libSwiftMacros wins (\(triple))")
     }
-  }
-
-  // Check that we pass the toolchain plugin path before the external plugin
-  // path for embedded targets.
-  @Test(.requireFrontendSupportsTarget("armv6-apple-none-macho"))
-  func embeddedPluginPath_armv6_apple_none_macho() async throws {
-    try await assertEmbeddedPluginPathOrder(triple: "armv6-apple-none-macho")
-  }
-  @Test(.requireFrontendSupportsTarget("armv7-apple-none-macho"))
-  func embeddedPluginPath_armv7_apple_none_macho() async throws {
-    try await assertEmbeddedPluginPathOrder(triple: "armv7-apple-none-macho")
-  }
-  @Test(.requireFrontendSupportsTarget("armv7em-apple-none-macho"))
-  func embeddedPluginPath_armv7em_apple_none_macho() async throws {
-    try await assertEmbeddedPluginPathOrder(triple: "armv7em-apple-none-macho")
-  }
-  @Test(.requireFrontendSupportsTarget("arm64-apple-none-macho"))
-  func embeddedPluginPath_arm64_apple_none_macho() async throws {
-    try await assertEmbeddedPluginPathOrder(triple: "arm64-apple-none-macho")
-  }
-  @Test(.requireFrontendSupportsTarget("wasm32-unknown-none-wasm"))
-  func embeddedPluginPath_wasm32_unknown_none_wasm() async throws {
-    try await assertEmbeddedPluginPathOrder(triple: "wasm32-unknown-none-wasm")
-  }
-  @Test(.requireFrontendSupportsTarget("armv6-none-none-eabi"))
-  func embeddedPluginPath_armv6_none_none_eabi() async throws {
-    try await assertEmbeddedPluginPathOrder(triple: "armv6-none-none-eabi")
-  }
-  @Test(.requireFrontendSupportsTarget("riscv32-none-none-eabi"))
-  func embeddedPluginPath_riscv32_none_none_eabi() async throws {
-    try await assertEmbeddedPluginPathOrder(triple: "riscv32-none-none-eabi")
-  }
-  @Test(.requireFrontendSupportsTarget("x86_64-unknown-none-elf"))
-  func embeddedPluginPath_x86_64_unknown_none_elf() async throws {
-    try await assertEmbeddedPluginPathOrder(triple: "x86_64-unknown-none-elf")
   }
 
   @Test func workingDirectoryForImplicitOutputs() async throws {
