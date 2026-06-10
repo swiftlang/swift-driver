@@ -698,6 +698,62 @@ import CRT
     #endif
   }
 
+  static let supportedEmbeddedTriples: [String] = [
+    "armv6-apple-none-macho",
+    "armv7-apple-none-macho",
+    "armv7em-apple-none-macho",
+    "arm64-apple-none-macho",
+    "wasm32-unknown-none-wasm",
+    "armv6-none-none-eabi",
+    "riscv32-none-none-eabi",
+    "x86_64-unknown-none-elf",
+  ].filter(probeFrontendForTarget)
+
+  // Check that we pass the toolchain plugin path before the external plugin
+  // path for embedded targets.
+  @Test(.disabled(if: ToolchainTests.supportedEmbeddedTriples.isEmpty,
+      "Frontend does not support any of the embedded target triples"),
+    arguments: ToolchainTests.supportedEmbeddedTriples)
+  func embeddedPluginPathOrder(
+    triple: String
+  ) async throws {
+    let sdkRoot = try testInputsPath.appending(
+      components: ["Platform Checks", "iPhoneOS.platform", "Developer", "SDKs", "iPhoneOS13.0.sdk"])
+
+    try await withTemporaryDirectory { resourceDir in
+      try localFileSystem.createDirectory(
+        resourceDir.appending(components: "embedded", triple, "Swift.swiftmodule"),
+        recursive: true)
+
+      var driver = try TestDriver(args: [
+        "swiftc", "-typecheck", "foo.swift",
+        "-target", triple,
+        "-enable-experimental-feature", "Embedded",
+        "-sdk", VirtualPath.absolute(sdkRoot).name,
+        "-resource-dir", resourceDir.pathString,
+      ])
+      guard driver.isFrontendArgSupported(.pluginPath) else { return }
+
+      let jobs = try await driver.planBuild().removingAutolinkExtractJobs()
+      let job = try #require(jobs.first)
+
+      let toolchainPluginIdx = try #require(
+        job.commandLine.firstIndex(of: .flag("-plugin-path")),
+        "Expected toolchain -plugin-path to be emitted for \(triple)")
+
+      // For toolchains that emit `-external-plugin-path` (Darwin), `-plugin-path`
+      // must come first so resource-dir plugins win the first-emplace race in
+      // PluginLoader. For toolchains that don't (GenericUnix etc.), we only
+      // assert that the toolchain plugin path is present — there is no
+      // `-external-plugin-path` to compare against.
+      guard driver.isFrontendArgSupported(.externalPluginPath) else { return }
+      guard let externalPluginIdx =
+        job.commandLine.firstIndex(of: .flag("-external-plugin-path")) else { return }
+      #expect(toolchainPluginIdx < externalPluginIdx,
+              "-plugin-path must precede -external-plugin-path so the toolchain libSwiftMacros wins (\(triple))")
+    }
+  }
+
   @Test func workingDirectoryForImplicitOutputs() async throws {
     let workingDirectory = localFileSystem.currentWorkingDirectory!.appending(components: "Foo", "Bar")
 

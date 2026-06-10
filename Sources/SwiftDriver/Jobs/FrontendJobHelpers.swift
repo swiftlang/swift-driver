@@ -597,8 +597,22 @@ extension Driver {
       commandLine.appendFlag($0)
     }
 
-    let toolchainStdlibPath = VirtualPath.lookup(frontendTargetInfo.runtimeResourcePath.path)
-      .appending(components: frontendTargetInfo.target.triple.platformName() ?? "", "Swift.swiftmodule")
+    let resourceDirVPath = VirtualPath.lookup(frontendTargetInfo.runtimeResourcePath.path)
+    let toolchainStdlibPath: VirtualPath
+    if frontendTargetInfo.target.triple.os == .noneOS {
+      // Embedded `noneOS` targets lay their stdlib out under
+      // <resource-dir>/embedded/<triple>/Swift.swiftmodule rather than under
+      // a platform-named subdir since `Triple.platformName()` is nil for
+      // `noneOS`
+      toolchainStdlibPath = resourceDirVPath
+        .appending(components: "embedded",
+                   frontendTargetInfo.target.triple.triple,
+                   "Swift.swiftmodule")
+    } else {
+      toolchainStdlibPath = resourceDirVPath
+        .appending(components: frontendTargetInfo.target.triple.platformName() ?? "",
+                   "Swift.swiftmodule")
+    }
     let hasToolchainStdlib = try fileSystem.exists(toolchainStdlibPath)
 
     let skipMacroSearchPath = isPlanJobForExplicitModule && isFrontendArgSupported(.loadResolvedPlugin)
