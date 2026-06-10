@@ -846,8 +846,8 @@ import Testing
 
   @Test(.requireFrontendArgSupport(.scannerCasFs)) func scannerCASFS() async throws {
     try await assertNoDriverDiagnostics(args: "swiftc", "a.swift", "-scanner-cas-fs", "abcd", "-cas-fs-escape", "/path1", "-cas-fs-escape", "/path2") { driver in
-      let jobs = try await driver.planBuild()
-      let commandLine = jobs[0].commandLine
+      let scanJob = try driver.dependencyScanningJob()
+      let commandLine = scanJob.commandLine
       let casfsIdx = try #require(commandLine.firstIndex(of: .flag("-scanner-cas-fs")))
       expectEqual(commandLine[casfsIdx.advanced(by: 1)], .flag("abcd"))
       let index = try #require(commandLine.firstIndex(of: .flag("-cas-fs-escape")))
