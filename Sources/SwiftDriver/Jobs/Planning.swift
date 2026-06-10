@@ -1044,7 +1044,18 @@ extension Driver {
     let sizeLimit = info.sizeLimit ?? defaultSizeLimit
 
     let numTasks = numParallelJobs ?? 1
-    return max(numTasks, divideRoundingUp(numInputFiles, sizeLimit))
+
+    // Cap by a target batch size so that when `numFiles <= numTasks` we
+    // collapse into a few larger batches rather than approximately one file
+    // per partition, which would defeat per-process amortization (type
+    // lowering caches, deserialized decl/type state, requirement machine).
+    let preferredBatchSize = 4
+    let preferredPartitions =
+      divideRoundingUp(numInputFiles, preferredBatchSize)
+    let minPartitionsForSizeLimit =
+      divideRoundingUp(numInputFiles, sizeLimit)
+    return max(minPartitionsForSizeLimit,
+               min(numTasks, preferredPartitions))
   }
 
   /// Describes the partitions used when batching.
