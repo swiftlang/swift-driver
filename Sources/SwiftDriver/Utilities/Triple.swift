@@ -1573,6 +1573,32 @@ extension Triple {
 // MARK: - Darwin Versions
 
 extension Triple {
+  // Version 26 alignment helper. Each Apple OS jumped to version 26, so the
+  // last pre-jump release canonicalizes to 26; versions in the unshipped gap
+  // below 26 are left unchanged. Only `_iOSVersion` consumes this.
+
+  /// Canonicalize the last pre-26 release to the year-aligned version 26.
+  /// Gap versions (between the pre-jump release and 26) pass through unchanged.
+  static func _canonicalVersion(_ version: Version, for os: OS) -> Version {
+    func isExactly(_ major: Int) -> Bool {
+      version.major == major && version.minor == 0 && version.micro == 0
+    }
+    switch os {
+    case .macosx:
+      if version.major == 10 && version.minor == 16 { return Version(11, 0, 0) }
+      if isExactly(16) { return Version(26, 0, 0) }
+    case .ios, .tvos:
+      if isExactly(19) { return Version(26, 0, 0) }
+    case .visionos:
+      if isExactly(3) { return Version(26, 0, 0) }
+    case .watchos:
+      if isExactly(12) { return Version(26, 0, 0) }
+    default:
+      break
+    }
+    return version
+  }
+
   /// Parse the version number as with getOSVersion and then
   /// translate generic "darwin" versions to the corresponding OS X versions.
   /// This may also be called with IOS triples but the OS X version number is
@@ -1644,19 +1670,29 @@ extension Triple {
       // toolchain that wants to know the iOS version number even when targeting
       // OS X.
       return Version(5, 0, 0)
-    case .ios:
+    case .ios, .tvos:
       var version = self.osVersion
       // Default to 5.0 (or 7.0 for arm64).
       if version.major == 0 {
         version.major = arch == .aarch64 ? 7 : 5
       }
-      return version
-    case .tvos:
-      return osVersion
+      // iOS & tvOS 19 correspond to iOS 26.
+      if version.major == 19 {
+        return Version(26, 0, 0)
+      }
+      return Triple._canonicalVersion(version, for: .ios)
     case .visionos:
-      return Version(15, 0, 0)
+      let version = self.osVersion
+      // xrOS 1/2 are aligned with iOS 17/18.
+      if version.major < 3 {
+        return Version(version.major + 16, version.minor, version.micro)
+      }
+      // visionOS 3 corresponds to iOS 26.
+      return Triple._canonicalVersion(version, for: .visionos)
     case .watchos:
-      fatalError("conflicting triple info")
+      let version = self.osVersion
+      // watchOS 12 corresponds to iOS 26.
+      return Triple._canonicalVersion(version, for: .watchos)
     default:
       fatalError("unexpected OS for Darwin triple")
     }
