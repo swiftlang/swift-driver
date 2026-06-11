@@ -1601,11 +1601,16 @@ extension Triple {
         version.micro = 0
         version.minor = version.major - 4
         version.major = 10
-      } else {
+      } else if version.major < 25 {
         version.micro = 0
         version.minor = 0
-        // darwin20+ corresponds to macOS 11+.
+        // darwin20-24 corresponds to macOS 11-15.
         version.major = version.major - 9
+      } else if version.major == 25 || version.major == 26 {
+        version.micro = 0
+        version.minor = 0
+        // darwin25-26 corresponds to macOS 26-27.
+        version.major = version.major + 1
       }
 
     case .macosx:
