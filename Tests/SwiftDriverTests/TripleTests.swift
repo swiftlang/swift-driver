@@ -994,6 +994,46 @@ import class TSCBasic.DiagnosticsEngine
     #expect(V?.minor == 0)
     #expect(V?.micro == 0)
 
+    T = Triple("x86_64-apple-darwin24")
+    #expect(T.os?.isMacOSX == true)
+    #expect(T.os?.isiOS == false)
+    V = T._macOSVersion
+    #expect(V?.major == 15)
+    #expect(V?.minor == 0)
+    #expect(V?.micro == 0)
+
+    T = Triple("x86_64-apple-darwin25")
+    #expect(T.os?.isMacOSX == true)
+    #expect(T.os?.isiOS == false)
+    V = T._macOSVersion
+    #expect(V?.major == 26)
+    #expect(V?.minor == 0)
+    #expect(V?.micro == 0)
+
+    T = Triple("x86_64-apple-darwin26")
+    #expect(T.os?.isMacOSX == true)
+    #expect(T.os?.isiOS == false)
+    V = T._macOSVersion
+    #expect(V?.major == 27)
+    #expect(V?.minor == 0)
+    #expect(V?.micro == 0)
+
+    T = Triple("x86_64-apple-darwin27")
+    #expect(T.os?.isMacOSX == true)
+    #expect(T.os?.isiOS == false)
+    V = T._macOSVersion
+    #expect(V?.major == 27)
+    #expect(V?.minor == 0)
+    #expect(V?.micro == 0)
+
+    T = Triple("x86_64-apple-darwin28")
+    #expect(T.os?.isMacOSX == true)
+    #expect(T.os?.isiOS == false)
+    V = T._macOSVersion
+    #expect(V?.major == 28)
+    #expect(V?.minor == 0)
+    #expect(V?.micro == 0)
+
     T = Triple("x86_64-apple-macosx")
     #expect(T.os?.isMacOSX == true)
     #expect(T.os?.isiOS == false)
