@@ -104,6 +104,7 @@ public final class SwiftDriverExecutor: DriverExecutor {
     fatalError("Unsuppored legacy operation on current executor")
   }
 
+  @available(*, deprecated, message: "use checkNonZeroExit(args:environmentBlock:)")
   @discardableResult
   public func checkNonZeroExit(args: String..., environment: [String: String] = ProcessEnv.vars) throws -> String {
     try Process.checkNonZeroExit(arguments: args, environmentBlock: ProcessEnvironmentBlock(environment))
