@@ -994,6 +994,46 @@ import class TSCBasic.DiagnosticsEngine
     #expect(V?.minor == 0)
     #expect(V?.micro == 0)
 
+    T = Triple("x86_64-apple-darwin24")
+    #expect(T.os?.isMacOSX == true)
+    #expect(T.os?.isiOS == false)
+    V = T._macOSVersion
+    #expect(V?.major == 15)
+    #expect(V?.minor == 0)
+    #expect(V?.micro == 0)
+
+    T = Triple("x86_64-apple-darwin25")
+    #expect(T.os?.isMacOSX == true)
+    #expect(T.os?.isiOS == false)
+    V = T._macOSVersion
+    #expect(V?.major == 26)
+    #expect(V?.minor == 0)
+    #expect(V?.micro == 0)
+
+    T = Triple("x86_64-apple-darwin26")
+    #expect(T.os?.isMacOSX == true)
+    #expect(T.os?.isiOS == false)
+    V = T._macOSVersion
+    #expect(V?.major == 27)
+    #expect(V?.minor == 0)
+    #expect(V?.micro == 0)
+
+    T = Triple("x86_64-apple-darwin27")
+    #expect(T.os?.isMacOSX == true)
+    #expect(T.os?.isiOS == false)
+    V = T._macOSVersion
+    #expect(V?.major == 27)
+    #expect(V?.minor == 0)
+    #expect(V?.micro == 0)
+
+    T = Triple("x86_64-apple-darwin28")
+    #expect(T.os?.isMacOSX == true)
+    #expect(T.os?.isiOS == false)
+    V = T._macOSVersion
+    #expect(V?.major == 28)
+    #expect(V?.minor == 0)
+    #expect(V?.micro == 0)
+
     T = Triple("x86_64-apple-macosx")
     #expect(T.os?.isMacOSX == true)
     #expect(T.os?.isiOS == false)
@@ -1138,6 +1178,29 @@ import class TSCBasic.DiagnosticsEngine
     #expect(V?.micro == 0)
     #expect(!T._isSimulatorEnvironment)
     #expect(!T.isMacCatalyst)
+  }
+
+  /// Mirrors LLVM `getiOSVersion` / `getCanonicalVersionForOS` version-26 alignment.
+  @Test func iOSVersionAlignment() {
+    func iOSVersion(_ triple: String) -> Triple.Version { Triple(triple)._iOSVersion }
+
+    // iOS / tvOS 19 -> iOS 26; already-aligned and pre-jump values pass through;
+    // a gap version (20-25) passes through unchanged.
+    #expect(iOSVersion("arm64-apple-ios19.0") == Triple.Version(26, 0, 0))
+    #expect(iOSVersion("arm64-apple-ios26.0") == Triple.Version(26, 0, 0))
+    #expect(iOSVersion("arm64-apple-ios18.0") == Triple.Version(18, 0, 0))
+    #expect(iOSVersion("arm64-apple-ios21.0") == Triple.Version(21, 0, 0))
+    #expect(iOSVersion("arm64-apple-tvos19.0") == Triple.Version(26, 0, 0))
+
+    // visionOS (xrOS): 1/2 align with iOS 17/18, 3 -> iOS 26.
+    #expect(iOSVersion("arm64-apple-xros1.0") == Triple.Version(17, 0, 0))
+    #expect(iOSVersion("arm64-apple-xros2.0") == Triple.Version(18, 0, 0))
+    #expect(iOSVersion("arm64-apple-xros3.0") == Triple.Version(26, 0, 0))
+    #expect(iOSVersion("arm64-apple-xros26.0") == Triple.Version(26, 0, 0))
+
+    // watchOS 12 -> iOS 26.
+    #expect(iOSVersion("arm64-apple-watchos12.0") == Triple.Version(26, 0, 0))
+    #expect(iOSVersion("arm64-apple-watchos11.0") == Triple.Version(11, 0, 0))
   }
 
   @Test func fileFormat() {
