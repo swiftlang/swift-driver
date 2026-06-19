@@ -91,17 +91,15 @@ struct IncrementalInputModificationTests: DiagVerifiable {
     )
     let initialJobs = try await driver.planBuild()
     #expect(initialJobs.contains { $0.kind == .emitModule })
+    // Module-only builds should not have compile jobs since emitModuleSeparately
+    // handles the module output.
+    #expect(initialJobs.filter { $0.kind == .compile }.isEmpty)
     try await driver.run(jobs: initialJobs)
 
-    // Plan the build again without touching any file. This should be a null build but for
-    // compatibility reason, planBuild() should return all the jobs and supported build system
-    // will query incremental state for the actual jobs need to be executed.
+    // Plan the build again without touching any file. This should be a null build.
     let replanJobs = try await driver.planBuild()
-    #expect(
-      !replanJobs.filter { $0.kind == .compile }.isEmpty,
-      "more than one compile job needs to be planned"
-    )
     #expect(replanJobs.contains { $0.kind == .emitModule })
+    #expect(replanJobs.filter { $0.kind == .compile }.isEmpty)
   }
 
   @Test func addingInput() async throws {

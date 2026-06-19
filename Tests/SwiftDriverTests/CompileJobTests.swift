@@ -526,8 +526,8 @@ import Testing
         rebase("Test.swiftmodule", at: root), "-experimental-emit-module-separately",
       ])
       let plannedJobs = try await driver.planBuild().removingAutolinkExtractJobs()
-      #expect(plannedJobs.count == 3)
-      expectEqual(Set(plannedJobs.map { $0.kind }), Set([.emitModule, .compile]))
+      #expect(plannedJobs.count == 1)
+      #expect(plannedJobs[0].kind == .emitModule)
       #expect(plannedJobs[0].tool.name.contains("swift"))
       #expect(plannedJobs[0].outputs.count == (driver.targetTriple.isDarwin ? 4 : 3))
       let module: VirtualPath = .absolute(try .init(validating: rebase("Test.swiftmodule", at: root)))
@@ -1637,7 +1637,7 @@ import Testing
       "-serialize-diagnostics", "-driver-filelist-threshold=9999", "-experimental-emit-module-separately",
     ])
     let plannedJobs = try await driver1.planBuild().removingAutolinkExtractJobs()
-    #expect(plannedJobs.count == 3)
+    #expect(plannedJobs.count == 1)
     #expect(plannedJobs[0].kind == .emitModule)
     // TODO: This check is disabled as per rdar://85253406
     // expectJobInvocationMatches(plannedJobs[0], .flag("-emit-dependencies-path"))
@@ -1673,28 +1673,16 @@ import Testing
     }
 
     do {  // Just single files with emit-module
+      // When compilerOutputType == .swiftModule and emitModuleSeparately is true,
+      // compile jobs are skipped — only the emit-module job remains.
       var driver = try TestDriver(args: [
         "swiftc", "foo.swift", "bar.swift", "baz.swift", "-emit-module",
         "-module-name", "Foo", "-emit-const-values",
       ])
       let plannedJobs = try await driver.planBuild().removingAutolinkExtractJobs()
-      #expect(plannedJobs.count == 4)
+      #expect(plannedJobs.count == 1)
 
       #expect(plannedJobs[0].kind == .emitModule)
-      // Ensure the emit-module job does *not* contain this flag
-      #expect(!plannedJobs[0].commandLine.contains("-emit-const-values-path"))
-
-      #expect(plannedJobs[1].kind == .compile)
-      expectJobInvocationMatches(plannedJobs[1], .flag("-emit-const-values-path"))
-      #expect(plannedJobs[1].outputs.contains(where: { $0.type == .swiftConstValues }))
-
-      #expect(plannedJobs[2].kind == .compile)
-      expectJobInvocationMatches(plannedJobs[2], .flag("-emit-const-values-path"))
-      #expect(plannedJobs[2].outputs.contains(where: { $0.type == .swiftConstValues }))
-
-      #expect(plannedJobs[3].kind == .compile)
-      expectJobInvocationMatches(plannedJobs[3], .flag("-emit-const-values-path"))
-      #expect(plannedJobs[3].outputs.contains(where: { $0.type == .swiftConstValues }))
     }
 
     do {  // Batch
@@ -1845,7 +1833,7 @@ import Testing
       ])
       let plannedJobs = try await driver.planBuild().removingAutolinkExtractJobs()
 
-      #expect(plannedJobs.count == 3)
+      #expect(plannedJobs.count == 1)
       #expect(plannedJobs[0].kind == .emitModule)
       try expectJobInvocationMatches(
         plannedJobs[0],
@@ -1878,7 +1866,7 @@ import Testing
       #expect(driver.diagnosticEngine.diagnostics.isEmpty)
 
       // Test the output path is correct for GeneratePCH job.
-      #expect(plannedJobs.count == 4)
+      #expect(plannedJobs.count == 2)
       #expect(plannedJobs[0].kind == .generatePCH)
       try expectJobInvocationMatches(
         plannedJobs[0],
