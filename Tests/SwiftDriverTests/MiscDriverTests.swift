@@ -843,7 +843,10 @@ import CRT
     }
   }
 
-  @Test func ipiClangModule() async throws {
+  @Test(
+    .requireFrontendArgSupport(.ipiClangModule)
+  )
+  func ipiClangModule() async throws {
     // Single flag is forwarded.
     do {
       var driver = try TestDriver(args: ["swiftc", "-ipi-clang-module", "Foo", "foo.swift"])
