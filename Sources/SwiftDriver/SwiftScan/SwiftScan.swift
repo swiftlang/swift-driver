@@ -120,6 +120,19 @@ private extension String {
   }
 }
 
+/// Used for querying for the capabilities of libSwiftScan.
+public struct SwiftScanCapabilities {
+  let swiftScan: SwiftScan
+
+  public init(dylib path: AbsolutePath? = nil) throws {
+    self.swiftScan = try SwiftScan(dylib: path)
+  }
+
+  public var supportsCASSandbox: Bool {
+    return swiftScan.supportsCASSandbox
+  }
+}
+
 /// Wrapper for libSwiftScan, taking care of initialization, shutdown, and dispatching dependency scanning queries.
 @_spi(Testing) public final class SwiftScan {
   /// The path to the libSwiftScan dylib.
