@@ -42,6 +42,7 @@ import Testing
       var driver = try TestDriver(
         args: commonArgs + [
           "-emit-library", "-target", "x86_64-apple-macosx10.15", "-Onone", "-use-ld=foo", "-ld-path=/bar/baz",
+          "-sdk", "/sdk/path",
         ],
         env: env
       )
@@ -58,6 +59,7 @@ import Testing
       #expect(cmd.contains(.flag("-fuse-ld=foo")))
       #expect(cmd.contains(.joinedOptionAndPath("--ld-path=", try VirtualPath(path: "/bar/baz"))))
       #expect(cmd.contains(.flag("--target=x86_64-apple-macosx10.15")))
+      #expect(cmd.contains(subsequence: ["-isysroot", .path(.absolute(try .init(validating: "/sdk/path")))]))
       #expect(try linkJob.outputs[0].file == toPath("libTest.dylib"))
 
       #expect(!cmd.contains(.flag("-static")))

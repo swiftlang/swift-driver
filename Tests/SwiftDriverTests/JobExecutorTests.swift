@@ -201,7 +201,7 @@ extension DarwinToolchain {
           .path(.temporary(try RelativePath(validating: "foo.o"))),
           .path(.temporary(try RelativePath(validating: "main.o"))),
           .path(.absolute(try toolchain.clangRT.get())),
-          "--sysroot", .path(.absolute(try toolchain.sdk.get())),
+          "-isysroot", .path(.absolute(try toolchain.sdk.get())),
           "-lobjc", .flag("--target=\(hostTriple.triple)"),
           "-L", .path(.absolute(try toolchain.resourcesDirectory.get())),
           "-L", .path(.absolute(try toolchain.sdkStdlib(sdk: toolchain.sdk.get()))),
@@ -285,7 +285,7 @@ extension DarwinToolchain {
         tool: try toolchain.resolvedTool(.dynamicLinker),
         commandLine: [
           .path(.temporary(try RelativePath(validating: "main.o"))),
-          "--sysroot", .path(.absolute(try toolchain.sdk.get())),
+          "-isysroot", .path(.absolute(try toolchain.sdk.get())),
           "-lobjc", .flag("--target=\(hostTriple.triple)"),
           "-L", .path(.absolute(try toolchain.resourcesDirectory.get())),
           "-L", .path(.absolute(try toolchain.sdkStdlib(sdk: toolchain.sdk.get()))),

@@ -222,7 +222,7 @@ extension DarwinToolchain {
 
     // Add the SDK path
     if let sdkPath = targetInfo.sdkPath?.path {
-      commandLine.appendFlag("--sysroot")
+      commandLine.appendFlag("-isysroot")
       commandLine.appendPath(VirtualPath.lookup(sdkPath))
     }
 

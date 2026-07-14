@@ -926,7 +926,7 @@ import CRT
         }
         expectEqual(frontendJobs[1].kind, .link)
         expectJobInvocationMatches(frontendJobs[1], .flag("--target=x86_64-apple-macosx10.14"))
-        expectJobInvocationMatches(frontendJobs[1], .flag("--sysroot"))
+        expectJobInvocationMatches(frontendJobs[1], .flag("-isysroot"))
         #expect(frontendJobs[1].commandLine.containsPathWithBasename(sdk1.basename))
       }
 
