@@ -322,9 +322,19 @@ public struct Driver {
                                                        .parentDirectory { // toolchain
       mapping.append((toolchainPath, toolchainMapping))
     }
-    guard mapping.isEmpty || isCachingEnabled else {
-      diagnosticEngine.emit(.warning("ignore '-scanner-prefix-*' options that cannot be used without compilation caching"))
-      return []
+    if !mapping.isEmpty {
+      guard isCachingEnabled else {
+        diagnosticEngine.emit(.warning("ignore '-scanner-prefix-*' options that cannot be used without compilation caching"))
+        return []
+      }
+      let useExternalBridgingHeader = originalObjCHeaderFile != nil && !importBridgingHeaderAsInternal
+      guard objcGeneratedHeaderPath == nil || !useExternalBridgingHeader else {
+        diagnosticEngine.emit(.warning("ignore '-scanner-prefix-*' options when '-import-bridging-header' or '-import-objc-header' option is used with '-emit-objc-header'"))
+        if isFrontendArgSupported(.internalImportBridgingHeader) {
+          diagnosticEngine.emit(.note("adopt '-internal-import-bridging-header' option to enable scanner prefix mapping"))
+        }
+        return []
+      }
     }
     // The mapping needs to be sorted so the mapping is determinisitic.
     // The sorting order is reversed so /tmp/tmp is preferred over /tmp in remapping.
