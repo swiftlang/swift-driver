@@ -519,6 +519,7 @@ extension Option {
   public static let enableNskeyedarchiverDiagnostics: Option = Option("-enable-nskeyedarchiver-diagnostics", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Diagnose classes with unstable mangled names adopting NSCoding")
   public static let enableObjcAttrRequiresFoundationModule: Option = Option("-enable-objc-attr-requires-foundation-module", .flag, attributes: [.helpHidden, .frontend, .noDriver, .moduleInterface], helpText: "Enable requiring uses of @objc to require importing the Foundation module")
   public static let enableObjcInterop: Option = Option("-enable-objc-interop", .flag, attributes: [.helpHidden, .frontend, .noDriver, .moduleInterface], helpText: "Enable Objective-C interop code generation and config directives")
+  public static let gnustepObjcInterop: Option = Option("-gnustep-objc-interop", .flag, attributes: [.helpHidden, .frontend, .moduleInterface], helpText: "Enable GNUstep Objective-C interop code generation and config directives")
   public static let enableObjectiveCProtocolSymbolicReferences: Option = Option("-enable-objective-c-protocol-symbolic-references", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable objective-c protocol symbolic references")
   public static let enableOnlyOneDependencyFile: Option = Option("-enable-only-one-dependency-file", .flag, attributes: [.doesNotAffectIncrementalBuild], helpText: "Enables incremental build optimization that only produces one dependencies file")
   public static let enableOssaModules: Option = Option("-enable-ossa-modules", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Obsolete. This option is ignored")
@@ -1568,6 +1569,7 @@ extension Option {
       Option.enableNskeyedarchiverDiagnostics,
       Option.enableObjcAttrRequiresFoundationModule,
       Option.enableObjcInterop,
+      Option.gnustepObjcInterop,
       Option.enableObjectiveCProtocolSymbolicReferences,
       Option.enableOnlyOneDependencyFile,
       Option.enableOssaModules,
