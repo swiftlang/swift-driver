@@ -31,6 +31,7 @@ import struct TSCBasic.ProcessResult
 import func TSCBasic.withTemporaryDirectory
 import typealias TSCBasic.ProcessEnvironmentBlock
 import enum TSCUtility.Diagnostics
+import var TSCBasic.stderrStream
 
 // We either import the llbuildSwift shared library or the llbuild framework.
 #if canImport(llbuildSwift)
@@ -581,6 +582,10 @@ class ExecuteJobRule: LLBuildRule {
 
   private func executeJob(_ engine: LLTaskBuildEngine) {
     if context.isBuildCancelled {
+      Driver.stdErrQueue.sync {
+        stderrStream.send("DRIVER EXTRA VERBOSE BUILD WAS CANCELLED\n")
+        stderrStream.flush()
+      }
       engine.taskIsComplete(DriverBuildValue.jobExecution(success: false))
       return
     }
@@ -627,6 +632,12 @@ class ExecuteJobRule: LLBuildRule {
       let success = result.exitStatus == .terminated(code: EXIT_SUCCESS)
 
       if !success {
+        Driver.stdErrQueue.sync {
+          let out = (try? result.utf8Output()) ?? "stdout failed"
+          let err = (try? result.utf8stderrOutput()) ?? "stderr failed"
+          stderrStream.send("DRIVER EXTRA VERBOSE JOB FAILED WITH NON-ZERO \(result.exitStatus) \(job) WITH STDOUT '\(out)' AND STDERR '\(err)'\n")
+          stderrStream.flush()
+        }
         job.removeOutputsOfFailedCompilation(from: context.fileSystem)
         switch result.exitStatus {
         case let .terminated(code):
@@ -672,6 +683,10 @@ class ExecuteJobRule: LLBuildRule {
           )
           context.executorDelegate.jobFinished(job: job, result: result, pid: pid)
         }
+      }
+      Driver.stdErrQueue.sync {
+        stderrStream.send("DRIVER EXTRA VERBOSE CAUGHT ERROR IN JOB EXECUTION \(error)\n")
+        stderrStream.flush()
       }
       value = .jobExecution(success: false)
     }
