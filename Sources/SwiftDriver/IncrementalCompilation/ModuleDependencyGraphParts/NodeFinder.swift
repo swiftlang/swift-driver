@@ -35,8 +35,16 @@ extension ModuleDependencyGraph {
     /// that would need to change if/when we can recompile a smaller unit than a
     /// source file.)
 
-    /// Tracks def-use relationships by DependencyKey.
+    /// Tracks def-use relationships by DependencyKey except for external expendencies (Reduce the number of external dependencies from N*M to N+M).
     @_spi(Testing) public private(set) var usesByDef = Multidictionary<DependencyKey, Node>()
+    
+    /// Tracks external DependencyKey.
+    @_spi(Testing) public private(set) var externalDependencies = Set<DependencyKey>()
+    
+    /// Tracks nodes which dependent external DependencyKey.
+    @_spi(Testing) public private(set) var externalDependentNodes = Set<Node>()
+    
+    public let enableExperimatalExternalDependenciesHashOptimization = true
   }
 }
 // MARK: - finding
@@ -80,6 +88,11 @@ extension ModuleDependencyGraph.NodeFinder {
   ///            definition node.
   func uses(of def: Graph.Node) -> Set<Graph.Node> {
     var uses = usesByDef[def.key, default: Set()]
+    if enableExperimatalExternalDependenciesHashOptimization {
+      if externalDependencies.contains(def.key) {
+        uses = externalDependentNodes
+      }
+    }
     if let impl = findCorrespondingImplementation(of: def) {
       uses.insert(impl)
     }
@@ -101,7 +114,12 @@ extension ModuleDependencyGraph.NodeFinder {
   }
 
   func defsUsing(_ n: Graph.Node) -> Set<DependencyKey> {
-    usesByDef.keysContainingValue(n)
+    if enableExperimatalExternalDependenciesHashOptimization {
+      if externalDependentNodes.contains(n) {
+        return usesByDef.keysContainingValue(n).union(externalDependencies)
+      }
+    }
+    return usesByDef.keysContainingValue(n)
   }
 }
 
@@ -124,6 +142,13 @@ extension ModuleDependencyGraph.NodeFinder {
   /// record def-use, return if is new use
   mutating func record(def: DependencyKey, use: Graph.Node) -> Bool {
     assert(verifyOKTODependUponSomeKey(use))
+    if enableExperimatalExternalDependenciesHashOptimization {
+      if let _ = def.designator.externalDependency {
+        let inserted1 = externalDependencies.insert(def).inserted
+        let inserted2 = externalDependentNodes.insert(use).inserted
+        return inserted1 || inserted2
+      }
+    }
     return usesByDef.insertValue(use, forKey: def)
   }
 }
@@ -137,6 +162,12 @@ extension ModuleDependencyGraph.NodeFinder {
   }
 
   private mutating func removeUsings(of nodeToNotUse: Graph.Node) {
+    if enableExperimatalExternalDependenciesHashOptimization {
+      if externalDependentNodes.contains(nodeToNotUse) {
+        externalDependentNodes.remove(nodeToNotUse)
+        return
+      }
+    }
     usesByDef.removeOccurrences(of: nodeToNotUse)
     assert(defsUsing(nodeToNotUse).isEmpty)
   }
@@ -166,6 +197,12 @@ extension ModuleDependencyGraph.NodeFinder {
                                  definitionLocation: .known(newDependencySource))
     assert(original.definitionLocation == .unknown,
            "Would have to search every use in usesByDef if original could be a use.")
+    
+    if enableExperimatalExternalDependenciesHashOptimization {
+      if externalDependentNodes.remove(original) != nil {
+        externalDependentNodes.insert(replacement)
+      }
+    }
     if usesByDef.removeValue(original, forKey: original.key) != nil {
       usesByDef.insertValue(replacement, forKey: original.key)
     }
