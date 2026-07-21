@@ -214,6 +214,24 @@ import Testing
     #expect(TimePoint.nanoseconds(500_000_000) + TimePoint.nanoseconds(500_000_000) == TimePoint.seconds(1))
     #expect(TimePoint.nanoseconds(1_500_000_000) + TimePoint.nanoseconds(500_000_000) == TimePoint.seconds(2))
   }
+
+  /// A path specified under more than one file type is flagged with its types; distinct paths are not.
+  @Test func detectsDuplicateCompilationInputPath() throws {
+    let foo = try VirtualPath.intern(path: "foo.swift")
+    let bar = try VirtualPath.intern(path: "bar.swift")
+    // Same path under two Swift-compilation types → flagged with all the types.
+    let dup = IncrementalCompilationState.duplicatedSwiftCompilationInput(in: [
+      TypedVirtualPath(file: foo, type: .swift),
+      TypedVirtualPath(file: foo, type: .sil),
+    ])
+    #expect(dup?.path == VirtualPath.lookup(foo))
+    #expect(dup?.types == [.sil, .swift])
+    // Distinct paths → not flagged.
+    #expect(IncrementalCompilationState.duplicatedSwiftCompilationInput(in: [
+      TypedVirtualPath(file: foo, type: .swift),
+      TypedVirtualPath(file: bar, type: .swift),
+    ]) == nil)
+  }
 }
 
 /// Testing the machinery for incremental compilation with nonincremental test cases.

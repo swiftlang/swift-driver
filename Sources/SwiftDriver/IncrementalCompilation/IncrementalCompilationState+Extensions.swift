@@ -119,6 +119,14 @@ extension Diagnostic.Message {
     )
   }
 
+  static func warning_incremental_disabled_duplicate_input(
+    _ path: VirtualPath, _ types: [FileType]
+  ) -> Diagnostic.Message {
+    let typeList = types.map { "'\($0)'" }.joined(separator: ", ")
+    return .warning(
+      "ignoring -incremental; input file '\(path.name)' is specified with more than one file type: \(typeList)")
+  }
+
   static let remarkDisabled = Diagnostic.Message.remark_incremental_compilation_has_been_disabled
 
   static func remark_incremental_compilation_has_been_disabled(because why: String) -> Diagnostic.Message {

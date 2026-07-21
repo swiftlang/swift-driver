@@ -26,6 +26,12 @@ extension IncrementalCompilationState {
   {
     guard driver.shouldAttemptIncrementalCompilation else { return nil }
 
+    // A duplicated input path makes an incremental build record unsound; do a full build instead.
+    if let (duplicated, types) = duplicatedSwiftCompilationInput(in: driver.inputFiles) {
+      driver.diagnosticEngine.emit(.warning_incremental_disabled_duplicate_input(duplicated, types))
+      return nil
+    }
+
     let options = computeIncrementalOptions(driver: &driver)
 
     guard let outputFileMap = driver.outputFileMap else {
@@ -66,6 +72,21 @@ extension IncrementalCompilationState {
     }
 
     return initialState
+  }
+
+  /// A compilation-input path specified under more than one file type, with those types, if any.
+  /// Such an inconsistent input list can't yield a sound incremental build record.
+  @_spi(Testing) public static func duplicatedSwiftCompilationInput(
+    in inputs: [TypedVirtualPath]
+  ) -> (path: VirtualPath, types: [FileType])? {
+    var typesByHandle = [VirtualPath.Handle: Set<FileType>]()
+    for input in inputs where input.type.isPartOfSwiftCompilation {
+      typesByHandle[input.fileHandle, default: []].insert(input.type)
+    }
+    for (handle, types) in typesByHandle where types.count > 1 {
+      return (VirtualPath.lookup(handle), types.sorted { $0.description < $1.description })
+    }
+    return nil
   }
 
   // Extract options relevant to incremental builds
