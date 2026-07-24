@@ -202,6 +202,13 @@ import CRT
     }
 
     try await assertDriverDiagnostics(args: [
+      "swiftc", "foo.swift", "-ir-profile-generate", "-profile-use=profile.profdata",
+    ]) {
+      $1.expect(.error(Driver.Error.conflictingOptions(.irProfileGenerate, .profileUse)))
+      $1.expect(.error(Driver.Error.missingProfilingData(try toPath("profile.profdata").name)))
+    }
+
+    try await assertDriverDiagnostics(args: [
       "swiftc", "foo.swift", "-profile-sample-use=profile1.profdata", "-profile-use=profile2.profdata",
     ]) {
       $1.expect(.error(Driver.Error.conflictingOptions(.profileUse, .profileSampleUse)))
@@ -210,6 +217,10 @@ import CRT
     }
 
     try await assertDriverDiagnostics(args: ["swiftc", "foo.swift", "-profile-use=profile.profdata"]) {
+      $1.expect(.error(Driver.Error.missingProfilingData(try toPath("profile.profdata").name)))
+    }
+
+    try await assertDriverDiagnostics(args: ["swiftc", "foo.swift", "-ir-profile-use=profile.profdata"]) {
       $1.expect(.error(Driver.Error.missingProfilingData(try toPath("profile.profdata").name)))
     }
 
@@ -251,6 +262,44 @@ import CRT
             )
           )
         )
+      }
+    }
+
+    try await assertDriverDiagnostics(args: ["swiftc", "foo.swift", "-profile-generate", "-ir-profile-generate"]) {
+      $1.expect(.error(Driver.Error.conflictingOptions(.profileGenerate, .irProfileGenerate)))
+    }
+
+    try await withTemporaryDirectory { directoryPath in
+      try await assertDriverDiagnostics(args: ["swiftc", "foo.swift", "-profile-generate", "-ir-profile-generate=\(directoryPath)"]) {
+        $1.expect(.error(Driver.Error.conflictingOptions(.profileGenerate, .irProfileGenerateEQ)))
+      }
+    }
+
+    try await assertDriverDiagnostics(args: ["swiftc", "foo.swift", "-ir-profile-generate", "-cs-profile-generate"]) {
+      $1.expect(.error(Driver.Error.conflictingOptions(.irProfileGenerate, .csProfileGenerate)))
+    }
+
+    try await withTemporaryDirectory { directoryPath in
+      try await assertDriverDiagnostics(args: ["swiftc", "foo.swift", "-ir-profile-generate", "-cs-profile-generate=\(directoryPath)"]) {
+        $1.expect(.error(Driver.Error.conflictingOptions(.irProfileGenerate, .csProfileGenerateEQ)))
+      }
+    }
+
+    try await withTemporaryDirectory { directoryPath in
+      try await assertDriverDiagnostics(args: ["swiftc", "foo.swift", "-ir-profile-generate=\(directoryPath)", "-cs-profile-generate=\(directoryPath)"]) {
+        $1.expect(.error(Driver.Error.conflictingOptions(.irProfileGenerateEQ, .csProfileGenerateEQ)))
+      }
+    }
+
+    try await withTemporaryDirectory { directoryPath in
+      try await assertDriverDiagnostics(args: ["swiftc", "foo.swift", "-cs-profile-generate", "-cs-profile-generate=\(directoryPath)"]) {
+        $1.expect(.error(Driver.Error.conflictingOptions(.csProfileGenerate, .csProfileGenerateEQ)))
+      }
+    }
+
+    try await withTemporaryDirectory { directoryPath in
+      try await assertDriverDiagnostics(args: ["swiftc", "foo.swift", "-ir-profile-generate", "-ir-profile-generate=\(directoryPath)"]) {
+        $1.expect(.error(Driver.Error.conflictingOptions(.irProfileGenerate, .irProfileGenerateEQ)))
       }
     }
   }
@@ -501,6 +550,270 @@ import CRT
       let linkCmds = plannedJobs[1].commandLine
       #expect(linkCmds.contains(.flag("-fuse-ld=lld")))
       #expect(!linkCmds.contains(.flag("-lld-allow-duplicate-weak")))
+    }
+  }
+
+  /// A `-*-profile-generate` variant together with the clang flag the driver
+  /// should forward to the link job for it.
+  struct ProfileGenerateVariant: Sendable {
+    /// The driver flag, e.g. `-ir-profile-generate` or `-ir-profile-generate=`.
+    let driverFlag: String
+    /// The clang flag the link job should receive, e.g. `-fprofile-generate`.
+    let expectedClangFlag: String
+    /// Whether the flag takes a `<directory>` argument (the `=` forms).
+    let takesDirectory: Bool
+
+    /// The driver argument, appending `directory` for the `=` forms.
+    func argument(directory: String) -> String {
+      takesDirectory ? "\(driverFlag)\(directory)" : driverFlag
+    }
+
+    /// The expected clang flag, appending `directory` for the `=` forms.
+    func expectedFlag(directory: String) -> String {
+      takesDirectory ? "\(expectedClangFlag)\(directory)" : expectedClangFlag
+    }
+  }
+
+  private static let profileGenerateVariants: [ProfileGenerateVariant] = [
+    ProfileGenerateVariant(driverFlag: Option.irProfileGenerate.spelling,
+                           expectedClangFlag: "-fprofile-generate",
+                           takesDirectory: false),
+    ProfileGenerateVariant(driverFlag: Option.irProfileGenerateEQ.spelling,
+                           expectedClangFlag: "-fprofile-generate=",
+                           takesDirectory: true),
+    ProfileGenerateVariant(driverFlag: Option.csProfileGenerate.spelling,
+                           expectedClangFlag: "-fcs-profile-generate",
+                           takesDirectory: false),
+    ProfileGenerateVariant(driverFlag: Option.csProfileGenerateEQ.spelling,
+                           expectedClangFlag: "-fcs-profile-generate=",
+                           takesDirectory: true),
+  ]
+
+  private static let darwinProfileTargets = [
+    "x86_64-apple-macosx10.9",
+    "x86_64-apple-ios7.1-simulator",
+    "arm64-apple-ios7.1",
+    "x86_64-apple-tvos9.0-simulator",
+    "arm64-apple-tvos9.0",
+    "i386-apple-watchos2.0-simulator",
+    "armv7k-apple-watchos2.0",
+  ]
+
+  private static let linuxProfileTargets = [
+    "aarch64-unknown-linux-android",
+    "x86_64-unknown-linux-gnu",
+  ]
+
+  private static let webAssemblyProfileTargets = [
+    "wasm32-unknown-wasi",
+    "wasm32-unknown-wasip1-threads",
+  ]
+
+  /// The IR/CS profile-generate flags forward the matching clang
+  /// `-f[cs-]profile-generate[=<dir>]` flag to the Darwin link job.
+  @Test(arguments: MiscDriverTests.profileGenerateVariants, MiscDriverTests.darwinProfileTargets)
+  func profileGenerateForwardedToDarwinLinker(
+    variant: ProfileGenerateVariant,
+    triple: String
+  ) async throws {
+    var envVars = ProcessEnv.block
+    envVars["SWIFT_DRIVER_LD_EXEC"] = try ld.nativePathString(escaped: false)
+
+    try await withTemporaryDirectory { directory in
+      var driver = try TestDriver(
+        args: ["swiftc", variant.argument(directory: directory.pathString), "-target", triple, "test.swift"],
+        env: envVars
+      )
+      let plannedJobs = try await driver.planBuild()
+
+      #expect(plannedJobs.count == 2)
+      #expect(plannedJobs[0].kind == .compile)
+
+      #expect(plannedJobs[1].kind == .link)
+      #expect(plannedJobs[1].commandLine.contains(.flag(variant.expectedFlag(directory: directory.pathString))))
+    }
+  }
+
+  /// The IR/CS profile-generate flags link `libclang_rt.profile` and force
+  /// `-u__llvm_profile_runtime` for Linux/Android targets.
+  @Test(
+    .skipHostOS(.darwin, comment: "swift-autolink-extract is not present on Darwin"),
+    arguments: MiscDriverTests.profileGenerateVariants, MiscDriverTests.linuxProfileTargets
+  )
+  func profileGenerateLinksRuntimeOnLinux(
+    variant: ProfileGenerateVariant,
+    triple: String
+  ) async throws {
+    try await withTemporaryDirectory { directory in
+      var driver = try TestDriver(args: [
+        "swiftc", variant.argument(directory: directory.pathString), "-target", triple, "test.swift",
+      ])
+      let plannedJobs = try await driver.planBuild().removingAutolinkExtractJobs()
+
+      #expect(plannedJobs.count == 2)
+      #expect(plannedJobs[0].kind == .compile)
+
+      #expect(plannedJobs[1].kind == .link)
+      if triple == "aarch64-unknown-linux-android" {
+        #expect(plannedJobs[1].commandLine.containsPathWithBasename("libclang_rt.profile-aarch64-android.a"))
+      } else {
+        #expect(plannedJobs[1].commandLine.containsPathWithBasename("libclang_rt.profile-x86_64.a"))
+      }
+      #expect(plannedJobs[1].commandLine.contains { $0 == .flag("-u__llvm_profile_runtime") })
+    }
+  }
+
+  /// The IR/CS profile-generate flags link `libclang_rt.profile` for
+  /// WebAssembly targets.
+  @Test(arguments: MiscDriverTests.profileGenerateVariants, MiscDriverTests.webAssemblyProfileTargets)
+  func profileGenerateLinksRuntimeOnWebAssembly(
+    variant: ProfileGenerateVariant,
+    triple: String
+  ) async throws {
+    try await withTemporaryDirectory { resourceDir in
+      try localFileSystem.writeFileContents(resourceDir.appending(components: "wasi", "static-executable-args.lnk")) {
+        $0.send("garbage")
+      }
+
+      var env = ProcessEnv.block
+      env["SWIFT_DRIVER_SWIFT_AUTOLINK_EXTRACT_EXEC"] = "//bin/swift-autolink-extract"
+
+      var driver = try TestDriver(
+        args: [
+          "swiftc", variant.argument(directory: resourceDir.pathString), "-target", triple, "test.swift",
+          "-resource-dir", resourceDir.pathString,
+        ],
+        env: env
+      )
+      let plannedJobs = try await driver.planBuild().removingAutolinkExtractJobs()
+
+      #expect(plannedJobs.count == 2)
+      #expect(plannedJobs[0].kind == .compile)
+
+      #expect(plannedJobs[1].kind == .link)
+      #expect(plannedJobs[1].commandLine.containsPathWithBasename("libclang_rt.profile-wasm32.a"))
+    }
+  }
+
+  /// rdar://131295678 - On Windows the IR/CS profile-generate flags force the
+  /// use of lld and pass `-lld-allow-duplicate-weak`, whether or not the user
+  /// explicitly passes `-use-ld=lld`.
+  @Test(arguments: MiscDriverTests.profileGenerateVariants, [true, false])
+  func profileGenerateForcesLldOnWindows(
+    variant: ProfileGenerateVariant,
+    explicitUseLd: Bool
+  ) async throws {
+    try await withTemporaryDirectory { directory in
+      var args = [
+        "swiftc", variant.argument(directory: directory.pathString), "-target", "x86_64-unknown-windows-msvc", "test.swift",
+      ]
+      if explicitUseLd {
+        args.append("-use-ld=lld")
+      }
+      var driver = try TestDriver(args: args)
+      let plannedJobs = try await driver.planBuild()
+
+      #expect(plannedJobs.count == 2)
+      #expect(plannedJobs[0].kind == .compile)
+
+      #expect(plannedJobs[1].kind == .link)
+
+      let linkCmds = plannedJobs[1].commandLine
+      #expect(linkCmds.contains(.flag("-fuse-ld=lld")))
+      #expect(linkCmds.contains([.flag("-Xlinker"), .flag("-lld-allow-duplicate-weak")]))
+    }
+  }
+
+  /// rdar://131295678 - On Windows the IR/CS profile-generate flags force lld
+  /// even when the user requests a different linker.
+  @Test(arguments: MiscDriverTests.profileGenerateVariants)
+  func profileGenerateOverridesUserLinkerOnWindows(
+    variant: ProfileGenerateVariant
+  ) async throws {
+    try await withTemporaryDirectory { directory in
+      var driver = try TestDriver(args: [
+        "swiftc", variant.argument(directory: directory.pathString), "-use-ld=link",
+        "-target", "x86_64-unknown-windows-msvc", "test.swift",
+      ])
+      let plannedJobs = try await driver.planBuild()
+
+      #expect(plannedJobs.count == 2)
+      #expect(plannedJobs[0].kind == .compile)
+
+      #expect(plannedJobs[1].kind == .link)
+
+      let linkCmds = plannedJobs[1].commandLine
+      #expect(!linkCmds.contains(.flag("-fuse-ld=link")))
+      #expect(linkCmds.contains(.flag("-fuse-ld=lld")))
+      #expect(linkCmds.contains(.flag("-lld-allow-duplicate-weak")))
+    }
+  }
+
+  /// Without a profiling flag, `-lld-allow-duplicate-weak` is not added on
+  /// Windows.
+  @Test func windowsLinkerDoesNotForceDuplicateWeakWithoutProfiling() async throws {
+    var driver = try TestDriver(args: [
+      "swiftc", "-use-ld=lld", "-target", "x86_64-unknown-windows-msvc", "test.swift",
+    ])
+    let plannedJobs = try await driver.planBuild()
+
+    #expect(plannedJobs.count == 2)
+    #expect(plannedJobs[0].kind == .compile)
+
+    #expect(plannedJobs[1].kind == .link)
+
+    let linkCmds = plannedJobs[1].commandLine
+    #expect(linkCmds.contains(.flag("-fuse-ld=lld")))
+    #expect(!linkCmds.contains(.flag("-lld-allow-duplicate-weak")))
+  }
+
+  @Test func irProfileUseFrontendFlags() async throws {
+    // -ir-profile-use is forwarded verbatim to the frontend/compile job as the
+    // Swift '-ir-profile-use=' flag (the clang '-fprofile-use=' translation only
+    // happens on the link job).
+    try await withTemporaryDirectory { path in
+      let completePath: AbsolutePath = path.appending(component: "profile.profdata")
+      try localFileSystem.writeFileContents(completePath, bytes: .init())
+
+      var driver = try TestDriver(args: [
+        "swiftc", "foo.swift",
+        "-working-directory", path.pathString,
+        "-ir-profile-use=profile.profdata",
+      ])
+      let plannedJobs = try await driver.planBuild().removingAutolinkExtractJobs()
+      #expect(plannedJobs.count == 2)
+      #expect(plannedJobs[0].kind == .compile)
+
+      let command: [Job.ArgTemplate] = plannedJobs[0].commandLine
+      #expect(
+        command.contains(
+          .commaJoinedOptionAndPaths("-ir-profile-use=", [.absolute(completePath)])
+        )
+      )
+    }
+  }
+
+  @Test func irProfileUseLinkerArgs() async throws {
+    // -ir-profile-use is translated to the clang '-fprofile-use=' flag on the
+    // link job.
+    var envVars = ProcessEnv.block
+    envVars["SWIFT_DRIVER_LD_EXEC"] = try ld.nativePathString(escaped: false)
+
+    try await withTemporaryDirectory { path in
+      let profdata: AbsolutePath = path.appending(component: "profile.profdata")
+      try localFileSystem.writeFileContents(profdata, bytes: .init())
+
+      var driver = try TestDriver(
+        args: ["swiftc", "-ir-profile-use=\(profdata.pathString)", "-target", "x86_64-apple-macosx10.9", "test.swift"],
+        env: envVars
+      )
+      let plannedJobs = try await driver.planBuild()
+
+      #expect(plannedJobs.count == 2)
+      #expect(plannedJobs[0].kind == .compile)
+
+      #expect(plannedJobs[1].kind == .link)
+      #expect(plannedJobs[1].commandLine.contains(.flag("-fprofile-use=\(profdata.pathString)")))
     }
   }
 

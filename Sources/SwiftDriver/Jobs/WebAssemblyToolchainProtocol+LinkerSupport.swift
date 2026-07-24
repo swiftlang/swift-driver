@@ -86,7 +86,7 @@ extension WebAssemblyToolchainProtocol {
       commandLine.appendFlag("-fsanitize=\(sanitizerNames)")
     }
 
-    if parsedOptions.hasArgument(.profileGenerate) {
+    if needsInstrumentedProfile(from: &parsedOptions) {
       let libProfile = VirtualPath.lookup(targetInfo.runtimeResourcePath.path)
         .appending(components: "clang", "lib", targetTriple.osName,
                                "libclang_rt.profile-\(targetTriple.archName).a")
