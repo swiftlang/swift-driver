@@ -256,6 +256,7 @@ extension Driver {
     try commandLine.appendLast(.warnSwift3ObjcInference, from: &parsedOptions)
     try commandLine.appendLast(.remarkLoadingModule, from: &parsedOptions)
     try commandLine.appendLast(.RpassEQ, from: &parsedOptions)
+    try commandLine.appendLast(.RpassAnalysisEQ, from: &parsedOptions)
     try commandLine.appendLast(.RpassMissedEQ, from: &parsedOptions)
     try commandLine.appendLast(.suppressRemarks, from: &parsedOptions)
     try commandLine.appendLast(.suppressWarnings, from: &parsedOptions)
