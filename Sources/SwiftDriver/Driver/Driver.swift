@@ -3454,10 +3454,8 @@ extension Driver {
 
   static func validateParseableOutputArgs(_ parsedOptions: inout ParsedOptions,
                                           diagnosticEngine: DiagnosticsEngine) {
-    if parsedOptions.contains(.parseableOutput) &&
-        parsedOptions.contains(.useFrontendParseableOutput) {
-      diagnosticEngine.emit(.error(Error.conflictingOptions(.parseableOutput, .useFrontendParseableOutput)),
-                            location: nil)
+    if parsedOptions.contains(.useFrontendParseableOutput) {
+      diagnosticEngine.emit(.warning_frontend_parseable_output_deprecated)
     }
   }
 
