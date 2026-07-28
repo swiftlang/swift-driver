@@ -30,8 +30,8 @@ extension Option {
   public static let accessNotesPath: Option = Option("-access-notes-path", .separate, attributes: [.frontend, .argumentIsPath], helpText: "Specify YAML file to override attributes on Swift declarations in this module")
   public static let activePlatformAvailabilityOnly: Option = Option("-active-platform-availability-only", .flag, attributes: [], helpText: "Only emit availability metadata for platforms that are active according to the target")
   public static let aliasModuleNamesInModuleInterface: Option = Option("-alias-module-names-in-module-interface", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "When emitting a module interface, disambiguate modules using distinct alias names")
-  public static let allowAvailabilityPlatforms: Option = Option("-allow-availability-platforms", .separate, attributes: [], metaVar: "<platforms>", helpText: "Restrict availability metadata to the given platforms, e.g. 'macOS,Swift'")
-  public static let allowNonResilientAccess: Option = Option("-allow-non-resilient-access", .flag, attributes: [.frontend], helpText: "Ensures all contents are generated besides exportable decls in the binary module, so non-resilient access can be allowed")
+  public static let allowAvailabilityPlatforms: Option = Option("-allow-availability-platforms", .separate, attributes: [.helpHidden], metaVar: "<platforms>", helpText: "Restrict availability metadata to the given platforms, e.g. 'macOS,Swift'")
+  public static let allowNonResilientAccess: Option = Option("-allow-non-resilient-access", .flag, attributes: [.helpHidden, .frontend], helpText: "Ensures all contents are generated besides exportable decls in the binary module, so non-resilient access can be allowed")
   public static let allowableClient: Option = Option("-allowable-client", .separate, attributes: [.frontend, .moduleInterface], metaVar: "<vers>", helpText: "Module names that are allowed to import this module")
   public static let alwaysCompileOutputFiles: Option = Option("-always-compile-output-files", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Always compile output files even it might not change the results")
   public static let alwaysRebuildModuleDependencies: Option = Option("-always-rebuild-module-dependencies", .flag, attributes: [.helpHidden], helpText: "Always rebuild module dependencies")
@@ -60,7 +60,7 @@ extension Option {
   public static let BF: Option = Option("-BF", .joinedOrSeparate, attributes: [.noDriver, .argumentIsPath], helpText: "add a directory to the baseline framework search path")
   public static let BIEQ: Option = Option("-BI=", .joined, alias: Option.BI, attributes: [.noDriver])
   public static let BI: Option = Option("-BI", .joinedOrSeparate, attributes: [.noDriver, .argumentIsPath], helpText: "add a module for baseline input")
-  public static let blockAvailabilityPlatforms: Option = Option("-block-availability-platforms", .separate, attributes: [], metaVar: "<platforms>", helpText: "Remove the given platforms from symbol graph availability metadata, e.g. 'macOS,Swift'")
+  public static let blockAvailabilityPlatforms: Option = Option("-block-availability-platforms", .separate, attributes: [.helpHidden], metaVar: "<platforms>", helpText: "Remove the given platforms from symbol graph availability metadata, e.g. 'macOS,Swift'")
   public static let blockListFile: Option = Option("-blocklist-file", .separate, attributes: [.frontend, .noDriver, .argumentIsPath], metaVar: "<path>", helpText: "The path to a blocklist configuration file")
   public static let breakageAllowlistPath: Option = Option("-breakage-allowlist-path", .joinedOrSeparate, attributes: [.noDriver, .argumentIsPath], helpText: "An allowlist of breakages to not complain about")
   public static let bridgingHeaderDirectoryForPrint: Option = Option("-bridging-header-directory-for-print", .separate, attributes: [.helpHidden, .frontend, .noDriver], metaVar: "<path>", helpText: "Directory for bridging header to be printed in compatibility header")
@@ -78,7 +78,7 @@ extension Option {
   public static let casBackendMode: Option = Option("-cas-backend-mode=", .joined, attributes: [.frontend, .noDriver], metaVar: "native|casid|verify", helpText: "CASBackendMode for output kind")
   public static let casBackend: Option = Option("-cas-backend", .flag, attributes: [.frontend, .noDriver], helpText: "Enable using CASBackend for object file output")
   public static let casEmitCasidFile: Option = Option("-cas-emit-casid-file", .flag, attributes: [.frontend, .noDriver], helpText: "Emit .casid file next to object file when CAS Backend is enabled")
-  public static let casFsEscape: Option = Option("-cas-fs-escape", .separate, attributes: [.frontend, .cacheInvariant], metaVar: "<path>", helpText: "Path for using the underlying file system instead of CASFS")
+  public static let casFsEscape: Option = Option("-cas-fs-escape", .separate, attributes: [.cacheInvariant], metaVar: "<path>", helpText: "Path for using the underlying file system instead of CASFS")
   public static let casPath: Option = Option("-cas-path", .separate, attributes: [.frontend, .cacheInvariant], metaVar: "<path>", helpText: "Path to CAS")
   public static let casPluginOption: Option = Option("-cas-plugin-option", .separate, attributes: [.frontend, .cacheInvariant], metaVar: "<name>=<option>", helpText: "Option pass to CAS Plugin")
   public static let casPluginPath: Option = Option("-cas-plugin-path", .separate, attributes: [.frontend, .cacheInvariant], metaVar: "<path>", helpText: "Path to CAS Plugin")
@@ -151,7 +151,7 @@ extension Option {
   public static let defaultIsolationEQ: Option = Option("-default-isolation=", .joined, alias: Option.defaultIsolation, attributes: [.frontend])
   public static let defaultIsolation: Option = Option("-default-isolation", .separate, attributes: [.frontend], metaVar: "MainActor|nonisolated", helpText: "Specify the default actor isolation: MainActor or nonisolated. Defaults to nonisolated.")
   public static let defineAlwaysEnabledAvailabilityDomain: Option = Option("-define-always-enabled-availability-domain", .separate, attributes: [.helpHidden, .frontend, .noInteractive], metaVar: "<domain>", helpText: "Defines a custom availability domain that is available for all deployments")
-  public static let defineAvailability: Option = Option("-define-availability", .separate, attributes: [.frontend, .noInteractive], metaVar: "<macro>", helpText: "Define an availability macro in the format 'macroName : iOS 13.0, macOS 10.15'")
+  public static let defineAvailability: Option = Option("-define-availability", .separate, attributes: [.helpHidden, .frontend, .noInteractive], metaVar: "<macro>", helpText: "Define an availability macro in the format 'macroName : iOS 13.0, macOS 10.15'")
   public static let defineDisabledAvailabilityDomain: Option = Option("-define-disabled-availability-domain", .separate, attributes: [.helpHidden, .frontend, .noInteractive], metaVar: "<domain>", helpText: "Defines a custom availability domain that is unavailable at compile time")
   public static let defineDynamicAvailabilityDomain: Option = Option("-define-dynamic-availability-domain", .separate, attributes: [.helpHidden, .frontend, .noInteractive], metaVar: "<domain>", helpText: "Defines a custom availability domain that can be enabled or disabled at runtime")
   public static let defineEnabledAvailabilityDomain: Option = Option("-define-enabled-availability-domain", .separate, attributes: [.helpHidden, .frontend, .noInteractive], metaVar: "<domain>", helpText: "Defines a custom availability domain that is available at compile time")
@@ -570,9 +570,9 @@ extension Option {
   public static let driverExperimentalExplicitModuleBuild: Option = Option("-experimental-explicit-module-build", .flag, alias: Option.driverExplicitModuleBuild, attributes: [.helpHidden], helpText: "Prebuild module dependencies to make them explicit")
   public static let experimentalHermeticSealAtLink: Option = Option("-experimental-hermetic-seal-at-link", .flag, attributes: [.helpHidden, .frontend], helpText: "Library code can assume that all clients are visible at linktime, and aggressively strip unused code")
   public static let experimentalLazyTypecheck: Option = Option("-experimental-lazy-typecheck", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Type-check lazily as needed to produce requested outputs")
-  public static let experimentalPackageBypassResilience: Option = Option("-experimental-package-bypass-resilience", .flag, attributes: [.frontend], helpText: "Deprecated; has no effect")
-  public static let ExperimentalPackageCMOAbortOnDeserializationFail: Option = Option("-experimental-package-cmo-abort-on-deserialization-fail", .flag, attributes: [.frontend], helpText: "Abort if a deserialization error is found while package optimization is enabled")
-  public static let ExperimentalPackageCMO: Option = Option("-experimental-package-cmo", .flag, attributes: [.frontend], helpText: "Deprecated; use -package-cmo instead")
+  public static let experimentalPackageBypassResilience: Option = Option("-experimental-package-bypass-resilience", .flag, attributes: [.helpHidden, .frontend], helpText: "Deprecated; has no effect")
+  public static let ExperimentalPackageCMOAbortOnDeserializationFail: Option = Option("-experimental-package-cmo-abort-on-deserialization-fail", .flag, attributes: [.helpHidden, .frontend], helpText: "Abort if a deserialization error is found while package optimization is enabled")
+  public static let ExperimentalPackageCMO: Option = Option("-experimental-package-cmo", .flag, attributes: [.helpHidden, .frontend], helpText: "Deprecated; use -package-cmo instead")
   public static let experimentalPackageInterfaceLoad: Option = Option("-experimental-package-interface-load", .flag, attributes: [.helpHidden, .frontend], helpText: "Enables loading a package interface if in the same package specified with package-name")
   public static let ExperimentalPerformanceAnnotations: Option = Option("-experimental-performance-annotations", .flag, attributes: [.helpHidden, .frontend], helpText: "Deprecated, has no effect")
   public static let platformCCallingConventionEQ: Option = Option("-experimental-platform-c-calling-convention=", .joined, alias: Option.platformCCallingConvention, attributes: [.helpHidden, .frontend, .noDriver])
@@ -882,7 +882,7 @@ extension Option {
   public static let saveOptimizationRecord: Option = Option("-save-optimization-record", .flag, attributes: [.frontend], helpText: "Generate a YAML optimization record file")
   public static let saveTemps: Option = Option("-save-temps", .flag, attributes: [.noInteractive, .doesNotAffectIncrementalBuild], helpText: "Save intermediate compilation results")
   public static let scanDependencies: Option = Option("-scan-dependencies", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Scan dependencies of the given Swift sources", group: .modes)
-  public static let scannerCasFs: Option = Option("-scanner-cas-fs", .separate, attributes: [.frontend, .cacheInvariant], helpText: "Configure the filesystem to read from the provided CAS tree during dep-scanning")
+  public static let scannerCasFs: Option = Option("-scanner-cas-fs", .separate, attributes: [.cacheInvariant], helpText: "Configure the filesystem to read from the provided CAS tree during dep-scanning")
   public static let scannerDebugWriteOutput: Option = Option("-scanner-debug-write-output", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Write generated output from scanner for debugging purpose")
   public static let scannerModuleValidation: Option = Option("-scanner-module-validation", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Validate binary modules in the dependency scanner")
   public static let scannerOutputDir: Option = Option("-scanner-output-dir", .separate, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Directory for generated files from swift dependency scanner")
@@ -918,14 +918,16 @@ extension Option {
   public static let skipInheritedDocs: Option = Option("-skip-inherited-docs", .flag, attributes: [.helpHidden, .frontend, .noInteractive, .supplementaryOutput], helpText: "Skip emitting doc comments for members inherited through classes or default implementations")
   public static let skipProtocolImplementations: Option = Option("-skip-protocol-implementations", .flag, attributes: [.helpHidden, .frontend, .noInteractive, .supplementaryOutput], helpText: "Skip emitting symbols that are implementations of protocol requirements or inherited from protocol extensions")
   public static let skipSynthesizedMembers: Option = Option("-skip-synthesized-members", .flag, attributes: [.noDriver], helpText: "Skip members inherited through classes or default implementations")
-  public static let solverDisableCrashOnValidSalvage: Option = Option("-solver-disable-crash-on-valid-salvage", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Accept valid solutions in diagnostic mode")
+  public static let solverDisableCrashFailDiagnostic: Option = Option("-solver-disable-crash-fail-diagnostic", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Do not trigger assertion failure on 'failed to produce diagnostic for expression'")
+  public static let solverDisableDiagnoseValidSalvage: Option = Option("-solver-disable-diagnose-valid-salvage", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Accept valid solutions in diagnostic mode")
   public static let solverDisableEnumerateSupertypes: Option = Option("-solver-disable-enumerate-supertypes", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable an inefficient form of inference in the solver, which allows certain optimizations")
   public static let solverDisablePerformanceHacks: Option = Option("-solver-disable-performance-hacks", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable various constraint solver performance optimizations that have been subsumed by subsequent improvements")
   public static let solverDisablePreparedOverloads: Option = Option("-solver-disable-prepared-overloads", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable experimental prepared overloads optimization")
   public static let solverDisablePruneDisjunctions: Option = Option("-solver-disable-prune-disjunctions", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable experimental disjunction pruning algorithm for lookahead in the solver")
   public static let solverDisableSplitter: Option = Option("-solver-disable-splitter", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable the component splitter phase of expression type checking")
   public static let solverDisableTransitiveConformance: Option = Option("-solver-disable-transitive-conformance", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable transitive conformance constraint optimization")
-  public static let solverEnableCrashOnValidSalvage: Option = Option("-solver-enable-crash-on-valid-salvage", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Reject valid solutions in diagnostic mode")
+  public static let solverEnableCrashFailDiagnostic: Option = Option("-solver-enable-crash-fail-diagnostic", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Trigger assertion failure on 'failed to produce diagnostic for expression'")
+  public static let solverEnableDiagnoseValidSalvage: Option = Option("-solver-enable-diagnose-valid-salvage", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Reject valid solutions in diagnostic mode")
   public static let solverEnableEnumerateSupertypes: Option = Option("-solver-enable-enumerate-supertypes", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable an inefficient form of inference in the solver, which prevents certain optimizations")
   public static let solverEnablePerformanceHacks: Option = Option("-solver-enable-performance-hacks", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable various constraint solver performance optimizations that have been subsumed by subsequent improvements")
   public static let solverEnablePreparedOverloads: Option = Option("-solver-enable-prepared-overloads", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental prepared overloads optimization")
@@ -999,7 +1001,7 @@ extension Option {
   public static let typecheckModuleFromInterface: Option = Option("-typecheck-module-from-interface", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Treat the (single) input as a swiftinterface and typecheck it", group: .modes)
   public static let typecheck: Option = Option("-typecheck", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Parse and type-check input file(s)", group: .modes)
   public static let typoCorrectionLimit: Option = Option("-typo-correction-limit", .separate, attributes: [.helpHidden, .frontend], metaVar: "<n>", helpText: "Limit the number of times the compiler will attempt typo correction to <n>")
-  public static let unavailableDeclOptimizationEQ: Option = Option("-unavailable-decl-optimization=", .joined, attributes: [.frontend, .noInteractive], metaVar: "<complete,none>", helpText: "Specify the optimization mode for unavailable declarations. The value may be 'none' (no optimization) or 'complete' (code is not generated at all unavailable declarations)")
+  public static let unavailableDeclOptimizationEQ: Option = Option("-unavailable-decl-optimization=", .joined, attributes: [.helpHidden, .frontend, .noInteractive], metaVar: "<complete,none>", helpText: "Specify the optimization mode for unavailable declarations. The value may be 'none' (no optimization) or 'complete' (code is not generated at all unavailable declarations)")
   public static let updateCode: Option = Option("-update-code", .flag, attributes: [.helpHidden, .frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Update Swift code")
   public static let useClangFunctionTypes: Option = Option("-use-clang-function-types", .flag, attributes: [.frontend, .noDriver], helpText: "Use stored Clang function types for computing canonical types.")
   public static let useFrontendParseableOutput: Option = Option("-use-frontend-parseable-output", .flag, attributes: [.helpHidden, .cacheInvariant], helpText: "Emit parseable-output from swift-frontend jobs instead of from the driver")
@@ -1975,14 +1977,16 @@ extension Option {
       Option.skipInheritedDocs,
       Option.skipProtocolImplementations,
       Option.skipSynthesizedMembers,
-      Option.solverDisableCrashOnValidSalvage,
+      Option.solverDisableCrashFailDiagnostic,
+      Option.solverDisableDiagnoseValidSalvage,
       Option.solverDisableEnumerateSupertypes,
       Option.solverDisablePerformanceHacks,
       Option.solverDisablePreparedOverloads,
       Option.solverDisablePruneDisjunctions,
       Option.solverDisableSplitter,
       Option.solverDisableTransitiveConformance,
-      Option.solverEnableCrashOnValidSalvage,
+      Option.solverEnableCrashFailDiagnostic,
+      Option.solverEnableDiagnoseValidSalvage,
       Option.solverEnableEnumerateSupertypes,
       Option.solverEnablePerformanceHacks,
       Option.solverEnablePreparedOverloads,
