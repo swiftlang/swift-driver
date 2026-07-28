@@ -725,7 +725,7 @@ import CRT
     ])
     let plannedJobs = try await driver.planBuild().removingAutolinkExtractJobs()
 
-    #expect(plannedJobs.count == 2)
+    #expect(plannedJobs.count == 1)
     #expect(plannedJobs[0].kind == .emitModule)
     try expectJobInvocationMatches(plannedJobs[0], .flag("-o"), toPathOption("test-ios-macabi.swiftmodule"))
     try expectJobInvocationMatches(

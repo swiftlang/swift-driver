@@ -128,7 +128,7 @@ import CRT
     ])
 
     let plannedJobs = try await driver1.planBuild()
-    #expect(plannedJobs.count == 3)
+    #expect(plannedJobs.count == 2)
 
     let emitInterfaceJob = try plannedJobs.findJob(.emitModule)
     expectJobInvocationMatches(emitInterfaceJob, .flag("-emit-module-interface-path"))
@@ -149,7 +149,7 @@ import CRT
         env: envVars
       )
       let plannedJobs = try await driver.planBuild()
-      #expect(plannedJobs.count == 3)
+      #expect(plannedJobs.count == 2)
       let emitInterfaceJob = plannedJobs[0]
       expectJobInvocationMatches(emitInterfaceJob, .flag("-emit-module-interface-path"))
       expectJobInvocationMatches(emitInterfaceJob, .flag("-emit-private-module-interface-path"))
@@ -166,7 +166,7 @@ import CRT
         env: envVars
       )
       let plannedJobs = try await driver.planBuild()
-      #expect(plannedJobs.count == 3)
+      #expect(plannedJobs.count == 2)
       let emitInterfaceJob = plannedJobs[0]
       expectJobInvocationMatches(emitInterfaceJob, .flag("-emit-module-interface-path"))
       expectJobInvocationMatches(emitInterfaceJob, .flag("-emit-private-module-interface-path"))
@@ -185,7 +185,7 @@ import CRT
         env: envVars
       )
       let plannedJobs = try await driver.planBuild()
-      #expect(plannedJobs.count == 3)
+      #expect(plannedJobs.count == 2)
       let emitInterfaceJob = plannedJobs[0]
       expectJobInvocationMatches(emitInterfaceJob, .flag("-emit-module-interface-path"))
       expectJobInvocationMatches(emitInterfaceJob, .flag("-emit-private-module-interface-path"))
@@ -1343,7 +1343,7 @@ import CRT
         "-enable-library-evolution",
       ])
       let plannedJobs = try await driver.planBuild()
-      #expect(plannedJobs.count == 4)
+      #expect(plannedJobs.count == 3)
 
       // Emit-module should emit both module interface files
       let emitJob = try plannedJobs.findJob(.emitModule)
@@ -1373,7 +1373,7 @@ import CRT
         env: envVars
       )
       let plannedJobs = try await driver.planBuild()
-      #expect(plannedJobs.count == 2)
+      #expect(plannedJobs.count == 1)
       #expect(!plannedJobs.containsJob(.verifyModuleInterface))
     }
 
@@ -1389,7 +1389,7 @@ import CRT
         env: envVars
       )
       let plannedJobs = try await driver.planBuild()
-      #expect(plannedJobs.count == 2)
+      #expect(plannedJobs.count == 1)
       #expect(!plannedJobs.containsJob(.verifyModuleInterface))
       let emitJob = try plannedJobs.findJob(.emitModule)
       if driver.isFrontendArgSupported(.noVerifyEmittedModuleInterface) {
@@ -1409,7 +1409,7 @@ import CRT
         env: envVars
       )
       let plannedJobs = try await driver.planBuild()
-      #expect(plannedJobs.count == 3)
+      #expect(plannedJobs.count == 2)
       let emitJob = try plannedJobs.findJob(.emitModule)
       let verifyJob = try plannedJobs.findJob(.verifyModuleInterface)
       let emitInterfaceOutput = emitJob.outputs.filter { $0.type == .swiftInterface }
@@ -1606,7 +1606,7 @@ import CRT
       ])
 
       let plannedJobs = try await driver.planBuild()
-      #expect(plannedJobs.count == 4)
+      #expect(plannedJobs.count == 3)
       let emitJob = try plannedJobs.findJob(.emitModule)
       let verifyJob = try plannedJobs.findJob(.verifyModuleInterface)
       let packageOutputs = emitJob.outputs.filter { $0.type == .packageSwiftInterface }
@@ -1638,7 +1638,7 @@ import CRT
         "-no-verify-emitted-module-interface",
       ])
       let plannedJobs = try await driver.planBuild()
-      #expect(plannedJobs.count == 2)
+      #expect(plannedJobs.count == 1)
     }
 
     // Emit-module separately
@@ -1653,7 +1653,7 @@ import CRT
         "-experimental-emit-module-separately",
       ])
       let plannedJobs = try await driver.planBuild()
-      #expect(plannedJobs.count == 4)
+      #expect(plannedJobs.count == 3)
       let emitJob = try plannedJobs.findJob(.emitModule)
       let verifyJob = try plannedJobs.findJob(.verifyModuleInterface)
       let packageOutputs = emitJob.outputs.filter { $0.type == .packageSwiftInterface }
@@ -1912,7 +1912,7 @@ import CRT
       ])
       let plannedJobs = try await driver.planBuild().removingAutolinkExtractJobs()
 
-      #expect(plannedJobs.count == 3)
+      #expect(plannedJobs.count == 1)
 
       #expect(plannedJobs[0].kind == .emitModule)
       expectJobInvocationMatches(plannedJobs[0], .flag("-emit-abi-descriptor-path"))

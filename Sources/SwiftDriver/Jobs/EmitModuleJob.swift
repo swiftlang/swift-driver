@@ -48,22 +48,13 @@ extension Driver {
       return
     }
 
-    // Add outputs that can't be merged
-    // Workaround for rdar://85253406
-    // Ensure that the separate emit-module job does not emit `.d.` outputs.
-    // If we have both individual source files and the emit-module file emit .d files, we
-    // are risking collisions in output filenames.
-    //
-    // In cases where other compile jobs exist, they will produce dependency outputs already.
-    // There are currently no cases where this is the only job because even an `-emit-module`
-    // driver invocation currently still involves partial compilation jobs.
-    // When partial compilation jobs are removed for the `compilerOutputType == .swiftModule`
-    // case, this will need to be changed here.
-    //
-    if emitModuleSeparately {
-      return
-    }
-    if let dependenciesFilePath = dependenciesFilePath {
+    // `emitModuleDependenciesFilePath` (above) already supplies `-emit-dependencies-path`
+    // for this job whenever `-emit-dependencies` is requested. Only fall back to the general
+    // dependencies path when it did not, otherwise the frontend receives the flag twice and
+    // rejects it ("wrong number of '-emit-dependencies-path' arguments"). This matters now
+    // that the emit-module-only build (compilerOutputType == .swiftModule) skips the compile
+    // jobs and runs this block.
+    if emitModuleDependenciesFilePath == nil, let dependenciesFilePath = dependenciesFilePath {
       var path = dependenciesFilePath
       // FIXME: Hack to workaround the fact that SwiftPM/Xcode don't pass this path right now.
       if parsedOptions.getLastArgument(.emitDependenciesPath) == nil {
