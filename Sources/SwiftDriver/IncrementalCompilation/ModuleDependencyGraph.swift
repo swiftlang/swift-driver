@@ -905,7 +905,7 @@ extension ModuleDependencyGraph {
       /// - Returns: true iff the node corresponds to a definition on a removed source file.
       fileprivate func isForRemovedInput(_ node: Node) -> Bool {
         guard case let .known(dependencySource) = node.definitionLocation,
-           dependencySource.typedFile.type == .swift // e.g., could be a .swiftdeps file
+           dependencySource.typedFile.type.isSwiftSourceFile // e.g., could be a .swiftdeps file
         else {
           return false
         }
