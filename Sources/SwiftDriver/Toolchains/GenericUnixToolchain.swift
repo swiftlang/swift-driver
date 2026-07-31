@@ -60,6 +60,15 @@ public final class GenericUnixToolchain: Toolchain {
     self.toolDirectory = toolDirectory
   }
 
+  public func getDefaultDwarfVersion(targetTriple: Triple) -> UInt8 {
+    // Match Clang: DWARF v5 is the default everywhere except Android, which
+    // stays on v4 for compatibility with the NDK's bundled debugging tools.
+    if targetTriple.environment == .android {
+      return 4
+    }
+    return 5
+  }
+
   public func makeLinkerOutputFilename(moduleName: String, type: LinkOutputType) -> String {
     switch type {
     case .executable: return moduleName
