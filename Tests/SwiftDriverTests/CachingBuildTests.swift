@@ -1032,6 +1032,69 @@ struct CachingBuildTests {
     .skipHostOS(.win32, comment: "Skipping due to improper path mapping handling."),
     .requireFrontendArgSupport(.scannerPrefixMapPaths)
   )
+  func ignorePrefixMappingWithExternalBridgingHeader() async throws {
+    try await withTemporaryDirectory { path in
+      let main = path.appending(component: "testPrefixMapBridgingHeader.swift")
+      try localFileSystem.writeFileContents(main) {
+        $0.send("import C;")
+      }
+
+      let cHeadersPath: AbsolutePath =
+        try testInputsPath.appending(component: "ExplicitModuleBuilds")
+        .appending(component: "CHeaders")
+      let swiftModuleInterfacesPath: AbsolutePath =
+        try testInputsPath.appending(component: "ExplicitModuleBuilds")
+        .appending(component: "Swift")
+      let bridgingHeaderPath: AbsolutePath =
+        cHeadersPath.appending(component: "Bridging.h")
+      let casPath = path.appending(component: "cas")
+      let generatedHeaderPath = path.appending(component: "generated.h")
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+      let dependencyOracle = InterModuleDependencyOracle()
+      var driver = try TestDriver(
+        args: [
+          "swiftc",
+          "-I", cHeadersPath.nativePathString(escaped: false),
+          "-I", swiftModuleInterfacesPath.nativePathString(escaped: false),
+          "-g", "-explicit-module-build",
+          "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: false),
+          "-working-directory", path.nativePathString(escaped: false),
+          "-disable-clang-target",
+          "-scanner-prefix-map", path.description + "=/^tmp",
+          "-import-objc-header", bridgingHeaderPath.nativePathString(escaped: false),
+          "-emit-objc-header-path", generatedHeaderPath.nativePathString(escaped: false),
+          main.nativePathString(escaped: false),
+        ] + sdkArgumentsForTesting,
+        interModuleDependencyOracle: dependencyOracle
+      )
+      let scanLibPath = try #require(try driver.getSwiftScanLibPath())
+      try dependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
+      let resolver = try ArgsResolver(fileSystem: localFileSystem)
+
+      let jobs = try await driver.planBuild()
+
+      // The incompatible configuration must be diagnosed.
+      #expect(
+        driver.diagnosticEngine.diagnostics.contains {
+          $0.behavior == .warning
+            && $0.message.text == "ignore '-scanner-prefix-*' options when '-import-bridging-header' or '-import-objc-header' option is used with '-emit-objc-header'"
+        }
+      )
+
+      // Because the prefix mapping was dropped, no planned job may remap paths.
+      for job in jobs where job.kind.supportCaching {
+        let command = try job.commandLine.map { try resolver.resolve($0) }
+        #expect(!command.contains("-cache-replay-prefix-map"))
+        #expect(!command.contains("-scanner-prefix-map-paths"))
+        #expect(!command.contains("-scanner-prefix-map"))
+      }
+    }
+  }
+
+  @Test(
+    .skipHostOS(.win32, comment: "Skipping due to improper path mapping handling."),
+    .requireFrontendArgSupport(.scannerPrefixMapPaths)
+  )
   func commaJoinedPathRemapping() async throws {
 
     try await withTemporaryDirectory { path in
