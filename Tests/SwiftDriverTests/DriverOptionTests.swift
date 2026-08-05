@@ -488,6 +488,33 @@ import Testing
       $1.expect(.error("invalid value '6' in '-dwarf-version="))
     }
 
+    // Non-Darwin Unix targets default to DWARF 5, matching Clang, except
+    // Android which stays on DWARF 4 for compatibility with the NDK's
+    // debugging tools.
+    try await assertNoDriverDiagnostics(
+      args: "swiftc", "foo.swift", "-emit-module", "-g", "-target", "x86_64-unknown-linux-gnu"
+    ) { driver in
+      #expect(driver.debugInfo.dwarfVersion == 5)
+    }
+
+    try await assertNoDriverDiagnostics(
+      args: "swiftc", "foo.swift", "-emit-module", "-g", "-target", "aarch64-unknown-linux-android"
+    ) { driver in
+      #expect(driver.debugInfo.dwarfVersion == 4)
+    }
+
+    try await assertNoDriverDiagnostics(
+      args: "swiftc", "foo.swift", "-emit-module", "-g", "-target", "x86_64-unknown-freebsd"
+    ) { driver in
+      #expect(driver.debugInfo.dwarfVersion == 5)
+    }
+
+    try await assertNoDriverDiagnostics(
+      args: "swiftc", "foo.swift", "-emit-module", "-g", "-target", "x86_64-unknown-linux-gnu", "-dwarf-version=3"
+    ) { driver in
+      #expect(driver.debugInfo.dwarfVersion == 3)
+    }
+
     try await assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-g", "-c", "-file-compilation-dir", ".") {
       driver in
       let jobs = try await driver.planBuild()
