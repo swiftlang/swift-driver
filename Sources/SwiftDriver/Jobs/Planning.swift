@@ -13,12 +13,9 @@
 //===----------------------------------------------------------------------===//
 
 import SwiftOptions
-import class Foundation.JSONDecoder
 
 import protocol TSCBasic.DiagnosticData
-import struct TSCBasic.AbsolutePath
 import struct TSCBasic.Diagnostic
-import var TSCBasic.localFileSystem
 import var TSCBasic.stdoutStream
 
 public enum PlanningError: Error, DiagnosticData {
@@ -494,53 +491,6 @@ extension Driver {
     addCompileJob(compile)
   }
 
-  func getAdopterConfigPathFromXcodeDefaultToolchain() -> AbsolutePath? {
-    let swiftPath = try? toolchain.resolvedTool(.swiftCompiler).path
-    guard var swiftPath = swiftPath else {
-      return nil
-    }
-    let toolchains = "Toolchains"
-    guard swiftPath.components.contains(toolchains) else {
-      return nil
-    }
-    while swiftPath.basename != toolchains  {
-      swiftPath = swiftPath.parentDirectory
-    }
-    assert(swiftPath.basename == toolchains)
-    return swiftPath.appending(component: "XcodeDefault.xctoolchain")
-      .appending(component: "usr")
-      .appending(component: "local")
-      .appending(component: "lib")
-      .appending(component: "swift")
-      .appending(component: "adopter_configs.json")
-  }
-
-  @_spi(Testing) public struct AdopterConfig: Decodable {
-    public let key: String
-    public let moduleNames: [String]
-  }
-
-  @_spi(Testing) public static func parseAdopterConfigs(_ config: AbsolutePath) -> [AdopterConfig] {
-    let results = try? localFileSystem.readFileContents(config).withData {
-      try JSONDecoder().decode([AdopterConfig].self, from: $0)
-    }
-    return results ?? []
-  }
-
-  func getAdopterConfigsFromXcodeDefaultToolchain() -> [AdopterConfig] {
-    if let config = getAdopterConfigPathFromXcodeDefaultToolchain() {
-      return Driver.parseAdopterConfigs(config)
-    }
-    return []
-  }
-
-  @_spi(Testing) public static func getAllConfiguredModules(withKey: String, _ configs: [AdopterConfig]) -> Set<String> {
-    let allModules = configs.flatMap {
-      return $0.key == withKey ? $0.moduleNames : []
-    }
-    return Set<String>(allModules)
-  }
-
   private mutating func addVerifyJobs(emitModuleJob: Job, addJob: (Job) -> Void,
                                       explicitModulePlanner: ExplicitDependencyBuildPlanner?,
                                       forVariantModule: Bool = false)
@@ -560,31 +510,11 @@ extension Driver {
       emitModuleSeparately || compilerMode == .singleCompile || verifyFlag == true
     else { return }
 
-    // Downgrade errors to a warning for modules expected to fail this check.
-    var knownFailingModules: Set = ["TestBlocklistedModule"]
-    knownFailingModules = knownFailingModules.union(
-      Driver.getAllConfiguredModules(withKey: "SkipModuleInterfaceVerify",
-                              getAdopterConfigsFromXcodeDefaultToolchain()))
-
-    let moduleName = parsedOptions.getLastArgument(.moduleName)?.asSingle
     let errorMode: InterfaceVerificationErrorMode
-
-    if verifyFlag != nil {
-      assert(verifyFlag == true)
+    if verifyFlag == true || env["ENABLE_DEFAULT_INTERFACE_VERIFIER"] != nil {
       errorMode = .enabled
-    } else if env["ENABLE_DEFAULT_INTERFACE_VERIFIER"] != nil {
-      errorMode = .enabled
-    } else if knownFailingModules.contains(moduleName ?? "") {
-      errorMode = .downgrade
     } else {
       errorMode = .unspecified
-    }
-
-    if errorMode == .downgrade {
-      diagnosticEngine
-        .emit(
-          .remark(
-            "Verification of module interfaces for '\(moduleName ?? "No module name")' set to warning only by blocklist"))
     }
 
     enum InterfaceMode {
