@@ -32,7 +32,15 @@ extension Driver {
     return isFrontendArgSupported(.inputFileKey)
   }
 
-  mutating func verifyModuleInterfaceJob(interfaceInput: TypedVirtualPath, emitModuleJob: Job, reportAsError: Bool,
+  enum InterfaceVerificationErrorMode {
+    case unspecified
+    case enabled
+    case downgrade
+  }
+
+  mutating func verifyModuleInterfaceJob(interfaceInput: TypedVirtualPath,
+                                         emitModuleJob: Job,
+                                         errorMode: InterfaceVerificationErrorMode,
                                          explicitModulePlanner: ExplicitDependencyBuildPlanner?,
                                          forVariantModule: Bool) throws -> Job {
     var commandLine: [Job.ArgTemplate] = swiftCompilerPrefixArgs.map { Job.ArgTemplate.flag($0) }
@@ -59,12 +67,15 @@ extension Driver {
       }
     }
 
-    // TODO: remove this because we'd like module interface errors to fail the build.
-    if isFrontendArgSupported(.downgradeTypecheckInterfaceError) &&
-        (!reportAsError ||
-         // package interface is new and should not be a blocker for now
-         interfaceInput.type == .packageSwiftInterface) {
+    switch errorMode {
+    case .downgrade:
       commandLine.appendFlag(.downgradeTypecheckInterfaceError)
+    case .enabled:
+      if isFrontendArgSupported(.noDowngradeTypecheckInterfaceError) {
+        commandLine.appendFlag(.noDowngradeTypecheckInterfaceError)
+      }
+    case .unspecified:
+      break
     }
 
     let cacheKeys = try computeOutputCacheKeyForJob(commandLine: commandLine, inputs: [(interfaceInput, 0)])

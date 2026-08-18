@@ -1766,6 +1766,8 @@ import CRT
       expectEqual(verifyJob.inputs[0], emitInterfaceOutput[0])
       expectJobInvocationMatches(verifyJob, .path(emitInterfaceOutput[0].file))
       #expect(!verifyJob.commandLine.contains("-downgrade-typecheck-interface-error"))
+      // The blocklist applies when the verification isn't requested explicitly.
+      #expect(!verifyJob.commandLine.contains("-no-downgrade-typecheck-interface-error"))
     }
 
     // Test the `-no-verify-emitted-module-interface` flag with whole-module
@@ -1869,6 +1871,10 @@ import CRT
       #expect(plannedJobs.count == 2)
       let verifyJob = try plannedJobs.findJob(.verifyModuleInterface)
       #expect(!verifyJob.commandLine.contains("-downgrade-typecheck-interface-error"))
+      // Report errors even for modules blocklisted by the compiler.
+      if driver.isFrontendArgSupported(.noDowngradeTypecheckInterfaceError) {
+        expectJobInvocationMatches(verifyJob, .flag("-no-downgrade-typecheck-interface-error"))
+      }
     }
 
     // The flag -check-api-availability-only is not passed down to the verify job.

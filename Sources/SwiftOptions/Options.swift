@@ -247,6 +247,7 @@ extension Option {
   public static let disableLayoutStringValueWitnesses: Option = Option("-disable-layout-string-value-witnesses", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable layout string based value witnesses")
   public static let disableLegacyTypeInfo: Option = Option("-disable-legacy-type-info", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Completely disable legacy type layout")
   public static let disableLifetimeDependenceDiagnostics: Option = Option("-disable-lifetime-dependence-diagnostics", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable lifetime dependence diagnostics for Nonescapable types.")
+  public static let disableLifetimeResolution: Option = Option("-disable-lifetime-resolution", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable lifetime resolution in SIL.")
   public static let disableLlvmMergeFunctionsPass: Option = Option("-disable-llvm-merge-functions-pass", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable the MergeFunctionPass LLVM IR pass")
   public static let disableLlvmOptzns: Option = Option("-disable-llvm-optzns", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't run LLVM optimization passes")
   public static let disableLlvmValueNames: Option = Option("-disable-llvm-value-names", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't add names to local values in LLVM IR")
@@ -512,6 +513,7 @@ extension Option {
   public static let enableLexicalLifetimesNoArg: Option = Option("-enable-lexical-lifetimes", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable lexical lifetimes")
   public static let enableLibraryEvolution: Option = Option("-enable-library-evolution", .flag, attributes: [.frontend, .moduleInterface], helpText: "Build the module to allow binary-compatible library evolution")
   public static let enableLifetimeDependenceDiagnostics: Option = Option("-enable-lifetime-dependence-diagnostics", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable lifetime dependence diagnostics for Nonescapable types.")
+  public static let enableLifetimeResolution: Option = Option("-enable-lifetime-resolution", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable lifetime resolution in SIL.")
   public static let enableLlvmValueNames: Option = Option("-enable-llvm-value-names", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Add names to local values in LLVM IR")
   public static let enableLlvmVerifyEach: Option = Option("-enable-llvm-verify-each", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Run the LLVM IR verifier after every pass.")
   public static let enableLlvmVfe: Option = Option("-enable-llvm-vfe", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Use LLVM IR Virtual Function Elimination on Swift class virtual tables")
@@ -749,6 +751,7 @@ extension Option {
   public static let noClangModuleBreadcrumbs: Option = Option("-no-clang-module-breadcrumbs", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Don't emit DWARF skeleton CUs for imported Clang modules. Use this when building a redistributable static archive.")
   public static let noClangCompilerInstanceSharing: Option = Option("-no-clang-scanner-instance-sharing", .flag, attributes: [.frontend, .noDriver], helpText: "Disable sharing of the Clang compiler instance across dependency scans.")
   public static let noColorDiagnostics: Option = Option("-no-color-diagnostics", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Do not print diagnostics in color")
+  public static let noDowngradeTypecheckInterfaceError: Option = Option("-no-downgrade-typecheck-interface-error", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Report errors when typechecking emitted module interfaces, even for a module blocklisted as having a broken interface")
   public static let noEmitModuleSeparatelyWMO: Option = Option("-no-emit-module-separately-wmo", .flag, attributes: [.helpHidden], helpText: "Force emitting the swiftmodule in the same job in wmo builds")
   public static let noEmitModuleSeparately: Option = Option("-no-emit-module-separately", .flag, attributes: [.helpHidden], helpText: "Force using merge-module as the incremental build mode")
   public static let driverNoExplicitModuleBuild: Option = Option("-no-explicit-module-build", .flag, attributes: [], helpText: "Opt out of the default explicit-module-build behavior for swiftc")
@@ -1058,6 +1061,7 @@ extension Option {
   public static let warnSwift3ObjcInference: Option = Option("-warn-swift3-objc-inference", .flag, alias: Option.warnSwift3ObjcInferenceComplete, attributes: [.helpHidden, .frontend, .doesNotAffectIncrementalBuild])
   public static let warningsAsErrors: Option = Option("-warnings-as-errors", .flag, attributes: [.frontend], helpText: "Treat warnings as errors", group: .warningTreating)
   public static let weakLinkAtTarget: Option = Option("-weak-link-at-target", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Weakly link symbols for declarations that were introduced at the deployment target. Symbols introduced before the deployment target are still strongly linked.")
+  public static let weakLinkSpanCompatibilityLib: Option = Option("-weak-link-span-compatibility-lib", .flag, attributes: [.frontend], helpText: "Weakly link the symbols that are back deployed by the Span compatibility library instead of strongly linking them, when the deployment target predates the OS release that introduced them")
   public static let Werror: Option = Option("-Werror", .separate, attributes: [.helpHidden, .frontend], metaVar: "<diagnostic_group>", helpText: "Treat this warning group as error", group: .warningTreating)
   public static let wholeModuleOptimization: Option = Option("-whole-module-optimization", .flag, attributes: [.frontend, .noInteractive], helpText: "Optimize input files together instead of individually")
   public static let windowsSdkRoot: Option = Option("-windows-sdk-root", .separate, attributes: [.frontend, .synthesizeInterface, .argumentIsPath], metaVar: "<root>", helpText: "Windows SDK Root")
@@ -1306,6 +1310,7 @@ extension Option {
       Option.disableLayoutStringValueWitnesses,
       Option.disableLegacyTypeInfo,
       Option.disableLifetimeDependenceDiagnostics,
+      Option.disableLifetimeResolution,
       Option.disableLlvmMergeFunctionsPass,
       Option.disableLlvmOptzns,
       Option.disableLlvmValueNames,
@@ -1571,6 +1576,7 @@ extension Option {
       Option.enableLexicalLifetimesNoArg,
       Option.enableLibraryEvolution,
       Option.enableLifetimeDependenceDiagnostics,
+      Option.enableLifetimeResolution,
       Option.enableLlvmValueNames,
       Option.enableLlvmVerifyEach,
       Option.enableLlvmVfe,
@@ -1808,6 +1814,7 @@ extension Option {
       Option.noClangModuleBreadcrumbs,
       Option.noClangCompilerInstanceSharing,
       Option.noColorDiagnostics,
+      Option.noDowngradeTypecheckInterfaceError,
       Option.noEmitModuleSeparatelyWMO,
       Option.noEmitModuleSeparately,
       Option.driverNoExplicitModuleBuild,
@@ -2117,6 +2124,7 @@ extension Option {
       Option.warnSwift3ObjcInference,
       Option.warningsAsErrors,
       Option.weakLinkAtTarget,
+      Option.weakLinkSpanCompatibilityLib,
       Option.Werror,
       Option.wholeModuleOptimization,
       Option.windowsSdkRoot,

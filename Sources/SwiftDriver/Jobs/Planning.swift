@@ -545,21 +545,19 @@ extension Driver {
                                       explicitModulePlanner: ExplicitDependencyBuildPlanner?,
                                       forVariantModule: Bool = false)
   throws {
+    let verifyFlag = parsedOptions.hasFlag(positive: .verifyEmittedModuleInterface,
+                                           negative: .noVerifyEmittedModuleInterface)
+
     guard
       // Only verify modules with library evolution.
       parsedOptions.hasArgument(.enableLibraryEvolution),
 
       // Only verify when requested, on by default and not disabled.
-      parsedOptions.hasFlag(positive: .verifyEmittedModuleInterface,
-                            negative: .noVerifyEmittedModuleInterface,
-                            default: true),
+      verifyFlag != false,
 
       // Don't verify by default modules emitted from a merge-module job
       // as it's more likely to be invalid.
-      emitModuleSeparately || compilerMode == .singleCompile ||
-      parsedOptions.hasFlag(positive: .verifyEmittedModuleInterface,
-                            negative: .noVerifyEmittedModuleInterface,
-                            default: false)
+      emitModuleSeparately || compilerMode == .singleCompile || verifyFlag == true
     else { return }
 
     // Downgrade errors to a warning for modules expected to fail this check.
@@ -569,13 +567,20 @@ extension Driver {
                               getAdopterConfigsFromXcodeDefaultToolchain()))
 
     let moduleName = parsedOptions.getLastArgument(.moduleName)?.asSingle
-    let reportAsError = !knownFailingModules.contains(moduleName ?? "") ||
-         env["ENABLE_DEFAULT_INTERFACE_VERIFIER"] != nil ||
-         parsedOptions.hasFlag(positive: .verifyEmittedModuleInterface,
-                               negative: .noVerifyEmittedModuleInterface,
-                               default: false)
+    let errorMode: InterfaceVerificationErrorMode
 
-    if !reportAsError {
+    if verifyFlag != nil {
+      assert(verifyFlag == true)
+      errorMode = .enabled
+    } else if env["ENABLE_DEFAULT_INTERFACE_VERIFIER"] != nil {
+      errorMode = .enabled
+    } else if knownFailingModules.contains(moduleName ?? "") {
+      errorMode = .downgrade
+    } else {
+      errorMode = .unspecified
+    }
+
+    if errorMode == .downgrade {
       diagnosticEngine
         .emit(
           .remark(
@@ -591,6 +596,7 @@ extension Driver {
                       forVariantModule: Bool) throws {
       var isNeeded = false
       var outputType: FileType
+      var jobErrorMode = errorMode
 
       switch mode {
       case .Public:
@@ -606,6 +612,8 @@ extension Driver {
       case .Package:
         isNeeded = parsedOptions.hasArgument(.emitPackageModuleInterfacePath)
         outputType = .packageSwiftInterface
+        // Package interfaces are experimental and should not be verified yet.
+        jobErrorMode = .downgrade
       }
 
       guard isNeeded else { return }
@@ -615,7 +623,7 @@ extension Driver {
              "Merge module job should only have one swiftinterface output")
       let job = try verifyModuleInterfaceJob(interfaceInput: mergeInterfaceOutputs[0],
                                              emitModuleJob: emitModuleJob,
-                                             reportAsError: reportAsError,
+                                             errorMode: jobErrorMode,
                                              explicitModulePlanner: explicitModulePlanner,
                                              forVariantModule: forVariantModule)
       addJob(job)

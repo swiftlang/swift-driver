@@ -304,30 +304,39 @@ extension ParsedOptions {
     return options.contains { !lookupWithoutConsuming($0).isEmpty }
   }
 
-  /// Given an option and its negative form, return
-  /// true if the option is present, false if the negation is present, and
-  /// `default` if neither option is given. If both the option and its
-  /// negation are present, the last one wins.
+  /// Given an option and its negative form, return true if the option is present,
+  /// false if the negation is present, or nil if neither option is given. If both
+  /// the option and its negation are present, the last one wins.
   public mutating func hasFlag(positive: Option,
-                               negative: Option,
-                               default: Bool) -> Bool {
+                               negative: Option) -> Bool? {
     let positiveOpt = lookup(positive).last
     let negativeOpt = lookup(negative).last
 
-    // If neither are present, return the default
     guard positiveOpt != nil || negativeOpt != nil else {
-      return `default`
+      return nil
     }
 
-    // If the positive isn't provided, then the negative will be
+    // If the positive isn't provided, negative wins
     guard let positive = positiveOpt else { return false }
 
-    // If the negative isn't provided, then the positive will be
+    // If the negative isn't provided, positive wins
     guard let negative = negativeOpt else { return true }
 
     // Otherwise, return true if the positive index is greater than the negative,
     // false otherwise
     return positive.index > negative.index
+  }
+
+  /// Given an option and its negative form, return true if the option is present,
+  /// false if the negation is present, or `default` if neither option is given.
+  /// If both the option and its negation are present, the last one wins.
+  public mutating func hasFlag(positive: Option,
+                               negative: Option,
+                               default: Bool) -> Bool {
+    guard let hasFlag = hasFlag(positive: positive, negative: negative) else {
+      return `default`
+    }
+    return hasFlag
   }
 
   /// Get the last argument matching the given option.
