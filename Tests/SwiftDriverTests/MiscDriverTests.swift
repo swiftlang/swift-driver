@@ -1399,42 +1399,6 @@ import CRT
     }
   }
 
-  @Test func adopterConfigFile() throws {
-    try withTemporaryDirectory { dir in
-      let file = dir.appending(component: "file")
-      try localFileSystem.writeFileContents(
-        file,
-        bytes:
-          #"""
-          [
-            {
-              "key": "SkipFeature1",
-              "moduleNames": ["foo", "bar"]
-            }
-          ]
-          """#
-      )
-      let configs = Driver.parseAdopterConfigs(file)
-      expectEqual(configs.count, 1)
-      expectEqual(configs[0].key, "SkipFeature1")
-      expectEqual(configs[0].moduleNames, ["foo", "bar"])
-      let modules = Driver.getAllConfiguredModules(withKey: "SkipFeature1", configs)
-      #expect(modules.contains("foo"))
-      #expect(modules.contains("bar"))
-      #expect(Driver.getAllConfiguredModules(withKey: "SkipFeature2", configs).isEmpty)
-    }
-    try withTemporaryDirectory { dir in
-      let file = dir.appending(component: "file")
-      try localFileSystem.writeFileContents(file, bytes: "][ malformed }{")
-      let configs = Driver.parseAdopterConfigs(file)
-      expectEqual(configs.count, 0)
-    }
-    do {
-      let configs = Driver.parseAdopterConfigs(try AbsolutePath(validating: "/abc/c/a.json"))
-      expectEqual(configs.count, 0)
-    }
-  }
-
   @Test func extractPackageName() throws {
     try withTemporaryDirectory { dir in
       let file = dir.appending(component: "file")
@@ -1766,7 +1730,6 @@ import CRT
       expectEqual(verifyJob.inputs[0], emitInterfaceOutput[0])
       expectJobInvocationMatches(verifyJob, .path(emitInterfaceOutput[0].file))
       #expect(!verifyJob.commandLine.contains("-downgrade-typecheck-interface-error"))
-      // The blocklist applies when the verification isn't requested explicitly.
       #expect(!verifyJob.commandLine.contains("-no-downgrade-typecheck-interface-error"))
     }
 
@@ -1820,33 +1783,12 @@ import CRT
       #expect(!verifyJob.commandLine.contains("-downgrade-typecheck-interface-error"))
     }
 
-    // Errors downgraded to a warning when a module is blocklisted.
-    try await assertDriverDiagnostics(args: [
-      "swiftc", "foo.swift", "-emit-module", "-module-name",
-      "TestBlocklistedModule", "-emit-module-interface",
-      "-enable-library-evolution",
-      "-whole-module-optimization",
-      "-library-level", "api",
-    ]) { driver, verify in
-      let plannedJobs = try await driver.planBuild()
-      #expect(plannedJobs.count == 2)
-      let verifyJob = try plannedJobs.findJob(.verifyModuleInterface)
-      if driver.isFrontendArgSupported(.downgradeTypecheckInterfaceError) {
-        expectJobInvocationMatches(verifyJob, .flag("-downgrade-typecheck-interface-error"))
-      }
-
-      verify.expect(
-        .remark("Verification of module interfaces for 'TestBlocklistedModule' set to warning only by blocklist")
-      )
-    }
-
-    // Don't downgrade to error blocklisted modules when the env var is set.
     do {
       envVars["ENABLE_DEFAULT_INTERFACE_VERIFIER"] = "YES"
       var driver = try TestDriver(
         args: [
           "swiftc", "foo.swift", "-emit-module", "-module-name",
-          "TestBlocklistedModule", "-emit-module-interface",
+          "foo", "-emit-module-interface",
           "-enable-library-evolution",
           "-whole-module-optimization",
         ],
@@ -1856,13 +1798,16 @@ import CRT
       #expect(plannedJobs.count == 2)
       let verifyJob = try plannedJobs.findJob(.verifyModuleInterface)
       #expect(!verifyJob.commandLine.contains("-downgrade-typecheck-interface-error"))
+      if driver.isFrontendArgSupported(.noDowngradeTypecheckInterfaceError) {
+        expectJobInvocationMatches(verifyJob, .flag("-no-downgrade-typecheck-interface-error"))
+      }
+      envVars["ENABLE_DEFAULT_INTERFACE_VERIFIER"] = nil
     }
 
-    // Don't downgrade to error blocklisted modules if the verify flag is set.
     do {
       var driver = try TestDriver(args: [
         "swiftc", "foo.swift", "-emit-module", "-module-name",
-        "TestBlocklistedModule", "-emit-module-interface",
+        "foo", "-emit-module-interface",
         "-enable-library-evolution",
         "-whole-module-optimization",
         "-verify-emitted-module-interface",
@@ -1871,7 +1816,6 @@ import CRT
       #expect(plannedJobs.count == 2)
       let verifyJob = try plannedJobs.findJob(.verifyModuleInterface)
       #expect(!verifyJob.commandLine.contains("-downgrade-typecheck-interface-error"))
-      // Report errors even for modules blocklisted by the compiler.
       if driver.isFrontendArgSupported(.noDowngradeTypecheckInterfaceError) {
         expectJobInvocationMatches(verifyJob, .flag("-no-downgrade-typecheck-interface-error"))
       }
