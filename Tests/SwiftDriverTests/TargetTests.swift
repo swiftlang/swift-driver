@@ -1261,13 +1261,15 @@ import CRT
           """
           {
             "Version":"1.0",
-            "CanonicalName": "xros1.0"
+            "CanonicalName": "xros1.0",
+            "DefaultDeploymentTarget": "1.0"
           }
           """
       )
 
       let sdkInfo = DarwinToolchain.readSDKInfo(localFileSystem, VirtualPath.absolute(sdk).intern())
       expectEqual(sdkInfo?.platformKind, .visionos)
+      expectEqual(sdkInfo?.defaultDeploymentTarget, Version(1, 0, 0))
     }
   }
 

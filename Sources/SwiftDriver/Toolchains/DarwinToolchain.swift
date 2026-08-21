@@ -311,6 +311,7 @@ public final class DarwinToolchain: Toolchain {
       case version = "Version"
       case versionMap = "VersionMap"
       case canonicalName = "CanonicalName"
+      case defaultDeploymentTarget = "DefaultDeploymentTarget"
     }
 
     public enum SDKPlatformKind: String, CaseIterable {
@@ -359,6 +360,7 @@ public final class DarwinToolchain: Toolchain {
     private var version: Version
     private var versionMap: VersionMap
     let canonicalName: String
+    let defaultDeploymentTarget: Version?
     init(from decoder: Decoder) throws {
       let keyedContainer = try decoder.container(keyedBy: CodingKeys.self)
 
@@ -377,6 +379,9 @@ public final class DarwinToolchain: Toolchain {
       } else {
         self.versionMap = VersionMap()
       }
+      self.defaultDeploymentTarget = try keyedContainer
+        .decodeIfPresent(String.self, forKey: .defaultDeploymentTarget)
+        .flatMap { try? Version(string: $0, lenient: true) }
     }
 
 
