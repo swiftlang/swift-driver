@@ -394,6 +394,16 @@ public final class DarwinToolchain: Toolchain {
       }
       return version
     }
+
+    // Version to embed in the -clang-target[-variant] triple: the SDK's
+    // DefaultDeploymentTarget when available, else the SDK version. Mac Catalyst
+    // always uses sdkVersion(for:) so its macOS->iOS remap is preserved.
+    func clangTargetVersion(for triple: Triple) -> Version {
+      if !triple.isMacCatalyst, let defaultDeploymentTarget {
+        return defaultDeploymentTarget
+      }
+      return sdkVersion(for: triple)
+    }
   }
 
   // SDK info is computed lazily. This should not generally be accessed directly.
@@ -440,7 +450,7 @@ public final class DarwinToolchain: Toolchain {
         clangTargetTriple = explicitClangTripleArg
       } else if let sdkInfo = sdkInfo {
         let currentTriple = frontendTargetInfo.target.triple
-        let sdkVersionedOSString = currentTriple.osNameUnversioned + sdkInfo.sdkVersion(for: currentTriple).sdkVersionString
+        let sdkVersionedOSString = currentTriple.osNameUnversioned + sdkInfo.clangTargetVersion(for: currentTriple).sdkVersionString
         clangTargetTriple = currentTriple.triple.replacingOccurrences(of: currentTriple.osName, with: sdkVersionedOSString)
       }
 
@@ -461,7 +471,7 @@ public final class DarwinToolchain: Toolchain {
           let currentVariantTriple = targetVariantTripleStr
           let sdkVersionedOSSString =
             currentVariantTriple.osNameUnversioned
-            + sdkInfo.sdkVersion(for: currentVariantTriple).sdkVersionString
+            + sdkInfo.clangTargetVersion(for: currentVariantTriple).sdkVersionString
           clangTargetVariantTriple = currentVariantTriple.triple.replacingOccurrences(
             of: currentVariantTriple.osName, with: sdkVersionedOSSString)
         }
