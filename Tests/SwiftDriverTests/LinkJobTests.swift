@@ -1619,6 +1619,44 @@ import Testing
     )
   }
 
+  @Test func windowsStaticStdlibLinkLibraries() async throws {
+    let commonArguments = [
+      "swiftc", "-target", "x86_64-unknown-windows-msvc", "-use-ld=lld",
+      "-emit-executable", "-nostartfiles", "input.obj",
+    ]
+    let staticLibraries = [
+      "-ldispatch",
+      "-lBlocksRuntime",
+      "-lAdvAPI32",
+      "-lShLwApi",
+      "-lWS2_32",
+      "-lWinMM",
+      "-lsynchronization",
+      "-lOneCore",
+      "-lole32",
+    ]
+
+    do {
+      var driver = try TestDriver(args: commonArguments + ["-static-stdlib"])
+      let jobs = try await driver.planBuild().removingAutolinkExtractJobs()
+      let linkJob = try jobs.findJob(.link)
+
+      for library in staticLibraries {
+        #expect(linkJob.commandLine.contains(.flag(library)))
+      }
+    }
+
+    do {
+      var driver = try TestDriver(args: commonArguments)
+      let jobs = try await driver.planBuild().removingAutolinkExtractJobs()
+      let linkJob = try jobs.findJob(.link)
+
+      for library in staticLibraries {
+        #expect(!linkJob.commandLine.contains(.flag(library)))
+      }
+    }
+  }
+
   @Test func windowsRuntimeLibraryFlags() async throws {
     do {
       var driver = try TestDriver(args: [

@@ -211,6 +211,23 @@ extension WindowsToolchain {
       }
     })
 
+    // Static libdispatch declares BlocksRuntime, AdvAPI32, ShLwApi, WS2_32,
+    // WinMM, and synchronization in its Windows CMake interface. OneCore and
+    // ole32 close the remaining Swift Concurrency and COM imports.
+    if parsedOptions.hasArgument(.staticStdlib) {
+      commandLine.appendFlags(
+        "-ldispatch",
+        "-lBlocksRuntime",
+        "-lAdvAPI32",
+        "-lShLwApi",
+        "-lWS2_32",
+        "-lWinMM",
+        "-lsynchronization",
+        "-lOneCore",
+        "-lole32"
+      )
+    }
+
     for framework in parsedOptions.arguments(for: .F, .Fsystem) {
       commandLine.appendFlag(framework.option == .Fsystem ? "-iframework" : "-F")
       try commandLine.appendPath(VirtualPath(path: framework.argument.asSingle))
