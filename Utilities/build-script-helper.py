@@ -240,7 +240,7 @@ def add_rpath(rpath, binary, verbose):
 
 
 def should_test_parallel():
-    return False
+    return True
 
 
 def handle_invocation(args):
