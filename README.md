@@ -165,3 +165,4 @@ Before submitting the pull request, please make sure you have [tested your chang
 To be a truly great community, [Swift.org](https://swift.org/) needs to welcome developers from all walks of life, with different backgrounds, and with a wide range of experience. A diverse and friendly community will have more great ideas, more unique perspectives, and produce more great code. We will work diligently to make the Swift community welcoming to everyone.
 
 To give clarity of what is expected of our members, Swift has adopted the code of conduct defined by the Contributor Covenant. This document is used across many open source communities, and we think it articulates our values well. For more, see the [Code of Conduct](https://swift.org/code-of-conduct/).
+
