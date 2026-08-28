@@ -753,4 +753,44 @@ import CRT
 
     #expect(plannedJobs[1].kind == .link)
   }
+
+  @Test func swiftIndexStoreOptionsEnvironment() async throws {
+    var env = ProcessEnv.block
+    env["SWIFT_PROJECT_INDEX_PATH"] = "/tmp/idx"
+    env["SWIFT_PROJECT_INDEX_OPTIONS"] = "-index-ignore-clang-modules -index-include-locals -index-store-compress"
+    try await assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-module-name", "Test", env: env) { driver in
+      let plannedJobs = try await driver.planBuild().removingAutolinkExtractJobs()
+      #expect(plannedJobs[0].kind == .compile)
+      try expectJobInvocationMatches(plannedJobs[0], .flag("-index-store-path"), toPathOption("/tmp/idx", isRelative: false))
+      expectJobInvocationMatches(plannedJobs[0], .flag("-index-ignore-clang-modules"))
+      expectJobInvocationMatches(plannedJobs[0], .flag("-index-include-locals"))
+      expectJobInvocationMatches(plannedJobs[0], .flag("-index-store-compress"))
+    }
+  }
+
+  @Test func swiftProjectIndexPathEnvironmentEmptyDoesNotEnableIndexing() async throws {
+    var env = ProcessEnv.block
+    env["SWIFT_PROJECT_INDEX_PATH"] = ""
+    env["SWIFT_PROJECT_INDEX_OPTIONS"] = "-index-include-locals"
+    try await assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-module-name", "Test", env: env) { driver in
+      let plannedJobs = try await driver.planBuild().removingAutolinkExtractJobs()
+      #expect(plannedJobs[0].kind == .compile)
+      #expect(!plannedJobs[0].commandLine.contains(.flag("-index-store-path")))
+      #expect(!plannedJobs[0].commandLine.contains(.flag("-index-include-locals")))
+    }
+  }
+
+  @Test func swiftIndexStoreOptionsEnvironmentUnknownOption() async throws {
+    var env = ProcessEnv.block
+    env["SWIFT_PROJECT_INDEX_PATH"] = "/tmp/idx"
+    env["SWIFT_PROJECT_INDEX_OPTIONS"] = "-index-include-locals -warnings-as-errors"
+    try await assertDriverDiagnostics(args: "swiftc", "foo.swift", "-module-name", "Test", env: env) {
+      driver,
+      verifier in
+      verifier.expect(.error_unknown_index_environment_option("-warnings-as-errors"))
+      // The options that are valid are still honored.
+      let plannedJobs = try await driver.planBuild().removingAutolinkExtractJobs()
+      expectJobInvocationMatches(plannedJobs[0], .flag("-index-include-locals"))
+    }
+  }
 }
