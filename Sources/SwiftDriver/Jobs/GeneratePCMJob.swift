@@ -55,6 +55,7 @@ extension Driver {
       explicitModulePlanner: explicitModulePlanner)
 
     try commandLine.appendLast(.indexStorePath, from: &parsedOptions)
+    try commandLine.appendLast(.indexStoreCompress, from: &parsedOptions)
     let cacheKeys = try computeOutputCacheKeyForJob(commandLine: commandLine, inputs: [(input, 0)])
 
     return Job(

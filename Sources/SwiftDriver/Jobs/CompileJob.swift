@@ -412,6 +412,7 @@ extension Driver {
       }
       try commandLine.appendLast(.indexIgnoreClangModules, from: &parsedOptions)
       try commandLine.appendLast(.indexIncludeLocals, from: &parsedOptions)
+      try commandLine.appendLast(.indexStoreCompress, from: &parsedOptions)
     }
 
     if parsedOptions.contains(.debugInfoStoreInvocation) ||

@@ -380,6 +380,58 @@ import Testing
     }
   }
 
+  @Test func indexStoreCompress() async throws {
+    // Make sure `-index-store-compress` is only passed to the frontend when
+    // requested, not by default.
+    try await assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-index-store-path", "/tmp/idx") { driver in
+      let jobs = try await driver.planBuild()
+      #expect(!jobs[0].commandLine.contains(.flag("-index-store-compress")))
+    }
+    try await assertNoDriverDiagnostics(
+      args: "swiftc",
+      "foo.swift",
+      "-index-store-path",
+      "/tmp/idx",
+      "-index-store-compress"
+    ) { driver in
+      let jobs = try await driver.planBuild()
+      expectCommandLineContains(jobs[0].commandLine, .flag("-index-store-path"))
+      expectCommandLineContains(jobs[0].commandLine, .flag("-index-store-compress"))
+    }
+    // Ensure the index store for precompiled headers and modules also get compressed.
+    try await assertNoDriverDiagnostics(
+      args: "swiftc",
+      "-typecheck",
+      "-index-store-path",
+      "/tmp/idx",
+      "-index-store-compress",
+      "-import-objc-header",
+      "TestInputHeader.h",
+      "foo.swift"
+    ) { driver in
+      let jobs = try await driver.planBuild()
+      #expect(jobs[0].kind == .generatePCH)
+      print(jobs[0].commandLine)
+      expectCommandLineContains(jobs[0].commandLine, .flag("-index-store-path"))
+      expectCommandLineContains(jobs[0].commandLine, .flag("-index-store-compress"))
+    }
+    try await assertNoDriverDiagnostics(
+      args: "swiftc",
+      "-emit-pcm",
+      "module.modulemap",
+      "-module-name",
+      "Test",
+      "-index-store-path",
+      "/tmp/idx",
+      "-index-store-compress"
+    ) { driver in
+      let jobs = try await driver.planBuild()
+      #expect(jobs[0].kind == .generatePCM)
+      expectCommandLineContains(jobs[0].commandLine, .flag("-index-store-path"))
+      expectCommandLineContains(jobs[0].commandLine, .flag("-index-store-compress"))
+    }
+  }
+
   @Test func debugSettings() async throws {
     try await assertNoDriverDiagnostics(args: "swiftc", "foo.swift", "-emit-module") { driver in
       #expect(driver.debugInfo.level == nil)

@@ -24,6 +24,7 @@ extension Driver {
       explicitModulePlanner: explicitModulePlanner)
 
     try commandLine.appendLast(.indexStorePath, from: &parsedOptions)
+    try commandLine.appendLast(.indexStoreCompress, from: &parsedOptions)
 
     commandLine.appendFlag(.emitPch)
   }
