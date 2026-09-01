@@ -749,6 +749,7 @@ import Testing
         #expect(
           cmd.contains(.responseFilePath(.absolute(path.appending(components: "wasi", "static-executable-args.lnk"))))
         )
+        #expect(cmd.contains(subsequence: [.flag("-Xlinker"), .flag("--no-stack-first")]))
         #expect(cmd.contains(subsequence: [.flag("-Xlinker"), .flag("--global-base=4096")]))
         #expect(cmd.contains(subsequence: [.flag("-Xlinker"), .flag("--table-base=4096")]))
         #expect(

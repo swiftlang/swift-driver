@@ -147,6 +147,8 @@ extension WASIToolchain {
       // apple/swift's runtime library.
       let SWIFT_ABI_WASM32_LEAST_VALID_POINTER = 4096
       commandLine.appendFlag(.Xlinker)
+      commandLine.appendFlag("--no-stack-first")
+      commandLine.appendFlag(.Xlinker)
       commandLine.appendFlag("--global-base=\(SWIFT_ABI_WASM32_LEAST_VALID_POINTER)")
       commandLine.appendFlag(.Xlinker)
       commandLine.appendFlag("--table-base=\(SWIFT_ABI_WASM32_LEAST_VALID_POINTER)")
