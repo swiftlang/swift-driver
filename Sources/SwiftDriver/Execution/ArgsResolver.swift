@@ -45,6 +45,9 @@ public final class ArgsResolver {
   // FIXME: We probably need a dedicated type for this...
   private let temporaryDirectory: VirtualPath
 
+  /// Whether this resolver owns and should remove its temporary directory.
+  private var shouldRemoveTemporaryDirectoryOnDeinit: Bool
+
   private let lock = NSLock()
 
   public init(fileSystem: FileSystem, temporaryDirectory: VirtualPath? = nil) throws {
@@ -53,6 +56,7 @@ public final class ArgsResolver {
 
     if let temporaryDirectory = temporaryDirectory {
       self.temporaryDirectory = temporaryDirectory
+      self.shouldRemoveTemporaryDirectoryOnDeinit = false
       let temporaryDirExists = try fileSystem.exists(self.temporaryDirectory)
       if !temporaryDirExists, let temporaryDirAbsPath = self.temporaryDirectory.absolutePath {
         try fileSystem.createDirectory(temporaryDirAbsPath, recursive: true)
@@ -65,6 +69,13 @@ public final class ArgsResolver {
         return path
       }
       self.temporaryDirectory = .absolute(tmpDir)
+      self.shouldRemoveTemporaryDirectoryOnDeinit = true
+    }
+  }
+
+  deinit {
+    if shouldRemoveTemporaryDirectoryOnDeinit {
+      try? removeTemporaryDirectory()
     }
   }
 
@@ -234,6 +245,7 @@ public final class ArgsResolver {
     // Only try to remove if we have an absolute path.
     if let absPath = temporaryDirectory.absolutePath {
       try fileSystem.removeFileTree(absPath)
+      shouldRemoveTemporaryDirectoryOnDeinit = false
     }
   }
 }
