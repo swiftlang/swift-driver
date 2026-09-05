@@ -971,6 +971,24 @@ public struct Driver {
     if let additional = env["ADDITIONAL_SWIFT_DRIVER_FLAGS"] {
       args.append(contentsOf: additional.components(separatedBy: " "))
     }
+    if let indexStorePath = env["SWIFT_PROJECT_INDEX_PATH"], !indexStorePath.isEmpty {
+      args += ["-index-store-path", indexStorePath]
+      if let indexStoreOptions = env["SWIFT_PROJECT_INDEX_OPTIONS"] {
+        let indexOptions: [Option] = [
+          .indexIgnoreClangModules,
+          .indexIgnoreSystemModules,
+          .indexIncludeLocals,
+          .indexStoreCompress
+        ]
+        for indexOption in indexStoreOptions.split(separator: " ") {
+          if indexOptions.contains(where: { $0.spelling == indexOption }) {
+            args.append(String(indexOption))
+          } else {
+            diagnosticsEngine.emit(.error_unknown_index_environment_option(String(indexOption)))
+          }
+        }
+      }
+    }
 
     args = try Self.expandResponseFiles(args, fileSystem: fileSystem, diagnosticsEngine: self.diagnosticEngine)
 
