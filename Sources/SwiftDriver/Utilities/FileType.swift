@@ -20,6 +20,15 @@ public enum FileType: String, Hashable, CaseIterable, Codable {
   /// Swift source file.
   case swift
 
+  /// Markdown file.
+  case markdown = "md"
+
+  /// reStructuredText file.
+  case reStructuredText = "rst"
+
+  /// LaTeX file.
+  case latex = "tex"
+
   /// (Canonical) SIL source file
   case sil
 
@@ -179,6 +188,17 @@ public enum FileType: String, Hashable, CaseIterable, Codable {
   case cachedDiagnostics
 }
 
+extension FileType {
+  public var isSwiftSourceFile: Bool {
+    switch self {
+      case .swift, .markdown, .reStructuredText, .latex:
+        return true
+      default:
+        return false
+    }
+  }
+}
+
 extension FileType: CustomStringConvertible {
   public var description: String {
     switch self {
@@ -187,6 +207,15 @@ extension FileType: CustomStringConvertible {
          .swiftSourceInfoFile, .assembly, .remap, .tbd, .pcm, .pch,
          .clangModuleMap:
       return rawValue
+    case .markdown:
+      return "markdown"
+
+    case .reStructuredText:
+      return "restructured-text"
+
+    case .latex:
+      return "latex"
+
     case .object:
       return "object"
 
@@ -294,7 +323,8 @@ extension FileType {
   /// a Swift or SIL source file.
   public var isPartOfSwiftCompilation: Bool {
     switch self {
-    case .swift, .raw_sil, .sil, .raw_sib, .sib:
+    case .swift, .markdown, .reStructuredText, .latex, .raw_sil, .sil,
+         .raw_sib, .sib:
       return true
     case .object, .pch, .ast, .llvmIR, .llvmBitcode, .assembly, .swiftModule,
          .importedModules, .indexData, .remap, .dSYM, .autolink, .dependencies,
@@ -350,6 +380,12 @@ extension FileType {
     switch self {
     case .swift:
       return "swift"
+    case .markdown:
+      return "markdown"
+    case .reStructuredText:
+      return "restructured-text"
+    case .latex:
+      return "latex"
     case .sil:
       return "sil"
     case .sib:
@@ -457,7 +493,8 @@ extension FileType {
 extension FileType {
   var isTextual: Bool {
     switch self {
-    case .swift, .sil, .dependencies, .emitModuleDependencies, .assembly, .ast,
+    case .swift, .markdown, .reStructuredText, .latex,
+         .sil, .dependencies, .emitModuleDependencies, .assembly, .ast,
          .raw_sil, .llvmIR,.objcHeader, .autolink, .importedModules, .tbd,
          .moduleTrace, .yamlOptimizationRecord, .swiftInterface, .privateSwiftInterface, .packageSwiftInterface,
          .jsonDependencies, .clangModuleMap, .jsonCompilerFeatures, .jsonTargetInfo,
@@ -479,7 +516,8 @@ extension FileType {
     switch self {
     case .assembly, .llvmIR, .llvmBitcode, .object:
       return true
-    case .swift, .sil, .sib, .ast, .image, .dSYM, .dependencies, .emitModuleDependencies,
+    case .swift, .markdown, .reStructuredText, .latex,
+         .sil, .sib, .ast, .image, .dSYM, .dependencies, .emitModuleDependencies,
          .autolink, .swiftModule, .swiftDocumentation, .swiftInterface,
          .privateSwiftInterface, .packageSwiftInterface, .swiftSourceInfoFile, .raw_sil, .raw_sib,
          .diagnostics, .emitModuleDiagnostics, .objcHeader, .swiftDeps, .remap,
@@ -496,7 +534,7 @@ extension FileType {
   /// Returns true if producing the file type requires running SILGen.
   var requiresSILGen: Bool {
     switch self {
-    case .swift, .ast, .indexData, .indexUnitOutputPath, .jsonCompilerFeatures, .jsonTargetInfo, .jsonSupportedFeatures:
+    case .swift, .markdown, .reStructuredText, .latex, .ast, .indexData, .indexUnitOutputPath, .jsonCompilerFeatures, .jsonTargetInfo, .jsonSupportedFeatures:
       return false
     case .sil, .sib, .image, .object, .dSYM, .dependencies, .autolink, .swiftModule, .swiftDocumentation, .swiftInterface, .privateSwiftInterface, .packageSwiftInterface, .swiftSourceInfoFile, .swiftConstValues, .assembly, .raw_sil, .raw_sib, .llvmIR, .llvmBitcode, .diagnostics, .emitModuleDiagnostics, .emitModuleDependencies, .objcHeader, .swiftDeps, .modDepCache, .remap, .importedModules, .tbd, .jsonDependencies, .jsonSwiftArtifacts, .moduleTrace, .yamlOptimizationRecord, .bitstreamOptimizationRecord, .pcm, .pch, .clangModuleMap, .jsonAPIBaseline, .jsonABIBaseline, .jsonAPIDescriptor, .moduleSummary, .moduleSemanticInfo, .cachedDiagnostics, .raw_llvmIr, .dependencyScanDiagnostics:
       return true
@@ -510,7 +548,8 @@ extension FileType {
          // Those are by-product from swift-driver and not considered outputs need caching.
          .jsonSwiftArtifacts, .remap, .indexUnitOutputPath, .modDepCache,
          // the remaining should not be an output from a caching swift job.
-         .swift, .image, .dSYM, .importedModules, .clangModuleMap,
+         .swift, .markdown, .reStructuredText, .latex,
+         .image, .dSYM, .importedModules, .clangModuleMap,
          .jsonCompilerFeatures, .jsonTargetInfo, .autolink, .jsonSupportedFeatures:
       return false
     case .assembly, .llvmIR, .llvmBitcode, .object, .sil, .sib, .ast,
