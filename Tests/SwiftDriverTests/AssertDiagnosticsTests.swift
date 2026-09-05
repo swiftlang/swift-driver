@@ -20,7 +20,11 @@ import Testing
 // fail when they're supposed to, we use `withKnownIssue` to catch expected
 // failures.
 
-@Suite(.suppressKnownIssues())
+#if compiler(>=6.3)
+@Suite(.filterIssues { $0.isFailure })
+#else
+@Suite()
+#endif
 struct AssertDiagnosticsTests {
   @Test func noDiagnostics() async throws {
     await assertNoDiagnostics { _ in }
@@ -178,17 +182,5 @@ private func expectedIssue(
       issueConfirmation.confirm()
       return true
     }
-  }
-}
-
-private extension Trait where Self == IssueHandlingTrait {
-  /// Filter out known issues, keeping only real failures (like confirmation miscounts).
-  static func suppressKnownIssues() -> Self {
-    #if compiler(>=6.3)
-    .filterIssues { $0.isFailure }
-    #else
-    // Older version do not have the API to filter so test will show as known issue.
-    .filterIssues { issue in true }
-    #endif
   }
 }
