@@ -505,6 +505,40 @@ import CRT
         }
       )
     }
+
+    // -clang-target uses the SDK's DefaultDeploymentTarget when present,
+    // while -target-sdk-version still reflects the SDK version.
+    try await withTemporaryDirectory { path in
+      let sdk = path.appending(component: "MacOSX.sdk")
+      try localFileSystem.createDirectory(sdk, recursive: true)
+      try localFileSystem.writeFileContents(
+        sdk.appending(component: "SDKSettings.json"),
+        bytes:
+          """
+          {
+            "Version": "10.15",
+            "CanonicalName": "macosx10.15",
+            "VersionMap": { "macOS_iOSMac": { "10.15": "13.3" } },
+            "DefaultDeploymentTarget": "10.13"
+          }
+          """
+      )
+      let main = path.appending(component: "Foo.swift")
+      try localFileSystem.writeFileContents(main, bytes: "import Swift")
+      var driver = try TestDriver(args: [
+        "swiftc", "-explicit-module-build",
+        "-target", "arm64-apple-macos10.14",
+        "-sdk", sdk.pathString,
+        main.pathString,
+      ])
+      let plannedJobs = try await driver.planBuild()
+      #expect(
+        plannedJobs.contains { job in
+          job.commandLine.contains(subsequence: [.flag("-clang-target"), .flag("arm64-apple-macos10.13")])
+            && job.commandLine.contains(subsequence: [.flag("-target-sdk-version"), .flag("10.15")])
+        }
+      )
+    }
   }
 
   @Test(.requireHostOS(.macosx)) func disableClangTargetForImplicitModule() async throws {
@@ -1261,13 +1295,15 @@ import CRT
           """
           {
             "Version":"1.0",
-            "CanonicalName": "xros1.0"
+            "CanonicalName": "xros1.0",
+            "DefaultDeploymentTarget": "1.0"
           }
           """
       )
 
       let sdkInfo = DarwinToolchain.readSDKInfo(localFileSystem, VirtualPath.absolute(sdk).intern())
       expectEqual(sdkInfo?.platformKind, .visionos)
+      expectEqual(sdkInfo?.defaultDeploymentTarget, Version(1, 0, 0))
     }
   }
 
