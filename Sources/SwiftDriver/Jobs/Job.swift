@@ -101,7 +101,10 @@ public struct Job: Codable, Equatable, Hashable {
 
   /// Any extra environment variables which should be set while running the job.
   @available(*, deprecated, message: "use extraEnvironmentBlock")
-  public var extraEnvironment: [String: String]
+  public var extraEnvironment: [String: String] {
+    get { extraEnvironmentBlock.legacyVars }
+    set { extraEnvironmentBlock = ProcessEnvironmentBlock(newValue) }
+  }
 
   /// Any extra environment variables which should be set while running the job.
   public var extraEnvironmentBlock: ProcessEnvironmentBlock
@@ -143,7 +146,6 @@ public struct Job: Codable, Equatable, Hashable {
     self.outputCacheKeys = outputCacheKeys
     self.compileInputOutputMap = inputOutputMap
     self.extraEnvironmentBlock = extraEnvironment
-    self.extraEnvironment = self.extraEnvironmentBlock.legacyVars
     self.requiresInPlaceExecution = requiresInPlaceExecution
     self.supportsResponseFiles = tool.supportsResponseFiles
   }
