@@ -46,6 +46,7 @@ extension Option {
   public static let autoBridgingHeaderChaining: Option = Option("-auto-bridging-header-chaining", .flag, attributes: [.helpHidden, .frontend], helpText: "Automatically chaining all the bridging headers")
   public static let autolinkForceLoad: Option = Option("-autolink-force-load", .flag, attributes: [.helpHidden, .frontend, .moduleInterface], helpText: "Force ld to link against this module even if no symbols are used")
   public static let autolinkLibrary: Option = Option("-autolink-library", .separate, attributes: [.frontend, .noDriver], helpText: "Add dependent library")
+  public static let avoidEmitModuleDoc: Option = Option("-avoid-emit-module-doc", .flag, attributes: [.noInteractive, .doesNotAffectIncrementalBuild], helpText: "don't emit Swift module documentation file")
   public static let avoidEmitModuleSourceInfo: Option = Option("-avoid-emit-module-source-info", .flag, attributes: [.noInteractive, .doesNotAffectIncrementalBuild], helpText: "don't emit Swift source info file")
   public static let avoidLocation: Option = Option("-avoid-location", .flag, attributes: [.noDriver], helpText: "Avoid serializing the file paths of SDK nodes.")
   public static let avoidLocation_: Option = Option("--avoid-location", .flag, alias: Option.avoidLocation, attributes: [.noDriver], helpText: "Avoid serializing the file paths of SDK nodes.")
@@ -1108,6 +1109,7 @@ extension Option {
       Option.autoBridgingHeaderChaining,
       Option.autolinkForceLoad,
       Option.autolinkLibrary,
+      Option.avoidEmitModuleDoc,
       Option.avoidEmitModuleSourceInfo,
       Option.avoidLocation,
       Option.avoidLocation_,
