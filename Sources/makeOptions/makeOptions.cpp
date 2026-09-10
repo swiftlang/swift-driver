@@ -108,7 +108,7 @@ using namespace llvm::opt;
 static const RawOption rawOptions[] = {
 #define OPTION(PREFIXES_OFFSET, PREFIXED_NAME_OFFSET, ID, KIND, GROUP, ALIAS,  \
                ALIASARGS, FLAGS, VISIBILITY, PARAM, HELPTEXT,                  \
-               HELPTEXTFORVARIANTS, METAVAR, VALUES)                           \
+               HELPTEXTFORVARIANTS, METAVAR, VALUES, ...)                      \
   {OPT_##ID,                                                                   \
    getPrefixes(PREFIXES_OFFSET),                                               \
    getPrefixedName(PREFIXED_NAME_OFFSET),                                      \
