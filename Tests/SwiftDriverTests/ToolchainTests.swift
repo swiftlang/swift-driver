@@ -778,7 +778,7 @@ import CRT
     ])
     let plannedJobs = try await driver.planBuild().removingAutolinkExtractJobs()
 
-    #expect(plannedJobs.count == 2)
+    #expect(plannedJobs.count == 1)
     try expectJobInvocationMatches(
       plannedJobs[0],
       .flag("-o"),

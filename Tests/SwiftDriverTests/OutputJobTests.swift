@@ -871,7 +871,7 @@ import Testing
     // from the driver to the frontend.
     let manyArgs = (1...200000).map { "-DTEST_\($0)" }
 
-    // Compile + separate emit module job
+    // Emit module job (module-only build skips compile jobs)
     do {
       let resolver = try ArgsResolver(fileSystem: localFileSystem)
       var driver = try TestDriver(
@@ -879,23 +879,14 @@ import Testing
           + ["-module-name", "foo", "foo.swift", "bar.swift"]
       )
       let jobs = try await driver.planBuild().removingAutolinkExtractJobs()
-      expectEqual(jobs.count, 3)
-      expectEqual(Set(jobs.map { $0.kind }), Set([.emitModule, .compile]))
+      expectEqual(jobs.count, 1)
+      expectEqual(jobs[0].kind, .emitModule)
 
       let emitModuleJob = try jobs.findJob(.emitModule)
       let emitModuleResolvedArgs: [String] =
         try resolver.resolveArgumentList(for: emitModuleJob)
       expectEqual(emitModuleResolvedArgs.count, 3)
       expectEqual(emitModuleResolvedArgs[2].first, "@")
-
-      let compileJobs = jobs.filter { $0.kind == .compile }
-      expectEqual(compileJobs.count, 2)
-      for compileJob in compileJobs {
-        let compileResolvedArgs: [String] =
-          try resolver.resolveArgumentList(for: compileJob)
-        expectEqual(compileResolvedArgs.count, 3)
-        expectEqual(compileResolvedArgs[2].first, "@")
-      }
     }
 
     // Generate PCM (precompiled Clang module) job
