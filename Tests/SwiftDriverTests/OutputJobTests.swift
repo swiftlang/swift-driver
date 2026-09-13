@@ -1034,6 +1034,22 @@ import Testing
     }
   }
 
+  @Test func moduleDocFileEmitOption() async throws {
+    // avoid implicit swiftdoc
+    do {
+      var driver = try TestDriver(args: ["swiftc", "-emit-module", "-avoid-emit-module-doc", "foo.swift"])
+      let plannedJobs = try await driver.planBuild()
+      let emitModuleJob = plannedJobs[0]
+      #expect(!emitModuleJob.commandLine.contains(.flag("-emit-module-doc-path")))
+      expectEqual(emitModuleJob.outputs.count, driver.targetTriple.isDarwin ? 3 : 2)
+      #expect(try emitModuleJob.outputs[0].file == toPath("foo.swiftmodule"))
+      #expect(try emitModuleJob.outputs[1].file == toPath("foo.swiftsourceinfo"))
+      if driver.targetTriple.isDarwin {
+        #expect(try emitModuleJob.outputs[2].file == toPath("foo.abi.json"))
+      }
+    }
+  }
+
   @Test func filelist() async throws {
     var envVars = ProcessEnv.block
     envVars["SWIFT_DRIVER_LD_EXEC"] = try ld.nativePathString(escaped: false)
