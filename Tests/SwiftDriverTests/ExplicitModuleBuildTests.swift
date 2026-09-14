@@ -582,6 +582,46 @@ func getStdlibShimsPaths(_ driver: Driver) throws -> (AbsolutePath, AbsolutePath
     }
   }
 
+  @Test(.requireHostOS(.macosx, comment: "-add_ast_path is only passed on Darwin"))
+  func noASTPathUnderExplicitModuleBuild() async throws {
+    try await withTemporaryDirectory { path in
+      let (stdlibPath, shimsPath, _, _) = try getDriverArtifactsForScanning()
+
+      let main = path.appending(component: "testNoASTPathUnderExplicitModuleBuild.swift")
+      try localFileSystem.writeFileContents(main, bytes: "import E;")
+
+      let swiftModuleInterfacesPath: AbsolutePath =
+        try testInputsPath.appending(component: "ExplicitModuleBuilds")
+        .appending(component: "Swift")
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+      let commonArgs =
+        [
+          "swiftc",
+          "-I", swiftModuleInterfacesPath.nativePathString(escaped: false),
+          "-I", stdlibPath.nativePathString(escaped: false),
+          "-I", shimsPath.nativePathString(escaped: false),
+          "-emit-executable", "-emit-module", "-g",
+          main.nativePathString(escaped: false),
+        ] + sdkArgumentsForTesting
+
+      func linkJobPassesASTPath(_ extraArgs: [String]) async throws -> Bool {
+        var driver = try TestDriver(args: commonArgs + extraArgs)
+        let jobs = try await driver.planBuild()
+        return try jobs.findJob(.link).commandLine.contains {
+          guard case .joinedOptionAndPath(let option, _) = $0 else { return false }
+          return option == "-Wl,-add_ast_path,"
+        }
+      }
+
+      // An implicit build has nothing else recording where the module came
+      // from, so it still needs the serialized AST.
+      let implicitPassesASTPath = try await linkJobPassesASTPath([])
+      let explicitPassesASTPath = try await linkJobPassesASTPath(["-explicit-module-build"])
+      #expect(implicitPassesASTPath)
+      #expect(!explicitPassesASTPath)
+    }
+  }
+
   @Test(.requireScannerSupportsImportInfos()) func explicitImportDetails() async throws {
     try await withTemporaryDirectory { path in
       let (_, _, _, _) = try getDriverArtifactsForScanning()
