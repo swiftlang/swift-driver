@@ -141,6 +141,7 @@ public protocol Toolchain {
     inputs: [TypedVirtualPath],
     outputFile: VirtualPath,
     shouldUseInputFileList: Bool,
+    shouldAddASTPaths: Bool,
     lto: LTOKind?,
     sanitizers: Set<Sanitizer>,
     targetInfo: FrontendTargetInfo

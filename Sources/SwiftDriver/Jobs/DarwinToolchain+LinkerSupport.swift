@@ -59,14 +59,11 @@ extension DarwinToolchain {
     inputs: [TypedVirtualPath],
     outputFile: VirtualPath,
     shouldUseInputFileList: Bool,
+    shouldAddASTPaths: Bool,
     lto: LTOKind?,
     sanitizers: Set<Sanitizer>,
     targetInfo: FrontendTargetInfo
   ) throws -> ResolvedTool {
-    // Under an explicit module build the compile job is passed
-    // -debug-module-path, which supersedes -add_ast_path for this module.
-    let shouldAddASTPaths = !parsedOptions.hasArgument(.driverExplicitModuleBuild)
-
     // Set up for linking.
     let linkerTool: Tool
     switch linkerOutputType {

@@ -37,6 +37,7 @@ extension WindowsToolchain {
                                             inputs: [TypedVirtualPath],
                                             outputFile: VirtualPath,
                                             shouldUseInputFileList: Bool,
+                                            shouldAddASTPaths: Bool,
                                             lto: LTOKind?,
                                             sanitizers: Set<Sanitizer>,
                                             targetInfo: FrontendTargetInfo)

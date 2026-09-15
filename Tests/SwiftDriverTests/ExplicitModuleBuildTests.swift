@@ -582,7 +582,7 @@ func getStdlibShimsPaths(_ driver: Driver) throws -> (AbsolutePath, AbsolutePath
     }
   }
 
-  @Test(.requireHostOS(.macosx, comment: "-add_ast_path is only passed on Darwin"))
+  @Test(.requireHostOS(.macosx, comment: "scanning a Darwin target requires the macOS SDK"))
   func noASTPathUnderExplicitModuleBuild() async throws {
     try await withTemporaryDirectory { path in
       let (stdlibPath, shimsPath, _, _) = try getDriverArtifactsForScanning()
@@ -601,24 +601,33 @@ func getStdlibShimsPaths(_ driver: Driver) throws -> (AbsolutePath, AbsolutePath
           "-I", stdlibPath.nativePathString(escaped: false),
           "-I", shimsPath.nativePathString(escaped: false),
           "-emit-executable", "-emit-module", "-g",
+          "-target", "x86_64-apple-macosx10.15",
           main.nativePathString(escaped: false),
         ] + sdkArgumentsForTesting
 
-      func linkJobPassesASTPath(_ extraArgs: [String]) async throws -> Bool {
+      func planLinkJob(
+        _ extraArgs: [String]
+      ) async throws -> (passesASTPath: Bool, recordsModulePath: Bool) {
         var driver = try TestDriver(args: commonArgs + extraArgs)
         let jobs = try await driver.planBuild()
-        return try jobs.findJob(.link).commandLine.contains {
+        let passesASTPath = try jobs.findJob(.link).commandLine.contains {
           guard case .joinedOptionAndPath(let option, _) = $0 else { return false }
           return option == "-Wl,-add_ast_path,"
         }
+        return (
+          passesASTPath,
+          driver.isFeatureSupported(.debug_info_explicit_dependency)
+        )
       }
 
       // An implicit build has nothing else recording where the module came
       // from, so it still needs the serialized AST.
-      let implicitPassesASTPath = try await linkJobPassesASTPath([])
-      let explicitPassesASTPath = try await linkJobPassesASTPath(["-explicit-module-build"])
-      #expect(implicitPassesASTPath)
-      #expect(!explicitPassesASTPath)
+      #expect(try await planLinkJob([]).passesASTPath)
+
+      // Dropping the AST is tied to the frontend recording this module's path
+      // via -debug-module-path. A frontend too old to do so still needs it.
+      let explicit = try await planLinkJob(["-explicit-module-build"])
+      #expect(explicit.passesASTPath == !explicit.recordsModulePath)
     }
   }
 
