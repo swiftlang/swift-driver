@@ -311,6 +311,7 @@ public final class DarwinToolchain: Toolchain {
       case version = "Version"
       case versionMap = "VersionMap"
       case canonicalName = "CanonicalName"
+      case defaultDeploymentTarget = "DefaultDeploymentTarget"
     }
 
     public enum SDKPlatformKind: String, CaseIterable {
@@ -359,6 +360,7 @@ public final class DarwinToolchain: Toolchain {
     private var version: Version
     private var versionMap: VersionMap
     let canonicalName: String
+    let defaultDeploymentTarget: Version?
     init(from decoder: Decoder) throws {
       let keyedContainer = try decoder.container(keyedBy: CodingKeys.self)
 
@@ -377,6 +379,9 @@ public final class DarwinToolchain: Toolchain {
       } else {
         self.versionMap = VersionMap()
       }
+      self.defaultDeploymentTarget = try keyedContainer
+        .decodeIfPresent(String.self, forKey: .defaultDeploymentTarget)
+        .flatMap { try? Version(string: $0, lenient: true) }
     }
 
 
@@ -388,6 +393,16 @@ public final class DarwinToolchain: Toolchain {
         return versionMap.macOSToCatalystMapping[version] ?? Version(0, 0, 0)
       }
       return version
+    }
+
+    // Version to embed in the -clang-target[-variant] triple: the SDK's
+    // DefaultDeploymentTarget when available, else the SDK version. Mac Catalyst
+    // always uses sdkVersion(for:) so its macOS->iOS remap is preserved.
+    func clangTargetVersion(for triple: Triple) -> Version {
+      if !triple.isMacCatalyst, let defaultDeploymentTarget {
+        return defaultDeploymentTarget
+      }
+      return sdkVersion(for: triple)
     }
   }
 
@@ -435,7 +450,7 @@ public final class DarwinToolchain: Toolchain {
         clangTargetTriple = explicitClangTripleArg
       } else if let sdkInfo = sdkInfo {
         let currentTriple = frontendTargetInfo.target.triple
-        let sdkVersionedOSString = currentTriple.osNameUnversioned + sdkInfo.sdkVersion(for: currentTriple).sdkVersionString
+        let sdkVersionedOSString = currentTriple.osNameUnversioned + sdkInfo.clangTargetVersion(for: currentTriple).sdkVersionString
         clangTargetTriple = currentTriple.triple.replacingOccurrences(of: currentTriple.osName, with: sdkVersionedOSString)
       }
 
@@ -456,7 +471,7 @@ public final class DarwinToolchain: Toolchain {
           let currentVariantTriple = targetVariantTripleStr
           let sdkVersionedOSSString =
             currentVariantTriple.osNameUnversioned
-            + sdkInfo.sdkVersion(for: currentVariantTriple).sdkVersionString
+            + sdkInfo.clangTargetVersion(for: currentVariantTriple).sdkVersionString
           clangTargetVariantTriple = currentVariantTriple.triple.replacingOccurrences(
             of: currentVariantTriple.osName, with: sdkVersionedOSSString)
         }
