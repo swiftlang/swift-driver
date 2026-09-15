@@ -23,7 +23,7 @@ jobs:
       windows_swift_versions: '["nightly-main"]'
       windows_build_command: 'Invoke-Program swift test --parallel'
       enable_macos_checks: true
-      macos_exclude_xcode_versions: "[{\"xcode_version\": \"16.4\"}]"
+      macos_exclude_xcode_versions: "[{\"xcode_version\": \"swift_6.1\"}, {\"xcode_version\": \"swift_6.2\"}]"
       macos_build_command: swift test --parallel
 
   soundness:
