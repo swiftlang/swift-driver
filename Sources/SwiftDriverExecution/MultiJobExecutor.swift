@@ -82,6 +82,10 @@ public final class MultiJobExecutor {
     /// Operation queue for executing tasks in parallel.
     let jobQueue: OperationQueue
 
+    /// Dispatches jobs onto `jobQueue` under a jobserver's token pool, if any.
+    /// When present it, not `jobQueue`, bounds how many jobs run at once.
+    let jobServerDispatcher: JobServerDispatcher?
+
     /// The process set to use when launching new processes.
     let processSet: ProcessSet?
 
@@ -114,6 +118,7 @@ public final class MultiJobExecutor {
       workload: DriverExecutorWorkload,
       executorDelegate: JobExecutionDelegate,
       jobQueue: OperationQueue,
+      jobServerDispatcher: JobServerDispatcher?,
       processSet: ProcessSet?,
       forceResponseFiles: Bool,
       recordedInputMetadata: [TypedVirtualPath: FileMetadata],
@@ -135,6 +140,7 @@ public final class MultiJobExecutor {
       self.fileSystem = fileSystem
       self.executorDelegate = executorDelegate
       self.jobQueue = jobQueue
+      self.jobServerDispatcher = jobServerDispatcher
       self.processSet = processSet
       self.forceResponseFiles = forceResponseFiles
       self.recordedInputMetadata = recordedInputMetadata
@@ -222,6 +228,16 @@ public final class MultiJobExecutor {
       return 0..<0
     }
 
+    /// Schedule a job, taking a jobserver token for it first if participating
+    /// in a token pool.
+    fileprivate func schedule(_ body: @escaping () -> Void) {
+      if let jobServerDispatcher = jobServerDispatcher {
+        jobServerDispatcher.enqueue(body)
+      } else {
+        jobQueue.addOperation(body)
+      }
+    }
+
     fileprivate func cancelBuildIfNeeded(_ result: ProcessResult) {
       switch (result.exitStatus, continueBuildingAfterErrors) {
       case (.terminated(let code), false) where code != EXIT_SUCCESS:
@@ -303,6 +319,11 @@ public final class MultiJobExecutor {
   public func execute(env: ProcessEnvironmentBlock, fileSystem: TSCBasic.FileSystem) throws {
     let context = createContext(env: env, fileSystem: fileSystem)
 
+    context.jobServerDispatcher?.start()
+    // Shut the dispatcher down on every exit, so no token outlives the build
+    // that borrowed it.
+    defer { context.jobServerDispatcher?.shutDown() }
+
     let delegate = JobExecutorBuildDelegate(context)
     let engine = LLBuildEngine(delegate: delegate)
 
@@ -328,9 +349,19 @@ public final class MultiJobExecutor {
 
   /// Create the context required during the execution.
   private func createContext(env: ProcessEnvironmentBlock, fileSystem: TSCBasic.FileSystem) -> Context {
+    let jobServer = JobServer.detect(env: env, enabled: workload.useGnuJobserver, diagnosticsEngine: diagnosticsEngine)
+
     let jobQueue = OperationQueue()
     jobQueue.name = "org.swift.driver.job-execution"
-    jobQueue.maxConcurrentOperationCount = numParallelJobs
+    if jobServer != nil {
+      // A jobserver is a build-wide concurrency limit, so when there is one the
+      // tokens we hold -- not `-j` -- bound how many jobs run. Capping the queue
+      // at `numParallelJobs` would cap us below the pool, and since `-j`
+      // defaults to 1 that would serialize the very builds a jobserver widens.
+      jobQueue.maxConcurrentOperationCount = Int.max
+    } else {
+      jobQueue.maxConcurrentOperationCount = numParallelJobs
+    }
 
     return Context(
       argsResolver: argsResolver,
@@ -339,6 +370,9 @@ public final class MultiJobExecutor {
       workload: workload,
       executorDelegate: executorDelegate,
       jobQueue: jobQueue,
+      jobServerDispatcher: jobServer.map {
+        JobServerDispatcher(jobServer: $0, queue: jobQueue)
+      },
       processSet: processSet,
       forceResponseFiles: forceResponseFiles,
       recordedInputMetadata: recordedInputMetadata,
@@ -561,7 +595,7 @@ class ExecuteJobRule: LLBuildRule {
     // execute the job asynchronously without blocking the callback thread.
     // taskIsComplete can be safely called from another thread. The only restriction
     // is we should call it after inputsAvailable is called.
-    context.jobQueue.addOperation {
+    context.schedule {
       self.executeJob(engine)
     }
   }

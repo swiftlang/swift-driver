@@ -267,6 +267,10 @@ public struct Driver {
   /// The specified maximum number of parallel jobs to execute.
   @_spi(Testing) public let numParallelJobs: Int?
 
+  /// Whether to participate in the GNU make jobserver advertised in `MAKEFLAGS`,
+  /// letting its shared token pool bound concurrency across the whole build.
+  @_spi(Testing) public let useGnuJobserver: Bool
+
   /// The set of sanitizers that were requested
   let enabledSanitizers: Set<Sanitizer>
 
@@ -1104,6 +1108,7 @@ public struct Driver {
     // Multithreading.
     self.numThreads = Self.determineNumThreads(&parsedOptions, compilerMode: compilerMode, diagnosticsEngine: diagnosticEngine)
     self.numParallelJobs = Self.determineNumParallelJobs(&parsedOptions, diagnosticsEngine: diagnosticEngine, env: env)
+    self.useGnuJobserver = parsedOptions.contains(.experimentalUseGnuJobserver)
 
     var mode = DigesterMode.api
     if let modeArg = parsedOptions.getLastArgument(.digesterMode)?.asSingle {
@@ -2084,7 +2089,8 @@ extension Driver {
     try executor.execute(
       workload: .init(allJobs,
                       incrementalCompilationState,
-                      continueBuildingAfterErrors: continueBuildingAfterErrors),
+                      continueBuildingAfterErrors: continueBuildingAfterErrors,
+                      useGnuJobserver: useGnuJobserver),
       delegate: jobExecutionDelegate,
       numParallelJobs: numParallelJobs ?? 1,
       forceResponseFiles: forceResponseFiles,
