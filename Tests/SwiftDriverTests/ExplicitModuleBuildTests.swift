@@ -582,6 +582,55 @@ func getStdlibShimsPaths(_ driver: Driver) throws -> (AbsolutePath, AbsolutePath
     }
   }
 
+  @Test(.requireHostOS(.macosx, comment: "scanning a Darwin target requires the macOS SDK"))
+  func noASTPathUnderExplicitModuleBuild() async throws {
+    try await withTemporaryDirectory { path in
+      let (stdlibPath, shimsPath, _, _) = try getDriverArtifactsForScanning()
+
+      let main = path.appending(component: "testNoASTPathUnderExplicitModuleBuild.swift")
+      try localFileSystem.writeFileContents(main, bytes: "import E;")
+
+      let swiftModuleInterfacesPath: AbsolutePath =
+        try testInputsPath.appending(component: "ExplicitModuleBuilds")
+        .appending(component: "Swift")
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+      let commonArgs =
+        [
+          "swiftc",
+          "-I", swiftModuleInterfacesPath.nativePathString(escaped: false),
+          "-I", stdlibPath.nativePathString(escaped: false),
+          "-I", shimsPath.nativePathString(escaped: false),
+          "-emit-executable", "-emit-module", "-g",
+          "-target", "x86_64-apple-macosx10.15",
+          main.nativePathString(escaped: false),
+        ] + sdkArgumentsForTesting
+
+      func planLinkJob(
+        _ extraArgs: [String]
+      ) async throws -> (passesASTPath: Bool, recordsModulePath: Bool) {
+        var driver = try TestDriver(args: commonArgs + extraArgs)
+        let jobs = try await driver.planBuild()
+        let passesASTPath = try jobs.findJob(.link).commandLine.contains {
+          guard case .joinedOptionAndPath(let option, _) = $0 else { return false }
+          return option == "-Wl,-add_ast_path,"
+        }
+        return (
+          passesASTPath,
+          driver.isFeatureSupported(.debug_info_explicit_dependency)
+        )
+      }
+
+      // An implicit build has nothing else recording where the module came
+      // from, so it still needs the serialized AST.
+      #expect(try await planLinkJob([]).passesASTPath)
+
+      // Dropping the AST is tied to the frontend recording this module's path
+      // via -debug-module-path. A frontend too old to do so still needs it.
+      let explicit = try await planLinkJob(["-explicit-module-build"])
+      #expect(explicit.passesASTPath == !explicit.recordsModulePath)
+    }
+  }
+
   @Test(.requireScannerSupportsImportInfos()) func explicitImportDetails() async throws {
     try await withTemporaryDirectory { path in
       let (_, _, _, _) = try getDriverArtifactsForScanning()

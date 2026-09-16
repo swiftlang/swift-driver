@@ -59,6 +59,7 @@ extension DarwinToolchain {
     inputs: [TypedVirtualPath],
     outputFile: VirtualPath,
     shouldUseInputFileList: Bool,
+    shouldAddASTPaths: Bool,
     lto: LTOKind?,
     sanitizers: Set<Sanitizer>,
     targetInfo: FrontendTargetInfo
@@ -73,7 +74,8 @@ extension DarwinToolchain {
       try addLinkInputs(shouldUseInputFileList: shouldUseInputFileList,
                         commandLine: &commandLine,
                         inputs: inputs,
-                        linkerOutputType: linkerOutputType)
+                        linkerOutputType: linkerOutputType,
+                        shouldAddASTPaths: shouldAddASTPaths)
       try addDynamicLinkerFlags(targetInfo: targetInfo,
                                 parsedOptions: &parsedOptions,
                                 commandLine: &commandLine,
@@ -86,7 +88,8 @@ extension DarwinToolchain {
       try addLinkInputs(shouldUseInputFileList: shouldUseInputFileList,
                         commandLine: &commandLine,
                         inputs: inputs,
-                        linkerOutputType: linkerOutputType)
+                        linkerOutputType: linkerOutputType,
+                        shouldAddASTPaths: shouldAddASTPaths)
       try addDynamicLinkerFlags(targetInfo: targetInfo,
                                 parsedOptions: &parsedOptions,
                                 commandLine: &commandLine,
@@ -100,7 +103,8 @@ extension DarwinToolchain {
       try addLinkInputs(shouldUseInputFileList: shouldUseInputFileList,
                         commandLine: &commandLine,
                         inputs: inputs,
-                        linkerOutputType: linkerOutputType)
+                        linkerOutputType: linkerOutputType,
+                        shouldAddASTPaths: shouldAddASTPaths)
     }
 
     // Add the output
@@ -113,14 +117,20 @@ extension DarwinToolchain {
   private func addLinkInputs(shouldUseInputFileList: Bool,
                              commandLine: inout [Job.ArgTemplate],
                              inputs: [TypedVirtualPath],
-                             linkerOutputType: LinkOutputType) throws {
+                             linkerOutputType: LinkOutputType,
+                             shouldAddASTPaths: Bool) throws {
+    // Swift modules are handed to the linker purely so it can record them as
+    // N_AST entries; they are never real link inputs. The static linker does
+    // not support that, so they are dropped when building an archive.
+    let addASTPaths = shouldAddASTPaths && linkerOutputType != .staticLibrary
+
     // inputs LinkFileList
     if shouldUseInputFileList {
       commandLine.appendFlag(.filelist)
       var inputPaths = [VirtualPath]()
       var inputModules = [VirtualPath]()
       for input in inputs {
-        if input.type == .swiftModule && linkerOutputType != .staticLibrary {
+        if input.type == .swiftModule && addASTPaths {
           inputModules.append(input.file)
         } else if input.type == .object {
           inputPaths.append(input.file)
@@ -133,10 +143,8 @@ extension DarwinToolchain {
       let fileList = try VirtualPath.createUniqueFilelist(RelativePath(validating: "inputs.LinkFileList"),
                                                           .list(inputPaths))
       commandLine.appendPath(fileList)
-      if linkerOutputType != .staticLibrary {
-        for module in inputModules {
-          commandLine.append(.joinedOptionAndPath("-Wl,-add_ast_path,", module))
-        }
+      for module in inputModules {
+        commandLine.append(.joinedOptionAndPath("-Wl,-add_ast_path,", module))
       }
 
       // FIXME: Primary inputs need to check -index-file-path
@@ -144,7 +152,7 @@ extension DarwinToolchain {
       // Add inputs.
       commandLine.append(contentsOf: inputs.flatMap {
         (path: TypedVirtualPath) -> [Job.ArgTemplate] in
-        if path.type == .swiftModule && linkerOutputType != .staticLibrary {
+        if path.type == .swiftModule && addASTPaths {
           return [.joinedOptionAndPath("-Wl,-add_ast_path,", path.file)]
         } else if path.type == .object {
           return [.path(path.file)]
