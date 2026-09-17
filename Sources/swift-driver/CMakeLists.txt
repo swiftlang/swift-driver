@@ -14,3 +14,8 @@ target_link_libraries(swift-driver PUBLIC
 
 install(TARGETS swift-driver
   DESTINATION bin)
+if(MSVC)
+  install(FILES $<TARGET_FILE_DIR:swift-driver>/$<TARGET_FILE_BASE_NAME:swift-driver>.pdb
+    DESTINATION bin
+    OPTIONAL)
+endif()
