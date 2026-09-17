@@ -343,7 +343,7 @@ final class JobServer {
       if hasShutDown { return nil }
       if let token = takeImplicitToken() { return token }
 
-      let ready = waitForToken()
+      guard let ready = waitForToken() else { return nil }
       if ready.wasWokenUp { drainWakeup() }
       guard ready.hasToken else { continue }
 
@@ -366,8 +366,10 @@ final class JobServer {
     }
   }
 
-  /// Waits until the pool has a token or the waiter is woken.
-  private func waitForToken() -> (hasToken: Bool, wasWokenUp: Bool) {
+  /// Waits until the pool has a token or the waiter is woken, returning `nil` if
+  /// polling fails for a reason retrying cannot fix -- so the broker gives up on
+  /// the pool instead of spinning on it for the rest of the build.
+  private func waitForToken() -> (hasToken: Bool, wasWokenUp: Bool)? {
     var descriptors = [
       pollfd(fd: readFD, events: Int16(POLLIN), revents: 0),
       pollfd(fd: wakeupReadFD, events: Int16(POLLIN), revents: 0),
@@ -375,8 +377,15 @@ final class JobServer {
     while true {
       let ready = poll(&descriptors, nfds_t(descriptors.count),
                        Self.pollIntervalMilliseconds)
-      if ready < 0 && errno == EINTR { continue }
-      guard ready > 0 else { return (false, false) }
+      if ready < 0 {
+        if errno == EINTR { continue }
+        // Not a signal: the same call will keep failing, so bail rather than
+        // busy-loop. Returning nil is safe now that the broker's teardown runs
+        // the rest of the build's jobs without tokens.
+        return nil
+      }
+      // Zero means the poll interval elapsed with nothing ready, leaving both
+      // revents clear: a plain "wait again".
       return (descriptors[0].revents != 0, descriptors[1].revents != 0)
     }
   }
