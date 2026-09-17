@@ -419,6 +419,15 @@ final class JobServerDispatcher {
   /// Schedules `body` to run once a token is available for it.
   func enqueue(_ body: @escaping () -> Void) {
     condition.lock()
+    // Once the broker has stopped, nothing will ever drain `pending`, so run the
+    // work directly rather than stranding it -- just as the broker's own
+    // teardown does. Checked under the lock that sets the flag, so the two
+    // cannot race.
+    if hasBrokerFinished {
+      condition.unlock()
+      queue.addOperation(body)
+      return
+    }
     pending.append(body)
     condition.signal()
     condition.unlock()
@@ -446,12 +455,10 @@ final class JobServerDispatcher {
   }
 
   private func brokerLoop() {
-    defer {
-      condition.lock()
-      hasBrokerFinished = true
-      condition.broadcast()
-      condition.unlock()
-    }
+    // However the loop exits -- shutdown, an unusable pool, or a path added
+    // later -- this runs exactly once, so the broker can never leave without
+    // draining its leftovers and marking itself finished.
+    defer { dispatchRemainingWithoutTokens() }
 
     while true {
       condition.lock()
@@ -462,14 +469,14 @@ final class JobServerDispatcher {
       condition.unlock()
 
       if shouldStop {
-        return dispatchRemainingWithoutTokens()
+        return
       }
 
       // Take the token before claiming the work, so that we never hold a token
       // with nothing to spend it on. Only this thread removes from `pending`,
       // so it cannot have been emptied while we waited.
       guard let token = jobServer.acquire() else {
-        return dispatchRemainingWithoutTokens()
+        return
       }
 
       condition.lock()
@@ -488,16 +495,26 @@ final class JobServerDispatcher {
     }
   }
 
-  /// Runs whatever is left once the broker stops. The build is finishing or
-  /// cancelled, so this work completes immediately; taking tokens for it would
-  /// only risk blocking teardown.
+  /// The broker's teardown, invoked once from `brokerLoop`'s `defer` so it runs
+  /// on every exit: runs whatever is left once the broker stops -- because the
+  /// build is finishing or cancelled, or the pool became unusable. This work
+  /// runs without tokens; taking tokens for it would only risk blocking
+  /// teardown. The `assert` backstops the defer against a stray second caller.
+  ///
+  /// Everything happens under one lock hold, so the transitions are atomic:
+  /// setting `hasBrokerFinished` alongside draining `pending` means an `enqueue`
+  /// racing the exit either lands in this drain or sees the flag and dispatches
+  /// itself -- it can never append to a `pending` no thread will read. Queueing
+  /// before the broadcast means a `shutDown` woken by it already sees the work.
   private func dispatchRemainingWithoutTokens() {
     condition.lock()
+    assert(!hasBrokerFinished, "the broker dispatches its leftovers exactly once, as it exits")
+    hasBrokerFinished = true
     let remaining = pending
     pending.removeAll()
-    condition.unlock()
-
     remaining.forEach(queue.addOperation)
+    condition.broadcast()
+    condition.unlock()
   }
 }
 

@@ -14,6 +14,7 @@
 
 import XCTest
 import Foundation
+import Dispatch
 
 import class TSCBasic.DiagnosticsEngine
 import typealias TSCBasic.ProcessEnvironmentBlock
@@ -151,6 +152,51 @@ final class JobServerTests: XCTestCase {
       XCTAssertLessThan(Date().timeIntervalSince(start), 3,
                         "teardown blocked waiting for a token")
     }
+  }
+
+  func testEnqueueAfterBrokerExitStillRuns() throws {
+    // The broker can stop mid-build when the pool becomes unusable, not only at
+    // shutdown. Jobs enqueued after that must still run -- otherwise their
+    // llbuild tasks never complete and the driver hangs.
+    var descriptors: [CInt] = [0, 0]
+    XCTAssertEqual(pipe(&descriptors), 0)
+    let readEnd = descriptors[0], writeEnd = descriptors[1]
+    defer { close(readEnd) }  // writeEnd is closed by the body below.
+
+    let jobServer = try XCTUnwrap(JobServer(auth: "\(readEnd),\(writeEnd)"))
+    let queue = OperationQueue()
+    queue.maxConcurrentOperationCount = .max
+    let dispatcher = JobServerDispatcher(jobServer: jobServer, queue: queue)
+    dispatcher.start()
+
+    // Hold the implicit token in flight, then close every write end so the pool
+    // reads as end-of-file. The broker's next `acquire` then returns nil for a
+    // reason that is not shutdown, driving it to exit.
+    let firstRunning = expectation(description: "first job started")
+    let releaseFirst = DispatchSemaphore(value: 0)
+    dispatcher.enqueue {
+      firstRunning.fulfill()
+      releaseFirst.wait()
+    }
+    wait(for: [firstRunning], timeout: 60)
+    close(writeEnd)
+
+    // This job is still in `pending` when the broker hits EOF, so it runs via
+    // the teardown path; its completion means the broker has finished.
+    let brokerExited = expectation(description: "broker dispatched teardown work")
+    dispatcher.enqueue { brokerExited.fulfill() }
+    wait(for: [brokerExited], timeout: 60)
+
+    // With the broker gone, these would be stranded forever without the fix.
+    let afterExit = expectation(description: "post-exit jobs ran")
+    afterExit.expectedFulfillmentCount = 4
+    for _ in 0..<4 {
+      dispatcher.enqueue { afterExit.fulfill() }
+    }
+    wait(for: [afterExit], timeout: 60)
+
+    releaseFirst.signal()
+    dispatcher.shutDown()
   }
 
   func testFIFOTransport() throws {
