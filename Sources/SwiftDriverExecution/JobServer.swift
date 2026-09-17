@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014 - 2025 Apple Inc. and the Swift project authors
+// Copyright (c) 2014 - 2026 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -137,6 +137,24 @@ final class JobServer {
       }
     }
     return authentication
+  }
+
+  /// Returns `env` with the jobserver authentication stripped from `MAKEFLAGS`,
+  /// leaving the rest of the value intact.
+  ///
+  /// The compiler frontends we launch are not jobserver clients -- their copies
+  /// of the pool descriptors are closed on exec -- so advertising the pool to
+  /// them would only invite a stray client to drain it. This mirrors how make
+  /// omits the pool from a recipe it does not treat as recursive.
+  static func censoringAuthentication(in env: ProcessEnvironmentBlock) -> ProcessEnvironmentBlock {
+    guard let makeFlags = env["MAKEFLAGS"] else { return env }
+    let prefixes = ["--jobserver-auth=", "--jobserver-fds="]
+    let kept = makeFlags.split(separator: " ").filter { flag in
+      !prefixes.contains { flag.hasPrefix($0) }
+    }
+    var censored = env
+    censored["MAKEFLAGS"] = kept.isEmpty ? nil : kept.joined(separator: " ")
+    return censored
   }
 
 #if os(Windows)

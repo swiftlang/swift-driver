@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014 - 2025 Apple Inc. and the Swift project authors
+// Copyright (c) 2014 - 2026 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -52,6 +52,23 @@ final class JobServerTests: XCTestCase {
 
     XCTAssertNil(JobServer.parseAuthentication(from: "-j8 --output-sync"))
     XCTAssertNil(JobServer.parseAuthentication(from: ""))
+  }
+
+  func testCensoringMakeFlags() {
+    // The authentication is stripped; the rest of MAKEFLAGS survives.
+    XCTAssertEqual(
+      JobServer.censoringAuthentication(
+        in: ProcessEnvironmentBlock(["MAKEFLAGS": "w -j --jobserver-auth=3,4 --debug"]))["MAKEFLAGS"],
+      "w -j --debug")
+
+    // With nothing left, MAKEFLAGS is dropped rather than left empty.
+    XCTAssertNil(
+      JobServer.censoringAuthentication(
+        in: ProcessEnvironmentBlock(["MAKEFLAGS": "--jobserver-fds=7,8"]))["MAKEFLAGS"])
+
+    // No MAKEFLAGS at all: nothing to censor.
+    XCTAssertNil(
+      JobServer.censoringAuthentication(in: ProcessEnvironmentBlock())["MAKEFLAGS"])
   }
 
   func testDetectRequiresOptIn() {

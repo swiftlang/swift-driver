@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014 - 2025 Apple Inc. and the Swift project authors
+// Copyright (c) 2014 - 2026 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -351,28 +351,33 @@ public final class MultiJobExecutor {
   private func createContext(env: ProcessEnvironmentBlock, fileSystem: TSCBasic.FileSystem) -> Context {
     let jobServer = JobServer.detect(env: env, enabled: workload.useGnuJobserver, diagnosticsEngine: diagnosticsEngine)
 
+    // The frontends we launch are not jobserver clients, so keep the pool out of
+    // their environment when we are participating in one.
+    let childEnv = jobServer != nil ? JobServer.censoringAuthentication(in: env) : env
+
     let jobQueue = OperationQueue()
     jobQueue.name = "org.swift.driver.job-execution"
-    if jobServer != nil {
+    let jobServerDispatcher: JobServerDispatcher?
+    if let jobServer = jobServer {
       // A jobserver is a build-wide concurrency limit, so when there is one the
       // tokens we hold -- not `-j` -- bound how many jobs run. Capping the queue
       // at `numParallelJobs` would cap us below the pool, and since `-j`
       // defaults to 1 that would serialize the very builds a jobserver widens.
       jobQueue.maxConcurrentOperationCount = Int.max
+      jobServerDispatcher = JobServerDispatcher(jobServer: jobServer, queue: jobQueue)
     } else {
       jobQueue.maxConcurrentOperationCount = numParallelJobs
+      jobServerDispatcher = nil
     }
 
     return Context(
       argsResolver: argsResolver,
-      env: env,
+      env: childEnv,
       fileSystem: fileSystem,
       workload: workload,
       executorDelegate: executorDelegate,
       jobQueue: jobQueue,
-      jobServerDispatcher: jobServer.map {
-        JobServerDispatcher(jobServer: $0, queue: jobQueue)
-      },
+      jobServerDispatcher: jobServerDispatcher,
       processSet: processSet,
       forceResponseFiles: forceResponseFiles,
       recordedInputMetadata: recordedInputMetadata,
