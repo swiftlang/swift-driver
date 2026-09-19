@@ -22,9 +22,9 @@ import Testing
 
 /// Represents a module to be compiled.
 /// Thus, stores everything needed to invoke the compiler, and how to invoke the compiler.
-public struct Module {
+public struct Module: Sendable {
   /// Does this module produce an executable applications or a library?
-  public enum Product {
+  public enum Product: Sendable {
     case executable, library
   }
   /// The name, used for files and imports.

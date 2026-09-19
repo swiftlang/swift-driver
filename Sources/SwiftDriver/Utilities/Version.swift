@@ -54,7 +54,7 @@ extension VersionError: CustomStringConvertible {
 }
 
 /// A representation of a semantic version.
-public struct Version {
+public struct Version: Sendable {
   /// The major version number component.
   public let major: Int
   /// The minor version number component.
