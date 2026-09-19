@@ -14,26 +14,26 @@
 import SwiftOptions
 
 import class Dispatch.DispatchQueue
-import class TSCBasic.DiagnosticsEngine
-import class TSCBasic.ThreadSafeOutputByteStream
-import class TSCBasic.UnknownLocation
-import enum TSCBasic.ProcessEnv
-import func TSCBasic.withTemporaryDirectory
-import protocol TSCBasic.DiagnosticData
-import protocol TSCBasic.FileSystem
-import protocol TSCBasic.OutputByteStream
-import struct TSCBasic.AbsolutePath
-import struct TSCBasic.ByteString
-import struct TSCBasic.Diagnostic
-import struct TSCBasic.FileInfo
-import struct TSCBasic.ProcessResult
-import struct TSCBasic.RelativePath
-import struct TSCBasic.SHA256
-import var TSCBasic.localFileSystem
-import var TSCBasic.stderrStream
-import var TSCBasic.stdoutStream
-import typealias TSCBasic.ProcessEnvironmentBlock
-import struct TSCBasic.ProcessEnvironmentKey
+@preconcurrency import class TSCBasic.DiagnosticsEngine
+@preconcurrency import class TSCBasic.ThreadSafeOutputByteStream
+@preconcurrency import class TSCBasic.UnknownLocation
+@preconcurrency import enum TSCBasic.ProcessEnv
+@preconcurrency import func TSCBasic.withTemporaryDirectory
+@preconcurrency import protocol TSCBasic.DiagnosticData
+@preconcurrency import protocol TSCBasic.FileSystem
+@preconcurrency import protocol TSCBasic.OutputByteStream
+@preconcurrency import struct TSCBasic.AbsolutePath
+@preconcurrency import struct TSCBasic.ByteString
+@preconcurrency import struct TSCBasic.Diagnostic
+@preconcurrency import struct TSCBasic.FileInfo
+@preconcurrency import struct TSCBasic.ProcessResult
+@preconcurrency import struct TSCBasic.RelativePath
+@preconcurrency import struct TSCBasic.SHA256
+@preconcurrency import var TSCBasic.localFileSystem
+@preconcurrency import var TSCBasic.stderrStream
+@preconcurrency import var TSCBasic.stdoutStream
+@preconcurrency import typealias TSCBasic.ProcessEnvironmentBlock
+@preconcurrency import struct TSCBasic.ProcessEnvironmentKey
 
 extension Driver {
   /// Stub Error for terminating the process.
