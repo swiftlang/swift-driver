@@ -2063,16 +2063,17 @@ extension Driver {
     } else if integratedDriver {
       mode = .silent
     }
-
-    return ToolExecutionDelegate(
+    let reproducerCallback = supportsReproducer ? Driver.generateReproducer : nil
+    let delegate = ToolExecutionDelegate(
       mode: mode,
       buildRecordInfo: buildRecordInfo,
       showJobLifecycle: showJobLifecycle,
       argsResolver: executor.resolver,
       diagnosticEngine: diagnosticEngine,
-      reproducerCallback: supportsReproducer ? Driver.generateReproducer : nil,
+      reproducerCallback: reproducerCallback,
       stdoutStream: stdoutStream,
       stderrStream: stderrStream)
+    return delegate
   }
 
   private mutating func performTheBuild(
