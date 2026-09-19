@@ -390,6 +390,9 @@ struct DriverBuildValue: LLBuildValue {
 
 /// A rule represents all jobs to finish compiling a module, including mandatory jobs,
 /// incremental jobs, and post-compilation jobs.
+#if compiler(>=6.4)
+@_implementationOnly
+#endif
 class ExecuteAllJobsRule: LLBuildRule {
   struct RuleKey: LLBuildKey {
     typealias BuildValue = DriverBuildValue
@@ -459,6 +462,9 @@ class ExecuteAllJobsRule: LLBuildRule {
 
 /// A rule for evaluating all compilation jobs, including mandatory and Incremental
 /// compilations.
+#if compiler(>=6.4)
+@_implementationOnly
+#endif
 class ExecuteAllCompilationJobsRule: LLBuildRule {
   struct RuleKey: LLBuildKey {
     typealias BuildValue = DriverBuildValue
@@ -511,6 +517,9 @@ class ExecuteAllCompilationJobsRule: LLBuildRule {
   }
 }
 /// A rule for a single compiler invocation.
+#if compiler(>=6.4)
+@_implementationOnly
+#endif
 class ExecuteJobRule: LLBuildRule {
   struct RuleKey: LLBuildKey {
     typealias BuildValue = DriverBuildValue
