@@ -395,7 +395,7 @@ extension IncrementalCompilationState {
 extension IncrementalCompilationState {
   enum WriteDependencyGraphError: LocalizedError {
     case noBuildRecordInfo,
-         couldNotWrite(path: VirtualPath, error: Error)
+         couldNotWrite(path: String, error: Error)
     var errorDescription: String? {
       switch self {
       case .noBuildRecordInfo:
