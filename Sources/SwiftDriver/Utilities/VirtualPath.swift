@@ -32,9 +32,9 @@ import var TSCBasic.localFileSystem
 
 /// A virtual path.
 public enum VirtualPath: Hashable {
-  private static var pathCache = PathCache()
+  private static let pathCache = PathCache()
 
-  private static var temporaryFileStore = TemporaryFileStore()
+  private static let temporaryFileStore = TemporaryFileStore()
 
   /// A relative path that has not been resolved based on the current working
   /// directory.
@@ -349,7 +349,7 @@ extension VirtualPath {
   }
 
   /// An implementation of a concurrent path cache.
-  private final class PathCache {
+  private final class PathCache: @unchecked Sendable {
     private var uniquer: [String: VirtualPath.Handle]
     private var table: [VirtualPath]
     private let queue: DispatchQueue
@@ -479,7 +479,7 @@ extension VirtualPath {
   }
 
   /// A cache of created temporary files
-  private final class TemporaryFileStore {
+  private final class TemporaryFileStore: @unchecked Sendable {
     private var uniqueFileCountDict: [String: Int]
     private var queue: DispatchQueue
 
