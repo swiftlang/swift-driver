@@ -1,4 +1,4 @@
-// swift-tools-version:5.10
+// swift-tools-version:6.0
 
 import PackageDescription
 import class Foundation.ProcessInfo
@@ -141,7 +141,8 @@ let package = Package(
         .linkedLibrary("swiftCore", .when(platforms: [.windows])), // for swift_addNewDSOImage
       ]),
   ],
-  cxxLanguageStandard: .cxx17
+  swiftLanguageVersions: [.v6],
+  cxxLanguageStandard: .cxx17,
 )
 
 if ProcessInfo.processInfo.environment["SWIFT_DRIVER_LLBUILD_FWK"] == nil {
