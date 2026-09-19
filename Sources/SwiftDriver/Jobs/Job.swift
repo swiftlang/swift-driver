@@ -153,12 +153,12 @@ public struct Job: Codable, Equatable, Hashable {
 
 extension Job {
   public enum InputError: Error, Equatable, DiagnosticData {
-    case inputUnexpectedlyModified(TypedVirtualPath)
+    case inputUnexpectedlyModified(String)
 
     public var description: String {
       switch self {
       case .inputUnexpectedlyModified(let input):
-        return "input file '\(input.file.name)' was modified during the build"
+        return "input file '\(input)' was modified during the build"
       }
     }
   }
@@ -167,7 +167,7 @@ extension Job {
     for input in inputs {
       if let recordedModificationTime = recordedInputMetadata[input],
          try fileSystem.lastModificationTime(for: input.file) != recordedModificationTime {
-        throw InputError.inputUnexpectedlyModified(input)
+        throw InputError.inputUnexpectedlyModified(input.file.name)
       }
     }
   }
