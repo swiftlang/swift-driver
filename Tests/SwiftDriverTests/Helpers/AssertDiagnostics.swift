@@ -133,7 +133,7 @@ func assertNoDiagnostics(
 /// failure. You can manipulate this rule by calling
 /// `DiagnosticVerifier.permitUnexpected(_:)` or
 /// `DiagnosticVerifier.forbidUnexpected(_:)`.
-final class DiagnosticVerifier {
+final class DiagnosticVerifier: @unchecked Sendable {
   fileprivate struct Expectation {
     let message: Diagnostic.Message
     let alternativeMessage: Diagnostic.Message?

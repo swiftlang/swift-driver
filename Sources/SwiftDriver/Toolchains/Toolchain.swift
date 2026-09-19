@@ -80,7 +80,7 @@ public struct ResolvedTool {
 
 /// Describes a toolchain, which includes information about compilers, linkers
 /// and other tools required to build Swift code.
-public protocol Toolchain {
+public protocol Toolchain: SendableMetatype {
   init(env: ProcessEnvironmentBlock, executor: DriverExecutor, fileSystem: FileSystem, compilerExecutableDir: AbsolutePath?, toolDirectory: AbsolutePath?)
 
   var env: ProcessEnvironmentBlock { get }

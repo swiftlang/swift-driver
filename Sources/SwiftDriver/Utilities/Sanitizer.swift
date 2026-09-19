@@ -14,7 +14,7 @@
 
 /// Defines a sanitizer that can be used to instrument the resulting product of
 /// this build.
-public enum Sanitizer: String, Hashable {
+public enum Sanitizer: String, Hashable, Sendable {
   /// Address sanitizer (ASan)
   case address
 
