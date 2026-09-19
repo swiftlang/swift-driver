@@ -12,7 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 /// Attributes that describe where and how the option is used.
-public struct OptionAttributes: OptionSet, Hashable {
+public struct OptionAttributes: OptionSet, Hashable, Sendable {
   public let rawValue: UInt
 
   public init(rawValue: UInt) {
@@ -36,9 +36,9 @@ public struct OptionAttributes: OptionSet, Hashable {
 }
 
 /// Describes a command-line option.
-public struct Option {
+public struct Option: Sendable {
   /// The kind of option we have, which determines how it will be parsed.
-  public enum Kind: Hashable {
+  public enum Kind: Hashable, Sendable {
     /// An input file, which doesn't have a spelling but contains a single extension Driver {
     /// argument.
     case input
@@ -69,9 +69,14 @@ public struct Option {
   /// The kind of option, which determines how it is parsed.
   public let kind: Kind
 
-  /// The option that this aliases, if any, as a closure that produces the
-  /// valid.
-  private let aliasFunction: (() -> Option)?
+  /// The option that this aliases, if any.
+  private final class Alias: Sendable {
+    init(option: Option) {
+      self.option = option
+    }
+    let option: Option
+  }
+  private let _alias: Alias?
 
   /// The attributes that describe where and how the attribute is used.
   public let attributes: OptionAttributes
@@ -97,7 +102,7 @@ public struct Option {
               numArgs: UInt = 0) {
     self.spelling = spelling
     self.kind = kind
-    self.aliasFunction = alias.map { aliasOption in { aliasOption }}
+    self._alias = alias.map { Alias(option: $0) }
     self.attributes = attributes
     self.metaVar = metaVar
     self.helpText = helpText
@@ -120,11 +125,11 @@ extension Option: Hashable {
 
 extension Option {
   /// Whether this option is an alias.
-  public var isAlias: Bool { aliasFunction != nil }
+  public var isAlias: Bool { _alias != nil }
 
   /// Retrieves the alias option, if there is one.
   public var alias: Option? {
-    aliasFunction.map { function in function() }
+    _alias?.option
   }
 
   /// Whether this option's help is hidden under normal circumstances.

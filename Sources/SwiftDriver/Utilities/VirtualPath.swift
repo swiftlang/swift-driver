@@ -332,7 +332,7 @@ extension VirtualPath {
   /// `VirtualPath.Handle` instances represent fully-validated paths, so sharing
   /// in the global path table ensures we only pay the cost at most once per
   /// path string.
-  public struct Handle {
+  public struct Handle: Sendable {
     fileprivate var core: Int
 
     fileprivate init(_ core: Int) {

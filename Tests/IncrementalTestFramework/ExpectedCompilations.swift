@@ -16,7 +16,7 @@ import Testing
 import TSCBasic
 
 /// The `Source`s expected to be compiled in a `Step`, when incremental imports are either enabled or disabled.
-public struct ExpectedCompilations {
+public struct ExpectedCompilations: Sendable {
   let expected: Set<Source>
 
   public init(expected: Set<Source>) {
