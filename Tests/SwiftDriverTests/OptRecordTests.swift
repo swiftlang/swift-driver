@@ -211,7 +211,7 @@ import Testing
       "-c", "file1.swift", "file2.swift",
     ])
 
-    await #expect(throws: (any Error).self) { try await driver.planBuild() }
+    await #expect(throws: (any Error).self) { _ = try await driver.planBuild() }
 
     #expect(
       driver.diagnosticEngine.diagnostics.contains(where: {

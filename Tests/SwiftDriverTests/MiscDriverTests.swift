@@ -1520,7 +1520,7 @@ import CRT
     do {
       var driver = try TestDriver(args: ["swift", "-target", "wasm32-unknown-wasi", "foo.swift"], env: env)
       await #expect {
-        try await driver.planBuild()
+        _ = try await driver.planBuild()
       } throws: { error in
         guard case WASIToolchain.Error.interactiveModeUnsupportedForTarget("wasm32-unknown-wasi") = error else {
           return false
@@ -1535,7 +1535,7 @@ import CRT
         env: env
       )
       await #expect {
-        try await driver.planBuild()
+        _ = try await driver.planBuild()
       } throws: { error in
         guard case WASIToolchain.Error.dynamicLibrariesUnsupportedForTarget("wasm32-unknown-wasi") = error else {
           return false
@@ -1550,7 +1550,7 @@ import CRT
         env: env
       )
       await #expect {
-        try await driver.planBuild()
+        _ = try await driver.planBuild()
       } throws: { error in
         guard case WASIToolchain.Error.dynamicLibrariesUnsupportedForTarget("wasm32-unknown-wasi") = error else {
           return false
