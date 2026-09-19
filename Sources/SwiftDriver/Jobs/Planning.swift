@@ -49,10 +49,6 @@ public enum PlanningError: Error, DiagnosticData {
     r.append(contentsOf: afterCompiles)
     return r
   }
-
-  @_spi(Testing) public static var none = JobsInPhases(beforeCompiles: [],
-                                                       compileJobs: [],
-                                                       afterCompiles: [])
 }
 
 // MARK: Standard build planning
