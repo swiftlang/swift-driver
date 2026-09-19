@@ -27,13 +27,13 @@ import Bionic
 #error("Missing libc or equivalent")
 #endif
 
-import class TSCBasic.DiagnosticsEngine
-import struct TSCBasic.Diagnostic
-import struct TSCBasic.ProcessResult
-import class TSCBasic.ThreadSafeOutputByteStream
-import var TSCBasic.stderrStream
-import var TSCBasic.stdoutStream
-import class TSCBasic.Process
+@preconcurrency import class TSCBasic.DiagnosticsEngine
+@preconcurrency import struct TSCBasic.Diagnostic
+@preconcurrency import struct TSCBasic.ProcessResult
+@preconcurrency import class TSCBasic.ThreadSafeOutputByteStream
+@preconcurrency import var TSCBasic.stderrStream
+@preconcurrency import var TSCBasic.stdoutStream
+@preconcurrency import class TSCBasic.Process
 
 /// Delegate for printing execution information on the command-line.
 @_spi(Testing) public final class ToolExecutionDelegate: JobExecutionDelegate {

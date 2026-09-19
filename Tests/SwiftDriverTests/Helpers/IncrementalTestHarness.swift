@@ -15,7 +15,7 @@
 import Foundation
 @_spi(Testing) import SwiftDriver
 import SwiftOptions
-import TSCBasic
+@preconcurrency import TSCBasic
 import TestUtilities
 import Testing
 
