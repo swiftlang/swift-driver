@@ -16,9 +16,8 @@
 import TSCBasic
 import Testing
 
-@Suite struct DependencyGraphSerializationTests: ModuleDependencyGraphMocker {
+@Suite struct DependencyGraphSerializationTests {
   static let maxIndex = 12
-  static let mockGraphCreator = MockModuleDependencyGraphCreator(maxIndex: maxIndex)
 
   /// Unit test of the `ModuleDependencyGraph` serialization
   ///
@@ -26,7 +25,7 @@ import Testing
   @Test func serializedVersionChangeDetection() throws {
     let mockPath = VirtualPath.absolute(try AbsolutePath(validating: "/module-dependency-graph"))
     let fs = InMemoryFileSystem()
-    let graph = Self.mockGraphCreator.mockUpAGraph()
+    let graph = ModuleDependencyGraph.mockUpAGraph(maxIndex: Self.maxIndex)
     let currentVersion = ModuleDependencyGraph.serializedGraphVersion
     let alteredVersion = currentVersion.withAlteredMinor
 
@@ -284,7 +283,7 @@ import Testing
     ]
 
     for fixture in fixtures {
-      let graph = Self.mockGraphCreator.mockUpAGraph()
+      let graph = ModuleDependencyGraph.mockUpAGraph(maxIndex: Self.maxIndex)
       for loadCommand in fixture.commands {
         switch loadCommand {
         case .load(let index, let nodes, let fingerprint):
