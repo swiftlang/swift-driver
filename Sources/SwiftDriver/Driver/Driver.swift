@@ -762,7 +762,7 @@ public struct Driver {
   }
 
   /// Handler for emitting diagnostics to stderr.
-  public static let stderrDiagnosticsHandler: DiagnosticsEngine.DiagnosticsHandler = { diagnostic in
+  public static let stderrDiagnosticsHandler: @Sendable (Diagnostic) -> Void = { diagnostic in
     stdErrQueue.sync {
       let stream = TSCBasic.stderrStream
       if !(diagnostic.location is UnknownLocation) {
