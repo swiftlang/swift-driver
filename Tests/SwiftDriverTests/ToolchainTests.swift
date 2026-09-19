@@ -485,18 +485,13 @@ import CRT
 
   @Test func relativeResourceDir() async throws {
     do {
-      // Reset the environment to avoid 'SDKROOT' influencing the
-      // linux driver paths and taking the priority over the resource directory.
-      var env = ProcessEnv.block
-      env["SDKROOT"] = nil
       var driver = try TestDriver(
         args: [
           "swiftc",
           "-target", "x86_64-unknown-linux", "-lto=llvm-thin",
           "foo.swift",
           "-resource-dir", "resource/dir",
-        ],
-        env: env
+        ]
       )
       let plannedJobs = try await driver.planBuild().removingAutolinkExtractJobs()
 
@@ -518,7 +513,7 @@ import CRT
     }
   }
 
-  @Test func sdkDirLinuxPrioritizedOverRelativeResourceDirForLinkingSwiftRT() async throws {
+  @Test func RelativeResourceDirLinuxPrioritizedOverSDKDirForLinkingSwiftRT() async throws {
     do {
       let sdkRoot = try testInputsPath.appending(component: "mock-sdk.sdk")
       var env = ProcessEnv.block
@@ -539,7 +534,7 @@ import CRT
       #expect(linkJob.kind == .link)
       try expectJobInvocationMatches(
         linkJob,
-        toPathOption(sdkRoot.pathString + "/usr/lib/swift/linux/x86_64/swiftrt.o", isRelative: false)
+        toPathOption("resource/dir/linux/x86_64/swiftrt.o")
       )
     }
   }
