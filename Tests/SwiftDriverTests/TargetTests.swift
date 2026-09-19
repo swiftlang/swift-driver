@@ -1335,7 +1335,7 @@ import CRT
 
   @Test func windowsOptions() async throws {
     let driver =
-      try TestDriver(args: ["swiftc", "-windows-sdk-version", "10.0.17763.0", #file])
+      try TestDriver(args: ["swiftc", "-windows-sdk-version", "10.0.17763.0", #filePath])
     guard
       [
         .visualcToolsRoot,
@@ -1349,7 +1349,7 @@ import CRT
 
     do {
       var driver = try TestDriver(args: [
-        "swiftc", "-target", "x86_64-unknown-windows-msvc", "-windows-sdk-root", "/SDK", #file,
+        "swiftc", "-target", "x86_64-unknown-windows-msvc", "-windows-sdk-root", "/SDK", #filePath,
       ])
       let frontend = try await driver.planBuild().first!
       try expectJobInvocationMatches(frontend, .flag("-windows-sdk-root"), .path(.absolute(.init(validating: "/SDK"))))
@@ -1357,7 +1357,7 @@ import CRT
 
     do {
       var driver = try TestDriver(args: [
-        "swiftc", "-target", "x86_64-unknown-windows-msvc", "-windows-sdk-version", "10.0.17763.0", #file,
+        "swiftc", "-target", "x86_64-unknown-windows-msvc", "-windows-sdk-version", "10.0.17763.0", #filePath,
       ])
       let frontend = try await driver.planBuild().first!
       expectJobInvocationMatches(frontend, .flag("-windows-sdk-version"), .flag("10.0.17763.0"))
@@ -1376,7 +1376,7 @@ import CRT
 
     do {
       var driver = try TestDriver(args: [
-        "swiftc", "-target", "x86_64-unknown-windows-msvc", "-visualc-tools-root", "/MSVC/14.34.31933", #file,
+        "swiftc", "-target", "x86_64-unknown-windows-msvc", "-visualc-tools-root", "/MSVC/14.34.31933", #filePath,
       ])
       let frontend = try await driver.planBuild().first!
       try expectJobInvocationMatches(
@@ -1388,7 +1388,7 @@ import CRT
 
     do {
       var driver = try TestDriver(args: [
-        "swiftc", "-target", "x86_64-unknown-windows-msvc", "-visualc-tools-version", "14.34.31933", #file,
+        "swiftc", "-target", "x86_64-unknown-windows-msvc", "-visualc-tools-version", "14.34.31933", #filePath,
       ])
       let frontend = try await driver.planBuild().first!
 
@@ -1398,7 +1398,7 @@ import CRT
     do {
       var driver = try TestDriver(args: [
         "swiftc", "-target", "x86_64-unknown-windows-msvc", "-visualc-tools-root", "/MSVC", "-visualc-tools-version",
-        "14.34.31933", #file,
+        "14.34.31933", #filePath,
       ])
       let frontend = try await driver.planBuild().first!
 
