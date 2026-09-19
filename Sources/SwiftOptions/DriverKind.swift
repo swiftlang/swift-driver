@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 /// Describes which mode the driver is in.
-public enum DriverKind: String, CaseIterable {
+public enum DriverKind: String, CaseIterable, Sendable {
   case interactive = "swift"
   case batch = "swiftc"
 }
