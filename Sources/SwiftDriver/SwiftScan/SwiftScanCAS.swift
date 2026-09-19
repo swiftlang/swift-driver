@@ -22,7 +22,7 @@ import struct Foundation.Data
 import _Concurrency
 #endif
 
-public final class CachedCompilation {
+public final class CachedCompilation: @unchecked Sendable {
   let ptr: swiftscan_cached_compilation_t
   private let lib: SwiftScan
 
