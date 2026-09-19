@@ -23,7 +23,7 @@ internal func bundleRoot() throws -> AbsolutePath {
   fatalError()
 }
 
-private let packageDirectory = try! AbsolutePath(validating: #file).parentDirectory.parentDirectory.parentDirectory
+private let packageDirectory = try! AbsolutePath(validating: #filePath).parentDirectory.parentDirectory.parentDirectory
 
 // The "default" here means lit.py will be invoked as an executable, while otherwise let's use
 // python 3 explicitly.

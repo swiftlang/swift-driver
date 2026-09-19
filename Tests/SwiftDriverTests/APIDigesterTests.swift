@@ -349,7 +349,7 @@ import Testing
         )
       }
 
-      let packageRootPath = URL(fileURLWithPath: #file).pathComponents
+      let packageRootPath = URL(fileURLWithPath: #filePath).pathComponents
         .prefix(while: { $0 != "Tests" }).joined(separator: "/").dropFirst()
       let testInputsPath = packageRootPath + "/TestInputs"
       let cHeadersPath: String = testInputsPath + "/ExplicitModuleBuilds/CHeaders"
