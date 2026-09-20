@@ -3711,11 +3711,11 @@ extension Triple {
 /// Toolchain computation.
 extension Driver {
   #if canImport(Darwin)
-  static let defaultToolchainType: Toolchain.Type = DarwinToolchain.self
+  static var defaultToolchainType: Toolchain.Type { DarwinToolchain.self }
   #elseif os(Windows)
-  static let defaultToolchainType: Toolchain.Type = WindowsToolchain.self
+  static var defaultToolchainType: Toolchain.Type { WindowsToolchain.self }
   #else
-  static let defaultToolchainType: Toolchain.Type = GenericUnixToolchain.self
+  static var defaultToolchainType: Toolchain.Type { GenericUnixToolchain.self }
   #endif
 
   static func computeHostTriple(
