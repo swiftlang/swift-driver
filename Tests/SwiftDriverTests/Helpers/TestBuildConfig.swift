@@ -119,6 +119,7 @@ extension Trait where Self == Testing.ConditionTrait {
     _ option: Option,
     _ comment: Comment? = nil
   ) -> Self {
+    guard #available(macOS 15.0, *) else { return disabled(tooOldOSComment) }
     let supported = _featureCheckDriver.withLock { $0?.isFrontendArgSupported(option) ?? false }
     return enabled(
       if: supported,
@@ -151,46 +152,55 @@ extension Trait where Self == Testing.ConditionTrait {
 
   /// Requires that libSwiftScan supports link library reporting.
   package static func requireScannerSupportsLinkLibraries(_ comment: Comment? = nil) -> Self {
+    guard #available(macOS 15.0, *) else { return disabled(tooOldOSComment) }
     let supported = (try? _scannerOracle.withLock { try $0?.supportsLinkLibraries() }) ?? false
     return enabled(if: supported, comment ?? "libSwiftScan does not support link library reporting")
   }
 
   /// Requires that libSwiftScan supports import info reporting.
   package static func requireScannerSupportsImportInfos(_ comment: Comment? = nil) -> Self {
+    guard #available(macOS 15.0, *) else { return disabled(tooOldOSComment) }
     let supported = (try? _scannerOracle.withLock{ try $0?.supportsImportInfos() }) ?? false
     return enabled(if: supported, comment ?? "libSwiftScan does not support import details reporting")
   }
 
   /// Requires that libSwiftScan supports library level reporting.
   package static func requireScannerSupportsLibraryLevel(_ comment: Comment? = nil) -> Self {
+    guard #available(macOS 15.0, *) else { return disabled(tooOldOSComment) }
     let supported = (try? _scannerOracle.withLock { try $0?.supportsLibraryLevel() }) ?? false
     return enabled(if: supported, comment ?? "libSwiftScan does not support library level reporting")
   }
 
   /// Requires that libSwiftScan supports per-scan diagnostics.
   package static func requireScannerSupportsPerScanDiagnostics(_ comment: Comment? = nil) -> Self {
+    guard #available(macOS 15.0, *) else { return disabled(tooOldOSComment) }
     let supported = (try? _scannerOracle.withLock { try $0?.supportsPerScanDiagnostics() }) ?? false
     return enabled(if: supported, comment ?? "libSwiftScan does not support diagnostics queries")
   }
 
   /// Requires that libSwiftScan supports binary framework dependency reporting.
   package static func requireScannerSupportsBinaryFrameworkDependencies(_ comment: Comment? = nil) -> Self {
+    guard #available(macOS 15.0, *) else { return disabled(tooOldOSComment) }
     let supported = (try? _scannerOracle.withLock { try $0?.supportsBinaryFrameworkDependencies() }) ?? false
     return enabled(if: supported, comment ?? "libSwiftScan does not support framework binary dependency reporting")
   }
 
   /// Requires that libSwiftScan supports binary module header dependencies.
   package static func requireScannerSupportsBinaryModuleHeaderDependencies(_ comment: Comment? = nil) -> Self {
+    guard #available(macOS 15.0, *) else { return disabled(tooOldOSComment) }
     let supported = (try? _scannerOracle.withLock { try $0?.supportsBinaryModuleHeaderDependencies() }) ?? false
     return enabled(if: supported, comment ?? "libSwiftScan does not support binary module header dependencies")
   }
 
   /// Requires that explicit module verify interface is supported.
   package static func requireExplicitModuleVerifyInterface(_ comment: Comment? = nil) -> Self {
+    guard #available(macOS 15.0, *) else { return disabled(tooOldOSComment) }
     let supported = _featureCheckDriver.withLock { $0?.isFrontendArgSupported(.inputFileKey) } ?? false
     return enabled(if: supported, comment ?? "-typecheck-module-from-interface doesn't support explicit build")
   }
 }
+
+private let tooOldOSComment: Comment = "test requires macOS 15.0 or newer"
 
 package struct KnownIssueTestTrait: TestTrait & SuiteTrait & TestScoping {
   let comment: Comment
@@ -231,9 +241,11 @@ extension Trait where Self == KnownIssueTestTrait {
 // MARK: - Feature availability
 
 /// A shared Driver instance used for checking feature support at test discovery time.
+@available(macOS 15.0, *)
 private let _featureCheckDriver: Mutex<TestDriver?> = .init(try? TestDriver(args: ["swiftc", "test.swift"]))
 
 /// A shared scanner oracle for checking scanner feature support.
+@available(macOS 15.0, *)
 private let _scannerOracle: Mutex<InterModuleDependencyOracle?> = .init({
   _featureCheckDriver.withLock {
     guard let driver = $0,
