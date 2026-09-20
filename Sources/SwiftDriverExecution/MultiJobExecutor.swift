@@ -510,8 +510,11 @@ class ExecuteAllCompilationJobsRule: LLBuildRule {
     engine.taskIsComplete(DriverBuildValue.jobExecution(success: allInputsSucceeded))
   }
 }
+
+extension LLTaskBuildEngine: @unchecked Sendable {}
+
 /// A rule for a single compiler invocation.
-class ExecuteJobRule: LLBuildRule {
+final class ExecuteJobRule: LLBuildRule, @unchecked Sendable {
   struct RuleKey: LLBuildKey {
     typealias BuildValue = DriverBuildValue
     typealias BuildRule = ExecuteJobRule
