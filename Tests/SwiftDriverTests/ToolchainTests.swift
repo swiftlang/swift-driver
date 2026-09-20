@@ -70,6 +70,48 @@ import CRT
     #expect(throws: Never.self) { try driver.toolchain.getToolPath(.dsymutil) }
   }
 
+  @Test(.skipHostOS(.win32)) func swiftScanLookupResolvesCompilerSymlink() throws {
+    try withTemporaryDirectory { rawTemporaryDirectory in
+      // macOS temporary paths can traverse /var -> /private/var.
+      let temporaryDirectory = try resolveSymlinks(rawTemporaryDirectory)
+      let toolchainRoot = temporaryDirectory.appending(component: "toolchain")
+      let toolchainBin = toolchainRoot.appending(component: "bin")
+      let toolchainHostLib = toolchainRoot.appending(components: "lib", "swift", "host")
+      let publicBin = temporaryDirectory.appending(components: "public", "bin")
+      try localFileSystem.createDirectory(toolchainBin, recursive: true)
+      try localFileSystem.createDirectory(toolchainHostLib, recursive: true)
+      try localFileSystem.createDirectory(publicBin, recursive: true)
+
+      let privateSwift = toolchainBin.appending(component: "swift")
+      let publicSwift = publicBin.appending(component: "swift")
+      try localFileSystem.writeFileContents(privateSwift, bytes: "")
+      try localFileSystem.createSymbolicLink(
+        publicSwift,
+        pointingAt: privateSwift,
+        relative: false
+      )
+
+      let swiftScan = toolchainHostLib.appending(component: sharedLibraryName("_InternalSwiftScan"))
+      try localFileSystem.writeFileContents(swiftScan, bytes: "")
+
+      var env = ProcessEnv.block
+      env.removeValue(forKey: "SWIFT_DRIVER_SWIFTSCAN_LIB")
+      let executor = try SwiftDriverExecutor(
+        diagnosticsEngine: DiagnosticsEngine(),
+        processSet: ProcessSet(),
+        fileSystem: localFileSystem,
+        env: env
+      )
+      let toolchain = GenericUnixToolchain(
+        env: env,
+        executor: executor
+      )
+      toolchain.overrideToolPath(.swiftCompiler, path: publicSwift)
+
+      #expect(try toolchain.lookupSwiftScanLib() == swiftScan)
+    }
+  }
+
   @Test func swiftHelpOverride() async throws {
     // FIXME: On Linux, we might not have any Clang in the path. We need a
     // better override.
