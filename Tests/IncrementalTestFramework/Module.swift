@@ -13,10 +13,11 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
-import TSCBasic
+@preconcurrency import TSCBasic
 
 @_spi(Testing) import SwiftDriver
 import SwiftOptions
+import Synchronization
 import TestUtilities
 import Testing
 
@@ -135,11 +136,20 @@ extension Module {
   /// Invoke the driver to perform the compilation.
   /// - Returns: the basenames of recompiled source files.
   private func invokeDriver(in context: Context) async throws -> [String] {
-    var collector = CompiledSourceCollector()
-    let handlers = [
-      {collector.handle(diagnostic: $0)},
-      context.verbose ? Driver.stderrDiagnosticsHandler : nil
-    ].compactMap { $0 }
+    guard #available(macOS 15.0, *) else {
+      throw StringError("tests require macOS 15.0 or later")
+    }
+    let collector = Mutex(CompiledSourceCollector())
+    var handlers: [((Diagnostic) -> Void)] = [
+      { diagnostic in
+        collector.withLock { collector in
+          collector.handle(diagnostic: diagnostic)
+        }
+      },
+    ]
+    if context.verbose {
+      handlers.append(Driver.stderrDiagnosticsHandler)
+    }
     let diagnosticsEngine = DiagnosticsEngine(handlers: handlers)
 
     let args = try arguments(in: context)
@@ -147,7 +157,7 @@ extension Module {
     let jobs = try await driver.planBuild()
     try await driver.run(jobs: jobs)
 
-    return collector.compiledBasenames
+    return collector.withLock { $0.compiledBasenames }
   }
 
   /// - Returns the arguments to pass to the `Driver`.
