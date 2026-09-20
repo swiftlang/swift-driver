@@ -56,8 +56,7 @@ let package = Package(
         .product(name: swiftToolsSupportCoreLibName, package: "swift-tools-support-core"),
         "CSwiftScan",
       ],
-      exclude: ["CMakeLists.txt"],
-      swiftSettings: [.enableExperimentalFeature("CheckImplementationOnly")],
+      exclude: ["CMakeLists.txt"]
     ),
 
     /// The execution library.
@@ -67,8 +66,7 @@ let package = Package(
         "SwiftDriver",
         .product(name: swiftToolsSupportCoreLibName, package: "swift-tools-support-core")
       ],
-      exclude: ["CMakeLists.txt"],
-      swiftSettings: [.enableExperimentalFeature("CheckImplementationOnly")],
+      exclude: ["CMakeLists.txt"]
     ),
 
     /// Driver tests.
