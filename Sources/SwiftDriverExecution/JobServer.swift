@@ -402,6 +402,12 @@ final class JobServerDispatcher {
   private let jobServer: JobServer
   private let queue: OperationQueue
 
+  /// The concurrency cap to fall back to once the broker stops dispatching under
+  /// tokens -- `-j`'s value. While the broker runs, `queue` is uncapped and the
+  /// token pool bounds concurrency; when it tears down, work runs without tokens,
+  /// so the queue must enforce this limit itself instead of bursting unbounded.
+  private let fallbackJobLimit: Int
+
   /// Guards `pending`, `isShutDown` and `hasBrokerFinished`, and wakes the
   /// broker thread.
   private let condition = NSCondition()
@@ -414,9 +420,10 @@ final class JobServerDispatcher {
   /// leaking a token from a build that is ending anyway.
   private static let brokerShutDownTimeout: TimeInterval = 5
 
-  init(jobServer: JobServer, queue: OperationQueue) {
+  init(jobServer: JobServer, queue: OperationQueue, fallbackJobLimit: Int) {
     self.jobServer = jobServer
     self.queue = queue
+    self.fallbackJobLimit = fallbackJobLimit
   }
 
   func start() {
@@ -519,6 +526,11 @@ final class JobServerDispatcher {
     condition.lock()
     assert(!hasBrokerFinished, "the broker dispatches its leftovers exactly once, as it exits")
     hasBrokerFinished = true
+    // Nothing takes tokens for this work, so the pool no longer bounds it. Cap the
+    // queue at `-j` so the fallback respects `numParallelJobs` instead of running
+    // every leftover at once. Applies to jobs `enqueue`d after this point too,
+    // since they land on the same queue once the broker has finished.
+    queue.maxConcurrentOperationCount = fallbackJobLimit
     let remaining = pending
     pending.removeAll()
     remaining.forEach(queue.addOperation)

@@ -364,7 +364,8 @@ public final class MultiJobExecutor {
       // at `numParallelJobs` would cap us below the pool, and since `-j`
       // defaults to 1 that would serialize the very builds a jobserver widens.
       jobQueue.maxConcurrentOperationCount = Int.max
-      jobServerDispatcher = JobServerDispatcher(jobServer: jobServer, queue: jobQueue)
+      jobServerDispatcher = JobServerDispatcher(jobServer: jobServer, queue: jobQueue,
+                                                fallbackJobLimit: numParallelJobs)
     } else {
       jobQueue.maxConcurrentOperationCount = numParallelJobs
       jobServerDispatcher = nil

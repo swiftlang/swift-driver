@@ -137,7 +137,8 @@ final class JobServerTests: XCTestCase {
     _ = try withPipePool(seededWith: []) { jobServer in
       let queue = OperationQueue()
       queue.maxConcurrentOperationCount = .max
-      let dispatcher = JobServerDispatcher(jobServer: jobServer, queue: queue)
+      let dispatcher = JobServerDispatcher(jobServer: jobServer, queue: queue,
+                                           fallbackJobLimit: 4)
       dispatcher.start()
 
       let finished = expectation(description: "jobs ran")
@@ -166,7 +167,8 @@ final class JobServerTests: XCTestCase {
     let jobServer = try XCTUnwrap(JobServer(auth: "\(readEnd),\(writeEnd)"))
     let queue = OperationQueue()
     queue.maxConcurrentOperationCount = .max
-    let dispatcher = JobServerDispatcher(jobServer: jobServer, queue: queue)
+    let dispatcher = JobServerDispatcher(jobServer: jobServer, queue: queue,
+                                         fallbackJobLimit: 8)
     dispatcher.start()
 
     // Hold the implicit token in flight, then close every write end so the pool
@@ -197,6 +199,64 @@ final class JobServerTests: XCTestCase {
 
     releaseFirst.signal()
     dispatcher.shutDown()
+  }
+
+  func testTeardownRespectsFallbackJobLimit() throws {
+    // Once the pool becomes unusable the broker tears down and runs the rest
+    // without tokens. That fallback must still honor `-j` rather than bursting
+    // every leftover onto the queue at once.
+    let fallbackJobLimit = 2
+
+    var descriptors: [CInt] = [0, 0]
+    XCTAssertEqual(pipe(&descriptors), 0)
+    let readEnd = descriptors[0], writeEnd = descriptors[1]
+    defer { close(readEnd) }  // writeEnd is closed by the body below.
+
+    let jobServer = try XCTUnwrap(JobServer(auth: "\(readEnd),\(writeEnd)"))
+    let queue = OperationQueue()
+    queue.maxConcurrentOperationCount = .max
+    let dispatcher = JobServerDispatcher(jobServer: jobServer, queue: queue,
+                                         fallbackJobLimit: fallbackJobLimit)
+    dispatcher.start()
+
+    // Hold the implicit token so the broker cannot serve work from it, then
+    // close every write end so the next `acquire` hits end-of-file and exits.
+    let firstRunning = expectation(description: "first job started")
+    let releaseFirst = DispatchSemaphore(value: 0)
+    dispatcher.enqueue {
+      firstRunning.fulfill()
+      releaseFirst.wait()
+    }
+    wait(for: [firstRunning], timeout: 60)
+    close(writeEnd)
+
+    // Drive the broker to its teardown exit and wait until it is gone, so the
+    // jobs below all take the post-teardown path onto the now-capped queue.
+    let brokerExited = expectation(description: "broker finished")
+    dispatcher.enqueue { brokerExited.fulfill() }
+    wait(for: [brokerExited], timeout: 60)
+    releaseFirst.signal()  // Free the slot the implicit-token job was holding.
+
+    let finished = expectation(description: "post-teardown jobs ran")
+    let jobCount = 12
+    finished.expectedFulfillmentCount = jobCount
+    let lock = NSLock()
+    var running = 0, peak = 0
+    for _ in 0..<jobCount {
+      dispatcher.enqueue {
+        lock.lock(); running += 1; peak = max(peak, running); lock.unlock()
+        Thread.sleep(forTimeInterval: 0.01)
+        lock.lock(); running -= 1; lock.unlock()
+        finished.fulfill()
+      }
+    }
+    wait(for: [finished], timeout: 120)
+    dispatcher.shutDown()
+
+    lock.lock(); defer { lock.unlock() }
+    XCTAssertLessThanOrEqual(peak, fallbackJobLimit,
+                             "teardown ran more jobs at once than `-j` allows")
+    XCTAssertGreaterThan(peak, 1, "the fallback serialized instead of using `-j`")
   }
 
   func testFIFOTransport() throws {
@@ -232,7 +292,8 @@ final class JobServerTests: XCTestCase {
   private func peakConcurrency(over jobServer: JobServer, jobCount: Int) -> Int {
     let queue = OperationQueue()
     queue.maxConcurrentOperationCount = .max
-    let dispatcher = JobServerDispatcher(jobServer: jobServer, queue: queue)
+    let dispatcher = JobServerDispatcher(jobServer: jobServer, queue: queue,
+                                         fallbackJobLimit: .max)
     dispatcher.start()
 
     let finished = expectation(description: "all \(jobCount) jobs ran")
