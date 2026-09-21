@@ -159,7 +159,7 @@ import CRT
       ])
 
       let plannedJobs = try await driver.planBuild().removingAutolinkExtractJobs()
-      #expect(plannedJobs.count == 3)
+      #expect(plannedJobs.count == 2)
 
       let targetModuleJob = plannedJobs[0]
       let variantModuleJob = plannedJobs[1]
@@ -233,14 +233,13 @@ import CRT
       let plannedJobs = try await driver.planBuild().removingAutolinkExtractJobs()
       // emit module
       // emit module
-      // compile foo.swift
       // verify target.swiftinterface
       // verify target.private.swiftinterface
       // verify target.package.swiftinterface
       // verify variant.swiftinterface
       // verify variant.private.swiftinterface
       // verify variant.package.swiftinterface
-      expectEqual(plannedJobs.count, 9)
+      expectEqual(plannedJobs.count, 8)
 
       let targetModuleJob: Job = plannedJobs[0]
       let variantModuleJob = plannedJobs[1]
