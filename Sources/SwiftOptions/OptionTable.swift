@@ -54,14 +54,47 @@ extension OptionTable {
     print("""
     OPTIONS:
     """)
-    OptionTable.printOptions(remainingOptions, driverKind: driverKind, includeHidden: includeHidden)
+    let ungroupedOptions = remainingOptions.filter {
+      $0.group == nil || (driverKind == DriverKind.interactive && $0.group == Option.Group.modes)
+    }
+    OptionTable.printOptions(ungroupedOptions, driverKind: driverKind, includeHidden: includeHidden)
+
+    var printedGroups = Set<Option.Group>()
+    for option in remainingOptions {
+      guard let group = option.group,
+            group != Option.Group.modes,
+            printedGroups.insert(group).inserted else {
+        continue
+      }
+
+      let groupOptions = remainingOptions.filter { $0.group == group }
+      guard !OptionTable.visibleOptions(
+        groupOptions,
+        driverKind: driverKind,
+        includeHidden: includeHidden
+      ).isEmpty else {
+        continue
+      }
+
+      print("\n\(group.helpText ?? group.name):")
+      OptionTable.printOptions(groupOptions, driverKind: driverKind, includeHidden: includeHidden)
+    }
+  }
+
+  private static func visibleOptions(
+    _ options: [Option], driverKind: DriverKind, includeHidden: Bool
+  ) -> [Option] {
+    options.filter {
+      !$0.isAlias &&
+        (!$0.isHelpHidden || includeHidden) &&
+        $0.isAccepted(by: driverKind) &&
+        $0.kind != .input &&
+        $0.helpText != nil
+    }
   }
 
   static func printOptions(_ options: [Option], driverKind: DriverKind, includeHidden: Bool) {
-    for option in options {
-      if option.isAlias { continue }
-      if option.isHelpHidden && !includeHidden { continue }
-      guard option.isAccepted(by: driverKind) else { continue }
+    for option in visibleOptions(options, driverKind: driverKind, includeHidden: includeHidden) {
       guard let helpText = option.helpText else { continue }
       let maxDisplayNameLength = 23
 
