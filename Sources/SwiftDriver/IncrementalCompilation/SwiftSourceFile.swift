@@ -15,28 +15,34 @@
 /// Because the incremental compilation system treats files containing Swift source code specially,
 /// it is helpful to statically distinguish them wherever an input must be swift source code.
 public struct SwiftSourceFile: Hashable {
-  // must be .swift
   public let fileHandle: VirtualPath.Handle
+  public let type: FileType
 
-  public init(_ fileHandle: VirtualPath.Handle) {
+  public init(_ fileHandle: VirtualPath.Handle, type: FileType) {
     self.fileHandle = fileHandle
+    self.type = type
   }
   public init(_ path: TypedVirtualPath) {
-    assert(path.type == .swift)
-    self.init(path.fileHandle)
+    assert(path.type.isSwiftSourceFile)
+    self.init(path.fileHandle, type: path.type)
   }
   public init?(ifSource path: TypedVirtualPath) {
-    guard path.type == .swift else { return nil }
+    guard path.type.isSwiftSourceFile else { return nil }
     self.init(path)
   }
 
   public init(_ path: VirtualPath) {
-    assert(path.name.hasSuffix(".\(FileType.swift.rawValue)"))
-    self.init(path.intern())
+    guard let ext = path.extension,
+          let type = FileType(rawValue: ext) else {
+      fatalError("Bad type")
+    }
+
+    assert(type.isSwiftSourceFile)
+    self.init(path.intern(), type: type)
   }
 
   public var typedFile: TypedVirtualPath {
-    TypedVirtualPath(file: fileHandle, type: .swift)
+    TypedVirtualPath(file: fileHandle, type: type)
   }
 }
 

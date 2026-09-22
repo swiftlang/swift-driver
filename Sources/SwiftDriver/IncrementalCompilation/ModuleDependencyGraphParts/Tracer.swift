@@ -129,7 +129,7 @@ extension ModuleDependencyGraph.Tracer {
           guard case let .known(source) = node.definitionLocation else {
             return nil
           }
-          return source.typedFile.type == .swift
+          return source.typedFile.type.isSwiftSourceFile
           ? "\(node.key.description(in: graph)) in \(source.file.basename)"
           : "\(node.key.description(in: graph))"
         }

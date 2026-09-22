@@ -1,4 +1,5 @@
 {
+  "originHash" : "ef6e9772fceaf692fe313b98c171606cf0717d86055fdce409b93dc5adf247f3",
   "pins" : [
     {
       "identity" : "swift-argument-parser",
@@ -23,8 +24,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/swiftlang/swift-toolchain-sqlite",
       "state" : {
-        "revision" : "b45b80b943e88db3cb8ddea798fa3fa9912375ff",
-        "version" : "1.0.7"
+        "revision" : "cc7ea00f730c2234a332cd264c6e5cdbb6c4f971",
+        "version" : "1.0.12"
       }
     },
     {
@@ -37,5 +38,5 @@
       }
     }
   ],
-  "version" : 2
+  "version" : 3
 }
