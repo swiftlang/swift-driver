@@ -144,7 +144,7 @@ let package = Package(
       ]),
   ],
   swiftLanguageVersions: [.v6],
-  cxxLanguageStandard: .cxx17,
+  cxxLanguageStandard: .cxx17
 )
 
 if ProcessInfo.processInfo.environment["SWIFT_DRIVER_LLBUILD_FWK"] == nil {
