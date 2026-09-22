@@ -73,7 +73,7 @@ import IncrementalTestFramework
 
     // Define what is expected
     let whenAddOrRmFunc = ExpectedCompilations(
-      expected: [structExtension, classExtension, ])
+      expected: [structExtension, classExtension, structConstructor, classConstructor])
 
     let steps = [
       Step(                    building: modules, .expecting(modules.allSourcesToCompile)),
