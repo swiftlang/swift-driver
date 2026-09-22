@@ -138,8 +138,11 @@ extension Driver {
     // Enable or disable ObjC interop appropriately for the platform
     if targetTriple.isDarwin && !isEmbeddedEnabled {
       commandLine.appendFlag(.enableObjcInterop)
-    } else {
+    } else if !parsedOptions.hasArgument(.gnustepObjcInterop) {
       commandLine.appendFlag(.disableObjcInterop)
+    }
+    if parsedOptions.hasArgument(.gnustepObjcInterop) {
+      commandLine.appendFlag(.gnustepObjcInterop)
     }
 
     // Add flags for C++ interop
