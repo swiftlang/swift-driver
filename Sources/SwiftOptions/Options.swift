@@ -900,6 +900,7 @@ extension Option {
   public static let serializeDependencyScanCache: Option = Option("-serialize-dependency-scan-cache", .flag, attributes: [.frontend, .noDriver], helpText: "After performing a dependency scan, serialize the scanner's internal state.")
   public static let serializeDiagnosticsPathEQ: Option = Option("-serialize-diagnostics-path=", .joined, alias: Option.serializeDiagnosticsPath, attributes: [.frontend, .noBatch, .argumentIsPath, .supplementaryOutput, .cacheInvariant])
   public static let serializeDiagnosticsPath: Option = Option("-serialize-diagnostics-path", .separate, attributes: [.frontend, .noBatch, .argumentIsPath, .supplementaryOutput, .cacheInvariant], metaVar: "<path>", helpText: "Emit a serialized diagnostics file to <path>")
+  public static let serializeDiagnosticsEQ: Option = Option("-serialize-diagnostics=", .joined, attributes: [.frontend, .noInteractive, .supplementaryOutput, .cacheInvariant], metaVar: "<format>", helpText: "Serialize diagnostics in a specific format: 'dia', a binary format (the default), or 'sarif'")
   public static let serializeDiagnostics: Option = Option("-serialize-diagnostics", .flag, attributes: [.frontend, .noInteractive, .supplementaryOutput, .cacheInvariant], helpText: "Serialize diagnostics in a binary format")
   public static let serializeModuleInterfaceDependencyHashes: Option = Option("-serialize-module-interface-dependency-hashes", .flag, attributes: [.frontend, .noDriver])
   public static let serializeParseableModuleInterfaceDependencyHashes: Option = Option("-serialize-parseable-module-interface-dependency-hashes", .flag, alias: Option.serializeModuleInterfaceDependencyHashes, attributes: [.frontend, .noDriver])
@@ -1963,6 +1964,7 @@ extension Option {
       Option.serializeDependencyScanCache,
       Option.serializeDiagnosticsPathEQ,
       Option.serializeDiagnosticsPath,
+      Option.serializeDiagnosticsEQ,
       Option.serializeDiagnostics,
       Option.serializeModuleInterfaceDependencyHashes,
       Option.serializeParseableModuleInterfaceDependencyHashes,

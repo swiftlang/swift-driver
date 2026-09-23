@@ -47,23 +47,32 @@ extension Driver {
     try addRuntimeLibraryFlags(commandLine: &commandLine)
 
     // TODO: Should this just be pch output with extension changed?
-    if parsedOptions.hasArgument(.serializeDiagnostics), let outputDirectory = parsedOptions.getLastArgument(.pchOutputDir)?.asSingle {
+    if parsedOptions.hasArgument(.serializeDiagnostics, .serializeDiagnosticsEQ),
+       let outputDirectory = parsedOptions.getLastArgument(.pchOutputDir)?.asSingle {
       commandLine.appendFlag(.serializeDiagnosticsPath)
       let path: VirtualPath
-      if let outputPath = try outputFileMap?.existingOutput(inputFile: input.fileHandle, outputType: .diagnostics) {
+      if let outputPath = try outputFileMap?.existingOutput(inputFile: input.fileHandle,
+                                                            outputType: serializedDiagnosticsType) {
         path = VirtualPath.lookup(outputPath)
       } else if let modulePath = parsedOptions.getLastArgument(.emitModulePath) {
         // TODO: does this hash need to be persistent?
         let code = UInt(bitPattern: modulePath.asSingle.hashValue)
         let outputName = input.file.basenameWithoutExt + "-" + String(code, radix: 36)
-        path = try VirtualPath(path: outputDirectory).appending(component: outputName.appendingFileTypeExtension(.diagnostics))
+        path = try VirtualPath(path: outputDirectory).appending(
+          component: outputName.appendingFileTypeExtension(serializedDiagnosticsType))
       } else {
         path =
           try VirtualPath.createUniqueTemporaryFile(
-            RelativePath(validating: input.file.basenameWithoutExt.appendingFileTypeExtension(.diagnostics)))
+            RelativePath(
+              validating: input.file.basenameWithoutExt.appendingFileTypeExtension(serializedDiagnosticsType)))
       }
       commandLine.appendPath(path)
-      outputs.append(.init(file: path.intern(), type: .diagnostics))
+      outputs.append(.init(file: path.intern(), type: serializedDiagnosticsType))
+
+      // The format goes with the path, as for compile jobs.
+      if serializedDiagnosticsType == .sarifDiagnostics {
+        commandLine.appendFlag("-serialize-diagnostics=sarif")
+      }
     }
 
     // New compute and add inputs and outputs.
