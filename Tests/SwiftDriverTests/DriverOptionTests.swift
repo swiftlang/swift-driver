@@ -923,6 +923,32 @@ import Testing
     }
   }
 
+  @Test func cxxExceptionModeDependencyScanning() throws {
+    for modes in [[], ["annotated"], ["strict"], ["annotated", "strict"], ["strict", "annotated"]] {
+      let options = modes.map { "-cxx-exception-mode=\($0)" }
+      var driver = try TestDriver(args: [
+        "swiftc", "-cxx-interoperability-mode=default", "foo.swift",
+      ] + options)
+      let scanJob = try driver.dependencyScanningJob()
+      let forwardedOptions = scanJob.commandLine.filter {
+        if case .flag(let flag) = $0 {
+          return flag.hasPrefix("-cxx-exception-mode=")
+        }
+        return false
+      }
+      #expect(forwardedOptions == options.suffix(1).map { .flag($0) })
+    }
+  }
+
+  @Test func cxxExceptionModeAffectsIncrementalBuild() throws {
+    let options = OptionTable()
+    let defaultOptions = try options.parse(["foo.swift"], for: .batch)
+    let annotatedOptions = try options.parse(["-cxx-exception-mode=annotated", "foo.swift"], for: .batch)
+    let strictOptions = try options.parse(["-cxx-exception-mode=strict", "foo.swift"], for: .batch)
+    #expect(BuildRecordArguments.computeHash(annotatedOptions) != BuildRecordArguments.computeHash(strictOptions))
+    #expect(BuildRecordArguments.computeHash(defaultOptions) != BuildRecordArguments.computeHash(strictOptions))
+  }
+
   @Test(.requireFrontendArgSupport(.scannerCasFs)) func scannerCASFS() async throws {
     try await assertNoDriverDiagnostics(args: "swiftc", "a.swift", "-scanner-cas-fs", "abcd", "-cas-fs-escape", "/path1", "-cas-fs-escape", "/path2") { driver in
       let scanJob = try driver.dependencyScanningJob()
