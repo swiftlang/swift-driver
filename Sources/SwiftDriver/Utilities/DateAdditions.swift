@@ -112,6 +112,10 @@ extension TimePoint{
     #endif
   }
 
+  public func truncatedToSeconds() -> TimePoint {
+    return TimePoint(seconds: self.seconds, nanoseconds: 0)
+  }
+
   public static var distantPast: TimePoint {
     return .zero
   }
