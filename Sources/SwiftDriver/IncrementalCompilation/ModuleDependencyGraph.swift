@@ -644,23 +644,13 @@ extension ModuleDependencyGraph {
       return false
     }
 
-    /// Some file systems (e.g. certain overlay or virtualized mounts used by container
-    /// tooling, Ext3) only report coarse modification times with whole-second granularity, while
-    /// `buildStartTime` is captured with sub-second precision from the driver process's
-    /// own clock. Without a margin, a dependency rewritten within the same second as
-    /// `buildStartTime` can report a truncated mod time that appears *older* than
-    /// `buildStartTime` even though the write happened afterward, causing a genuinely
-    /// changed dependency to be misclassified as current. Requiring a full second of
-    /// slack ensures such truncation can never flip the comparison.
-    private static let filesystemGranularitySafetyMargin = TimePoint.seconds(1)
-
     private func isCurrentWRTFileSystem(_ externalDependency: ExternalDependency) -> Bool {
       guard let depFile = resolvedPath(for: externalDependency),
             let fileModTime = try? self.fileSystem.lastModificationTime(for: depFile)
       else {
         return false
       }
-      return fileModTime + Self.filesystemGranularitySafetyMargin < self.buildStartTime
+      return fileModTime < self.buildStartTime
     }
   }
 }
