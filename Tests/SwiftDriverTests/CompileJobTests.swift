@@ -912,6 +912,12 @@ import Testing
     try expectEqual(try TestDriver(args: ["swiftc", "-j", "4"], env: env).numParallelJobs, 1)
   }
 
+  @Test func gnuJobserverOptIn() throws {
+    #expect(try TestDriver(args: ["swiftc", "foo.swift"]).useGnuJobserver == false)
+    #expect(try TestDriver(args: ["swiftc", "foo.swift",
+      "-experimental-use-gnu-jobserver"]).useGnuJobserver == true)
+  }
+
   @Test func multithreadingDiagnostics() async throws {
     try await assertDriverDiagnostics(args: "swiftc", "-j", "0") {
       $1.expect(.error("invalid value '0' in '-j'"))

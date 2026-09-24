@@ -587,6 +587,7 @@ extension Option {
   public static let experimentalSkipNonInlinableFunctionBodies: Option = Option("-experimental-skip-non-inlinable-function-bodies", .flag, attributes: [.helpHidden, .frontend], helpText: "Skip type-checking and SIL generation for non-inlinable function bodies")
   public static let experimentalSpiImports: Option = Option("-experimental-spi-imports", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental support for SPI imports")
   public static let experimentalSpiOnlyImports: Option = Option("-experimental-spi-only-imports", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable use of @_spiOnly imports")
+  public static let experimentalUseGnuJobserver: Option = Option("-experimental-use-gnu-jobserver", .flag, attributes: [.helpHidden, .doesNotAffectIncrementalBuild], helpText: "Participate in the GNU make jobserver advertised in MAKEFLAGS, letting its token pool (not -j) bound concurrency across the build")
   public static let explainModuleDependencyDetailed: Option = Option("-explain-module-dependency-detailed", .separate, attributes: [], helpText: "Emit remarks describing every possible dependency path that explains why compilation may depend on a module with a given name.")
   public static let explainModuleDependency: Option = Option("-explain-module-dependency", .separate, attributes: [], helpText: "Emit remark describing why compilation may depend on a module with a given name.")
   public static let explicitAutoLinking: Option = Option("-explicit-auto-linking", .flag, attributes: [], helpText: "Instead of linker-load directives, have the driver specify all link dependencies on the linker invocation. Requires '-explicit-module-build'.")
@@ -1649,6 +1650,7 @@ extension Option {
       Option.experimentalSkipNonInlinableFunctionBodies,
       Option.experimentalSpiImports,
       Option.experimentalSpiOnlyImports,
+      Option.experimentalUseGnuJobserver,
       Option.explainModuleDependencyDetailed,
       Option.explainModuleDependency,
       Option.explicitAutoLinking,
