@@ -15,3 +15,8 @@ target_link_libraries(swift-help PUBLIC
 
 install(TARGETS swift-help
   DESTINATION bin)
+if(MSVC)
+  install(FILES $<TARGET_FILE_DIR:swift-help>/$<TARGET_FILE_BASE_NAME:swift-help>.pdb
+    DESTINATION bin
+    OPTIONAL)
+endif()
