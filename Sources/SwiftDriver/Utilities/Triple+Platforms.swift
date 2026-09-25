@@ -415,7 +415,7 @@ extension Triple {
     // Triple updates
     case .ananas, .cloudABI, .dragonFly, .fuchsia, .kfreebsd, .lv2, .netbsd,
          .solaris, .minix, .rtems, .nacl, .cnk, .aix, .cuda, .nvcl, .amdhsa,
-         .elfiamcu, .mesa3d, .contiki, .amdpal, .hermitcore, .hurd:
+         .elfiamcu, .mesa3d, .contiki, .amdpal, .hermitcore, .hurd, .uefi:
       return nil
     }
   }
