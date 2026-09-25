@@ -242,8 +242,11 @@ import Testing
         b.pathString,
       ] + sdkArguments
 
+      // B's build-start time is captured while its driver is created.
+      let bDriverCreationTime: TimePoint
       do {
         var driver = try TestDriver(args: bArgs)
+        bDriverCreationTime = .now()
         let jobs = try await driver.planBuild()
         try await driver.run(jobs: jobs)
       }
@@ -258,6 +261,9 @@ import Testing
           buildStartTime = graph.buildRecord.buildStartTime
         }
       }
+      // A recorded start time later than the actual start would let a
+      // dependency rewritten in between look older than B's build.
+      #expect(buildStartTime <= bDriverCreationTime)
 
       // Break A's interface: `callA` no longer returns a value.
       try localFileSystem.writeFileContents(a) {
@@ -269,10 +275,9 @@ import Testing
         try await driver.run(jobs: jobs)
       }
 
-      // Simulate a coarse, whole-second-granularity filesystem: truncate A's
-      // freshly rewritten swiftmodule down to the whole second containing B's
-      // buildStartTime. This is <= buildStartTime whenever buildStartTime has
-      // any sub-second component, i.e. virtually always.
+      // Simulate a coarse, whole-second-granularity filesystem: give A's
+      // freshly rewritten swiftmodule the truncated mod time it would report
+      // had it been written in the same second that B's build started.
       let aModule = path.appending(component: "A.swiftmodule")
       try FileManager.default.setAttributes(
         [.modificationDate: Date(timeIntervalSince1970: TimeInterval(buildStartTime.seconds))],
