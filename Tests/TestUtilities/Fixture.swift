@@ -32,7 +32,7 @@ public enum Fixture {
     on fileSystem: FileSystem = localFileSystem
   ) throws -> AbsolutePath? {
     let packageRootPath: AbsolutePath =
-        try AbsolutePath(validating: #file).parentDirectory.parentDirectory.parentDirectory
+        try AbsolutePath(validating: #filePath).parentDirectory.parentDirectory.parentDirectory
     let fixturePath =
         try AbsolutePath(validating: relativePath.pathString,
                          relativeTo: packageRootPath.appending(component: "TestInputs"))

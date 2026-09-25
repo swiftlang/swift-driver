@@ -1171,7 +1171,7 @@ extension ModuleDependencyGraph {
       }
     } catch {
       throw IncrementalCompilationState.WriteDependencyGraphError.couldNotWrite(
-        path: path, error: error)
+        path: path.name, error: error)
     }
   }
 

@@ -20,7 +20,7 @@
 /// `DarwinPlatform` does not contain version information, but
 /// `Triple.version(for:)` retrieves a version based on the
 /// corresponding `DarwinPlatform`.
-public enum DarwinPlatform: Hashable {
+public enum DarwinPlatform: Hashable, Sendable {
   /// macOS, corresponding to the `macosx`, `macos`, and `darwin` OS names.
   case macOS
 
@@ -46,7 +46,7 @@ public enum DarwinPlatform: Hashable {
   /// The environment is a variant of the platform like `device` or `simulator`.
   /// Not all platforms support all values of environment. This type is a superset of
   /// all the environments available on any case.
-  public enum Environment: Hashable {
+  public enum Environment: Hashable, Sendable {
     case device
     case simulator
     case catalyst
@@ -63,7 +63,7 @@ public enum DarwinPlatform: Hashable {
     }
   }
 
-  public enum EnvironmentWithoutCatalyst: Hashable {
+  public enum EnvironmentWithoutCatalyst: Hashable, Sendable {
     case device
     case simulator
   }

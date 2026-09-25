@@ -314,7 +314,7 @@ public final class MultiJobExecutor {
     // as errors so we don't e.g. reuse corrupted incremental build state.
     for (input, metadata) in context.recordedInputMetadata {
       guard try fileSystem.lastModificationTime(for: input.file) == metadata.mTime else {
-        let err = Job.InputError.inputUnexpectedlyModified(input)
+        let err = Job.InputError.inputUnexpectedlyModified(input.file.name)
         context.diagnosticsEngine.emit(err)
         throw err
       }
@@ -390,6 +390,9 @@ struct DriverBuildValue: LLBuildValue {
 
 /// A rule represents all jobs to finish compiling a module, including mandatory jobs,
 /// incremental jobs, and post-compilation jobs.
+#if compiler(>=6.4)
+@_implementationOnly
+#endif
 class ExecuteAllJobsRule: LLBuildRule {
   struct RuleKey: LLBuildKey {
     typealias BuildValue = DriverBuildValue
@@ -459,6 +462,9 @@ class ExecuteAllJobsRule: LLBuildRule {
 
 /// A rule for evaluating all compilation jobs, including mandatory and Incremental
 /// compilations.
+#if compiler(>=6.4)
+@_implementationOnly
+#endif
 class ExecuteAllCompilationJobsRule: LLBuildRule {
   struct RuleKey: LLBuildKey {
     typealias BuildValue = DriverBuildValue
@@ -510,8 +516,14 @@ class ExecuteAllCompilationJobsRule: LLBuildRule {
     engine.taskIsComplete(DriverBuildValue.jobExecution(success: allInputsSucceeded))
   }
 }
+
+extension LLTaskBuildEngine: @unchecked Sendable {}
+
 /// A rule for a single compiler invocation.
-class ExecuteJobRule: LLBuildRule {
+#if compiler(>=6.4)
+@_implementationOnly
+#endif
+final class ExecuteJobRule: LLBuildRule, @unchecked Sendable {
   struct RuleKey: LLBuildKey {
     typealias BuildValue = DriverBuildValue
     typealias BuildRule = ExecuteJobRule

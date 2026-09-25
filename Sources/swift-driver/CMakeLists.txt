@@ -7,7 +7,8 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_executable(swift-driver
-  main.swift)
+  entrypoint.swift
+  empty.swift)
 target_link_libraries(swift-driver PUBLIC
   SwiftDriver
   SwiftDriverExecution)

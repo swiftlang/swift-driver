@@ -12,19 +12,5 @@
 //
 //===----------------------------------------------------------------------===//
 
-/// Describes which mode the driver is in.
-public enum DriverKind: String, CaseIterable, Sendable {
-  case interactive = "swift"
-  case batch = "swiftc"
-}
-
-extension DriverKind {
-  public var usage: String {
-    switch self {
-    case .interactive:
-      return "swift"
-    case .batch:
-      return "swiftc"
-    }
-  }
-}
+// Intentionally left blank so entrypoint.swift is not inferred as containing
+// top level code.

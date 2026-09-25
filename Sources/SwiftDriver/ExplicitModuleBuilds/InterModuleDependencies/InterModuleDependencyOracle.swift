@@ -32,7 +32,7 @@ import Dispatch
 // underlying implementation of the interface with the libSwiftScan shared
 // library, allowing us to replace the underlying implementation in the future.
 //
-public class InterModuleDependencyOracle {
+public final class InterModuleDependencyOracle: @unchecked Sendable {
   /// Allow external clients to instantiate the oracle
   public init() {}
 
@@ -170,9 +170,6 @@ public class InterModuleDependencyOracle {
   private var hasScannerInstance: Bool { self.swiftScanLibInstance != nil }
   func getScannerInstance() -> SwiftScan? {
     self.swiftScanLibInstance
-  }
-  func setScannerInstance(_ instance: SwiftScan?) {
-    self.swiftScanLibInstance = instance
   }
 
   /// Queue to sunchronize accesses to the scanner

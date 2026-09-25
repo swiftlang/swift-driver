@@ -1,4 +1,4 @@
-// swift-tools-version:5.10
+// swift-tools-version:6.0
 
 import PackageDescription
 import class Foundation.ProcessInfo
@@ -56,7 +56,8 @@ let package = Package(
         .product(name: swiftToolsSupportCoreLibName, package: "swift-tools-support-core"),
         "CSwiftScan",
       ],
-      exclude: ["CMakeLists.txt"]),
+      exclude: ["CMakeLists.txt"]
+    ),
 
     /// The execution library.
     .target(
@@ -65,7 +66,8 @@ let package = Package(
         "SwiftDriver",
         .product(name: swiftToolsSupportCoreLibName, package: "swift-tools-support-core")
       ],
-      exclude: ["CMakeLists.txt"]),
+      exclude: ["CMakeLists.txt"]
+    ),
 
     /// Driver tests.
     .testTarget(
@@ -141,6 +143,7 @@ let package = Package(
         .linkedLibrary("swiftCore", .when(platforms: [.windows])), // for swift_addNewDSOImage
       ]),
   ],
+  swiftLanguageVersions: [.v6],
   cxxLanguageStandard: .cxx17
 )
 

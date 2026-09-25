@@ -15,7 +15,7 @@
 import Foundation
 @_spi(Testing) import SwiftDriver
 import SwiftOptions
-import TSCBasic
+@preconcurrency import TSCBasic
 import TestUtilities
 import Testing
 
@@ -103,7 +103,7 @@ final class IncrementalTestHarness {
   }
 
   var explicitDependencyTestInputsSourcePath: AbsolutePath {
-    var root: AbsolutePath = try! AbsolutePath(validating: #file)
+    var root: AbsolutePath = try! AbsolutePath(validating: #filePath)
     while root.basename != "Tests" {
       root = root.parentDirectory
     }

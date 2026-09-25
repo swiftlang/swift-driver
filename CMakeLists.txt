@@ -94,5 +94,7 @@ FetchContent_MakeAvailable(${VendoredDependencies})
 set(BUILD_TESTING ${_SD_SAVED_BUILD_TESTING})
 set(BUILD_EXAMPLES ${_SD_SAVED_BUILD_EXAMPLES})
 
+set(CMAKE_Swift_LANGUAGE_VERSION 6)
+
 add_subdirectory(Sources)
 add_subdirectory(cmake/modules)

@@ -69,13 +69,13 @@ import IncrementalTestFramework
 }
 
 fileprivate extension Module {
-  static var A = Module(named: "A", containing: [
+  static let A = Module(named: "A", containing: [
     .main,
   ], importing: [
     .B,
   ], producing: .executable)
 
-  static var B = Module(named: "B", containing: [
+  static let B = Module(named: "B", containing: [
     .B,
   ], producing: .library)
 }

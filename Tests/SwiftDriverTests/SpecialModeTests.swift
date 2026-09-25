@@ -111,7 +111,7 @@ import CRT
 
     do {
       var driver = try TestDriver(args: ["swift", "-repl", "/foo/bar/Test.swift"])
-      await #expect { try await driver.planBuild() } throws: { error in
+      await #expect { _ = try await driver.planBuild() } throws: { error in
         (error as? PlanningError) == .replReceivedInput
       }
     }
@@ -318,13 +318,13 @@ import CRT
     if try testEnvHasLLDB() {
       do {
         var driver = try TestDriver(args: ["swift"], env: envWithFakeSwiftHelp)
-        await #expect(throws: Never.self) { try await driver.planBuild() }
+        await #expect(throws: Never.self) { _ = try await driver.planBuild() }
       }
     }
     do {
       var driver = try TestDriver(args: ["swiftc"], env: envWithFakeSwiftHelp)
       await #expect {
-        try await driver.planBuild()
+        _ = try await driver.planBuild()
       } throws: { error in
         (error as? Driver.Error) == .noInputFiles
       }
@@ -332,7 +332,7 @@ import CRT
     do {
       var driver = try TestDriver(args: ["swiftc", "-whole-module-optimization"])
       await #expect {
-        try await driver.planBuild()
+        _ = try await driver.planBuild()
       } throws: { error in
         (error as? Driver.Error) == .noInputFiles
       }
