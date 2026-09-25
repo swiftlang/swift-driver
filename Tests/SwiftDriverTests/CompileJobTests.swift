@@ -1416,6 +1416,31 @@ import Testing
     }
   }
 
+  @Test func cxxExceptionMode() async throws {
+    for modes in [[], ["annotated"], ["strict"], ["annotated", "strict"], ["strict", "annotated"]] {
+      let options = modes.map { "-cxx-exception-mode=\($0)" }
+      var driver = try TestDriver(args: [
+        "swiftc", "-c", "-emit-module", "-emit-module-interface", "-enable-library-evolution",
+        "-module-name", "Test", "-cxx-interoperability-mode=default", "foo.swift", "bar.swift",
+      ] + options)
+      let jobs = try await driver.planBuild()
+      let compileJobs = try jobs.findJobs(.compile)
+      let emitModuleJob = try jobs.findJob(.emitModule)
+      let verifyInterfaceJobs = try jobs.findJobs(.verifyModuleInterface)
+      #expect(compileJobs.count == 2)
+      #expect(!verifyInterfaceJobs.isEmpty)
+      for job in compileJobs + [emitModuleJob] + verifyInterfaceJobs {
+        let forwardedOptions = job.commandLine.filter {
+          if case .flag(let flag) = $0 {
+            return flag.hasPrefix("-cxx-exception-mode=")
+          }
+          return false
+        }
+        #expect(forwardedOptions == options.suffix(1).map { .flag($0) })
+      }
+    }
+  }
+
   @Test func embeddedSwiftOptions() async throws {
     var env = ProcessEnv.block
     env["SWIFT_DRIVER_SWIFT_AUTOLINK_EXTRACT_EXEC"] = "/garbage/swift-autolink-extract"

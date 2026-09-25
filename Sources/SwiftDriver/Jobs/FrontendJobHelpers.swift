@@ -145,6 +145,7 @@ extension Driver {
     // Add flags for C++ interop
     try commandLine.appendLast(.enableExperimentalCxxInterop, from: &parsedOptions)
     try commandLine.appendLast(.cxxInteroperabilityMode, from: &parsedOptions)
+    try commandLine.appendLast(.cxxExceptionMode, from: &parsedOptions)
 
     if isEmbeddedEnabled && parsedOptions.hasArgument(.enableLibraryEvolution) {
       diagnosticEngine.emit(.error_no_library_evolution_embedded)

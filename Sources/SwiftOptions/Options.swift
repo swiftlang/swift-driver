@@ -113,6 +113,7 @@ extension Option {
   public static let crosscheckUnqualifiedLookup: Option = Option("-crosscheck-unqualified-lookup", .flag, attributes: [.frontend, .noDriver], helpText: "Compare legacy DeclContext- to ASTScope-based unqualified name lookup (for debugging)")
   public static let csProfileGenerateEQ: Option = Option("-cs-profile-generate=", .joined, attributes: [.frontend, .noInteractive], metaVar: "<directory>", helpText: "Generate instrumented code to collect context sensitive execution counts into <directory>/default.profraw (overridden by LLVM_PROFILE_FILE env var)")
   public static let csProfileGenerate: Option = Option("-cs-profile-generate", .flag, attributes: [.frontend, .noInteractive], helpText: "Generate instrumented code to collect context sensitive execution counts into default.profraw (overridden by LLVM_PROFILE_FILE env var)")
+  public static let cxxExceptionMode: Option = Option("-cxx-exception-mode=", .joined, attributes: [.helpHidden, .frontend, .synthesizeInterface, .moduleInterface], helpText: "C++ exception import policy: 'annotated' (default) or 'strict'")
   public static let cxxInteropGettersSettersAsProperties: Option = Option("-cxx-interop-getters-setters-as-properties", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Import getters and setters as computed properties in Swift")
   public static let cxxInteropUseOpaquePointerForMoveonly: Option = Option("-cxx-interop-use-opaque-pointer-for-moveonly", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Testing flag that will be eliminated soon. Do not use.")
   public static let cxxInteroperabilityMode: Option = Option("-cxx-interoperability-mode=", .joined, attributes: [.frontend, .synthesizeInterface], helpText: "Enables C++ interoperability; pass 'default' to enable or 'off' to disable")
@@ -1175,6 +1176,7 @@ extension Option {
       Option.crosscheckUnqualifiedLookup,
       Option.csProfileGenerateEQ,
       Option.csProfileGenerate,
+      Option.cxxExceptionMode,
       Option.cxxInteropGettersSettersAsProperties,
       Option.cxxInteropUseOpaquePointerForMoveonly,
       Option.cxxInteroperabilityMode,
