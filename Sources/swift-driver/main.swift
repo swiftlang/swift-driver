@@ -119,12 +119,7 @@ do {
     }
   }
 
-  // Expand response files before selecting the invocation mode, -frontend can be in the response file.
-  let expandedArguments = try Driver.expandResponseFiles(
-    CommandLine.arguments,
-    fileSystem: localFileSystem,
-    diagnosticsEngine: diagnosticsEngine)
-  let (mode, arguments) = try Driver.invocationRunMode(forArgs: expandedArguments)
+  let (mode, arguments) = try Driver.invocationRunMode(forArgs: CommandLine.arguments)
   if case .subcommand(let subcommand) = mode {
     // We are running as a subcommand, try to find the subcommand adjacent to the executable we are running as.
     // If we didn't find the tool there, let the OS search for it.

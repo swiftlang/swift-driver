@@ -1,13 +1,12 @@
 {
-  "originHash" : "ef6e9772fceaf692fe313b98c171606cf0717d86055fdce409b93dc5adf247f3",
   "pins" : [
     {
       "identity" : "swift-argument-parser",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-argument-parser.git",
       "state" : {
-        "revision" : "6a52f3251125d74daf04fcbd5e6f08a75d074382",
-        "version" : "1.8.2"
+        "revision" : "cdd0ef3755280949551dc26dee5de9ddeda89f54",
+        "version" : "1.6.2"
       }
     },
     {
@@ -16,7 +15,7 @@
       "location" : "https://github.com/swiftlang/swift-llbuild.git",
       "state" : {
         "branch" : "main",
-        "revision" : "e19f06b9c2604c1a79a48fc0861248a2105a7989"
+        "revision" : "e38525ae3519021f014ad91e7bf86e7ae86044f5"
       }
     },
     {
@@ -24,8 +23,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/swiftlang/swift-toolchain-sqlite",
       "state" : {
-        "revision" : "d9b11cb79071d5ab992ff47dfd2e8d6e19418d97",
-        "version" : "1.0.13"
+        "revision" : "b45b80b943e88db3cb8ddea798fa3fa9912375ff",
+        "version" : "1.0.7"
       }
     },
     {
@@ -34,9 +33,9 @@
       "location" : "https://github.com/swiftlang/swift-tools-support-core.git",
       "state" : {
         "branch" : "main",
-        "revision" : "c574915fe88e942e4c4c93376f022daa2ecf05f9"
+        "revision" : "c3c31067a47b15b085d165f4cf7ef8aa8802d6e8"
       }
     }
   ],
-  "version" : 3
+  "version" : 2
 }

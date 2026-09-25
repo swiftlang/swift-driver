@@ -76,51 +76,6 @@ func printCommand(args: [String], extraEnv: ProcessEnvironmentBlock) {
 }
 #endif
 
-final class ResponseFileDispatchTests: XCTestCase {
-  func testFrontendModesInResponseFiles() throws {
-    #if os(Windows)
-    throw XCTSkip("The frontend stub uses a shell script")
-    #else
-    #if os(macOS)
-    let binDir = try bundleRoot()
-    #else
-    let binDir = try AbsolutePath(validating: CommandLine.arguments[0]).parentDirectory
-    #endif
-
-    try withTemporaryDirectory { path in
-      // Copy the driver because subcommand lookup resolves executable symlinks.
-      let swiftc = path.appending(component: "swiftc")
-      try localFileSystem.copy(from: binDir.appending(component: "swift-driver"), to: swiftc)
-
-      let frontend = path.appending(component: "swift-frontend")
-      try localFileSystem.writeFileContents(frontend, bytes: "#!/bin/sh\nprintf '%s\\n' frontend-dispatched \"$@\"\n")
-      try localFileSystem.chmod(.executable, path: frontend)
-
-      let innerResponseFile = path.appending(component: "inner.rsp")
-      let outerResponseFile = path.appending(component: "outer.rsp")
-      try localFileSystem.writeFileContents(
-        outerResponseFile, bytes: ByteString(encodingAsUTF8: "@\(innerResponseFile.pathString)\n")
-      )
-
-      for mode in ["-frontend", "-modulewrap"] {
-        try localFileSystem.writeFileContents(
-          innerResponseFile, bytes: ByteString(encodingAsUTF8: "\(mode)\n\"input with spaces.swiftmodule\"\n")
-        )
-        let expectedMode = mode == "-frontend" ? "" : "-modulewrap\n"
-        let expected = "frontend-dispatched\n\(expectedMode)input with spaces.swiftmodule\n"
-        for responseFile in [innerResponseFile, outerResponseFile] {
-          let output = try TSCBasic.Process.checkNonZeroExit(
-            arguments: [swiftc.pathString, "@" + responseFile.pathString],
-            environmentBlock: ProcessEnv.block
-          )
-          XCTAssertEqual(output, expected)
-        }
-      }
-    }
-    #endif
-  }
-}
-
 final class IntegrationTests: IntegrationTestCase {
   func testVerboseImmediateMode() throws {
     // There is nothing particularly macOS-specific about this test other than
