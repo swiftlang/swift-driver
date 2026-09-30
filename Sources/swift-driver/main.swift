@@ -61,6 +61,10 @@ func getExitCode(_ code: Int32) -> Int32 {
 }
 
 do {
+  #if os(Windows)
+  atexit { _ = fflush(nil) }
+  #endif
+
   #if !os(Windows)
   signal(SIGINT, SIG_IGN)
   #endif
