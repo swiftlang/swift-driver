@@ -333,7 +333,7 @@ import Testing
   }
 }
 
-@Suite struct APIDigesterBuildTests {
+@Suite(.realDependencyScan) struct APIDigesterBuildTests {
   @Test(.disabled("rdar://82302797")) func baselineGenerationEndToEnd() async throws {
     try await withTemporaryDirectory { path in
       let source = path.appending(component: "foo.swift")
