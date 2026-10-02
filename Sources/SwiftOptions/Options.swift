@@ -661,6 +661,7 @@ extension Option {
   public static let indentWidth: Option = Option("-indent-width", .separate, attributes: [.noInteractive, .noBatch], metaVar: "<n>", helpText: "Number of characters to indent.", group: .codeFormatting)
   public static let indexFilePath: Option = Option("-index-file-path", .separate, attributes: [.noInteractive, .doesNotAffectIncrementalBuild, .argumentIsPath], metaVar: "<path>", helpText: "Produce index data for file <path>")
   public static let indexFile: Option = Option("-index-file", .flag, attributes: [.noInteractive, .doesNotAffectIncrementalBuild], helpText: "Produce index data for a source file", group: .modes)
+  public static let indexBinaryModules: Option = Option("-index-binary-modules", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Emit index data for imported Swift modules built from a textual interface outside the SDK, such as binary frameworks")
   public static let indexIgnoreClangModules: Option = Option("-index-ignore-clang-modules", .flag, attributes: [.frontend], helpText: "Avoid indexing clang modules (pcms)")
   public static let indexIgnoreStdlib: Option = Option("-index-ignore-stdlib", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Avoid emitting index data for the standard library.")
   public static let indexIgnoreSystemModules: Option = Option("-index-ignore-system-modules", .flag, attributes: [.noInteractive], helpText: "Avoid indexing system modules")
@@ -1723,6 +1724,7 @@ extension Option {
       Option.indentWidth,
       Option.indexFilePath,
       Option.indexFile,
+      Option.indexBinaryModules,
       Option.indexIgnoreClangModules,
       Option.indexIgnoreStdlib,
       Option.indexIgnoreSystemModules,
