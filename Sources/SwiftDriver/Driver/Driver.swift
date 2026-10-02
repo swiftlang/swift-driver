@@ -3835,13 +3835,30 @@ extension Driver {
       return nil
   }
 
+  /// Whether the requested action only parses its inputs, and so never loads
+  /// modules. Mirrors `FrontendOptions::shouldActionOnlyParse`.
+  private static func isParseOnlyAction(_ parsedOptions: inout ParsedOptions) -> Bool {
+    guard let mode = parsedOptions.getLast(in: .modes) else { return false }
+    switch mode.option {
+    case .parse, .dumpParse, .dumpInterfaceHash:
+      // Purely syntactic: these never resolve an import.
+      return true
+    case .emitImportedModules, .scanDependencies:
+      // These report what a module imports rather than loading it, and the
+      // frontend discovers that itself. Scanning first would duplicate the
+      // frontend's own work and fail on imports it would merely have listed.
+      return true
+    default:
+      return false
+    }
+  }
+
   /// Determine whether this invocation should build module dependencies explicitly.
   ///
   /// Without an explicit `-explicit-module-build` or `-no-explicit-module-build`,
   /// in `swiftc` batch mode, explicit module builds are enabled by default
-  /// unless dependencies cannot be scanned. A warning is emitted in that
-  /// case so users know the default has been silently downgraded to implicit
-  /// module builds.
+  /// unless the action only parses its inputs or dependencies cannot be
+  /// scanned at all.
   static func computeIsExplicitModuleBuildEnabled(
     _ parsedOptions: inout ParsedOptions,
     driverKind: DriverKind,
@@ -3853,6 +3870,9 @@ extension Driver {
       return requested
     }
     guard driverKind == .batch else { return false }
+    // Scanning for an action that never loads modules is wasted work, and it
+    // turns an unresolvable import into an error the action would not hit.
+    guard !isParseOnlyAction(&parsedOptions) else { return false }
     guard canScanDependencies else {
       diagnosticsEngine.emit(
         .warning("libSwiftScan is unavailable; disabling the default explicit module build for this swiftc invocation. Pass -explicit-module-build to force it on, or -no-explicit-module-build to silence this warning."),
