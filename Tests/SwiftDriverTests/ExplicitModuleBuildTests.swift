@@ -2214,7 +2214,22 @@ func getStdlibShimsPaths(_ driver: Driver) throws -> (AbsolutePath, AbsolutePath
         ] + sdkArgumentsForTesting
       )
       let jobs = try await driverFoo.planBuild()
-      try await driverFoo.run(jobs: jobs)
+      // Build the fixture in subprocesses without allowing Driver.run to exec
+      // a compiler job in place of the test process.
+      let executor = SimpleExecutor(
+        resolver: try ArgsResolver(fileSystem: localFileSystem),
+        fileSystem: localFileSystem,
+        env: ProcessEnv.block
+      )
+      for job in jobs {
+        let result = try executor.execute(
+          job: job,
+          forceResponseFiles: false,
+          recordedInputMetadata: driverFoo.recordedInputMetadata
+        )
+        let stderr = try result.utf8stderrOutput()
+        try #require(result.exitStatus == .terminated(code: 0), "\(stderr)")
+      }
       #expect(!driverFoo.diagnosticEngine.hasErrors)
 
       // 2. Run a dependency scan to find the just-built module
