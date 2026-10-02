@@ -203,7 +203,12 @@ import CRT
     }
   }
 
-  @Test func toolSearching() async throws {
+  @Test(
+    .skipHostOS(
+      .win32,
+      comment: "The Windows toolchain loads its runtime as a private side-by-side assembly, so a symlinked swift-frontend.exe cannot start"
+    )
+  ) func toolSearching() async throws {
     #if os(Windows)
     let PATH = ProcessEnvironmentKey("Path")
     #else

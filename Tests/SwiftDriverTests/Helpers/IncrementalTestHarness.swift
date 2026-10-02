@@ -85,6 +85,10 @@ final class IncrementalTestHarness {
       "-incremental",
       "-no-color-diagnostics",
       "-swift-version", "5",
+      // Keep implicitly imported modules out of the incremental remarks; on
+      // some platforms (e.g. Windows) _StringProcessing and _RegexParser
+      // carry incremental dependency info and are read as incremental imports.
+      "-Xfrontend", "-disable-implicit-string-processing-module-import",
     ]
       + inputPathsAndContents.map({ $0.0.nativePathString(escaped: false) }).sorted()
   }
