@@ -175,6 +175,7 @@ package struct TestDriver {
 
   package var lto: LTOKind? { driver.lto }
   package var numParallelJobs: Int? { driver.numParallelJobs }
+  package var useGnuJobserver: Bool { driver.useGnuJobserver }
 
   package var cas: SwiftScanCAS? {
     get { driver.cas }
