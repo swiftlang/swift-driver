@@ -189,7 +189,49 @@ func getStdlibShimsPaths(_ driver: Driver) throws -> (AbsolutePath, AbsolutePath
 }
 
 /// Test that for the given JSON module dependency graph, valid jobs are generated
-@Suite struct ExplicitModuleBuildTests {
+@Suite(.realDependencyScan) struct ExplicitModuleBuildTests {
+  /// `-nonlib-dependency-scanner` selects the out-of-process scanner rather
+  /// than making scanning unavailable, so the default must stay on.
+  @Test func nonlibDependencyScannerKeepsExplicitModuleBuildDefault() async throws {
+    try await assertNoDriverDiagnostics(args: "swiftc", "-c", "foo.swift", "-nonlib-dependency-scanner") {
+      driver in
+      #expect(driver.isExplicitModuleBuildEnabled)
+    }
+  }
+
+  /// A missing scanner library downgrades the default; it must not also
+  /// promise an out-of-process fallback that will not happen.
+  @Test func missingScannerLibraryWarnsOnlyAboutTheDowngrade() async throws {
+    var env = ProcessEnv.block
+    env["SWIFT_DRIVER_SWIFTSCAN_LIB"] = "/nonexistent/lib_InternalSwiftScan.dylib"
+    try await assertDriverDiagnostics(args: "swiftc", "-c", "foo.swift", env: env) { driver, verifier in
+      verifier.expect(.warning("libSwiftScan is unavailable; disabling the default explicit module build"))
+      #expect(!driver.isExplicitModuleBuildEnabled)
+    }
+  }
+
+  /// Parse-only actions never load modules, so the default explicit module
+  /// build must not scan their dependencies.
+  @Test func parseOnlyActionsSkipDependencyScanning() async throws {
+    try await withTemporaryDirectory { path in
+      let main = path.appending(component: "main.swift")
+      try localFileSystem.writeFileContents(main, bytes: "import DoesNotExist\nlet x = 1\n")
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+
+      for action in ["-parse", "-dump-parse", "-emit-imported-modules"] {
+        var driver = try TestDriver(
+          args: ["swiftc", action, main.nativePathString(escaped: false)] + sdkArgumentsForTesting
+        )
+        let jobs = try await driver.planBuild()
+        #expect(!driver.diagnosticEngine.hasErrors, "\(action) should not resolve module dependencies")
+        #expect(
+          !jobs.contains { $0.commandLine.contains(.flag("-explicit-swift-module-map-file")) },
+          "\(action) should not be planned as an explicit module build"
+        )
+      }
+    }
+  }
+
   @Test func moduleDependencyBuildCommandGeneration() async throws {
     do {
       let driver = try TestDriver(args: [
@@ -622,7 +664,7 @@ func getStdlibShimsPaths(_ driver: Driver) throws -> (AbsolutePath, AbsolutePath
 
       // An implicit build has nothing else recording where the module came
       // from, so it still needs the serialized AST.
-      #expect(try await planLinkJob([]).passesASTPath)
+      #expect(try await planLinkJob(["-no-explicit-module-build"]).passesASTPath)
 
       // Dropping the AST is tied to the frontend recording this module's path
       // via -debug-module-path. A frontend too old to do so still needs it.
@@ -3016,14 +3058,14 @@ func getStdlibShimsPaths(_ driver: Driver) throws -> (AbsolutePath, AbsolutePath
       do {
         let diagnosticEngine = DiagnosticsEngine()
         var driver = try TestDriver(
-          args: baseCommandLine + ["-print-explicit-dependency-graph"],
+          args: baseCommandLine + ["-print-explicit-dependency-graph", "-no-explicit-module-build"],
           diagnosticsEngine: diagnosticEngine
         )
         let _ = try await driver.planBuild()
         #expect(diagnosticEngine.hasErrors)
         #expect(
           diagnosticEngine.diagnostics.first?.message.data.description
-            == "'-print-explicit-dependency-graph' cannot be specified if '-explicit-module-build' is not present"
+            == "'-print-explicit-dependency-graph' requires explicit module builds, which are disabled for this compilation"
         )
       }
       do {

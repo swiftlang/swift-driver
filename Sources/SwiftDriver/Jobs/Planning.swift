@@ -110,7 +110,7 @@ extension Driver {
   /// graph already, it is safe to re-use without repeating the scan.
   private mutating func configureExplicitModulePlanner(forVariantModule: Bool = false)
   throws -> ExplicitDependencyBuildPlanner? {
-    if (parsedOptions.contains(.driverExplicitModuleBuild) ||
+    if (isExplicitModuleBuildEnabled ||
         parsedOptions.contains(.explainModuleDependency)) &&
        inputFiles.contains(where: { $0.type.isPartOfSwiftCompilation }) {
       let interModuleDependencyGraph = try scanModuleDependencies(forVariantModule: forVariantModule)
@@ -230,7 +230,7 @@ extension Driver {
     // If asked, add jobs to precompile module dependencies. Otherwise exit.
     // We may have a dependency graph but not be required to add pre-compile jobs to the build plan,
     // for example when `-explain-dependency` is being used.
-    guard parsedOptions.contains(.driverExplicitModuleBuild) else { return }
+    guard isExplicitModuleBuildEnabled else { return }
 
     // Filter out the tasks for building module dependencies which are already up-to-date
     let mandatoryModuleCompileJobs: [Job]
@@ -746,7 +746,7 @@ extension Driver {
     case .immediate:
       var jobs: [Job] = []
       // Run the dependency scanner if this is an explicit module build
-      let explicitModulePlanner = parsedOptions.contains(.driverExplicitModuleBuild) ? try configureExplicitModulePlanner() : nil
+      let explicitModulePlanner = isExplicitModuleBuildEnabled ? try configureExplicitModulePlanner() : nil
       try addPrecompileModuleDependenciesJobs(explicitModulePlanner: explicitModulePlanner,
                                               incrementalRemarks: false,
                                               addJob: { jobs.append($0) })

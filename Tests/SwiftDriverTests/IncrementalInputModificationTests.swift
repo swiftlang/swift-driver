@@ -19,7 +19,7 @@ import TSCBasic
 import TestUtilities
 import Testing
 
-@Suite(.enabled(if: sdkArgumentsAvailable, "SDK not available"))
+@Suite(.enabled(if: sdkArgumentsAvailable, "SDK not available"), .realDependencyScan)
 struct IncrementalInputModificationTests: DiagVerifiable {
 
   @Test func optionsParsing() async throws {

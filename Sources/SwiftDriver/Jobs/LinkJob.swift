@@ -69,7 +69,7 @@ extension Driver {
     // -debug-module-path, which supersedes -add_ast_path for this module. Tie
     // the two together: a frontend that does not record the module path in
     // debug info still needs the serialized AST in the binary.
-    let shouldAddASTPaths = !(parsedOptions.hasArgument(.driverExplicitModuleBuild)
+    let shouldAddASTPaths = !(isExplicitModuleBuildEnabled
                               && isFeatureSupported(.debug_info_explicit_dependency))
 
     // Defer to the toolchain for platform-specific linking

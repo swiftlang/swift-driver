@@ -51,6 +51,9 @@ private struct StderrOutputStream: TextOutputStream {
 /// try await driver.run(jobs: jobs)
 /// ```
 package struct TestDriver {
+  /// When false, a driver created without an explicit oracle gets a `TestHarnessInterModuleDependencyOracle`.
+  @TaskLocal package static var usesRealDependencyScanner = false
+
   private var driver: Driver
 
   /// Per-instance stdout stream. Defaults to an in-memory buffer so tests can read it via
@@ -93,7 +96,8 @@ package struct TestDriver {
       fileSystem: fs,
       executor: exec,
       integratedDriver: integratedDriver,
-      interModuleDependencyOracle: interModuleDependencyOracle,
+      interModuleDependencyOracle: interModuleDependencyOracle
+        ?? (Self.usesRealDependencyScanner ? nil : TestHarnessInterModuleDependencyOracle()),
       stdoutStream: stdout,
       stderrStream: stderr
     )
@@ -168,6 +172,7 @@ package struct TestDriver {
   package var numThreads: Int { driver.numThreads }
   package var packageName: String? { driver.packageName }
   package var interModuleDependencyOracle: InterModuleDependencyOracle { driver.interModuleDependencyOracle }
+  package var isExplicitModuleBuildEnabled: Bool { driver.isExplicitModuleBuildEnabled }
   package var absoluteSDKPath: AbsolutePath? { driver.absoluteSDKPath }
   package var isAutolinkExtractJobNeeded: Bool {
     mutating get { driver.isAutolinkExtractJobNeeded }
