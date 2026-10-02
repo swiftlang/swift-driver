@@ -2215,6 +2215,7 @@ func getStdlibShimsPaths(_ driver: Driver) throws -> (AbsolutePath, AbsolutePath
       )
       let jobs = try await driverFoo.planBuild()
       try await driverFoo.run(jobs: jobs)
+      #expect(driverFoo.diagnosticEngine.hasErrors)
       #expect(!driverFoo.diagnosticEngine.hasErrors)
 
       // 2. Run a dependency scan to find the just-built module
