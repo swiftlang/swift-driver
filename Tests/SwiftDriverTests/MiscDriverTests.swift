@@ -1505,6 +1505,8 @@ import CRT
       var driver = try TestDriver(args: [
         "swiftc", "-validate-clang-modules-once",
         "-clang-build-session-file", "testClangModuleValidateOnce.session",
+        // Under an explicit module build these are passed only to the scanner.
+        "-no-explicit-module-build",
         "foo.swift",
       ])
       let jobs = try await driver.planBuild().removingAutolinkExtractJobs()
