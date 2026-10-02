@@ -65,7 +65,8 @@ extension Driver {
         commandLine.appendFlag("--gcc-toolchain=\(gccToolchain.asSingle)")
     }
 
-    // Only use the legacy -add_ast_path if -debug-module-path is not available.
+    // If this isn't an explicit module build whose compile jobs record the
+    // module via -debug-module-path, the linker still needs -add_ast_path.
     let shouldAddASTPaths = !debugInfoRecordsModulePath
 
     // Defer to the toolchain for platform-specific linking
