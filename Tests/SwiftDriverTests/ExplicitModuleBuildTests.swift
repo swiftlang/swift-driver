@@ -2811,22 +2811,27 @@ func getStdlibShimsPaths(_ driver: Driver) throws -> (AbsolutePath, AbsolutePath
         main.nativePathString(escaped: false),
       ] + ((try? Driver.sdkArgumentsForTesting()) ?? []))
 
-      #expect(throws: Driver.ErrorDiagnostics.self) {
-        try driver.scanModuleDependencies()
-      }
-      #expect(driver.diagnosticEngine.hasErrors)
-      let diagnostic = try #require(driver.diagnosticEngine.diagnostics.last)
-      #expect(diagnostic.behavior == .error)
-      #expect(diagnostic.message.text.hasPrefix("dependency scan command failed with exit code 1\n"))
-      #expect(
-        diagnostic.message.text.contains(
-          "Dependency.swiftinterface:3:8: error: unable to resolve module dependency: 'invalid_module_that_never_exists'\n"
+      // Older frontends return success despite diagnosing the missing import.
+      // When the frontend reports failure, verify that the driver preserves
+      // the scanner's diagnostics.
+      do {
+        _ = try driver.scanModuleDependencies()
+        #expect(!driver.diagnosticEngine.hasErrors)
+      } catch Driver.ErrorDiagnostics.emitted {
+        #expect(driver.diagnosticEngine.hasErrors)
+        let diagnostic = try #require(driver.diagnosticEngine.diagnostics.last)
+        #expect(diagnostic.behavior == .error)
+        #expect(diagnostic.message.text.hasPrefix("dependency scan command failed with exit code 1\n"))
+        #expect(
+          diagnostic.message.text.contains(
+            "Dependency.swiftinterface:3:8: error: unable to resolve module dependency: 'invalid_module_that_never_exists'\n"
+          )
         )
-      )
-      #expect(
-        diagnostic.message.text.contains("Dependency.swiftinterface:3:8: note: a dependency of Swift module 'Dependency'")
-      )
-      #expect(diagnostic.message.text.contains("Dependency.swiftinterface:3:8: note: a dependency of main module"))
+        #expect(
+          diagnostic.message.text.contains("Dependency.swiftinterface:3:8: note: a dependency of Swift module 'Dependency'")
+        )
+        #expect(diagnostic.message.text.contains("Dependency.swiftinterface:3:8: note: a dependency of main module"))
+      }
     }
   }
 
