@@ -2140,6 +2140,7 @@ extension Driver {
     jobExecutionDelegate: JobExecutionDelegate,
     forceResponseFiles: Bool
   ) throws {
+    try createPrecompiledBridgingHeaderDirectories(for: allJobs)
     let continueBuildingAfterErrors = computeContinueBuildingAfterErrors()
     try executor.execute(
       workload: .init(allJobs,
@@ -2149,6 +2150,24 @@ extension Driver {
       numParallelJobs: numParallelJobs ?? 1,
       forceResponseFiles: forceResponseFiles,
       recordedInputMetadata: recordedInputMetadata)
+  }
+
+  /// An implicit build passes `-pch-output-dir` to the frontend, which creates
+  /// the directory. An explicit build names the PCH itself and passes it with
+  /// `-o`, which the frontend opens without creating its directory.
+  private func createPrecompiledBridgingHeaderDirectories(for jobs: [Job]) throws {
+    guard isExplicitModuleBuildEnabled, parsedOptions.hasArgument(.pchOutputDir) else { return }
+    let base = workingDirectory ?? fileSystem.currentWorkingDirectory
+    for job in jobs where job.kind == .generatePCH {
+      for output in job.outputs where output.type == .pch {
+        var directory = output.file.parentDirectory
+        if let base = base {
+          directory = directory.resolvedRelativePath(base: base)
+        }
+        guard let path = directory.absolutePath, !fileSystem.exists(path) else { continue }
+        try fileSystem.createDirectory(path, recursive: true)
+      }
+    }
   }
 
   public func writeIncrementalBuildInformation(_ jobs: [Job]) {
