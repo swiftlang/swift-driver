@@ -75,6 +75,7 @@ public struct Driver {
     case conditionalCompilationFlagIsNotValidIdentifier(String)
     case baselineGenerationRequiresTopLevelModule(String)
     case optionRequiresAnother(String, String)
+    case optionRequiresExplicitModuleBuild(String)
     case unableToCreateReproducer
     // Explicit Module Build Failures
     case malformedModuleDependency(String, String)
@@ -150,6 +151,8 @@ public struct Driver {
         return "generating a baseline with '\(arg)' is only supported with '-emit-module' or '-emit-module-path'"
       case .optionRequiresAnother(let first, let second):
         return "'\(first)' cannot be specified if '\(second)' is not present"
+      case .optionRequiresExplicitModuleBuild(let arg):
+        return "'\(arg)' requires explicit module builds, which are disabled for this compilation"
       case .unableToCreateReproducer:
         return "failed to create reproducer"
       }
@@ -1145,13 +1148,17 @@ public struct Driver {
                                fileSystem: fileSystem,
                                workingDirectory: workingDirectory,
                                diagnosticEngine: diagnosticEngine)
-    Self.validateEmitDependencyGraphArgs(&parsedOptions, diagnosticEngine: diagnosticEngine)
+    Self.validateEmitDependencyGraphArgs(&parsedOptions,
+                                         isExplicitModuleBuildEnabled: self.isExplicitModuleBuildEnabled,
+                                         diagnosticEngine: diagnosticEngine)
     Self.validateValidateClangModulesOnceOptions(&parsedOptions, diagnosticEngine: diagnosticEngine)
     Self.validateParseableOutputArgs(&parsedOptions, diagnosticEngine: diagnosticEngine)
     Self.validateCompilationConditionArgs(&parsedOptions, diagnosticEngine: diagnosticEngine)
     Self.validateFrameworkSearchPathArgs(&parsedOptions, diagnosticEngine: diagnosticEngine)
     Self.validateCoverageArgs(&parsedOptions, diagnosticsEngine: diagnosticEngine)
-    Self.validateLinkArgs(&parsedOptions, diagnosticsEngine: diagnosticEngine)
+    Self.validateLinkArgs(&parsedOptions,
+                          isExplicitModuleBuildEnabled: self.isExplicitModuleBuildEnabled,
+                          diagnosticsEngine: diagnosticEngine)
     try toolchain.validateArgs(&parsedOptions,
                                targetTriple: self.frontendTargetInfo.target.triple,
                                targetVariantTriple: self.frontendTargetInfo.targetVariant?.triple,
@@ -3418,12 +3425,12 @@ extension Driver {
   }
 
   static func validateEmitDependencyGraphArgs(_ parsedOptions: inout ParsedOptions,
+                                              isExplicitModuleBuildEnabled: Bool,
                                               diagnosticEngine: DiagnosticsEngine) {
-    // '-print-explicit-dependency-graph' requires '-explicit-module-build'
+    // '-print-explicit-dependency-graph' requires an explicit module build
     if parsedOptions.hasArgument(.printExplicitDependencyGraph) &&
-        !parsedOptions.hasArgument(.driverExplicitModuleBuild) {
-      diagnosticEngine.emit(.error(Error.optionRequiresAnother(Option.printExplicitDependencyGraph.spelling,
-                                                               Option.driverExplicitModuleBuild.spelling)),
+        !isExplicitModuleBuildEnabled {
+      diagnosticEngine.emit(.error(Error.optionRequiresExplicitModuleBuild(Option.printExplicitDependencyGraph.spelling)),
                             location: nil)
     }
     // '-explicit-dependency-graph-format=' requires '-print-explicit-dependency-graph'
@@ -3598,7 +3605,9 @@ extension Driver {
     }
   }
 
-  private static func validateLinkArgs(_ parsedOptions: inout ParsedOptions, diagnosticsEngine: DiagnosticsEngine) {
+  private static func validateLinkArgs(_ parsedOptions: inout ParsedOptions,
+                                       isExplicitModuleBuildEnabled: Bool,
+                                       diagnosticsEngine: DiagnosticsEngine) {
     if parsedOptions.hasArgument(.experimentalHermeticSealAtLink) {
       if parsedOptions.hasArgument(.enableLibraryEvolution) {
         diagnosticsEngine.emit(.error_hermetic_seal_cannot_have_library_evolution)
@@ -3611,9 +3620,8 @@ extension Driver {
     }
 
     if parsedOptions.hasArgument(.explicitAutoLinking) {
-      if !parsedOptions.hasArgument(.driverExplicitModuleBuild) {
-        diagnosticsEngine.emit(.error(Error.optionRequiresAnother(Option.explicitAutoLinking.spelling,
-                                                                  Option.driverExplicitModuleBuild.spelling)),
+      if !isExplicitModuleBuildEnabled {
+        diagnosticsEngine.emit(.error(Error.optionRequiresExplicitModuleBuild(Option.explicitAutoLinking.spelling)),
                               location: nil)
       }
     }
