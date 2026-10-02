@@ -519,7 +519,11 @@ import Testing
 
     do {
       var driver = try TestDriver(
-        args: commonArgs + ["-emit-executable", "-Onone", "-emit-module", "-g", "-target", "x86_64-apple-macosx10.15"],
+        args: commonArgs + [
+          "-emit-executable", "-Onone", "-emit-module", "-g", "-target", "x86_64-apple-macosx10.15",
+          // -add_ast_path is only emitted for implicit module builds.
+          "-no-explicit-module-build",
+        ],
         env: env
       )
       let plannedJobs = try await driver.planBuild()
