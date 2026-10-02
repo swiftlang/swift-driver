@@ -622,7 +622,7 @@ func getStdlibShimsPaths(_ driver: Driver) throws -> (AbsolutePath, AbsolutePath
 
       // An implicit build has nothing else recording where the module came
       // from, so it still needs the serialized AST.
-      #expect(try await planLinkJob([]).passesASTPath)
+      #expect(try await planLinkJob(["-no-explicit-module-build"]).passesASTPath)
 
       // Dropping the AST is tied to the frontend recording this module's path
       // via -debug-module-path. A frontend too old to do so still needs it.
