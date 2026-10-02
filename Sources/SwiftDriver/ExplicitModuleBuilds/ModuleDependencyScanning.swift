@@ -322,11 +322,16 @@ public extension Driver {
     } else {
       // Fallback to legacy invocation of the dependency scanner with
       // `swift-frontend -scan-dependencies`
-      dependencyGraph =
-        try self.executor.execute(job: scannerJob,
-                                  capturingJSONOutputAs: InterModuleDependencyGraph.self,
-                                  forceResponseFiles: forceResponseFiles,
-                                  recordedInputMetadata: recordedInputMetadata)
+      do {
+        dependencyGraph =
+          try self.executor.execute(job: scannerJob,
+                                    capturingJSONOutputAs: InterModuleDependencyGraph.self,
+                                    forceResponseFiles: forceResponseFiles,
+                                    recordedInputMetadata: recordedInputMetadata)
+      } catch let JobExecutionError.jobFailedWithNonzeroExitCode(exitCode, stderr) {
+        diagnosticEngine.emit(.error("dependency scan command failed with exit code \(exitCode)\n\(stderr)"))
+        throw ErrorDiagnostics.emitted
+      }
     }
     return dependencyGraph
   }

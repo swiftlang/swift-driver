@@ -2790,6 +2790,51 @@ func getStdlibShimsPaths(_ driver: Driver) throws -> (AbsolutePath, AbsolutePath
     }
   }
 
+  @Test func dependencyScanningFallbackFailureDiagnostics() throws {
+    try withTemporaryDirectory { path in
+      let main = path.appending(component: "main.swift")
+      try localFileSystem.writeFileContents(main, bytes: "import Dependency\n")
+      try localFileSystem.writeFileContents(
+        path.appending(component: "Dependency.swiftinterface"),
+        bytes: """
+          // swift-interface-format-version: 1.0
+          // swift-module-flags: -module-name Dependency
+          import invalid_module_that_never_exists
+
+          """
+      )
+      var driver = try TestDriver(args: [
+        "swiftc", "-typecheck", "-explicit-module-build", "-nonlib-dependency-scanner",
+        "-I", path.nativePathString(escaped: false),
+        "-module-cache-path", path.appending(component: "module-cache").nativePathString(escaped: false),
+        "-Xfrontend", "-diagnostic-style", "-Xfrontend", "llvm",
+        main.nativePathString(escaped: false),
+      ] + ((try? Driver.sdkArgumentsForTesting()) ?? []))
+
+      // Older frontends return success despite diagnosing the missing import.
+      // When the frontend reports failure, verify that the driver preserves
+      // the scanner's diagnostics.
+      do {
+        _ = try driver.scanModuleDependencies()
+        #expect(!driver.diagnosticEngine.hasErrors)
+      } catch Driver.ErrorDiagnostics.emitted {
+        #expect(driver.diagnosticEngine.hasErrors)
+        let diagnostic = try #require(driver.diagnosticEngine.diagnostics.last)
+        #expect(diagnostic.behavior == .error)
+        #expect(diagnostic.message.text.hasPrefix("dependency scan command failed with exit code 1\n"))
+        #expect(
+          diagnostic.message.text.contains(
+            "Dependency.swiftinterface:3:8: error: unable to resolve module dependency: 'invalid_module_that_never_exists'\n"
+          )
+        )
+        #expect(
+          diagnostic.message.text.contains("Dependency.swiftinterface:3:8: note: a dependency of Swift module 'Dependency'")
+        )
+        #expect(diagnostic.message.text.contains("Dependency.swiftinterface:3:8: note: a dependency of main module"))
+      }
+    }
+  }
+
   // Ensure dependency scanning succeeds via fallback `swift-frontend -scan-dependenceis`
   // mechanism if libSwiftScan.dylib fails to load.
   @Test(.disabled("skipping until CAS is supported on all platforms"))
