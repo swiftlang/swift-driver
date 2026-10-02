@@ -24,7 +24,7 @@ public struct DependencySource: Hashable, CustomStringConvertible {
   public let internedFileName: InternedString
 
   init(typedFile: TypedVirtualPath, internedFileName: InternedString) {
-    assert( typedFile.type == .swift ||
+    assert( typedFile.type.isSwiftSourceFile ||
             typedFile.type == .swiftModule)
     self.typedFile = typedFile
     self.internedFileName = internedFileName
@@ -38,11 +38,9 @@ public struct DependencySource: Hashable, CustomStringConvertible {
 
   init?(ifAppropriateFor file: VirtualPath.Handle,
         internedString: InternedString) {
-    let ext = VirtualPath.lookup(file).extension
-    guard let type =
-      ext == FileType.swift      .rawValue ? FileType.swift :
-      ext == FileType.swiftModule.rawValue ? FileType.swiftModule
-      : nil
+    guard let ext = VirtualPath.lookup(file).extension,
+          let type = FileType(rawValue: ext),
+          type.isSwiftSourceFile || type == .swiftModule
     else {
       return nil
     }
@@ -93,7 +91,7 @@ extension DependencySource {
   public func fileToRead(
     info: IncrementalCompilationState.IncrementalDependencyAndInputSetup
   ) throws -> TypedVirtualPath? {
-    typedFile.type != .swift
+    !typedFile.type.isSwiftSourceFile
     ? typedFile
     : try info.outputFileMap.getSwiftDeps(for: typedFile, diagnosticEngine: info.diagnosticEngine)
   }
@@ -105,7 +103,7 @@ extension OutputFileMap {
     for sourceFile: TypedVirtualPath,
     diagnosticEngine: DiagnosticsEngine
   ) throws -> TypedVirtualPath? {
-    assert(sourceFile.type == FileType.swift)
+    assert(sourceFile.type.isSwiftSourceFile)
     guard let swiftDepsHandle = try existingOutput(inputFile: sourceFile.fileHandle,
                                              outputType: .swiftDeps)
     else {

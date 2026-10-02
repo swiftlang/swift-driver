@@ -1143,7 +1143,7 @@ extension Driver {
         // To match the legacy driver behavior, make sure we add the first input file
         // to the output file map if compiling without primary inputs (WMO), even
         // if there aren't any corresponding outputs.
-        guard let firstSourceInputHandle = inputFiles.first(where:{ $0.type == .swift })?.fileHandle  else {
+        guard let firstSourceInputHandle = inputFiles.first(where:{ $0.type.isSwiftSourceFile })?.fileHandle  else {
           fatalError("Formulating swift-frontend invocation without any input .swift files")
         }
         entries[remapEntryKey(firstSourceInputHandle)] = [:]
@@ -1196,7 +1196,7 @@ extension Driver {
     if let input = input?.fileHandle, input != OutputFileMap.singleInputKey {
       entryInput = input
     } else {
-      guard let firstSourceInputHandle = inputFiles.first(where:{ $0.type == .swift })?.fileHandle else {
+      guard let firstSourceInputHandle = inputFiles.first(where:{ $0.type.isSwiftSourceFile })?.fileHandle else {
         fatalError("Formulating swift-frontend invocation without any input .swift files")
       }
       entryInput = firstSourceInputHandle
