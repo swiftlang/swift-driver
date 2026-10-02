@@ -102,6 +102,19 @@ public extension Driver {
                outputs: [TypedVirtualPath(file: .standardOutput, type: .jsonDependencies)])
   }
 
+  /// Path to serialize/reuse the dependency-scan cache: the build-record
+  /// location when available, else a sibling of the emit-module output so the
+  /// cache also works in whole-module builds with no build record.
+  private var dependencyScanSerializedResultPath: VirtualPath? {
+    if let path = buildRecordInfo?.dependencyScanSerializedResultPath {
+      return path
+    }
+    guard let moduleOutput = moduleOutputInfo.output else { return nil }
+    let modulePath = VirtualPath.lookup(moduleOutput.outputPath)
+    return modulePath.parentDirectory
+      .appending(component: modulePath.basenameWithoutExt + ".swiftmoduledeps")
+  }
+
   /// Generate a full command-line invocation to be used for the dependency scanning action
   /// on the target module.
   @_spi(Testing) mutating func dependencyScannerInvocationCommand(forVariantModule: Bool = false)
@@ -160,20 +173,18 @@ public extension Driver {
       commandLine.appendFlag(moduleName)
     }
 
-    if shouldAttemptIncrementalCompilation &&
-       parsedOptions.contains(.incrementalDependencyScan) {
-      if let serializationPath = buildRecordInfo?.dependencyScanSerializedResultPath {
-        if isFrontendArgSupported(.validatePriorDependencyScanCache) {
-          // Any compiler which supports "-validate-prior-dependency-scan-cache"
-          // also supports "-load-dependency-scan-cache"
-          // and "-serialize-dependency-scan-cache" and "-dependency-scan-cache-path"
-          commandLine.appendFlag(.dependencyScanCachePath)
-          commandLine.appendPath(serializationPath)
-          commandLine.appendFlag(.reuseDependencyScanCache)
-          commandLine.appendFlag(.validatePriorDependencyScanCache)
-          commandLine.appendFlag(.serializeDependencyScanCache)
-        }
-      }
+    // The scan cache is independent of the compilation mode: enable it for any
+    // -incremental-dependency-scan build, including whole-module ones with no
+    // build record. -validate-prior-dependency-scan-cache implies support for
+    // the other three cache flags.
+    if parsedOptions.contains(.incrementalDependencyScan),
+       isFrontendArgSupported(.validatePriorDependencyScanCache),
+       let serializationPath = dependencyScanSerializedResultPath {
+      commandLine.appendFlag(.dependencyScanCachePath)
+      commandLine.appendPath(serializationPath)
+      commandLine.appendFlag(.reuseDependencyScanCache)
+      commandLine.appendFlag(.validatePriorDependencyScanCache)
+      commandLine.appendFlag(.serializeDependencyScanCache)
     }
 
     if isFrontendArgSupported(.autoBridgingHeaderChaining) {
