@@ -2790,6 +2790,32 @@ func getStdlibShimsPaths(_ driver: Driver) throws -> (AbsolutePath, AbsolutePath
     }
   }
 
+  @Test func dependencyScanningFallbackFailureDiagnostics() throws {
+    try withTemporaryDirectory { path in
+      let main = path.appending(component: "main.swift")
+      try localFileSystem.writeFileContents(main, bytes: "")
+      var driver = try TestDriver(args: [
+        "swiftc", "-typecheck", "-explicit-module-build", "-nonlib-dependency-scanner",
+        // Force a nonzero exit even with frontends that succeed after scan errors.
+        "-Xfrontend", "-invalid-dependency-scan-test-option",
+        main.nativePathString(escaped: false),
+      ] + ((try? Driver.sdkArgumentsForTesting()) ?? []))
+
+      #expect(throws: Driver.ErrorDiagnostics.self) {
+        try driver.scanModuleDependencies()
+      }
+      #expect(driver.diagnosticEngine.hasErrors)
+      let diagnostic = try #require(driver.diagnosticEngine.diagnostics.last)
+      #expect(diagnostic.behavior == .error)
+      #expect(diagnostic.message.text.hasPrefix("dependency scan command failed with exit code 1\n"))
+      #expect(
+        diagnostic.message.text.contains(
+          "error: unknown argument: '-invalid-dependency-scan-test-option'\n"
+        )
+      )
+    }
+  }
+
   // Ensure dependency scanning succeeds via fallback `swift-frontend -scan-dependenceis`
   // mechanism if libSwiftScan.dylib fails to load.
   @Test(.disabled("skipping until CAS is supported on all platforms"))
