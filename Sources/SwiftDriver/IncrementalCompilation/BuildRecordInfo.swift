@@ -110,7 +110,14 @@ import class Dispatch.DispatchQueue
       fileSystem: fileSystem,
       currentArgsHash: currentArgsHash,
       actualSwiftVersion: actualSwiftVersion,
-      timeBeforeFirstJob: .now(),
+      // The next incremental build treats an external dependency as unchanged
+      // when its modification time is earlier than this recorded start time.
+      // Some file systems (e.g. certain overlay or virtualized mounts used by
+      // container tooling, ext3) report modification times truncated to whole
+      // seconds, so a dependency rewritten in the same second as, but after, the
+      // start of this build would compare as earlier than a sub-second start
+      // time. Truncating the start time to its whole second prevents that.
+      timeBeforeFirstJob: TimePoint.now().truncatedToSeconds(),
       diagnosticEngine: diagnosticEngine,
       compilationInputModificationDates: compilationInputModificationDates)
    }
