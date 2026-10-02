@@ -1831,7 +1831,7 @@ import CRT
         "-check-api-availability-only",
       ])
       let plannedJobs = try await driver.planBuild()
-      #expect(plannedJobs.count == 3)
+      #expect(plannedJobs.map(\.kind) == [.emitModule, .verifyModuleInterface])
 
       let emitJob = try plannedJobs.findJob(.emitModule)
       expectJobInvocationMatches(emitJob, .flag("-check-api-availability-only"))

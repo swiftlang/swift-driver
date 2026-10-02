@@ -36,6 +36,123 @@ private struct StderrOutputStream: TextOutputStream {
   }
 }
 
+/// Executor that runs every job as a child process. `Driver.run` runs a job
+/// in-place (via `exec()`) when it requires it or when it is the only job and
+/// no cleanup is needed; in a test that would replace the test runner process
+/// and silently end the test run.
+private final class NoInPlaceExecutionExecutor: DriverExecutor {
+  let base: DriverExecutor
+
+  init(_ base: DriverExecutor) {
+    self.base = base
+  }
+
+  var resolver: ArgsResolver { base.resolver }
+
+  private func withoutInPlaceExecution(_ job: Job) -> Job {
+    var job = job
+    job.requiresInPlaceExecution = false
+    return job
+  }
+
+  func execute(
+    job: Job,
+    forceResponseFiles: Bool,
+    recordedInputMetadata: [TypedVirtualPath: FileMetadata]
+  ) throws -> ProcessResult {
+    return try base.execute(
+      job: withoutInPlaceExecution(job),
+      forceResponseFiles: forceResponseFiles,
+      recordedInputMetadata: recordedInputMetadata
+    )
+  }
+
+  func execute(
+    job: Job,
+    forceResponseFiles: Bool,
+    recordedInputModificationDates: [TypedVirtualPath: TimePoint]
+  ) throws -> ProcessResult {
+    return try base.execute(
+      job: withoutInPlaceExecution(job),
+      forceResponseFiles: forceResponseFiles,
+      recordedInputModificationDates: recordedInputModificationDates
+    )
+  }
+
+  func execute(
+    workload: DriverExecutorWorkload,
+    delegate: JobExecutionDelegate,
+    numParallelJobs: Int,
+    forceResponseFiles: Bool,
+    recordedInputMetadata: [TypedVirtualPath: FileMetadata]
+  ) throws {
+    try base.execute(
+      workload: workload,
+      delegate: delegate,
+      numParallelJobs: numParallelJobs,
+      forceResponseFiles: forceResponseFiles,
+      recordedInputMetadata: recordedInputMetadata
+    )
+  }
+
+  func execute(
+    workload: DriverExecutorWorkload,
+    delegate: JobExecutionDelegate,
+    numParallelJobs: Int,
+    forceResponseFiles: Bool,
+    recordedInputModificationDates: [TypedVirtualPath: TimePoint]
+  ) throws {
+    try base.execute(
+      workload: workload,
+      delegate: delegate,
+      numParallelJobs: numParallelJobs,
+      forceResponseFiles: forceResponseFiles,
+      recordedInputModificationDates: recordedInputModificationDates
+    )
+  }
+
+  func execute(
+    jobs: [Job],
+    delegate: JobExecutionDelegate,
+    numParallelJobs: Int,
+    forceResponseFiles: Bool,
+    recordedInputMetadata: [TypedVirtualPath: FileMetadata]
+  ) throws {
+    try base.execute(
+      jobs: jobs,
+      delegate: delegate,
+      numParallelJobs: numParallelJobs,
+      forceResponseFiles: forceResponseFiles,
+      recordedInputMetadata: recordedInputMetadata
+    )
+  }
+
+  func execute(
+    jobs: [Job],
+    delegate: JobExecutionDelegate,
+    numParallelJobs: Int,
+    forceResponseFiles: Bool,
+    recordedInputModificationDates: [TypedVirtualPath: TimePoint]
+  ) throws {
+    try base.execute(
+      jobs: jobs,
+      delegate: delegate,
+      numParallelJobs: numParallelJobs,
+      forceResponseFiles: forceResponseFiles,
+      recordedInputModificationDates: recordedInputModificationDates
+    )
+  }
+
+  func checkNonZeroExit(args: String..., environment: [String: String]) throws -> String {
+    // Variadic arguments can't be forwarded, so launch the process directly.
+    try Process.checkNonZeroExit(arguments: args, environmentBlock: ProcessEnvironmentBlock(environment))
+  }
+
+  func description(of job: Job, forceResponseFiles: Bool) throws -> String {
+    try base.description(of: job, forceResponseFiles: forceResponseFiles)
+  }
+}
+
 /// Async-safe wrapper around `Driver` for use in Swift Testing tests.
 ///
 /// `Driver.run(jobs:)` blocks the calling thread inside an opaque C
@@ -74,14 +191,15 @@ package struct TestDriver {
   ) throws {
     let fs = fileSystem ?? localFileSystem
     let diags = diagnosticsEngine ?? DiagnosticsEngine(handlers: [testDiagnosticsHandler])
-    let exec =
+    let exec = NoInPlaceExecutionExecutor(
       try executor
-      ?? SwiftDriverExecutor(
-        diagnosticsEngine: diags,
-        processSet: ProcessSet(),
-        fileSystem: fs,
-        env: env
-      )
+        ?? SwiftDriverExecutor(
+          diagnosticsEngine: diags,
+          processSet: ProcessSet(),
+          fileSystem: fs,
+          env: env
+        )
+    )
     let stdout = stdoutStream ?? ThreadSafeOutputByteStream(BufferedOutputByteStream())
     let stderr = stderrStream ?? ThreadSafeOutputByteStream(BufferedOutputByteStream())
     self.stdoutStream = stdout
