@@ -2793,11 +2793,10 @@ func getStdlibShimsPaths(_ driver: Driver) throws -> (AbsolutePath, AbsolutePath
   @Test func dependencyScanningFallbackFailureDiagnostics() throws {
     try withTemporaryDirectory { path in
       let main = path.appending(component: "main.swift")
-      try localFileSystem.writeFileContents(main, bytes: "")
+      try localFileSystem.writeFileContents(main, bytes: "import invalid_module_that_never_exists\n")
       var driver = try TestDriver(args: [
         "swiftc", "-typecheck", "-explicit-module-build", "-nonlib-dependency-scanner",
-        // Force a nonzero exit even with frontends that succeed after scan errors.
-        "-Xfrontend", "-invalid-dependency-scan-test-option",
+        "-Xfrontend", "-diagnostic-style", "-Xfrontend", "llvm",
         main.nativePathString(escaped: false),
       ] + ((try? Driver.sdkArgumentsForTesting()) ?? []))
 
@@ -2810,9 +2809,10 @@ func getStdlibShimsPaths(_ driver: Driver) throws -> (AbsolutePath, AbsolutePath
       #expect(diagnostic.message.text.hasPrefix("dependency scan command failed with exit code 1\n"))
       #expect(
         diagnostic.message.text.contains(
-          "error: unknown argument: '-invalid-dependency-scan-test-option'\n"
+          "main.swift:1:8: error: unable to resolve module dependency: 'invalid_module_that_never_exists'\n"
         )
       )
+      #expect(diagnostic.message.text.contains("main.swift:1:8: note: a dependency of main module"))
     }
   }
 
