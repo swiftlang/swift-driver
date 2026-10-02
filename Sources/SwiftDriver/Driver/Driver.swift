@@ -4088,6 +4088,7 @@ extension Driver {
     outputFileMap: OutputFileMap?,
     moduleName: String
   ) throws -> VirtualPath.Handle? {
+    guard !parsedOptions.hasArgument(.avoidEmitModuleDoc) else { return nil }
     return try computeModuleAuxiliaryOutputPath(&parsedOptions,
                                                 moduleOutputPath: moduleOutputPath,
                                                 type: .swiftDocumentation,
