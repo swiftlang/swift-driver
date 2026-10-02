@@ -681,8 +681,10 @@ public struct Driver {
 
   /// Whether this driver invocation will build module dependencies explicitly.
   ///
-  /// Requested with `-explicit-module-build` and declined with
-  /// `-no-explicit-module-build`; if both are given, the last one wins.
+  /// `swiftc` invocations default to explicit module builds.
+  /// Other driver kinds still require `-explicit-module-build` to enable
+  /// the mode. If `libSwiftScan` is not available, the driver falls back to
+  /// implicit module builds and emits a warning.
   @_spi(Testing) public let isExplicitModuleBuildEnabled: Bool
 
   /// A collection of all the flags the selected toolchain's `swift-frontend` supports
@@ -1061,8 +1063,15 @@ public struct Driver {
                                                                      fileSystem: self.fileSystem,
                                                                      compilerIntegratedTooling: self.compilerIntegratedTooling)
 
-    self.isExplicitModuleBuildEnabled = parsedOptions.hasFlag(positive: .driverExplicitModuleBuild,
-                                                              negative: .driverNoExplicitModuleBuild) ?? false
+    // `-nonlib-dependency-scanner` asks for the out-of-process scanner instead
+    // of a libSwiftScan instance, so scanning remains possible without one.
+    let canScanDependencies = self.swiftScanLibInstance != nil
+      || parsedOptions.hasArgument(.driverScanDependenciesNonLib)
+    self.isExplicitModuleBuildEnabled = Self.computeIsExplicitModuleBuildEnabled(
+      &parsedOptions,
+      driverKind: self.driverKind,
+      canScanDependencies: canScanDependencies,
+      diagnosticsEngine: diagnosticEngine)
 
     // Compute the host machine's triple
     self.hostTriple =
@@ -3802,10 +3811,15 @@ extension Driver {
       }
 
       let swiftScanLibPath: AbsolutePath? = compilerIntegratedTooling ? nil : try toolchain.lookupSwiftScanLib()
+      let willFallBackToScanningOutOfProcess =
+        parsedOptions.hasFlag(positive: .driverExplicitModuleBuild,
+                              negative: .driverNoExplicitModuleBuild) == true
       do {
         guard compilerIntegratedTooling ||
               (swiftScanLibPath != nil && fileSystem.exists(swiftScanLibPath!))  else {
-          diagnosticsEngine.emit(.warn_scan_dylib_not_found())
+          if willFallBackToScanningOutOfProcess {
+            diagnosticsEngine.emit(.warn_scan_dylib_not_found())
+          }
           return nil
         }
 
@@ -3814,9 +3828,38 @@ extension Driver {
         // The driver needs a reference to this for non-scanning tasks
         return interModuleDependencyOracle.getScannerInstance()
       } catch {
-        diagnosticsEngine.emit(.warn_scan_dylib_load_failed(swiftScanLibPath?.description ?? "built-in"))
+        if willFallBackToScanningOutOfProcess {
+          diagnosticsEngine.emit(.warn_scan_dylib_load_failed(swiftScanLibPath?.description ?? "built-in"))
+        }
       }
       return nil
+  }
+
+  /// Determine whether this invocation should build module dependencies explicitly.
+  ///
+  /// Without an explicit `-explicit-module-build` or `-no-explicit-module-build`,
+  /// in `swiftc` batch mode, explicit module builds are enabled by default
+  /// unless dependencies cannot be scanned. A warning is emitted in that
+  /// case so users know the default has been silently downgraded to implicit
+  /// module builds.
+  static func computeIsExplicitModuleBuildEnabled(
+    _ parsedOptions: inout ParsedOptions,
+    driverKind: DriverKind,
+    canScanDependencies: Bool,
+    diagnosticsEngine: DiagnosticsEngine
+  ) -> Bool {
+    if let requested = parsedOptions.hasFlag(positive: .driverExplicitModuleBuild,
+                                             negative: .driverNoExplicitModuleBuild) {
+      return requested
+    }
+    guard driverKind == .batch else { return false }
+    guard canScanDependencies else {
+      diagnosticsEngine.emit(
+        .warning("libSwiftScan is unavailable; disabling the default explicit module build for this swiftc invocation. Pass -explicit-module-build to force it on, or -no-explicit-module-build to silence this warning."),
+        location: nil)
+      return false
+    }
+    return true
   }
 
   static func computeToolchain(
