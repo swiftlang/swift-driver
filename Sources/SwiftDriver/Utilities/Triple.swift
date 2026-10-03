@@ -1126,6 +1126,7 @@ extension Triple {
     case emscripten
     case visionos = "xros"
     case firmware
+    case driverkit
     case noneOS // 'OS' suffix purely to avoid name clash with Optional.none
 
     var name: String {
@@ -1208,10 +1209,12 @@ extension Triple {
         return .emscripten
       case _ where os.hasPrefix("none"):
         return .noneOS
-      case _ where os.hasPrefix("xros"):
+      case _ where os.hasPrefix("xros") || os.hasPrefix("visionos"):
         return .visionos
       case _ where os.hasPrefix("firmware"):
         return .firmware
+      case _ where os.hasPrefix("driverkit"):
+        return .driverkit
       default:
         return nil
       }
@@ -1511,6 +1514,11 @@ extension Triple.OS {
   public var isFirmware: Bool {
     self == .firmware
   }
+
+  /// Is this an Apple DriverKit triple.
+  public var isDriverKit: Bool {
+    self == .driverkit
+  }
 }
 
 // MARK: - Versions
@@ -1549,6 +1557,8 @@ extension Triple {
         osName = osName.dropFirst(os.name.count)
       } else if os == .macosx, osName.hasPrefix("macos") {
         osName = osName.dropFirst(5)
+      } else if os == .visionos, osName.hasPrefix("visionos") {
+        osName = osName.dropFirst(8)
       }
     }
 
@@ -1564,6 +1574,8 @@ extension Triple {
         canonicalOsName = osName.prefix(os.name.count)
       } else if os == .macosx, osName.hasPrefix("macos") {
         canonicalOsName = osName.prefix(5)
+      } else if os == .visionos, osName.hasPrefix("visionos") {
+        canonicalOsName = osName.prefix(8)
       }
     }
     return String(canonicalOsName)
@@ -1649,7 +1661,7 @@ extension Triple {
       if version.major < 10 {
         return nil
       }
-    case .ios, .tvos, .watchos, .visionos, .firmware:
+    case .ios, .tvos, .watchos, .visionos, .firmware, .driverkit:
        // Ignore the version from the triple.  This is only handled because the
        // the clang driver combines OS X and IOS support into a common Darwin
        // toolchain that wants to know the OS X version number even when targeting
@@ -1786,7 +1798,30 @@ extension Triple {
         version.major = 1
       }
       return version
-    case .ios, .tvos, .watchos, .visionos:
+    case .ios, .tvos, .watchos, .visionos, .driverkit:
+      fatalError("conflicting triple info")
+    default:
+      fatalError("unexpected OS for Darwin triple")
+    }
+  }
+
+  /// Parse the version number as with getOSVersion.  This should
+  /// only be called with DriverKit or generic triples.
+  ///
+  /// This accessor is semi-private; it's typically better to use `version(for:)` or
+  /// `Triple.FeatureAvailability`.
+  public var _driverKitVersion: Version {
+    switch os {
+    case .darwin, .macosx:
+      return Version(19, 0, 0)
+    case .driverkit:
+      var version = self.osVersion
+      // Default to 19.0, which was the first version of DriverKit.
+      if version.major == 0 {
+        version.major = 19
+      }
+      return version
+    case .ios, .tvos, .watchos, .visionos, .firmware:
       fatalError("conflicting triple info")
     default:
       fatalError("unexpected OS for Darwin triple")
@@ -1799,14 +1834,14 @@ extension Triple {
     return (vendor == .apple) && (os?.isFirmware ?? false)
   }
 
-  /// isDarwin - Is this a "Darwin" triple (macOS, iOS, tvOS, watchOS, visionOS, or other Darwin like platforms).
+  /// isDarwin - Is this a "Darwin" triple (macOS, iOS, tvOS, watchOS, visionOS, DriverKit, or other Darwin like platforms).
   public var isDarwin: Bool {
     return Self.isDarwin(vendor: vendor, os: os)
   }
 
   fileprivate static func isDarwin(vendor: Triple.Vendor?, os: Triple.OS?) -> Bool {
     switch os {
-    case .darwin, .macosx, .ios, .tvos, .watchos, .visionos:
+    case .darwin, .macosx, .ios, .tvos, .watchos, .visionos, .driverkit:
       return true
     case .firmware:
       // Apple firmware isn't necessarily a Darwin based OS, but for most intents
