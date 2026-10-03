@@ -65,12 +65,9 @@ extension Driver {
         commandLine.appendFlag("--gcc-toolchain=\(gccToolchain.asSingle)")
     }
 
-    // Under an explicit module build the compile job is passed
-    // -debug-module-path, which supersedes -add_ast_path for this module. Tie
-    // the two together: a frontend that does not record the module path in
-    // debug info still needs the serialized AST in the binary.
-    let shouldAddASTPaths = !(parsedOptions.hasArgument(.driverExplicitModuleBuild)
-                              && isFeatureSupported(.debug_info_explicit_dependency))
+    // If this isn't an explicit module build whose compile jobs record the
+    // module via -debug-module-path, the linker still needs -add_ast_path.
+    let shouldAddASTPaths = !debugInfoRecordsModulePath
 
     // Defer to the toolchain for platform-specific linking
     let linkTool = try toolchain.addPlatformSpecificLinkerArgs(
