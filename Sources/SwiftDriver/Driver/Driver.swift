@@ -398,12 +398,6 @@ public struct Driver {
     isFrontendArgSupported(.dependencyOnlyImport) && parsedOptions.hasArgument(.driverExplicitModuleBuild)
   }()
 
-  /// Whether compile jobs are passed -debug-module-path.
-  var debugInfoRecordsModulePath: Bool {
-    parsedOptions.hasArgument(.driverExplicitModuleBuild) &&
-      isFeatureSupported(.debug_info_explicit_dependency)
-  }
-
   /// The directory to emit PCH file.
   lazy var bridgingPrecompiledHeaderOutputDir: VirtualPath? = {
     return try? computePrecompiledBridgingHeaderDir(&parsedOptions,
@@ -1500,7 +1494,6 @@ public struct Driver {
                               diagnosticEngine: diagnosticsEngine)
 
     try verifyOutputOptions()
-    verifyDebugModulePath()
   }
 
   public mutating func planBuild() throws -> [Job] {
@@ -1609,19 +1602,6 @@ extension Driver {
         diagnosticEngine.emit(.error(Error.cannotSpecify_OForMultipleOutputs),
                               location: nil)
       }
-    }
-  }
-
-  // -debug-module-path embeds the path to the main swiftmodule in the
-  // debug info; warn about paths to temporary build products. A
-  // caching build refers to it by CAS key, which outlives the build.
-  private func verifyDebugModulePath() {
-    let referencesModuleByPath = debugInfoRecordsModulePath && !enableCaching
-    let debuggerNeedsModule = debugInfo.level == .astTypes &&
-      compilerOutputType?.isAfterLLVM == true
-    let moduleIsTemporary = moduleOutputInfo.output?.isTopLevel == false
-    if referencesModuleByPath && debuggerNeedsModule && moduleIsTemporary {
-      diagnosticEngine.emit(.warning_debug_module_is_temporary(moduleOutputInfo.name))
     }
   }
 }

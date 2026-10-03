@@ -200,8 +200,4 @@ extension Diagnostic.Message {
   static func warning_xclang_linker_unsupported_for_emscripten(_ value: String) -> Diagnostic.Message {
     .warning("'-Xclang-linker \(value)' is not supported for Emscripten targets; use '-Xlinker-driver' to pass flags to emcc")
   }
-
-  static func warning_debug_module_is_temporary(_ moduleName: String) -> Diagnostic.Message {
-    .warning("debug info contains path to a temporary swiftmodule for module '\(moduleName)'; pass '-emit-module' or '-emit-module-path' so the debugger can load it")
-  }
 }

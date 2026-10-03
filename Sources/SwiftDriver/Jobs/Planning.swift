@@ -205,10 +205,10 @@ extension Driver {
     }
 
     let emitVariantModuleJob = try addEmitModuleJob(
+      addJobBeforeCompiles: addJobBeforeCompiles,
       pchCompileJob: pchCompileJob,
       explicitModulePlanner: explicitModulePlanner,
       isVariantModule: true)!
-    addJobBeforeCompiles(emitVariantModuleJob)
 
     if emitVariantModuleJob.outputs.contains(where: { out in out.type == .swiftInterface }) {
       try addVerifyJobs(emitModuleJob: emitVariantModuleJob, addJob: addJobAfterCompiles,
@@ -266,6 +266,7 @@ extension Driver {
   }
 
   private mutating func addEmitModuleJob(
+    addJobBeforeCompiles: (Job) -> Void,
     pchCompileJob: Job?,
     explicitModulePlanner: ExplicitDependencyBuildPlanner?,
     isVariantModule: Bool = false) throws -> Job? {
@@ -273,10 +274,12 @@ extension Driver {
       // add an explicit job regardless of whether the primary target was
       // emitted separately
       if emitModuleSeparately || isVariantModule {
-        return try emitModuleJob(
+        let emitJob = try emitModuleJob(
           pchCompileJob: pchCompileJob,
           explicitModulePlanner: explicitModulePlanner,
           forVariantModule: isVariantModule)
+        addJobBeforeCompiles(emitJob)
+        return emitJob
       }
       return nil
   }
@@ -324,22 +327,20 @@ extension Driver {
                         explicitModulePlanner: explicitModulePlanner)
     }
 
-    let emitModuleJob = try addEmitModuleJob(pchCompileJob: pchCompileJob,
-                                             explicitModulePlanner: explicitModulePlanner)
-
     // Whole-module
     if let compileJob = try addSingleCompileJobs(addJob: addJobBeforeCompiles,
                              addJobOutputs: addJobOutputs,
                              pchCompileJob: pchCompileJob,
-                             emitModuleJob: emitModuleJob,
                              emitModuleTrace: !loadedModuleTraceEmittedByScanner && loadedModuleTracePath != nil,
                              explicitModulePlanner: explicitModulePlanner) {
       try addPostModuleFilesJobs(compileJob)
     }
 
     // Emit-module-separately
+    let emitModuleJob = try addEmitModuleJob(addJobBeforeCompiles: addJobBeforeCompiles,
+                                             pchCompileJob: pchCompileJob,
+                                             explicitModulePlanner: explicitModulePlanner)
     if let emitModuleJob = emitModuleJob {
-      addJobBeforeCompiles(emitModuleJob)
       try addPostModuleFilesJobs(emitModuleJob)
 
       try addWrapJobOrMergeOutputs(
@@ -369,7 +370,6 @@ extension Driver {
     addJob: (Job) -> Void,
     addJobOutputs: ([TypedVirtualPath]) -> Void,
     pchCompileJob: Job?,
-    emitModuleJob: Job?,
     emitModuleTrace: Bool,
     explicitModulePlanner: ExplicitDependencyBuildPlanner?
   ) throws -> Job? {
@@ -382,7 +382,7 @@ extension Driver {
                                  outputType: compilerOutputType,
                                  addJobOutputs: addJobOutputs,
                                  pchCompileJob: pchCompileJob,
-                                 emitModuleJob: emitModuleJob,
+                                 emitModuleJob: nil,
                                  emitModuleTrace: emitModuleTrace,
                                  produceCacheKey: true,
                                  explicitModulePlanner: explicitModulePlanner)
@@ -598,9 +598,8 @@ extension Driver {
 
     if targetTriple.objectFormat == .macho {
       addLinkerInput(moduleOutputs[0])
-    } else if !debugInfoRecordsModulePath {
-      // Module wrapping is required, unless -debug-module-path already tells
-      // the debugger where to find this module.
+    } else {
+      // Module wrapping is required.
       let wrapJob = try moduleWrapJob(moduleInput: moduleOutputs[0])
       addJob(wrapJob)
 
