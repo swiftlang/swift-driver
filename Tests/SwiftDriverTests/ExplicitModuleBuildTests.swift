@@ -2770,6 +2770,9 @@ func getStdlibShimsPaths(_ driver: Driver) throws -> (AbsolutePath, AbsolutePath
           "-explicit-module-build",
           "-working-directory", path.nativePathString(escaped: false),
           "-disable-clang-target",
+          // Keep the implicit _StringProcessing import (and its dependencies,
+          // which vary by platform) out of the scanned graph.
+          "-Xfrontend", "-disable-implicit-string-processing-module-import",
           main.nativePathString(escaped: false),
         ] + sdkArgumentsForTesting
       )
