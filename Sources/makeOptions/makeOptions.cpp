@@ -77,22 +77,22 @@ struct RawOption {
   bool isHidden() const { return flags & llvm::opt::HelpHidden; }
 };
 
-#define OPTTABLE_PREFIXES_TABLE_CODE
-#include "swift/Option/Options.inc"
-#undef OPTTABLE_PREFIXES_TABLE_CODE
+namespace {
+using namespace swift::options;
+using namespace llvm::opt;
 
-#define OPTTABLE_STR_TABLE_CODE
+#define OPTTABLE_CODE
 #include "swift/Option/Options.inc"
-#undef OPTTABLE_STR_TABLE_CODE
 
 static std::vector<llvm::StringRef> getPrefixes(unsigned prefixesOffset) {
-  unsigned numPrefixes = OptionPrefixesTable[prefixesOffset].value();
+  auto prefixesTable = optionTables().PrefixesTable;
+  unsigned numPrefixes = prefixesTable[prefixesOffset].value();
 
   std::vector<llvm::StringRef> prefixes;
 
   const unsigned firstOffsetIndex = prefixesOffset + 1;
   for (unsigned i = firstOffsetIndex, e = i + numPrefixes; i < e; ++i) {
-    prefixes.push_back(OptionStrTable[OptionPrefixesTable[i]]);
+    prefixes.push_back(OptionStrTable[prefixesTable[i]]);
   }
 
   return prefixes;
@@ -102,13 +102,18 @@ static const char *getPrefixedName(unsigned prefixedNameOffset) {
   return OptionStrTable[prefixedNameOffset].data();
 }
 
-namespace {
-using namespace swift::options;
-using namespace llvm::opt;
+/// Offset 0 means the string is unset.
+static const char *getOptionalString(unsigned offset) {
+  if (offset == 0)
+    return nullptr;
+
+  return OptionStrTable[offset].data();
+}
+
 static const RawOption rawOptions[] = {
 #define OPTION(PREFIXES_OFFSET, PREFIXED_NAME_OFFSET, ID, KIND, GROUP, ALIAS,  \
-               ALIASARGS, FLAGS, VISIBILITY, PARAM, HELPTEXT,                  \
-               HELPTEXTFORVARIANTS, METAVAR, VALUES, ...)                      \
+               ALIASARGS_OFFSET, FLAGS, VISIBILITY, PARAM, HELPTEXT_OFFSET,    \
+               HELPTEXTFORVARIANTS, METAVAR_OFFSET, VALUES_OFFSET, ...)        \
   {OPT_##ID,                                                                   \
    getPrefixes(PREFIXES_OFFSET),                                               \
    getPrefixedName(PREFIXED_NAME_OFFSET),                                      \
@@ -117,8 +122,8 @@ static const RawOption rawOptions[] = {
    OPT_##GROUP,                                                                \
    OPT_##ALIAS,                                                                \
    FLAGS,                                                                      \
-   HELPTEXT,                                                                   \
-   METAVAR,                                                                    \
+   getOptionalString(HELPTEXT_OFFSET),                                         \
+   getOptionalString(METAVAR_OFFSET),                                          \
    PARAM},
 #include "swift/Option/Options.inc"
 #undef OPTION
