@@ -134,6 +134,30 @@ import class TSCBasic.DiagnosticsEngine
     #expect(T.objectFormat == .macho)
     #expect(T.isDarwin)
 
+    T = Triple("arm64-apple-xros2.0")
+    #expect(T.arch == Triple.Arch.aarch64)
+    #expect(T.vendor == Triple.Vendor.apple)
+    #expect(T.os == Triple.OS.visionos)
+    #expect(T.environment == nil)
+    #expect(T.objectFormat == .macho)
+    #expect(T.isDarwin)
+
+    T = Triple("arm64-apple-visionos2.0-simulator")
+    #expect(T.arch == Triple.Arch.aarch64)
+    #expect(T.vendor == Triple.Vendor.apple)
+    #expect(T.os == Triple.OS.visionos)
+    #expect(T.environment == Triple.Environment.simulator)
+    #expect(T.objectFormat == .macho)
+    #expect(T.isDarwin)
+
+    T = Triple("arm64-apple-driverkit21.0")
+    #expect(T.arch == Triple.Arch.aarch64)
+    #expect(T.vendor == Triple.Vendor.apple)
+    #expect(T.os == Triple.OS.driverkit)
+    #expect(T.environment == nil)
+    #expect(T.objectFormat == .macho)
+    #expect(T.isDarwin)
+
     T = Triple("i386-pc-elfiamcu")
     #expect(T.arch == Triple.Arch.x86)
     #expect(T.vendor == Triple.Vendor.pc)
@@ -1215,6 +1239,9 @@ import class TSCBasic.DiagnosticsEngine
     #expect(.macho == Triple("i686-apple-macosx").objectFormat)
     #expect(.macho == Triple("i686-apple-ios").objectFormat)
     #expect(.macho == Triple("arm64-apple-firmware1.0").objectFormat)
+    #expect(.macho == Triple("arm64-apple-xros").objectFormat)
+    #expect(.macho == Triple("arm64-apple-visionos").objectFormat)
+    #expect(.macho == Triple("x86_64-apple-driverkit").objectFormat)
     #expect(.macho == Triple("i686---macho").objectFormat)
 
     #expect(.coff == Triple("i686--win32").objectFormat)
@@ -1551,6 +1578,41 @@ import class TSCBasic.DiagnosticsEngine
     )
   }
 
+  @Test func visionOSAndDriverKitPlatforms() throws {
+    // `visionos` is accepted as an alias of `xros`, as in LLVM.
+    for (triple, version) in [
+      ("arm64-apple-xros2.1", Triple.Version(2, 1, 0)),
+      ("arm64-apple-visionos2.1", Triple.Version(2, 1, 0)),
+      ("arm64-apple-xros", Triple.Version(1, 0, 0)),
+    ] {
+      let t = Triple(triple)
+      #expect(t.darwinPlatform == .visionOS(.device), "\(triple)")
+      #expect(t.version(for: .visionOS(.device)) == version, "\(triple)")
+      #expect(t.darwinPlatform?.platformName == "xros", "\(triple)")
+      #expect(t.darwinPlatform?.linkerPlatformName == "xros", "\(triple)")
+      #expect(t.platformName() == "xros", "\(triple)")
+    }
+    let visionOSSimulator = Triple("arm64-apple-visionos2.1-simulator")
+    #expect(visionOSSimulator.darwinPlatform == .visionOS(.simulator))
+    #expect(visionOSSimulator.osVersion == Triple.Version(2, 1, 0))
+    #expect(visionOSSimulator.osNameUnversioned == "visionos")
+    #expect(visionOSSimulator.darwinPlatform?.platformName == "xrsimulator")
+
+    let driverKit = Triple("arm64-apple-driverkit21.0")
+    #expect(driverKit.darwinPlatform == .driverKit)
+    #expect(driverKit.version() == Triple.Version(21, 0, 0))
+    #expect(driverKit.darwinLinkerPlatformVersion == Triple.Version(21, 0, 0))
+    #expect(driverKit.darwinPlatform?.platformDisplayName == "DriverKit")
+    #expect(driverKit.darwinPlatform?.platformName == "driverkit")
+    #expect(driverKit.darwinPlatform?.linkerPlatformName == "driverkit")
+    #expect(driverKit.darwinPlatform?.libraryNameSuffix == "driverkit")
+    #expect(driverKit.platformName() == "driverkit")
+    #expect(driverKit.platformName(conflatingDarwin: true) == "darwin")
+    #expect(driverKit.clangOSLibName == "darwin")
+    // DriverKit defaults to version 19.0, its first release.
+    #expect(Triple("x86_64-apple-driverkit").version() == Triple.Version(19, 0, 0))
+  }
+
   @Test func clangOSLibName() {
     #expect("darwin" == Triple("x86_64-apple-macosx").clangOSLibName)
     #expect("darwin" == Triple("arm64-apple-ios13.0").clangOSLibName)
@@ -1671,6 +1733,10 @@ import class TSCBasic.DiagnosticsEngine
     assertToolchain("arm64_32-apple-ios", DarwinToolchain.self)
     assertToolchain("armv7s-apple-ios", DarwinToolchain.self)
     assertToolchain("arm64-apple-firmware1.0", DarwinToolchain.self)
+    assertToolchain("arm64-apple-xros2.0", DarwinToolchain.self)
+    assertToolchain("arm64-apple-visionos2.0", DarwinToolchain.self)
+    // Swift does not support DriverKit.
+    assertToolchain("arm64-apple-driverkit21.0", None.self)
     assertToolchain("armv7em-unknown-none-macho", GenericUnixToolchain.self)
     assertToolchain("armv7em-apple-none-macho", DarwinToolchain.self)
     assertToolchain("armv7em-apple-none", DarwinToolchain.self)
