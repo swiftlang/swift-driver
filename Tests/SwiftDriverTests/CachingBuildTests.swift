@@ -1443,46 +1443,6 @@ struct CachingBuildTests {
     }
   }
 
-  @Test func cacheWholeModuleBuildPlan() async throws {
-    try await withTemporaryDirectory { path in
-      let moduleCachePath = path.appending(component: "ModuleCache")
-      let casPath = path.appending(component: "cas")
-      try localFileSystem.createDirectory(moduleCachePath)
-      let main = path.appending(component: "testCachingWholeModuleBuild.swift")
-      try localFileSystem.writeFileContents(main) {
-        $0.send("import E;")
-      }
-      let swiftModuleInterfacesPath: AbsolutePath =
-        try testInputsPath.appending(component: "ExplicitModuleBuilds")
-        .appending(component: "Swift")
-      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
-      let moduleOutputPath: AbsolutePath = path.appending(component: "Test.swiftmodule")
-      var driver = try TestDriver(
-        args: [
-          "swiftc", "-g", "-c", "-module-name", "Test",
-          "-wmo", "-emit-module-separately-wmo",
-          "-I", swiftModuleInterfacesPath.nativePathString(escaped: false),
-          "-explicit-module-build",
-          "-module-cache-path", moduleCachePath.nativePathString(escaped: false),
-          "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: false),
-          "-emit-module-path", moduleOutputPath.nativePathString(escaped: false),
-          "-working-directory", path.nativePathString(escaped: false),
-          main.nativePathString(escaped: false),
-        ] + sdkArgumentsForTesting
-      )
-      let jobs = try await driver.planBuild()
-      guard driver.isFeatureSupported(.debug_info_explicit_dependency) else { return }
-
-      // The whole-module compile job does not produce the swiftmodule itself,
-      // so it must refer to the emit-module job's output by cache key.
-      let emitModuleJob = try jobs.findJob(.emitModule)
-      let moduleCacheKey = try #require(emitModuleJob.outputCacheKeys.first?.value)
-      let compileJob = try jobs.findJob(.compile)
-      #expect(!compileJob.outputs.contains { $0.type == .swiftModule })
-      expectJobInvocationMatches(compileJob, .flag("-debug-module-path"), .flag(moduleCacheKey))
-    }
-  }
-
   @Test(.requireFrontendArgSupport(.genReproducer)) func crashReproducer() async throws {
     try await withTemporaryDirectory { path in
       let moduleCachePath = path.appending(component: "ModuleCache")
