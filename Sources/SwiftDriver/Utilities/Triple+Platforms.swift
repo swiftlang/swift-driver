@@ -34,11 +34,14 @@ public enum DarwinPlatform: Hashable {
   /// watchOS, corresponding to the `watchos` OS name.
   case watchOS(EnvironmentWithoutCatalyst)
 
-  /// visionOS, corresponding to the `visionos` OS name.
+  /// visionOS, corresponding to the `xros` and `visionos` OS names.
   case visionOS(EnvironmentWithoutCatalyst)
 
   /// Firmware, corresponding to the `firmware` OS name.
   case Firmware
+
+  /// DriverKit, corresponding to the `driverkit` OS name.
+  case driverKit
 
   /// The most general form of environment information attached to a
   /// `DarwinPlatform`.
@@ -90,6 +93,9 @@ public enum DarwinPlatform: Hashable {
     case .Firmware:
       guard environment == .device else { return nil }
       return .Firmware
+    case .driverKit:
+      guard environment == .device else { return nil }
+      return .driverKit
     }
   }
 
@@ -117,6 +123,8 @@ public enum DarwinPlatform: Hashable {
       return "visionOS Simulator"
     case .Firmware:
       return "Firmware"
+    case .driverKit:
+      return "DriverKit"
     }
   }
 
@@ -144,6 +152,8 @@ public enum DarwinPlatform: Hashable {
       return "xros"
     case .visionOS(.simulator):
       return "xrsimulator"
+    case .driverKit:
+      return "driverkit"
     default:
       fatalError("Unsupported Darwin platform \(self)")
     }
@@ -172,6 +182,8 @@ public enum DarwinPlatform: Hashable {
       return "xros"
     case .visionOS(.simulator):
       return "xros-simulator"
+    case .driverKit:
+      return "driverkit"
     default:
       fatalError("Unsupported Darwin platform \(self)")
     }
@@ -201,6 +213,8 @@ public enum DarwinPlatform: Hashable {
       return "xros"
     case .visionOS(.simulator):
       return "xrossim"
+    case .driverKit:
+      return "driverkit"
     default:
       fatalError("Unsupported Darwin platform \(self)")
     }
@@ -241,6 +255,8 @@ extension Triple {
       return _visionOSVersion
     case .Firmware:
       return _FirmwareVersion
+    case .driverKit:
+      return _driverKitVersion
     }
   }
 
@@ -271,6 +287,8 @@ extension Triple {
       return .visionOS(makeEnvironment())
     case .firmware:
       return isAppleFirmware ? .Firmware : nil
+    case .driverkit:
+      return .driverKit
     default:
       return nil
     }
@@ -332,6 +350,8 @@ extension Triple {
       return _visionOSVersion
     case .Firmware:
       return _FirmwareVersion
+    case .driverKit:
+      return _driverKitVersion
     }
   }
 
@@ -366,7 +386,7 @@ extension Triple {
     switch os {
     case nil:
       fatalError("unknown OS")
-    case .darwin, .macosx, .ios, .tvos, .watchos, .visionos, .firmware:
+    case .darwin, .macosx, .ios, .tvos, .watchos, .visionos, .firmware, .driverkit:
       guard let darwinPlatform = darwinPlatform else {
         fatalError("unsupported darwin platform kind?")
       }
@@ -482,7 +502,7 @@ extension Triple {
         return watchOS
       case .visionOS:
         return visionOS
-      case .Firmware:
+      case .Firmware, .driverKit:
         return .availableInAllVersions
       }
     }
