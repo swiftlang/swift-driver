@@ -30,3 +30,8 @@ install(TARGETS SwiftDriverExecution
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)
+if(MSVC)
+  install(FILES $<TARGET_FILE_DIR:SwiftDriverExecution>/$<TARGET_FILE_BASE_NAME:SwiftDriverExecution>.pdb
+    DESTINATION bin
+    OPTIONAL)
+endif()
