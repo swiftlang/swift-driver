@@ -925,6 +925,9 @@ extension IncrementalTestHarness {
     if verboseTestOutput { print("*** replacing \(name) ***", to: &stderrStream); stderrStream.flush() }
     let path = inputPath(basename: name)
     let previousContents = try! localFileSystem.readFileContents(path).cString
+    // Ensure the modification time differs from the one recorded by the prior
+    // build, even on filesystems with coarse timestamp granularity.
+    touch(path)
     try! localFileSystem.writeFileContents(path) { $0.send(replacement) }
     let newContents = try! localFileSystem.readFileContents(path).cString
     #expect(previousContents != newContents, "\(path.pathString) unchanged after write")
