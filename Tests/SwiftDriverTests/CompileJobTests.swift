@@ -729,13 +729,13 @@ import Testing
       ])
       let abiFileCount = (driver.isFeatureSupported(.emit_abi_descriptor) && driver.targetTriple.isDarwin) ? 1 : 0
       let plannedJobs = try await driver.planBuild()
-      #if os(Linux) || os(Android)
-      #expect(plannedJobs.count == 3)
-      expectEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .link, .autolinkExtract]))
-      #else
-      #expect(plannedJobs.count == 2)
-      expectEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .link]))
-      #endif
+      if driver.isAutolinkExtractJobNeeded {
+        #expect(plannedJobs.count == 3)
+        expectEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .link, .autolinkExtract]))
+      } else {
+        #expect(plannedJobs.count == 2)
+        expectEqual(Set(plannedJobs.map { $0.kind }), Set([.compile, .link]))
+      }
 
       // The compile job produces both the object file and the module files.
       let compileJob = try plannedJobs.findJob(.compile)
