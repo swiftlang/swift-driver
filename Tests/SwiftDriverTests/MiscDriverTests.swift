@@ -464,6 +464,21 @@ import CRT
       }
       #expect(plannedJobs[1].commandLine.contains { $0 == .flag("-u__llvm_profile_runtime") })
     }
+
+    // On FreeBSD, the profile runtime is linked but `-u__llvm_profile_runtime`
+    // is not passed (LLVM emits the hook reference into instrumented objects,
+    // and clang's FreeBSD toolchain would report the flag as unused).
+    do {
+      var driver = try TestDriver(args: ["swiftc", "-profile-generate", "-target", "x86_64-unknown-freebsd14.3", "test.swift"])
+      let plannedJobs = try await driver.planBuild().removingAutolinkExtractJobs()
+
+      #expect(plannedJobs.count == 2)
+      #expect(plannedJobs[0].kind == .compile)
+
+      #expect(plannedJobs[1].kind == .link)
+      #expect(plannedJobs[1].commandLine.containsPathWithBasename("libclang_rt.profile-x86_64.a"))
+      #expect(!plannedJobs[1].commandLine.contains { $0 == .flag("-u__llvm_profile_runtime") })
+    }
     #endif
 
     // -profile-generate should add libclang_rt.profile for WebAssembly targets
@@ -660,6 +675,31 @@ import CRT
         #expect(plannedJobs[1].commandLine.containsPathWithBasename("libclang_rt.profile-x86_64.a"))
       }
       #expect(plannedJobs[1].commandLine.contains { $0 == .flag("-u__llvm_profile_runtime") })
+    }
+  }
+
+  /// The IR/CS profile-generate flags link `libclang_rt.profile` for FreeBSD
+  /// targets, but do not pass `-u__llvm_profile_runtime`: LLVM emits the
+  /// runtime hook reference into instrumented objects on non-Linux targets,
+  /// and clang's FreeBSD toolchain does not forward `-u` to the linker.
+  @Test(
+    .skipHostOS(.darwin, comment: "swift-autolink-extract is not present on Darwin"),
+    arguments: MiscDriverTests.profileGenerateVariants
+  )
+  func profileGenerateLinksRuntimeOnFreeBSD(variant: ProfileGenerateVariant) async throws {
+    try await withTemporaryDirectory { directory in
+      var driver = try TestDriver(args: [
+        "swiftc", variant.argument(directory: directory.pathString), "-target", "x86_64-unknown-freebsd14.3",
+        "test.swift",
+      ])
+      let plannedJobs = try await driver.planBuild().removingAutolinkExtractJobs()
+
+      #expect(plannedJobs.count == 2)
+      #expect(plannedJobs[0].kind == .compile)
+
+      #expect(plannedJobs[1].kind == .link)
+      #expect(plannedJobs[1].commandLine.containsPathWithBasename("libclang_rt.profile-x86_64.a"))
+      #expect(!plannedJobs[1].commandLine.contains { $0 == .flag("-u__llvm_profile_runtime") })
     }
   }
 

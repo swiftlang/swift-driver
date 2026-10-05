@@ -312,8 +312,17 @@ extension GenericUnixToolchain {
                                  "libclang_rt.profile-\(targetTriple.archName)\(environment).a")
         commandLine.appendPath(libProfile)
 
-        // HACK: Hard-coded from llvm::getInstrProfRuntimeHookVarName()
-        commandLine.appendFlag("-u__llvm_profile_runtime")
+        // On Linux (including Android), LLVM's InstrProfiling pass does not
+        // emit a reference to the runtime hook variable; it expects the
+        // linker to be invoked with -u<hook_var> instead, which clang's Linux
+        // toolchain does. On other targets (e.g. FreeBSD, OpenBSD), each
+        // instrumented object references the hook itself, so the flag isn't
+        // needed, and clang's drivers for those targets don't forward -u to
+        // the linker (producing an "argument unused" warning).
+        if targetTriple.os == .linux {
+          // HACK: Hard-coded from llvm::getInstrProfRuntimeHookVarName()
+          commandLine.appendFlag("-u__llvm_profile_runtime")
+        }
       }
 
       if let lto = lto {
