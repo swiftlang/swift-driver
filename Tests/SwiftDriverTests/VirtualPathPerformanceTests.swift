@@ -12,6 +12,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+// Opt-in, because timings are noisy on CI machines. Run with
+// `swift test -c release -Xswiftc -DSWIFT_DRIVER_ENABLE_BENCHMARKS --filter VirtualPathPerformanceTests`.
+#if SWIFT_DRIVER_ENABLE_BENCHMARKS
+
 import Foundation
 @_spi(Testing) import SwiftDriver
 import XCTest
@@ -43,24 +47,41 @@ final class VirtualPathPerformanceTests: XCTestCase {
     }
   }
 
-  /// The common case in a build: many threads resolve paths that are already interned, and some paths
-  /// (the SDK, shared output directories) are requested far more often than others.
-  func testConcurrentLookupOfInternedPathsPerformance() throws {
+  /// Many threads interning cached paths, the most common call in a build.
+  func testConcurrentInterningCachedPathsPerformance() throws {
     let workerCount = 16
-    let paths = Self.newPaths(count: Self.benchmarkSize(10_000), prefix: "interned")
-    let hotPath = paths[0]
+    let paths = Self.newPaths(count: Self.benchmarkSize(10_000), prefix: "cached")
     for path in paths {
       _ = try VirtualPath.intern(path: path)
     }
     measure {
       DispatchQueue.concurrentPerform(iterations: workerCount) { worker in
         for i in 0..<Self.benchmarkSize(50_000) {
-          let path = i.isMultiple(of: 4) ? hotPath : paths[(i &* 7 &+ worker &* 131) % paths.count]
-          let handle = try! VirtualPath.intern(path: path)
-          _ = VirtualPath.lookup(handle)
+          _ = try! VirtualPath.intern(path: paths[Self.index(i, worker: worker, count: paths.count)])
         }
       }
     }
+  }
+
+  /// The common case in a build: many threads resolve paths that are already interned, and some paths
+  /// (the SDK, shared output directories) are requested far more often than others.
+  func testConcurrentLookupOfInternedPathsPerformance() throws {
+    let workerCount = 16
+    let handles = try Self.newPaths(count: Self.benchmarkSize(10_000), prefix: "interned").map {
+      try VirtualPath.intern(path: $0)
+    }
+    measure {
+      DispatchQueue.concurrentPerform(iterations: workerCount) { worker in
+        for i in 0..<Self.benchmarkSize(50_000) {
+          _ = VirtualPath.lookup(handles[Self.index(i, worker: worker, count: handles.count)])
+        }
+      }
+    }
+  }
+
+  /// A quarter of the accesses hit one hot element, like the SDK path in a build.
+  private static func index(_ i: Int, worker: Int, count: Int) -> Int {
+    i.isMultiple(of: 4) ? 0 : (i &* 7 &+ worker &* 131) % count
   }
 
   /// Debug builds only check that the benchmarks work; the measured sizes need optimized code.
@@ -79,3 +100,5 @@ final class VirtualPathPerformanceTests: XCTestCase {
     return (0..<count).map { root.appending(components: "dir\($0 % 100)", "file\($0).swift").pathString }
   }
 }
+
+#endif

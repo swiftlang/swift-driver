@@ -33,9 +33,9 @@ import var TSCBasic.localFileSystem
 
 /// A virtual path.
 public enum VirtualPath: Hashable {
-  private static var pathCache = PathCache()
+  private static let pathCache = PathCache()
 
-  private static var temporaryFileStore = TemporaryFileStore()
+  private static let temporaryFileStore = TemporaryFileStore()
 
   /// A relative path that has not been resolved based on the current working
   /// directory.
@@ -378,24 +378,22 @@ extension VirtualPath {
 
     private func handle(for key: String, inShard index: Int) -> VirtualPath.Handle? {
       let shard = shards[index]
-      shard.lock.lock()
-      defer { shard.lock.unlock() }
-      return shard.uniquer[key]
+      return shard.lock.withLock { shard.uniquer[key] }
     }
 
     /// Returns the handle of `path`, stored under its canonical `cacheKey`, inserting it if needed.
     private func insert(_ path: VirtualPath, cacheKey: String) -> VirtualPath.Handle {
       let index = shardIndex(for: cacheKey)
       let shard = shards[index]
-      shard.lock.lock()
-      defer { shard.lock.unlock() }
-      if let existing = shard.uniquer[cacheKey] {
-        return existing
+      return shard.lock.withLock {
+        if let existing = shard.uniquer[cacheKey] {
+          return existing
+        }
+        let handle = VirtualPath.Handle(shard.table.count * Self.shardCount + index)
+        shard.uniquer[cacheKey] = handle
+        shard.table.append(path)
+        return handle
       }
-      let handle = VirtualPath.Handle(shard.table.count * Self.shardCount + index)
-      shard.uniquer[cacheKey] = handle
-      shard.table.append(path)
-      return handle
     }
 
     fileprivate func intern(_ key: String) throws -> VirtualPath.Handle {
@@ -424,29 +422,17 @@ extension VirtualPath {
       }
       // Record the spelling, so that interning it again skips validation.
       let shard = shards[keyShard]
-      shard.lock.lock()
-      defer { shard.lock.unlock() }
-      if let existing = shard.uniquer[key] {
-        return existing
+      return shard.lock.withLock {
+        if let existing = shard.uniquer[key] {
+          return existing
+        }
+        shard.uniquer[key] = handle
+        return handle
       }
-      shard.uniquer[key] = handle
-      return handle
     }
 
     fileprivate func intern(virtualPath path: VirtualPath) -> VirtualPath.Handle {
       insert(path, cacheKey: path.cacheKey)
-    }
-
-    fileprivate func lookupHandle(for path: VirtualPath) -> VirtualPath.Handle? {
-      switch path {
-      case .standardInput:
-        return .standardInput
-      case .standardOutput:
-        return .standardOutput
-      default:
-        let cacheKey = path.cacheKey
-        return handle(for: cacheKey, inShard: shardIndex(for: cacheKey))
-      }
     }
 
     fileprivate subscript(key: VirtualPath.Handle) -> VirtualPath {
@@ -457,9 +443,7 @@ extension VirtualPath {
         return .standardOutput
       default:
         let shard = shards[key.core % Self.shardCount]
-        shard.lock.lock()
-        defer { shard.lock.unlock() }
-        return shard.table[key.core / Self.shardCount]
+        return shard.lock.withLock { shard.table[key.core / Self.shardCount] }
       }
     }
   }
