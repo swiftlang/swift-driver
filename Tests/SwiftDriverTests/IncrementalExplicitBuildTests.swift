@@ -19,7 +19,7 @@ import TSCBasic
 import TestUtilities
 import Testing
 
-@Suite(.enabled(if: sdkArgumentsAvailable, "SDK not available"))
+@Suite(.enabled(if: sdkArgumentsAvailable, "SDK not available"), .realDependencyScan)
 struct IncrementalExplicitBuildTests: DiagVerifiable {
 
   // MARK: - Simple builds

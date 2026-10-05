@@ -13,6 +13,7 @@ add_library(SwiftDriver
   "ExplicitModuleBuilds/InterModuleDependencies/CommonDependencyOperations.swift"
   "ExplicitModuleBuilds/InterModuleDependencies/InterModuleDependencyGraph.swift"
   "ExplicitModuleBuilds/InterModuleDependencies/InterModuleDependencyOracle.swift"
+  "ExplicitModuleBuilds/InterModuleDependencies/TestHarnessInterModuleDependencyOracle.swift"
 
   SwiftScan/DependencyGraphBuilder.swift
   SwiftScan/Loader.swift

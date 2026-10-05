@@ -19,7 +19,7 @@ import TSCBasic
 import TestUtilities
 import Testing
 
-@Suite(.enabled(if: sdkArgumentsAvailable)) struct CrossModuleIncrementalBuildTests {
+@Suite(.enabled(if: sdkArgumentsAvailable), .realDependencyScan) struct CrossModuleIncrementalBuildTests {
   func makeOutputFileMap(
     in workingDirectory: AbsolutePath,
     module: String,
