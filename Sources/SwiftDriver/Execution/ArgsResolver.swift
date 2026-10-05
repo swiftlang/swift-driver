@@ -237,13 +237,3 @@ public final class ArgsResolver {
     }
   }
 }
-
-fileprivate extension NSLock {
-    /// NOTE: Keep in sync with SwiftPM's 'Sources/Basics/NSLock+Extensions.swift'
-    /// Execute the given block while holding the lock.
-    func withLock<T> (_ body: () throws -> T) rethrows -> T {
-        lock()
-        defer { unlock() }
-        return try body()
-    }
-}
