@@ -51,7 +51,7 @@ class IncrementalBuildPerformanceTests: XCTestCase {
     throw XCTSkip()
     #else
 
-    let packageRootPath = try AbsolutePath(validating: #file)
+    let packageRootPath = try AbsolutePath(validating: #filePath)
       .parentDirectory
       .parentDirectory
       .parentDirectory
