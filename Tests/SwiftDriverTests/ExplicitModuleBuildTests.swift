@@ -1180,6 +1180,82 @@ func getStdlibShimsPaths(_ driver: Driver) throws -> (AbsolutePath, AbsolutePath
     }
   }
 
+  // A whole-module build has no output-file-map, hence no build record to anchor the
+  // scan cache. Without an explicit -incremental-dependency-scan-cache-path the driver
+  // warns and does not use a cache (rather than deriving one into the build-products dir).
+  @Test func wholeModuleIncrementalDependencyScanCacheRequiresExplicitPath() async throws {
+    try await withTemporaryDirectory { path in
+      let (stdLibPath, shimsPath, _, hostTriple) = try getDriverArtifactsForScanning()
+      let main = path.appending(component: "main.swift")
+      try localFileSystem.writeFileContents(main, bytes: "import Swift")
+      let modulePath = path.appending(component: "Foo.swiftmodule")
+
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+      try await assertDriverDiagnostics(args: [
+        "swiftc",
+        "-I", stdLibPath.nativePathString(escaped: false),
+        "-I", shimsPath.nativePathString(escaped: false),
+        "-explicit-module-build",
+        "-whole-module-optimization",
+        "-incremental-dependency-scan",
+        "-emit-module",
+        "-emit-module-path", modulePath.nativePathString(escaped: false),
+        "-module-name", "Foo",
+        "-target", hostTriple.triple,
+        "-working-directory", path.nativePathString(escaped: false),
+        main.nativePathString(escaped: false),
+      ] + sdkArgumentsForTesting) { driver, verifier in
+        // The cache flags (and this warning) only apply to compilers new enough to support them.
+        guard driver.isFrontendArgSupported(.validatePriorDependencyScanCache) else { return }
+        verifier.expect(.warning("ignoring '-incremental-dependency-scan' in a non-incremental build without '-incremental-dependency-scan-cache-path'; the dependency scan cache will not be used"))
+
+        let resolver = try ArgsResolver(fileSystem: localFileSystem)
+        let scannerCommand = try driver.dependencyScannerInvocationCommand().1.map { try resolver.resolve($0) }
+        #expect(!scannerCommand.contains("-dependency-scan-cache-path"))
+        #expect(!scannerCommand.contains("-validate-prior-dependency-scan-cache"))
+      }
+    }
+  }
+
+  // An explicit -incremental-dependency-scan-cache-path overrides the derived path,
+  // letting the build system own the scan-cache location.
+  @Test func wholeModuleIncrementalDependencyScanCacheExplicitPath() throws {
+    try withTemporaryDirectory { path in
+      let (stdLibPath, shimsPath, _, hostTriple) = try getDriverArtifactsForScanning()
+      let main = path.appending(component: "main.swift")
+      try localFileSystem.writeFileContents(main, bytes: "import Swift")
+      let modulePath = path.appending(component: "Foo.swiftmodule")
+      let explicitCachePath = path.appending(component: "explicit.swiftmoduledeps")
+
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+      var driver = try TestDriver(
+        args: [
+          "swiftc",
+          "-I", stdLibPath.nativePathString(escaped: false),
+          "-I", shimsPath.nativePathString(escaped: false),
+          "-explicit-module-build",
+          "-whole-module-optimization",
+          "-incremental-dependency-scan",
+          "-incremental-dependency-scan-cache-path", explicitCachePath.nativePathString(escaped: false),
+          "-emit-module",
+          "-emit-module-path", modulePath.nativePathString(escaped: false),
+          "-module-name", "Foo",
+          "-target", hostTriple.triple,
+          "-working-directory", path.nativePathString(escaped: false),
+          main.nativePathString(escaped: false),
+        ] + sdkArgumentsForTesting
+      )
+
+      // The cache flags are only emitted by compilers new enough to support them.
+      guard driver.isFrontendArgSupported(.validatePriorDependencyScanCache) else { return }
+
+      let resolver = try ArgsResolver(fileSystem: localFileSystem)
+      let scannerCommand = try driver.dependencyScannerInvocationCommand().1.map { try resolver.resolve($0) }
+
+      #expect(scannerCommand.contains(subsequence: ["-dependency-scan-cache-path", explicitCachePath.pathString]))
+    }
+  }
+
   // Ensure that (even when not in '-incremental' mode) up-to-date module dependencies
   // do not get re-built
   @Test func explicitModuleBuildIncrementalEndToEnd() async throws {

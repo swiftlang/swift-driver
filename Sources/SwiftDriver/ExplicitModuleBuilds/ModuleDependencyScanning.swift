@@ -33,6 +33,9 @@ extension Diagnostic.Message {
   static func warn_scan_dylib_load_failed(_ libPath: String) -> Diagnostic.Message {
     .warning("In-process dependency scan query failed due to incompatible libSwiftScan (\(libPath)). Fallback to `swift-frontend` dependency scanner invocation. Specify '-nonlib-dependency-scanner' to silence this warning.")
   }
+  static func warn_incremental_dependency_scan_non_incremental_no_cache_path() -> Diagnostic.Message {
+    .warning("ignoring '-incremental-dependency-scan' in a non-incremental build without '-incremental-dependency-scan-cache-path'; the dependency scan cache will not be used")
+  }
   static func error_caching_enabled_libswiftscan_load_failure(_ libPath: String) -> Diagnostic.Message {
     .error("Swift Caching enabled - libSwiftScan load failed (\(libPath)).")
   }
@@ -102,6 +105,26 @@ public extension Driver {
                outputs: [TypedVirtualPath(file: .standardOutput, type: .jsonDependencies)])
   }
 
+  /// Path to serialize/reuse the dependency-scan cache: an explicit caller-provided
+  /// path when given, else the build-record location. A non-incremental build has no
+  /// build record to anchor the cache, so it must supply an explicit path; without one
+  /// the cache is disabled (and a warning is emitted).
+  private var dependencyScanSerializedResultPath: VirtualPath? {
+    mutating get {
+      if let explicitPath = parsedOptions.getLastArgument(.incrementalDependencyScanCachePath)?.asSingle {
+        return try? VirtualPath(path: explicitPath)
+      }
+      // The build record anchors the scan cache in incremental builds.
+      if let path = buildRecordInfo?.dependencyScanSerializedResultPath {
+        return path
+      }
+      // A non-incremental build has no build record to anchor the cache; the client
+      // must provide an explicit path. Without one, warn and do not use a cache.
+      diagnosticEngine.emit(.warn_incremental_dependency_scan_non_incremental_no_cache_path())
+      return nil
+    }
+  }
+
   /// Generate a full command-line invocation to be used for the dependency scanning action
   /// on the target module.
   @_spi(Testing) mutating func dependencyScannerInvocationCommand(forVariantModule: Bool = false)
@@ -160,20 +183,18 @@ public extension Driver {
       commandLine.appendFlag(moduleName)
     }
 
-    if shouldAttemptIncrementalCompilation &&
-       parsedOptions.contains(.incrementalDependencyScan) {
-      if let serializationPath = buildRecordInfo?.dependencyScanSerializedResultPath {
-        if isFrontendArgSupported(.validatePriorDependencyScanCache) {
-          // Any compiler which supports "-validate-prior-dependency-scan-cache"
-          // also supports "-load-dependency-scan-cache"
-          // and "-serialize-dependency-scan-cache" and "-dependency-scan-cache-path"
-          commandLine.appendFlag(.dependencyScanCachePath)
-          commandLine.appendPath(serializationPath)
-          commandLine.appendFlag(.reuseDependencyScanCache)
-          commandLine.appendFlag(.validatePriorDependencyScanCache)
-          commandLine.appendFlag(.serializeDependencyScanCache)
-        }
-      }
+    // The scan cache is independent of the compilation mode: enable it for any
+    // -incremental-dependency-scan build, including whole-module ones with no
+    // build record. -validate-prior-dependency-scan-cache implies support for
+    // the other three cache flags.
+    if parsedOptions.contains(.incrementalDependencyScan),
+       isFrontendArgSupported(.validatePriorDependencyScanCache),
+       let serializationPath = dependencyScanSerializedResultPath {
+      commandLine.appendFlag(.dependencyScanCachePath)
+      commandLine.appendPath(serializationPath)
+      commandLine.appendFlag(.reuseDependencyScanCache)
+      commandLine.appendFlag(.validatePriorDependencyScanCache)
+      commandLine.appendFlag(.serializeDependencyScanCache)
     }
 
     if isFrontendArgSupported(.autoBridgingHeaderChaining) {

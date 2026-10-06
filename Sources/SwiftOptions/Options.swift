@@ -656,6 +656,7 @@ extension Option {
   public static let includeSpiSymbols: Option = Option("-include-spi-symbols", .flag, attributes: [.helpHidden, .frontend, .noInteractive, .supplementaryOutput], helpText: "Add symbols with SPI information to the symbol graph")
   public static let includeSubmodules: Option = Option("-include-submodules", .flag, attributes: [.noDriver, .synthesizeInterface], helpText: "Also print the declarations synthesized for any Clang submodules")
   public static let incrementalDependencyScan: Option = Option("-incremental-dependency-scan", .flag, attributes: [.helpHidden], helpText: "Re-use/validate prior build dependency scan artifacts")
+  public static let incrementalDependencyScanCachePath: Option = Option("-incremental-dependency-scan-cache-path", .separate, attributes: [.helpHidden, .argumentIsPath], metaVar: "<path>", helpText: "Specify the path to serialize/reuse the dependency scan cache")
   public static let incremental: Option = Option("-incremental", .flag, attributes: [.helpHidden, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Perform an incremental build if possible")
   public static let indentSwitchCase: Option = Option("-indent-switch-case", .flag, attributes: [.noInteractive, .noBatch], helpText: "Indent cases in switch statements.", group: .codeFormatting)
   public static let indentWidth: Option = Option("-indent-width", .separate, attributes: [.noInteractive, .noBatch], metaVar: "<n>", helpText: "Number of characters to indent.", group: .codeFormatting)
@@ -1718,6 +1719,7 @@ extension Option {
       Option.includeSpiSymbols,
       Option.includeSubmodules,
       Option.incrementalDependencyScan,
+      Option.incrementalDependencyScanCachePath,
       Option.incremental,
       Option.indentSwitchCase,
       Option.indentWidth,
