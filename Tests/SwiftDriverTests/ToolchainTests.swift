@@ -396,6 +396,30 @@ import CRT
       )
     }
 
+    do {
+      var env = ProcessEnv.block
+      env["SDKROOT"] = SDKROOT.nativePathString(escaped: false)
+
+      var driver = try TestDriver(
+        args: [
+          "swiftc", "-emit-library", "-o", "library.dll", "library.obj",
+          "-enable-experimental-feature", "Embedded",
+        ],
+        env: env
+      )
+      let jobs = try await driver.planBuild().removingAutolinkExtractJobs()
+      #expect(jobs.count == 1)
+      let job = jobs.first!
+      expectEqual(job.kind, .link)
+      #expect(
+        !job.commandLine.contains(
+          .path(.absolute(SDKROOT.appending(components: "usr", "lib", "swift", platform, arch, "swiftrt.obj")))
+        )
+      )
+      #expect(job.commandLine.contains(.flag("-lmsvcrt")))
+      #expect(job.commandLine.contains(.flag("-loldnames")))
+    }
+
     // Cannot test this due to `SDKROOT` escaping from the execution environment
     // into the `-print-target-info` step, which then resets the
     // `runtimeResourcePath` to be the SDK relative path rahter than the

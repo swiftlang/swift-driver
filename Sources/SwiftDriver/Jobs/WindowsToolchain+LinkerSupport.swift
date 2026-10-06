@@ -30,6 +30,16 @@ private func architecture(for triple: Triple) -> String {
   return triple.archName
 }
 
+/// The MSVC C runtime library selected by a `-libc` value, defaulting to `/MD`.
+private func cRuntimeLibrary(for libc: String?) -> String {
+  switch libc ?? "MD" {
+  case "MDd", "MultiThreadedDebugDLL", "shared-debug-ucrt": "msvcrtd"
+  case "MT", "MultiThreaded", "static-ucrt": "libcmt"
+  case "MTd", "MultiThreadedDebug", "static-debug-ucrt": "libcmtd"
+  default: "msvcrt"
+  }
+}
+
 extension WindowsToolchain {
   public func addPlatformSpecificLinkerArgs(to commandLine: inout [Job.ArgTemplate],
                                             parsedOptions: inout ParsedOptions,
@@ -174,7 +184,15 @@ extension WindowsToolchain {
       commandLine.appendPath(VirtualPath.lookup(libpath.path))
     }
 
-    if !parsedOptions.hasArgument(.nostartfiles) {
+    if parsedOptions.isEmbeddedEnabled {
+      // Embedded Swift doesn't autolink, so its objects don't name the C
+      // runtime that `-libc` selects.
+      commandLine.appendFlag("-l\(cRuntimeLibrary(for: parsedOptions.getLastArgument(.libc)?.asSingle))")
+      commandLine.appendFlag("-loldnames")
+    }
+
+    // Embedded Swift has no runtime to register the image's metadata with.
+    if !parsedOptions.hasArgument(.nostartfiles) && !parsedOptions.isEmbeddedEnabled {
       // Locate the Swift registration helper by honouring any explicit
       // `-resource-dir`, `-sdk`, or the `SDKROOT` environment variable, and
       // finally falling back to the target information.
