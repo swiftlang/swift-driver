@@ -99,6 +99,11 @@ final class JobServer {
 
   private static let fifoPrefix = "fifo:"
 
+  /// GNU make 4.2 renamed `--jobserver-fds` to `--jobserver-auth`; the old
+  /// spelling is still what make 3.81 (macOS's `/usr/bin/make`) emits, so both
+  /// are accepted.
+  private static let authenticationPrefixes = ["--jobserver-auth=", "--jobserver-fds="]
+
   /// Creates a client for the jobserver advertised in `MAKEFLAGS`, or returns
   /// `nil` if this build has not opted in to jobserver participation (via the
   /// `-experimental-use-gnu-jobserver` swiftc flag) or is not
@@ -123,17 +128,13 @@ final class JobServer {
   }
 
   /// Extracts the jobserver authentication string from the value of
-  /// `MAKEFLAGS`, or returns `nil` if it does not advertise a pool.
-  ///
-  /// GNU make 4.2 renamed `--jobserver-fds` to `--jobserver-auth`; the old
-  /// spelling is still what make 3.81 (macOS's `/usr/bin/make`) emits, so both
-  /// are accepted. The last occurrence wins.
+  /// `MAKEFLAGS`, or returns `nil` if it does not advertise a pool. The last
+  /// occurrence wins.
   static func parseAuthentication(from makeFlags: String) -> String? {
-    let prefixes = ["--jobserver-auth=", "--jobserver-fds="]
     var authentication: String? = nil
-    for flag in makeFlags.split(separator: " ") {
-      for prefix in prefixes where flag.hasPrefix(prefix) {
-        authentication = String(flag.dropFirst(prefix.count))
+    for word in words(in: makeFlags) {
+      if let prefix = authenticationPrefix(of: word) {
+        authentication = unescaped(word.dropFirst(prefix.count))
       }
     }
     return authentication
@@ -148,13 +149,55 @@ final class JobServer {
   /// omits the pool from a recipe it does not treat as recursive.
   static func censoringAuthentication(in env: ProcessEnvironmentBlock) -> ProcessEnvironmentBlock {
     guard let makeFlags = env["MAKEFLAGS"] else { return env }
-    let prefixes = ["--jobserver-auth=", "--jobserver-fds="]
-    let kept = makeFlags.split(separator: " ").filter { flag in
-      !prefixes.contains { flag.hasPrefix($0) }
-    }
+    let kept = words(in: makeFlags).filter { authenticationPrefix(of: $0) == nil }
     var censored = env
     censored["MAKEFLAGS"] = kept.isEmpty ? nil : kept.joined(separator: " ")
     return censored
+  }
+
+  private static func authenticationPrefix(of word: Substring) -> String? {
+    authenticationPrefixes.first { word.hasPrefix($0) }
+  }
+
+  /// Splits `MAKEFLAGS` on spaces, except those make escaped with a backslash
+  /// (e.g. in a FIFO path). Words keep their escapes, so they can be rejoined
+  /// verbatim.
+  private static func words(in makeFlags: String) -> [Substring] {
+    var words: [Substring] = []
+    var wordStart = makeFlags.startIndex
+    var isEscaped = false
+    for index in makeFlags.indices {
+      let character = makeFlags[index]
+      if isEscaped {
+        isEscaped = false
+      } else if character == "\\" {
+        isEscaped = true
+      } else if character == " " {
+        if wordStart < index {
+          words.append(makeFlags[wordStart..<index])
+        }
+        wordStart = makeFlags.index(after: index)
+      }
+    }
+    if wordStart < makeFlags.endIndex {
+      words.append(makeFlags[wordStart...])
+    }
+    return words
+  }
+
+  /// Removes make's backslash escapes from a word of `MAKEFLAGS`.
+  private static func unescaped(_ word: Substring) -> String {
+    var result = ""
+    var isEscaped = false
+    for character in word {
+      if !isEscaped && character == "\\" {
+        isEscaped = true
+        continue
+      }
+      isEscaped = false
+      result.append(character)
+    }
+    return result
   }
 
 #if os(Windows)
@@ -416,8 +459,9 @@ final class JobServerDispatcher {
   private var hasBrokerFinished = false
 
   /// How long `shutDown` waits for the broker before giving up. The broker can
-  /// be parked in an uninterruptible read, and hanging teardown is worse than
-  /// leaking a token from a build that is ending anyway.
+  /// be parked in an uninterruptible read, and a teardown that can block
+  /// indefinitely is worse than leaking a token from a build that is ending
+  /// anyway.
   private static let brokerShutDownTimeout: TimeInterval = 5
 
   init(jobServer: JobServer, queue: OperationQueue, fallbackJobLimit: Int) {

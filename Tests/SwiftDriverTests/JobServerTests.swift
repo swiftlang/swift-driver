@@ -47,6 +47,10 @@ final class JobServerTests: XCTestCase {
     XCTAssertEqual(JobServer.parseAuthentication(from: "--jobserver-auth=fifo:/tmp/GMfifo1"),
                    "fifo:/tmp/GMfifo1")
 
+    XCTAssertEqual(
+      JobServer.parseAuthentication(from: #"-j --jobserver-auth=fifo:/tmp/js\ audit/GMfifo7872 --debug"#),
+      "fifo:/tmp/js audit/GMfifo7872")
+
     // Later flags override earlier ones, so the last occurrence wins.
     XCTAssertEqual(JobServer.parseAuthentication(from: "--jobserver-fds=1,2 --jobserver-auth=5,6"),
                    "5,6")
@@ -61,6 +65,11 @@ final class JobServerTests: XCTestCase {
       JobServer.censoringAuthentication(
         in: ProcessEnvironmentBlock(["MAKEFLAGS": "w -j --jobserver-auth=3,4 --debug"]))["MAKEFLAGS"],
       "w -j --debug")
+
+    XCTAssertEqual(
+      JobServer.censoringAuthentication(
+        in: ProcessEnvironmentBlock(["MAKEFLAGS": #"-I a\ b --jobserver-auth=fifo:/tmp/js\ audit/f"#]))["MAKEFLAGS"],
+      #"-I a\ b"#)
 
     // With nothing left, MAKEFLAGS is dropped rather than left empty.
     XCTAssertNil(

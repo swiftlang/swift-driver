@@ -892,6 +892,7 @@ import Testing
     var env = ProcessEnv.block
     env["SWIFTC_MAXIMUM_DETERMINISM"] = "1"
     try expectEqual(try TestDriver(args: ["swiftc", "-j", "4"], env: env).numParallelJobs, 1)
+    try expectEqual(try TestDriver(args: ["swiftc"], env: env).numParallelJobs, 1)
   }
 
   @Test func gnuJobserverOptIn() throws {

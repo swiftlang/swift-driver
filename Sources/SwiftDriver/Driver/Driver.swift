@@ -2090,7 +2090,8 @@ extension Driver {
       workload: .init(allJobs,
                       incrementalCompilationState,
                       continueBuildingAfterErrors: continueBuildingAfterErrors,
-                      useGnuJobserver: useGnuJobserver),
+                      useGnuJobserver: useGnuJobserver,
+                      hasExplicitJobLimit: numParallelJobs != nil),
       delegate: jobExecutionDelegate,
       numParallelJobs: numParallelJobs ?? 1,
       forceResponseFiles: forceResponseFiles,
@@ -2668,17 +2669,17 @@ extension Driver {
     diagnosticsEngine: DiagnosticsEngine,
     env: ProcessEnvironmentBlock
   ) -> Int? {
-    guard let numJobs = parseIntOption(&parsedOptions, option: .j, diagnosticsEngine: diagnosticsEngine) else {
-      return nil
-    }
+    let numJobs = parseIntOption(&parsedOptions, option: .j, diagnosticsEngine: diagnosticsEngine)
 
-    guard numJobs >= 1 else {
+    if let numJobs = numJobs, numJobs < 1 {
       diagnosticsEngine.emit(.error_invalid_arg_value(arg: .j, value: String(numJobs)))
       return nil
     }
 
     if let determinismRequested = env["SWIFTC_MAXIMUM_DETERMINISM"], !determinismRequested.isEmpty {
-      diagnosticsEngine.emit(.remark_max_determinism_overriding(.j))
+      if numJobs != nil {
+        diagnosticsEngine.emit(.remark_max_determinism_overriding(.j))
+      }
       return 1
     }
 

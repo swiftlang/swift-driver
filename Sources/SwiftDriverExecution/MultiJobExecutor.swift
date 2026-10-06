@@ -359,11 +359,11 @@ public final class MultiJobExecutor {
     jobQueue.name = "org.swift.driver.job-execution"
     let jobServerDispatcher: JobServerDispatcher?
     if let jobServer = jobServer {
-      // A jobserver is a build-wide concurrency limit, so when there is one the
-      // tokens we hold -- not `-j` -- bound how many jobs run. Capping the queue
-      // at `numParallelJobs` would cap us below the pool, and since `-j`
-      // defaults to 1 that would serialize the very builds a jobserver widens.
-      jobQueue.maxConcurrentOperationCount = Int.max
+      // A jobserver is a build-wide concurrency limit, so the tokens we hold
+      // bound how many jobs run. An explicit `-j` still caps us below that, but
+      // the default of 1 must not, or it would serialize the very builds a
+      // jobserver widens.
+      jobQueue.maxConcurrentOperationCount = workload.hasExplicitJobLimit ? numParallelJobs : Int.max
       jobServerDispatcher = JobServerDispatcher(jobServer: jobServer, queue: jobQueue,
                                                 fallbackJobLimit: numParallelJobs)
     } else {
