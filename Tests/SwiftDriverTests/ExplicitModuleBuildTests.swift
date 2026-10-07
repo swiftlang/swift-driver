@@ -232,6 +232,44 @@ func getStdlibShimsPaths(_ driver: Driver) throws -> (AbsolutePath, AbsolutePath
     }
   }
 
+  /// The scanner reads only Swift sources, so an invocation without any keeps
+  /// the default off, such as compiling SIL or building a Clang module.
+  @Test func inputsWithoutSwiftSourcesSkipDependencyScanning() async throws {
+    try await withTemporaryDirectory { path in
+      let sil = path.appending(component: "main.sil")
+      try localFileSystem.writeFileContents(sil, bytes: "sil_stage canonical\n")
+      let moduleMap = path.appending(component: "module.modulemap")
+      try localFileSystem.writeFileContents(moduleMap, bytes: "module M { header \"M.h\" }\n")
+      try localFileSystem.writeFileContents(path.appending(component: "M.h"), bytes: "")
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+
+      for args in [
+        ["-emit-ir", sil.nativePathString(escaped: false)],
+        ["-emit-pcm", "-module-name", "M", moduleMap.nativePathString(escaped: false)],
+      ] {
+        var driver = try TestDriver(args: ["swiftc"] + args + sdkArgumentsForTesting)
+        let jobs = try await driver.planBuild()
+        #expect(!driver.diagnosticEngine.hasErrors, "\(args[0]) should plan without scanning")
+        #expect(!driver.isExplicitModuleBuildEnabled, "\(args[0]) has no Swift sources to scan")
+        #expect(
+          !jobs.contains { $0.commandLine.contains(.flag("-clang-target")) },
+          "\(args[0]) should not take the explicit build's Clang target"
+        )
+      }
+
+      // Standard input can be read only once, by the job that compiles it, so
+      // the scanner must not read it first. Planning would scan, so only check
+      // the mode, which is decided before any input is read.
+      let stdinDriver = try TestDriver(
+        args: [
+          "swiftc", "-emit-module", "-module-name", "M",
+          "-o", path.appending(component: "M.swiftmodule").nativePathString(escaped: false), "-",
+        ] + sdkArgumentsForTesting
+      )
+      #expect(!stdinDriver.isExplicitModuleBuildEnabled, "standard input has no source file to scan")
+    }
+  }
+
   @Test func moduleDependencyBuildCommandGeneration() async throws {
     do {
       let driver = try TestDriver(args: [
