@@ -270,6 +270,30 @@ func getStdlibShimsPaths(_ driver: Driver) throws -> (AbsolutePath, AbsolutePath
     }
   }
 
+  /// An explicit build imports each SDK interface's Clang dependencies with
+  /// this compilation's API notes version. Swift 4 API notes rename APIs that
+  /// interfaces written for later modes use, so Swift 4 keeps the default off.
+  @Test func swift4LanguageModeKeepsImplicitModuleBuild() throws {
+    try withTemporaryDirectory { path in
+      let main = path.appending(component: "main.swift")
+      try localFileSystem.writeFileContents(main, bytes: "let x = 1\n")
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+
+      for (version, expectExplicit) in [("4", false), ("4.2", true), ("5", true)] {
+        let driver = try TestDriver(
+          args: ["swiftc", "-swift-version", version, main.nativePathString(escaped: false)]
+            + sdkArgumentsForTesting
+        )
+        #expect(driver.isExplicitModuleBuildEnabled == expectExplicit, "-swift-version \(version)")
+      }
+      let requested = try TestDriver(
+        args: ["swiftc", "-swift-version", "4", "-explicit-module-build", main.nativePathString(escaped: false)]
+          + sdkArgumentsForTesting
+      )
+      #expect(requested.isExplicitModuleBuildEnabled, "an explicit request is still honored")
+    }
+  }
+
   @Test func moduleDependencyBuildCommandGeneration() async throws {
     do {
       let driver = try TestDriver(args: [
