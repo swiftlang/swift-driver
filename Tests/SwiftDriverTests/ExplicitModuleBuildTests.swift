@@ -1264,6 +1264,44 @@ func getStdlibShimsPaths(_ driver: Driver) throws -> (AbsolutePath, AbsolutePath
     }
   }
 
+  /// With `-o -` the compile job's product is its standard output. Once module
+  /// jobs run alongside it, the compile runs as a child of the driver, and its
+  /// standard output must still reach the driver's.
+  @Test func explicitBuildWritesStandardOutputProductToStandardOutput() async throws {
+    let (stdlibPath, shimsPath, _, _) = try getDriverArtifactsForScanning()
+    try await withTemporaryDirectory { path in
+      let moduleCachePath = path.appending(component: "ModuleCache")
+      try localFileSystem.createDirectory(moduleCachePath)
+      let main = path.appending(component: "main.swift")
+      try localFileSystem.writeFileContents(main, bytes: "let x = 1")
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+
+      var driver = try TestDriver(
+        args: [
+          "swiftc",
+          "-I", stdlibPath.nativePathString(escaped: false),
+          "-I", shimsPath.nativePathString(escaped: false),
+          "-explicit-module-build",
+          "-module-cache-path", moduleCachePath.nativePathString(escaped: false),
+          "-working-directory", path.nativePathString(escaped: false),
+          "-disable-implicit-concurrency-module-import",
+          "-disable-implicit-string-processing-module-import",
+          "-emit-ir", "-o", "-", main.nativePathString(escaped: false),
+        ] + sdkArgumentsForTesting,
+        // The integrated driver discards job output; a standalone one relays it.
+        integratedDriver: false
+      )
+      let jobs = try await driver.planBuild()
+      // A single job would run in place, replacing this process.
+      try #require(jobs.count > 1, "the empty module cache should add module jobs")
+
+      try await driver.run(jobs: jobs)
+      #expect(!driver.diagnosticEngine.hasErrors)
+      #expect(driver.capturedStdout.contains("; ModuleID"))
+      #expect(!driver.capturedStderr.contains("; ModuleID"))
+    }
+  }
+
   @Test func registerModuleDependencyFlag() async throws {
     let (stdlibPath, shimsPath, _, _) = try getDriverArtifactsForScanning()
     try await withTemporaryDirectory { path in
