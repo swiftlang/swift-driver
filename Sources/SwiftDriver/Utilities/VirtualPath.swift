@@ -18,6 +18,12 @@ import class Dispatch.DispatchQueue
 
 #if canImport(Darwin)
 import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#elseif canImport(Musl)
+import Musl
+#elseif canImport(Android)
+import Android
 #endif
 
 import enum TSCBasic.SystemError
@@ -795,6 +801,20 @@ extension TSCBasic.FileSystem {
       }
       return TimePoint(seconds: UInt64(s.st_mtimespec.tv_sec),
                        nanoseconds: UInt32(s.st_mtimespec.tv_nsec))
+      #elseif canImport(Glibc) || canImport(Musl) || canImport(Android)
+      // Use `stat` directly rather than going through Foundation so that the
+      // sub-second component of the modification time is retained. Truncating
+      // to whole seconds makes ordering comparisons between files written
+      // within the same second ambiguous, e.g. when deciding whether an
+      // emit-module job's outputs are newer than its inputs. `stat` follows
+      // symbolic links, so the modification time of the linked file is returned.
+      var s = stat()
+      let err = stat(path.pathString, &s)
+      guard err == 0 else {
+        throw SystemError.stat(errno, path.pathString)
+      }
+      return TimePoint(seconds: UInt64(s.st_mtim.tv_sec),
+                       nanoseconds: UInt32(s.st_mtim.tv_nsec))
       #else
       // `getFileInfo` is going to ask Foundation to stat this path, and
       // Foundation is always going to use `lstat` to do so. This is going to
