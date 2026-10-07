@@ -1063,16 +1063,6 @@ public struct Driver {
                                                                      fileSystem: self.fileSystem,
                                                                      compilerIntegratedTooling: self.compilerIntegratedTooling)
 
-    // `-nonlib-dependency-scanner` asks for the out-of-process scanner instead
-    // of a libSwiftScan instance, so scanning remains possible without one.
-    let canScanDependencies = self.swiftScanLibInstance != nil
-      || parsedOptions.hasArgument(.driverScanDependenciesNonLib)
-    self.isExplicitModuleBuildEnabled = Self.computeIsExplicitModuleBuildEnabled(
-      &parsedOptions,
-      driverKind: self.driverKind,
-      canScanDependencies: canScanDependencies,
-      diagnosticsEngine: diagnosticEngine)
-
     // Compute the host machine's triple
     self.hostTriple =
       try Self.computeHostTriple(&self.parsedOptions, diagnosticsEngine: diagnosticEngine,
@@ -1095,6 +1085,17 @@ public struct Driver {
     // Classify and collect all of the input files.
     let inputFiles = try Self.collectInputFiles(&self.parsedOptions, diagnosticsEngine: diagnosticsEngine, fileSystem: self.fileSystem)
     self.inputFiles = inputFiles
+
+    // `-nonlib-dependency-scanner` asks for the out-of-process scanner instead
+    // of a libSwiftScan instance, so scanning remains possible without one.
+    let canScanDependencies = self.swiftScanLibInstance != nil
+      || parsedOptions.hasArgument(.driverScanDependenciesNonLib)
+    self.isExplicitModuleBuildEnabled = Self.computeIsExplicitModuleBuildEnabled(
+      &parsedOptions,
+      driverKind: self.driverKind,
+      inputFiles: inputFiles,
+      canScanDependencies: canScanDependencies,
+      diagnosticsEngine: diagnosticEngine)
 
     let incrementalFileHashes = parsedOptions.hasFlag(positive: .enableIncrementalFileHashing,
                                                       negative: .disableIncrementalFileHashing,
@@ -3876,11 +3877,12 @@ extension Driver {
   ///
   /// Without an explicit `-explicit-module-build` or `-no-explicit-module-build`,
   /// in `swiftc` batch mode, explicit module builds are enabled by default
-  /// unless the action only parses its inputs or dependencies cannot be
-  /// scanned at all.
+  /// unless the action only parses its inputs, there are no Swift source files
+  /// to scan, or dependencies cannot be scanned at all.
   static func computeIsExplicitModuleBuildEnabled(
     _ parsedOptions: inout ParsedOptions,
     driverKind: DriverKind,
+    inputFiles: [TypedVirtualPath],
     canScanDependencies: Bool,
     diagnosticsEngine: DiagnosticsEngine
   ) -> Bool {
@@ -3892,6 +3894,12 @@ extension Driver {
     // Scanning for an action that never loads modules is wasted work, and it
     // turns an unresolvable import into an error the action would not hit.
     guard !isParseOnlyAction(&parsedOptions) else { return false }
+    // The scanner reads only Swift source files, so there is nothing to scan
+    // when compiling SIL or building and dumping Clang modules. Standard input
+    // must be left for the job that compiles it, since it can be read once.
+    guard inputFiles.contains(where: { $0.type == .swift && $0.file != .standardInput }) else {
+      return false
+    }
     guard canScanDependencies else {
       diagnosticsEngine.emit(
         .warning("libSwiftScan is unavailable; disabling the default explicit module build for this swiftc invocation. Pass -explicit-module-build to force it on, or -no-explicit-module-build to silence this warning."),
