@@ -217,6 +217,8 @@ typedef struct {
   (*swiftscan_clang_detail_get_context_hash)(swiftscan_module_details_t);
   swiftscan_string_set_t *
   (*swiftscan_clang_detail_get_command_line)(swiftscan_module_details_t);
+  swiftscan_string_set_t *
+  (*swiftscan_clang_detail_get_directory_deps)(swiftscan_module_details_t);
   swiftscan_string_ref_t
   (*swiftscan_clang_detail_get_module_cache_key)(swiftscan_module_details_t);
 
@@ -264,6 +266,8 @@ typedef struct {
   //=== Scanner Functions ---------------------------------------------------===//
   swiftscan_scanner_t (*swiftscan_scanner_create)(void);
   void (*swiftscan_scanner_dispose)(swiftscan_scanner_t);
+  void (*swiftscan_scanner_add_invalidated_paths)(swiftscan_scanner_t,
+                                                  const char **, size_t);
   swiftscan_dependency_graph_t
   (*swiftscan_dependency_graph_create)(swiftscan_scanner_t, swiftscan_scan_invocation_t);
   swiftscan_import_set_t
