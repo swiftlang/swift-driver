@@ -353,7 +353,7 @@ public final class MultiJobExecutor {
 
     // The frontends we launch are not jobserver clients, so keep the pool out of
     // their environment when we are participating in one.
-    let childEnv = jobServer != nil ? JobServer.censoringAuthentication(in: env) : env
+    let childEnv = jobServer != nil ? GnuJobserverFlags.censoringAuthentication(in: env) : env
 
     let jobQueue = OperationQueue()
     jobQueue.name = "org.swift.driver.job-execution"

@@ -23,6 +23,8 @@ import class TSCBasic.DiagnosticsEngine
 import struct TSCBasic.Diagnostic
 import typealias TSCBasic.ProcessEnvironmentBlock
 
+import SwiftDriver
+
 #if os(Windows)
 import WinSDK
 #elseif canImport(Darwin)
@@ -99,11 +101,6 @@ final class JobServer {
 
   private static let fifoPrefix = "fifo:"
 
-  /// GNU make 4.2 renamed `--jobserver-fds` to `--jobserver-auth`; the old
-  /// spelling is still what make 3.81 (macOS's `/usr/bin/make`) emits, so both
-  /// are accepted.
-  private static let authenticationPrefixes = ["--jobserver-auth=", "--jobserver-fds="]
-
   /// Creates a client for the jobserver advertised in `MAKEFLAGS`, or returns
   /// `nil` if this build has not opted in to jobserver participation (via the
   /// `-experimental-use-gnu-jobserver` swiftc flag) or is not
@@ -114,7 +111,7 @@ final class JobServer {
     // Opt-in: without the flag nothing changes, even when a pool is advertised.
     guard enabled else { return nil }
     guard let makeFlags = env["MAKEFLAGS"],
-          let auth = parseAuthentication(from: makeFlags) else {
+          let auth = GnuJobserverFlags.parseAuthentication(from: makeFlags) else {
       // Not running under a jobserver: leave concurrency to `-j`, as before.
       return nil
     }
@@ -125,79 +122,6 @@ final class JobServer {
       return nil
     }
     return jobServer
-  }
-
-  /// Extracts the jobserver authentication string from the value of
-  /// `MAKEFLAGS`, or returns `nil` if it does not advertise a pool. The last
-  /// occurrence wins.
-  static func parseAuthentication(from makeFlags: String) -> String? {
-    var authentication: String? = nil
-    for word in words(in: makeFlags) {
-      if let prefix = authenticationPrefix(of: word) {
-        authentication = unescaped(word.dropFirst(prefix.count))
-      }
-    }
-    return authentication
-  }
-
-  /// Returns `env` with the jobserver authentication stripped from `MAKEFLAGS`,
-  /// leaving the rest of the value intact.
-  ///
-  /// The compiler frontends we launch are not jobserver clients -- their copies
-  /// of the pool descriptors are closed on exec -- so advertising the pool to
-  /// them would only invite a stray client to drain it. This mirrors how make
-  /// omits the pool from a recipe it does not treat as recursive.
-  static func censoringAuthentication(in env: ProcessEnvironmentBlock) -> ProcessEnvironmentBlock {
-    guard let makeFlags = env["MAKEFLAGS"] else { return env }
-    let kept = words(in: makeFlags).filter { authenticationPrefix(of: $0) == nil }
-    var censored = env
-    censored["MAKEFLAGS"] = kept.isEmpty ? nil : kept.joined(separator: " ")
-    return censored
-  }
-
-  private static func authenticationPrefix(of word: Substring) -> String? {
-    authenticationPrefixes.first { word.hasPrefix($0) }
-  }
-
-  /// Splits `MAKEFLAGS` on spaces, except those make escaped with a backslash
-  /// (e.g. in a FIFO path). Words keep their escapes, so they can be rejoined
-  /// verbatim.
-  private static func words(in makeFlags: String) -> [Substring] {
-    var words: [Substring] = []
-    var wordStart = makeFlags.startIndex
-    var isEscaped = false
-    for index in makeFlags.indices {
-      let character = makeFlags[index]
-      if isEscaped {
-        isEscaped = false
-      } else if character == "\\" {
-        isEscaped = true
-      } else if character == " " {
-        if wordStart < index {
-          words.append(makeFlags[wordStart..<index])
-        }
-        wordStart = makeFlags.index(after: index)
-      }
-    }
-    if wordStart < makeFlags.endIndex {
-      words.append(makeFlags[wordStart...])
-    }
-    return words
-  }
-
-  /// Removes make's backslash escapes from a word of `MAKEFLAGS`.
-  private static func unescaped(_ word: Substring) -> String {
-    var result = ""
-    var isEscaped = false
-    for character in word {
-      if !isEscaped && character == "\\" {
-        isEscaped = true
-        continue
-      }
-      isEscaped = false
-      result.append(character)
-    }
-    return result
   }
 
 #if os(Windows)

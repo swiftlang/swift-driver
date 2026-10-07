@@ -984,7 +984,7 @@ public struct Driver {
     self.showJobLifecycle = parsedOptions.contains(.driverShowJobLifecycle)
 
     // Determine the compilation mode.
-    self.compilerMode = try Self.computeCompilerMode(&parsedOptions, driverKind: driverKind, diagnosticsEngine: diagnosticEngine)
+    self.compilerMode = try Self.computeCompilerMode(&parsedOptions, driverKind: driverKind, env: env, diagnosticsEngine: diagnosticEngine)
 
     self.shouldAttemptIncrementalCompilation = Self.shouldAttemptIncrementalCompilation(&parsedOptions,
                                                                                         diagnosticEngine: diagnosticsEngine,
@@ -2314,6 +2314,7 @@ extension Driver {
   private static func computeCompilerMode(
     _ parsedOptions: inout ParsedOptions,
     driverKind: DriverKind,
+    env: ProcessEnvironmentBlock,
     diagnosticsEngine: DiagnosticsEngine
   ) throws -> CompilerMode {
     // Some output flags affect the compiler mode.
@@ -2386,6 +2387,15 @@ extension Driver {
 
     // For batch mode, collect information
     if wantBatchMode {
+      // Batches are fixed here, but a jobserver sizes concurrency at runtime;
+      // without `-j` they'd be sized for one job and cap the tokens we can use.
+      if parsedOptions.contains(.experimentalUseGnuJobserver),
+         !parsedOptions.hasArgument(.j),
+         let makeFlags = env["MAKEFLAGS"],
+         GnuJobserverFlags.parseAuthentication(from: makeFlags) != nil {
+        diagnosticsEngine.emit(.warn_ignoring_batch_mode_for_jobserver)
+        return .standardCompile
+      }
       let batchSeed = parseIntOption(&parsedOptions, option: .driverBatchSeed, diagnosticsEngine: diagnosticsEngine)
       let batchCount = parseIntOption(&parsedOptions, option: .driverBatchCount, diagnosticsEngine: diagnosticsEngine)
       let batchSizeLimit = parseIntOption(&parsedOptions, option: .driverBatchSizeLimit, diagnosticsEngine: diagnosticsEngine)
@@ -2399,6 +2409,10 @@ extension Driver {
 extension Diagnostic.Message {
   static func warn_ignoring_batch_mode(_ option: Option) -> Diagnostic.Message {
     .warning("ignoring '-enable-batch-mode' because '\(option.spelling)' was also specified")
+  }
+
+  static var warn_ignoring_batch_mode_for_jobserver: Diagnostic.Message {
+    .warning("ignoring '-enable-batch-mode' because '-experimental-use-gnu-jobserver' was specified without '-j'")
   }
 }
 

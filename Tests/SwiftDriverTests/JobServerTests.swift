@@ -20,6 +20,7 @@ import class TSCBasic.DiagnosticsEngine
 import typealias TSCBasic.ProcessEnvironmentBlock
 
 @testable import SwiftDriverExecution
+import SwiftDriver
 
 #if os(Windows)
 import WinSDK
@@ -36,49 +37,49 @@ import Android
 final class JobServerTests: XCTestCase {
 
   func testParsingJobServerAuthentication() {
-    XCTAssertEqual(JobServer.parseAuthentication(from: "--jobserver-auth=3,4"), "3,4")
+    XCTAssertEqual(GnuJobserverFlags.parseAuthentication(from: "--jobserver-auth=3,4"), "3,4")
 
     // GNU make 4.1 and earlier -- including the make 3.81 shipped as
     // `/usr/bin/make` on macOS -- only ever emit the old spelling.
-    XCTAssertEqual(JobServer.parseAuthentication(from: "w -j --jobserver-fds=7,8 --debug"),
+    XCTAssertEqual(GnuJobserverFlags.parseAuthentication(from: "w -j --jobserver-fds=7,8 --debug"),
                    "7,8")
 
     // GNU make 4.4 can advertise a named FIFO instead of descriptors.
-    XCTAssertEqual(JobServer.parseAuthentication(from: "--jobserver-auth=fifo:/tmp/GMfifo1"),
+    XCTAssertEqual(GnuJobserverFlags.parseAuthentication(from: "--jobserver-auth=fifo:/tmp/GMfifo1"),
                    "fifo:/tmp/GMfifo1")
 
     XCTAssertEqual(
-      JobServer.parseAuthentication(from: #"-j --jobserver-auth=fifo:/tmp/js\ audit/GMfifo7872 --debug"#),
+      GnuJobserverFlags.parseAuthentication(from: #"-j --jobserver-auth=fifo:/tmp/js\ audit/GMfifo7872 --debug"#),
       "fifo:/tmp/js audit/GMfifo7872")
 
     // Later flags override earlier ones, so the last occurrence wins.
-    XCTAssertEqual(JobServer.parseAuthentication(from: "--jobserver-fds=1,2 --jobserver-auth=5,6"),
+    XCTAssertEqual(GnuJobserverFlags.parseAuthentication(from: "--jobserver-fds=1,2 --jobserver-auth=5,6"),
                    "5,6")
 
-    XCTAssertNil(JobServer.parseAuthentication(from: "-j8 --output-sync"))
-    XCTAssertNil(JobServer.parseAuthentication(from: ""))
+    XCTAssertNil(GnuJobserverFlags.parseAuthentication(from: "-j8 --output-sync"))
+    XCTAssertNil(GnuJobserverFlags.parseAuthentication(from: ""))
   }
 
   func testCensoringMakeFlags() {
     // The authentication is stripped; the rest of MAKEFLAGS survives.
     XCTAssertEqual(
-      JobServer.censoringAuthentication(
+      GnuJobserverFlags.censoringAuthentication(
         in: ProcessEnvironmentBlock(["MAKEFLAGS": "w -j --jobserver-auth=3,4 --debug"]))["MAKEFLAGS"],
       "w -j --debug")
 
     XCTAssertEqual(
-      JobServer.censoringAuthentication(
+      GnuJobserverFlags.censoringAuthentication(
         in: ProcessEnvironmentBlock(["MAKEFLAGS": #"-I a\ b --jobserver-auth=fifo:/tmp/js\ audit/f"#]))["MAKEFLAGS"],
       #"-I a\ b"#)
 
     // With nothing left, MAKEFLAGS is dropped rather than left empty.
     XCTAssertNil(
-      JobServer.censoringAuthentication(
+      GnuJobserverFlags.censoringAuthentication(
         in: ProcessEnvironmentBlock(["MAKEFLAGS": "--jobserver-fds=7,8"]))["MAKEFLAGS"])
 
     // No MAKEFLAGS at all: nothing to censor.
     XCTAssertNil(
-      JobServer.censoringAuthentication(in: ProcessEnvironmentBlock())["MAKEFLAGS"])
+      GnuJobserverFlags.censoringAuthentication(in: ProcessEnvironmentBlock())["MAKEFLAGS"])
   }
 
   func testDetectRequiresOptIn() {
