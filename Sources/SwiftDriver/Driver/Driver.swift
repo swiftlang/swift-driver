@@ -3878,7 +3878,8 @@ extension Driver {
   /// Without an explicit `-explicit-module-build` or `-no-explicit-module-build`,
   /// in `swiftc` batch mode, explicit module builds are enabled by default
   /// unless the action only parses its inputs, there are no Swift source files
-  /// to scan, or dependencies cannot be scanned at all.
+  /// to scan, the language mode is Swift 4, or dependencies cannot be scanned
+  /// at all.
   static func computeIsExplicitModuleBuildEnabled(
     _ parsedOptions: inout ParsedOptions,
     driverKind: DriverKind,
@@ -3900,6 +3901,11 @@ extension Driver {
     guard inputFiles.contains(where: { $0.type == .swift && $0.file != .standardInput }) else {
       return false
     }
+    // An explicit build imports each SDK interface's Clang dependencies with
+    // this compilation's API notes version, and Swift 4 API notes rename APIs
+    // that interfaces written for later language modes use. `-swift-version`
+    // is an alias of `-language-mode`.
+    guard parsedOptions.getLastArgument(.languageMode)?.asSingle != "4" else { return false }
     guard canScanDependencies else {
       diagnosticsEngine.emit(
         .warning("libSwiftScan is unavailable; disabling the default explicit module build for this swiftc invocation. Pass -explicit-module-build to force it on, or -no-explicit-module-build to silence this warning."),
