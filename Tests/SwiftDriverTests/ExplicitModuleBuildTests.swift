@@ -270,6 +270,28 @@ func getStdlibShimsPaths(_ driver: Driver) throws -> (AbsolutePath, AbsolutePath
     }
   }
 
+  /// Only the job that dumps the AST takes a format for it. The dependency
+  /// scanner rejects `-dump-ast-format`, so it must not be forwarded there.
+  @Test func dumpASTFormatIsNotForwardedToTheScanner() async throws {
+    try await withTemporaryDirectory { path in
+      let main = path.appending(component: "main.swift")
+      try localFileSystem.writeFileContents(main, bytes: "let x = 1\n")
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+
+      var driver = try TestDriver(
+        args: ["swiftc", "-dump-ast", "-dump-ast-format", "json", main.nativePathString(escaped: false)]
+          + sdkArgumentsForTesting
+      )
+      guard driver.isFrontendArgSupported(.dumpAstFormat) else { return }
+      let scannerCommand = try driver.dependencyScannerInvocationCommand().1
+      #expect(!scannerCommand.contains(.flag("-dump-ast-format")))
+      let jobs = try await driver.planBuild()
+      #expect(!driver.diagnosticEngine.hasErrors)
+      let compileJob = try #require(jobs.first { $0.kind == .compile })
+      #expect(compileJob.commandLine.contains(.flag("-dump-ast-format")))
+    }
+  }
+
   /// An explicit build imports each SDK interface's Clang dependencies with
   /// this compilation's API notes version. Swift 4 API notes rename APIs that
   /// interfaces written for later modes use, so Swift 4 keeps the default off.
