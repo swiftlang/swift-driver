@@ -317,7 +317,9 @@ extension Driver {
     try commandLine.appendLast(.lto, from: &parsedOptions)
     try commandLine.appendLast(.accessNotesPath, from: &parsedOptions)
     try commandLine.appendLast(.enableActorDataRaceChecks, .disableActorDataRaceChecks, from: &parsedOptions)
-    if isFrontendArgSupported(.dumpAstFormat) {
+    // Only the job that dumps the AST takes a format for it; the dependency
+    // scanner rejects the flag.
+    if kind == .compile && isFrontendArgSupported(.dumpAstFormat) {
       try commandLine.appendLast(.dumpAstFormat, from: &parsedOptions)
     }
     try commandLine.appendAll(.D, from: &parsedOptions)
