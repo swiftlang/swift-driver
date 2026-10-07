@@ -1443,6 +1443,67 @@ struct CachingBuildTests {
     }
   }
 
+  @Test func cacheIncrementalBatchBuildSkippedJobs() async throws {
+    try await withTemporaryDirectory { path in
+      let moduleCachePath = path.appending(component: "ModuleCache")
+      let casPath = path.appending(component: "cas")
+      try localFileSystem.createDirectory(moduleCachePath)
+      let inputs = (0..<4).map { path.appending(component: "file\($0).swift") }
+      for (index, input) in inputs.enumerated() {
+        try localFileSystem.writeFileContents(input) {
+          $0.send("public func foo\(index)() {}")
+        }
+      }
+      let ofm = path.appending(component: "ofm.json")
+      OutputFileMapCreator.write(
+        module: "Test",
+        inputPaths: inputs,
+        derivedData: path,
+        to: ofm,
+        excludeMainEntry: false
+      )
+
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+      let args = [
+        "swiftc", "-c", "-module-name", "Test",
+        "-explicit-module-build", "-incremental",
+        "-enable-batch-mode", "-driver-batch-count", "1",
+        "-module-cache-path", moduleCachePath.nativePathString(escaped: false),
+        "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: false),
+        "-output-file-map", ofm.nativePathString(escaped: false),
+        "-working-directory", path.nativePathString(escaped: false),
+      ] + inputs.map { $0.nativePathString(escaped: false) } + sdkArgumentsForTesting
+
+      var driver = try TestDriver(args: args)
+      let jobs = try await driver.planBuild()
+      try await driver.run(jobs: jobs)
+      #expect(!driver.diagnosticEngine.hasErrors)
+
+      // Modify one file. Only that file should be compiled.
+      try localFileSystem.writeFileContents(inputs[0]) {
+        $0.send("public func foo0() { _ = 0 }")
+      }
+      try localFileSystem.touch(inputs[0])
+
+      var incrementalDriver = try TestDriver(args: args)
+      _ = try await incrementalDriver.planBuild()
+      let state = try #require(incrementalDriver.incrementalCompilationState)
+      let skippedJobs = state.blockingConcurrentMutationToProtectedState { $0.skippedJobs }
+      #expect(skippedJobs.count == inputs.count - 1)
+      // Skipped jobs are not batched and must not compute cache keys.
+      for job in skippedJobs {
+        #expect(job.outputCacheKeys.isEmpty)
+      }
+      // The batched jobs that are going to run still have cache keys.
+      let mandatoryCompileJobs = state.mandatoryJobsInOrder.filter { $0.kind == .compile }
+      #expect(mandatoryCompileJobs.count == 1)
+      for job in mandatoryCompileJobs {
+        #expect(job.primaryInputs.map(\.file) == [.absolute(inputs[0])])
+        #expect(!job.outputCacheKeys.isEmpty)
+      }
+    }
+  }
+
   @Test func cacheWholeModuleBuildPlan() async throws {
     try await withTemporaryDirectory { path in
       let moduleCachePath = path.appending(component: "ModuleCache")

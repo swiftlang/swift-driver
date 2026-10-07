@@ -476,7 +476,8 @@ extension Driver {
         result.append((input.element, input.offset))
       }
     }
-    let cacheKeys = try computeOutputCacheKeyForJob(commandLine: commandLine, inputs: cacheContributingInputs)
+    let cacheKeys = produceCacheKey ?
+      try computeOutputCacheKeyForJob(commandLine: commandLine, inputs: cacheContributingInputs) : [:]
 
     return Job(
       moduleName: moduleOutputInfo.name,
