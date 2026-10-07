@@ -1463,16 +1463,17 @@ struct CachingBuildTests {
         excludeMainEntry: false
       )
 
-      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
       let args = [
-        "swiftc", "-c", "-module-name", "Test",
+        "swiftc", "-c", "-module-name", "Test", "-parse-stdlib",
+        "-disable-implicit-string-processing-module-import",
+        "-disable-implicit-concurrency-module-import",
         "-explicit-module-build", "-incremental",
         "-enable-batch-mode", "-driver-batch-count", "1",
         "-module-cache-path", moduleCachePath.nativePathString(escaped: false),
         "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: false),
         "-output-file-map", ofm.nativePathString(escaped: false),
         "-working-directory", path.nativePathString(escaped: false),
-      ] + inputs.map { $0.nativePathString(escaped: false) } + sdkArgumentsForTesting
+      ] + inputs.map { $0.nativePathString(escaped: false) }
 
       var driver = try TestDriver(args: args)
       let jobs = try await driver.planBuild()
@@ -1481,7 +1482,7 @@ struct CachingBuildTests {
 
       // Modify one file. Only that file should be compiled.
       try localFileSystem.writeFileContents(inputs[0]) {
-        $0.send("public func foo0() { _ = 0 }")
+        $0.send("public func foo0() { foo1() }")
       }
       try localFileSystem.touch(inputs[0])
 
