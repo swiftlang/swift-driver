@@ -1344,6 +1344,115 @@ import Testing
     }
   }
 
+  @Test func indexFileMultiplePrimariesUseDistinctIndexData() async throws {
+    try await withTemporaryDirectory { dir in
+      let outputFileMap = dir.appending(component: "output-file-map.json")
+      let outputMapContents = ByteString(
+        """
+        {
+          "First.swift": {
+            "index-unit-output-path": ".build/First.o"
+          },
+          "Second.swift": {
+            "index-unit-output-path": ".build/Second.o"
+          }
+        }
+        """.utf8
+      )
+      try localFileSystem.writeFileContents(outputFileMap, bytes: outputMapContents)
+
+      var driver = try TestDriver(args: [
+        "swiftc", "-module-name", "FooBar",
+        "First.swift", "Second.swift",
+        "-index-file",
+        "-index-file-path", "First.swift",
+        "-index-file-path", "Second.swift",
+        "-import-objc-header", "BridgingHeader.h",
+        "-output-file-map", outputFileMap.pathString,
+      ])
+      let jobs = try await driver.planBuild()
+      #expect(jobs.contains(where: { $0.kind == .generatePCH }))
+      let compileJob = try jobs.findJob(.compile)
+      try expectEqual(compileJob.outputs.filter { $0.type == .indexData }.map(\.file), [
+        .relative(try RelativePath(validating: "First.indexData")),
+        .relative(try RelativePath(validating: "Second.indexData")),
+      ])
+      expectJobInvocationMatches(
+        compileJob,
+        .flag("-o"),
+        .path(.relative(try RelativePath(validating: "First.indexData"))),
+        .flag("-o"),
+        .path(.relative(try RelativePath(validating: "Second.indexData")))
+      )
+      expectEqual(compileJob.commandLine.filter { $0 == .flag("-o") }.count, 2)
+      expectJobInvocationMatches(
+        compileJob,
+        .flag("-index-unit-output-path"),
+        .path(.relative(try RelativePath(validating: ".build/First.o")))
+      )
+      expectJobInvocationMatches(
+        compileJob,
+        .flag("-index-unit-output-path"),
+        .path(.relative(try RelativePath(validating: ".build/Second.o")))
+      )
+
+      let explicitMap = dir.appending(component: "explicit-output-file-map.json")
+      let explicitContents = ByteString(
+        """
+        {
+          "First.swift": {
+            "index-data": "mapped/First.idx",
+            "index-unit-output-path": ".build/First.o"
+          },
+          "Second.swift": {
+            "index-data": "mapped/Second.idx",
+            "index-unit-output-path": ".build/Second.o"
+          }
+        }
+        """.utf8
+      )
+      try localFileSystem.writeFileContents(explicitMap, bytes: explicitContents)
+      var explicitDriver = try TestDriver(args: [
+        "swiftc", "-module-name", "FooBar",
+        "First.swift", "Second.swift",
+        "-index-file",
+        "-index-file-path", "First.swift",
+        "-index-file-path", "Second.swift",
+        "-output-file-map", explicitMap.pathString,
+      ])
+      let explicitCompile = try await explicitDriver.planBuild().findJob(.compile)
+      try expectEqual(explicitCompile.outputs.filter { $0.type == .indexData }.map(\.file), [
+        .relative(try RelativePath(validating: "mapped/First.idx")),
+        .relative(try RelativePath(validating: "mapped/Second.idx")),
+      ])
+
+      var singleDriver = try TestDriver(args: [
+        "swiftc", "-module-name", "FooBar",
+        "First.swift",
+        "-index-file",
+        "-index-file-path", "First.swift",
+      ])
+      let singleCompile = try await singleDriver.planBuild().findJob(.compile)
+      try expectEqual(singleCompile.outputs.filter { $0.type == .indexData }.map(\.file), [
+        .relative(try RelativePath(validating: "FooBar.indexData")),
+      ])
+
+      var dashedODriver = try TestDriver(args: [
+        "swiftc", "-module-name", "FooBar",
+        "First.swift", "Second.swift",
+        "-index-file",
+        "-index-file-path", "First.swift",
+        "-index-file-path", "Second.swift",
+        "-o", "/tmp/shared.indexData",
+      ])
+      let dashedOCompile = try await dashedODriver.planBuild().findJob(.compile)
+      try expectEqual(dashedOCompile.outputs.filter { $0.type == .indexData }.map(\.file), [
+        .relative(try RelativePath(validating: "First.indexData")),
+        .relative(try RelativePath(validating: "Second.indexData")),
+      ])
+    }
+  }
+
   @Test func indexFileEntryInSupplementaryFileOutputMap() async throws {
     let workingDirectory = try AbsolutePath(validating: "/tmp")
     var driver1 = try TestDriver(args: [
