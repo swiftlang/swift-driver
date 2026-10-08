@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 import struct Foundation.Data
+import class Foundation.NSLock
 import struct Foundation.TimeInterval
 import class Dispatch.DispatchQueue
 
@@ -38,9 +39,9 @@ import var TSCBasic.localFileSystem
 
 /// A virtual path.
 public enum VirtualPath: Hashable {
-  private static var pathCache = PathCache()
+  private static let pathCache = PathCache()
 
-  private static var temporaryFileStore = TemporaryFileStore()
+  private static let temporaryFileStore = TemporaryFileStore()
 
   /// A relative path that has not been resolved based on the current working
   /// directory.
@@ -354,80 +355,90 @@ extension VirtualPath {
 #endif
   }
 
-  /// An implementation of a concurrent path cache.
+  /// A path cache shared by every driver in the process, e.g. all of the modules a build system plans
+  /// concurrently.
+  ///
+  /// Entries are spread over independently locked shards, so drivers that intern or resolve different
+  /// paths do not wait for each other. A path lives in the shard of its canonical cache key; a
+  /// non-canonical spelling is recorded as an alias in the shard of that spelling. A handle encodes the
+  /// shard and the slot within it.
   private final class PathCache {
-    private var uniquer: [String: VirtualPath.Handle]
-    private var table: [VirtualPath]
-    private let queue: DispatchQueue
+    private final class Shard {
+      let lock = NSLock()
+      var uniquer: [String: VirtualPath.Handle] = [:]
+      var table: [VirtualPath] = []
+    }
 
-    init() {
-      self.uniquer = [String: VirtualPath.Handle]()
-      self.table = [VirtualPath]()
-      self.queue = DispatchQueue(label: "com.apple.swift.driver.path-cache", qos: .userInteractive, attributes: .concurrent)
+    // More shards mainly help concurrent inserts of new paths, which dominate lock time when many drivers plan at
+    // once, at the cost of slightly slower lookups of a single hot path. 32 kept the lock waits low in a large
+    // Xcode build.
+    private static let shardCount = 32
+    private let shards: [Shard] = (0..<PathCache.shardCount).map { _ in Shard() }
 
-      self.uniquer.reserveCapacity(256)
-      self.table.reserveCapacity(256)
+    private func shardIndex(for key: String) -> Int {
+      // `hashValue` is seeded per process and the shard index is part of a handle's value, so handle numbers
+      // differ between processes. That is fine: handles are only used within a process and encode as the path
+      // they name.
+      Int(UInt(bitPattern: key.hashValue) % UInt(Self.shardCount))
+    }
+
+    private func handle(for key: String, inShard index: Int) -> VirtualPath.Handle? {
+      let shard = shards[index]
+      return shard.lock.withLock { shard.uniquer[key] }
+    }
+
+    /// Returns the handle of `path`, stored under its canonical `cacheKey`, inserting it if needed.
+    private func insert(_ path: VirtualPath, cacheKey: String) -> VirtualPath.Handle {
+      let index = shardIndex(for: cacheKey)
+      let shard = shards[index]
+      return shard.lock.withLock {
+        if let existing = shard.uniquer[cacheKey] {
+          return existing
+        }
+        let handle = VirtualPath.Handle(shard.table.count * Self.shardCount + index)
+        shard.uniquer[cacheKey] = handle
+        shard.table.append(path)
+        return handle
+      }
     }
 
     fileprivate func intern(_ key: String) throws -> VirtualPath.Handle {
-      return try self.queue.sync(flags: .barrier) {
-        guard let idx = self.uniquer[key] else {
-          let path: VirtualPath
-          // The path representation does not properly handle paths on all
-          // platforms.  On Windows, we often see an empty key which we would
-          // like to treat as being the relative path to cwd.
-          if key.isEmpty {
-            path = .relative(try RelativePath(validating: "."))
-          } else if let absolute = try? AbsolutePath(validating: key) {
-            path = .absolute(absolute)
-          } else {
-            let relative = try RelativePath(validating: key)
-            path = .relative(relative)
-          }
-          if let existing = self.uniquer[path.cacheKey] {
-            // If there's an entry for the canonical path for this key, we just
-            // need to vend its handle.
-            self.uniquer[key] = existing
-            return existing
-          } else {
-            // Otherwise we need to add an entry for the key and its canonical
-            // path.
-            let nextSlot = self.table.count
-            self.uniquer[path.cacheKey] = .init(nextSlot)
-            self.uniquer[key] = .init(nextSlot)
-            self.table.append(path)
-            return .init(nextSlot)
-          }
+      let keyShard = shardIndex(for: key)
+      if let handle = handle(for: key, inShard: keyShard) {
+        assert(handle.core >= 0, "Produced invalid index \(handle.core) for path \(key)")
+        return handle
+      }
+
+      let path: VirtualPath
+      // The path representation does not properly handle paths on all
+      // platforms.  On Windows, we often see an empty key which we would
+      // like to treat as being the relative path to cwd.
+      if key.isEmpty {
+        path = .relative(try RelativePath(validating: "."))
+      } else if let absolute = try? AbsolutePath(validating: key) {
+        path = .absolute(absolute)
+      } else {
+        let relative = try RelativePath(validating: key)
+        path = .relative(relative)
+      }
+      let cacheKey = path.cacheKey
+      let handle = insert(path, cacheKey: cacheKey)
+      guard cacheKey != key else {
+        return handle
+      }
+      // Record the spelling, so that interning it again skips validation.
+      let shard = shards[keyShard]
+      return shard.lock.withLock {
+        if let existing = shard.uniquer[key] {
+          return existing
         }
-        assert(idx.core >= 0, "Produced invalid index \(idx) for path \(key)")
-        return idx
+        shard.uniquer[key] = handle
+        return handle
       }
     }
 
     fileprivate func intern(virtualPath path: VirtualPath) -> VirtualPath.Handle {
-      return self.queue.sync(flags: .barrier) {
-        guard let idx = self.uniquer[path.cacheKey] else {
-          let nextSlot = self.table.count
-          self.uniquer[path.cacheKey] = .init(nextSlot)
-          self.table.append(path)
-          return .init(nextSlot)
-        }
-        assert(idx.core >= 0, "Produced invalid index \(idx) for path \(path)")
-        return idx
-      }
-    }
-
-    fileprivate func lookupHandle(for path: VirtualPath) -> VirtualPath.Handle? {
-      switch path {
-      case .standardInput:
-        return .standardInput
-      case .standardOutput:
-        return .standardOutput
-      default:
-        return self.queue.sync {
-          return self.uniquer[path.cacheKey]
-        }
-      }
+      insert(path, cacheKey: path.cacheKey)
     }
 
     fileprivate subscript(key: VirtualPath.Handle) -> VirtualPath {
@@ -437,9 +448,8 @@ extension VirtualPath {
       case .standardOutput:
         return .standardOutput
       default:
-        return self.queue.sync {
-          return self.table[key.core]
-        }
+        let shard = shards[key.core % Self.shardCount]
+        return shard.lock.withLock { shard.table[key.core / Self.shardCount] }
       }
     }
   }

@@ -121,6 +121,7 @@ add_library(SwiftDriver
   Utilities/FileList.swift
   Utilities/FileMetadata.swift
   Utilities/FileType.swift
+  Utilities/NSLockAdditions.swift
   Utilities/PredictableRandomNumberGenerator.swift
   Utilities/PythonArchitecture.swift
   Utilities/RelativePathAdditions.swift
