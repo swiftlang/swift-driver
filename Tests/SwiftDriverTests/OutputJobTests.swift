@@ -1216,7 +1216,7 @@ import Testing
     }
   }
 
-  @Test func supplementaryOutputFileMapUsage() async throws {
+  @Test(.realDependencyScan) func supplementaryOutputFileMapUsage() async throws {
     // Ensure filenames are escaped properly when using a supplementary output file map
     try await withTemporaryDirectory { path in
       let moduleCachePath = path.appending(component: "ModuleCache")

@@ -191,6 +191,10 @@ public func getSingleFrontendInvocationFromDriverArgumentsV5(driverPath: String,
   // frontend command.
   args.append("-whole-module-optimization")
 
+  // For now, disable explicitly-built modules since that would require
+  // additional tasks beyond the single frontend command.
+  args.append("-no-explicit-module-build")
+
   // Explicitly disable batch mode to avoid a spurious warning when combining
   // -enable-batch-mode with -whole-module-optimization.  This is an
   // implementation detail.

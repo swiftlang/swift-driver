@@ -610,7 +610,7 @@ import CRT
       args: [
         "swiftc", "-typecheck", "foo.swift", "-sdk", VirtualPath.absolute(sdkRoot).name, "-plugin-path", "PluginA",
         "-external-plugin-path", "Plugin~B#Bexe", "-load-plugin-library", "PluginB2", "-plugin-path", "PluginC",
-        "-working-directory", workingDirectory.nativePathString(escaped: false),
+        "-working-directory", workingDirectory.nativePathString(escaped: false), "-no-explicit-module-build",
       ],
       env: env
     )
@@ -760,6 +760,7 @@ import CRT
         "-enable-experimental-feature", "Embedded",
         "-sdk", VirtualPath.absolute(sdkRoot).name,
         "-resource-dir", resourceDir.pathString,
+        "-no-explicit-module-build",
       ])
       guard driver.isFrontendArgSupported(.pluginPath) else { return }
 

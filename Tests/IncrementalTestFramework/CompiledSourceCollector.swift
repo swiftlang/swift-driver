@@ -26,20 +26,36 @@ struct CompiledSourceCollector {
   private var collectedCompiledBasenames = [String]()
   private var collectedReadDependencies = Set<String>()
 
+  /// Lifecycle messages for jobs that build a module rather than compile
+  /// sources. They share the `Compiling ` prefix with a source compile, so the
+  /// text after that prefix is a module description, not a list of files.
+  private static let moduleBuildDescriptions = [
+    "Swift module",
+    "Clang module",
+    "bridging header",
+  ]
+
   private func getCompiledBasenames(from d: Diagnostic) -> [String] {
     let dd = d.description
     guard let startOfSources = dd.range(of: "Starting Compiling ")?.upperBound
     else {
       return []
     }
-    return dd.suffix(from: startOfSources)
+    let sources = dd.suffix(from: startOfSources)
+    guard !Self.moduleBuildDescriptions.contains(where: { sources.hasPrefix($0) })
+    else {
+      return []
+    }
+    return sources
       .split(separator: ",")
       .map {$0.drop(while: {$0 == " "})}
-      .map { (s: Substring) -> Substring in
-        assert(s.hasSuffix(".swift"))
-        return s
+      .compactMap { (s: Substring) -> String? in
+        guard s.hasSuffix(".swift") else {
+          Issue.record("Job lifecycle reported compiling '\(s)', which is not a Swift source")
+          return nil
+        }
+        return String(s)
       }
-      .compactMap {String($0)}
   }
 
   private func getReadDependencies(from d: Diagnostic) -> String? {

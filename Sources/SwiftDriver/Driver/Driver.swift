@@ -75,6 +75,7 @@ public struct Driver {
     case conditionalCompilationFlagIsNotValidIdentifier(String)
     case baselineGenerationRequiresTopLevelModule(String)
     case optionRequiresAnother(String, String)
+    case optionRequiresExplicitModuleBuild(String)
     case unableToCreateReproducer
     // Explicit Module Build Failures
     case malformedModuleDependency(String, String)
@@ -150,6 +151,8 @@ public struct Driver {
         return "generating a baseline with '\(arg)' is only supported with '-emit-module' or '-emit-module-path'"
       case .optionRequiresAnother(let first, let second):
         return "'\(first)' cannot be specified if '\(second)' is not present"
+      case .optionRequiresExplicitModuleBuild(let arg):
+        return "'\(arg)' requires explicit module builds, which are disabled for this compilation"
       case .unableToCreateReproducer:
         return "failed to create reproducer"
       }
@@ -395,7 +398,7 @@ public struct Driver {
   /// If loaded module trace is emitted by scanner.
   lazy var loadedModuleTraceEmittedByScanner: Bool = {
     // check to see if -dependency-only-import flag is supported.
-    isFrontendArgSupported(.dependencyOnlyImport) && parsedOptions.hasArgument(.driverExplicitModuleBuild)
+    isFrontendArgSupported(.dependencyOnlyImport) && isExplicitModuleBuildEnabled
   }()
 
   /// Whether compile jobs are passed -debug-module-path.
@@ -675,6 +678,14 @@ public struct Driver {
   /// Can either be an argument to the driver in many-module contexts where dependency information
   /// is shared across many targets; otherwise, a new instance is created by the driver itself.
   @_spi(Testing) public let interModuleDependencyOracle: InterModuleDependencyOracle
+
+  /// Whether this driver invocation will build module dependencies explicitly.
+  ///
+  /// `swiftc` invocations default to explicit module builds.
+  /// Other driver kinds still require `-explicit-module-build` to enable
+  /// the mode. If `libSwiftScan` is not available, the driver falls back to
+  /// implicit module builds and emits a warning.
+  @_spi(Testing) public let isExplicitModuleBuildEnabled: Bool
 
   /// A collection of all the flags the selected toolchain's `swift-frontend` supports
   public let supportedFrontendFlags: Set<String>
@@ -1075,6 +1086,17 @@ public struct Driver {
     let inputFiles = try Self.collectInputFiles(&self.parsedOptions, diagnosticsEngine: diagnosticsEngine, fileSystem: self.fileSystem)
     self.inputFiles = inputFiles
 
+    // `-nonlib-dependency-scanner` asks for the out-of-process scanner instead
+    // of a libSwiftScan instance, so scanning remains possible without one.
+    let canScanDependencies = self.swiftScanLibInstance != nil
+      || parsedOptions.hasArgument(.driverScanDependenciesNonLib)
+    self.isExplicitModuleBuildEnabled = Self.computeIsExplicitModuleBuildEnabled(
+      &parsedOptions,
+      driverKind: self.driverKind,
+      inputFiles: inputFiles,
+      canScanDependencies: canScanDependencies,
+      diagnosticsEngine: diagnosticEngine)
+
     let incrementalFileHashes = parsedOptions.hasFlag(positive: .enableIncrementalFileHashing,
                                                       negative: .disableIncrementalFileHashing,
                                                       default: false)
@@ -1142,13 +1164,17 @@ public struct Driver {
                                fileSystem: fileSystem,
                                workingDirectory: workingDirectory,
                                diagnosticEngine: diagnosticEngine)
-    Self.validateEmitDependencyGraphArgs(&parsedOptions, diagnosticEngine: diagnosticEngine)
+    Self.validateEmitDependencyGraphArgs(&parsedOptions,
+                                         isExplicitModuleBuildEnabled: self.isExplicitModuleBuildEnabled,
+                                         diagnosticEngine: diagnosticEngine)
     Self.validateValidateClangModulesOnceOptions(&parsedOptions, diagnosticEngine: diagnosticEngine)
     Self.validateParseableOutputArgs(&parsedOptions, diagnosticEngine: diagnosticEngine)
     Self.validateCompilationConditionArgs(&parsedOptions, diagnosticEngine: diagnosticEngine)
     Self.validateFrameworkSearchPathArgs(&parsedOptions, diagnosticEngine: diagnosticEngine)
     Self.validateCoverageArgs(&parsedOptions, diagnosticsEngine: diagnosticEngine)
-    Self.validateLinkArgs(&parsedOptions, diagnosticsEngine: diagnosticEngine)
+    Self.validateLinkArgs(&parsedOptions,
+                          isExplicitModuleBuildEnabled: self.isExplicitModuleBuildEnabled,
+                          diagnosticsEngine: diagnosticEngine)
     try toolchain.validateArgs(&parsedOptions,
                                targetTriple: self.frontendTargetInfo.target.triple,
                                targetVariantTriple: self.frontendTargetInfo.targetVariant?.triple,
@@ -1228,7 +1254,7 @@ public struct Driver {
     // Caching options.
     let cachingEnabled = parsedOptions.hasArgument(.cacheCompileJob) || env.keys.contains("SWIFT_ENABLE_CACHING")
     if cachingEnabled {
-      if !parsedOptions.hasArgument(.driverExplicitModuleBuild) {
+      if !self.isExplicitModuleBuildEnabled {
         diagnosticsEngine.emit(.warning("-cache-compile-job cannot be used without explicit module build, turn off caching"),
                                location: nil)
         self.enableCaching = false
@@ -2115,6 +2141,7 @@ extension Driver {
     jobExecutionDelegate: JobExecutionDelegate,
     forceResponseFiles: Bool
   ) throws {
+    try createPrecompiledBridgingHeaderDirectories(for: allJobs)
     let continueBuildingAfterErrors = computeContinueBuildingAfterErrors()
     try executor.execute(
       workload: .init(allJobs,
@@ -2124,6 +2151,24 @@ extension Driver {
       numParallelJobs: numParallelJobs ?? 1,
       forceResponseFiles: forceResponseFiles,
       recordedInputMetadata: recordedInputMetadata)
+  }
+
+  /// An implicit build passes `-pch-output-dir` to the frontend, which creates
+  /// the directory. An explicit build names the PCH itself and passes it with
+  /// `-o`, which the frontend opens without creating its directory.
+  private func createPrecompiledBridgingHeaderDirectories(for jobs: [Job]) throws {
+    guard isExplicitModuleBuildEnabled, parsedOptions.hasArgument(.pchOutputDir) else { return }
+    let base = workingDirectory ?? fileSystem.currentWorkingDirectory
+    for job in jobs where job.kind == .generatePCH {
+      for output in job.outputs where output.type == .pch {
+        var directory = output.file.parentDirectory
+        if let base = base {
+          directory = directory.resolvedRelativePath(base: base)
+        }
+        guard let path = directory.absolutePath, !fileSystem.exists(path) else { continue }
+        try fileSystem.createDirectory(path, recursive: true)
+      }
+    }
   }
 
   public func writeIncrementalBuildInformation(_ jobs: [Job]) {
@@ -3429,12 +3474,12 @@ extension Driver {
   }
 
   static func validateEmitDependencyGraphArgs(_ parsedOptions: inout ParsedOptions,
+                                              isExplicitModuleBuildEnabled: Bool,
                                               diagnosticEngine: DiagnosticsEngine) {
-    // '-print-explicit-dependency-graph' requires '-explicit-module-build'
+    // '-print-explicit-dependency-graph' requires an explicit module build
     if parsedOptions.hasArgument(.printExplicitDependencyGraph) &&
-        !parsedOptions.hasArgument(.driverExplicitModuleBuild) {
-      diagnosticEngine.emit(.error(Error.optionRequiresAnother(Option.printExplicitDependencyGraph.spelling,
-                                                               Option.driverExplicitModuleBuild.spelling)),
+        !isExplicitModuleBuildEnabled {
+      diagnosticEngine.emit(.error(Error.optionRequiresExplicitModuleBuild(Option.printExplicitDependencyGraph.spelling)),
                             location: nil)
     }
     // '-explicit-dependency-graph-format=' requires '-print-explicit-dependency-graph'
@@ -3609,7 +3654,9 @@ extension Driver {
     }
   }
 
-  private static func validateLinkArgs(_ parsedOptions: inout ParsedOptions, diagnosticsEngine: DiagnosticsEngine) {
+  private static func validateLinkArgs(_ parsedOptions: inout ParsedOptions,
+                                       isExplicitModuleBuildEnabled: Bool,
+                                       diagnosticsEngine: DiagnosticsEngine) {
     if parsedOptions.hasArgument(.experimentalHermeticSealAtLink) {
       if parsedOptions.hasArgument(.enableLibraryEvolution) {
         diagnosticsEngine.emit(.error_hermetic_seal_cannot_have_library_evolution)
@@ -3622,9 +3669,8 @@ extension Driver {
     }
 
     if parsedOptions.hasArgument(.explicitAutoLinking) {
-      if !parsedOptions.hasArgument(.driverExplicitModuleBuild) {
-        diagnosticsEngine.emit(.error(Error.optionRequiresAnother(Option.explicitAutoLinking.spelling,
-                                                                  Option.driverExplicitModuleBuild.spelling)),
+      if !isExplicitModuleBuildEnabled {
+        diagnosticsEngine.emit(.error(Error.optionRequiresExplicitModuleBuild(Option.explicitAutoLinking.spelling)),
                               location: nil)
       }
     }
@@ -3785,10 +3831,15 @@ extension Driver {
       }
 
       let swiftScanLibPath: AbsolutePath? = compilerIntegratedTooling ? nil : try toolchain.lookupSwiftScanLib()
+      let willFallBackToScanningOutOfProcess =
+        parsedOptions.hasFlag(positive: .driverExplicitModuleBuild,
+                              negative: .driverNoExplicitModuleBuild) == true
       do {
         guard compilerIntegratedTooling ||
               (swiftScanLibPath != nil && fileSystem.exists(swiftScanLibPath!))  else {
-          diagnosticsEngine.emit(.warn_scan_dylib_not_found())
+          if willFallBackToScanningOutOfProcess {
+            diagnosticsEngine.emit(.warn_scan_dylib_not_found())
+          }
           return nil
         }
 
@@ -3797,9 +3848,71 @@ extension Driver {
         // The driver needs a reference to this for non-scanning tasks
         return interModuleDependencyOracle.getScannerInstance()
       } catch {
-        diagnosticsEngine.emit(.warn_scan_dylib_load_failed(swiftScanLibPath?.description ?? "built-in"))
+        if willFallBackToScanningOutOfProcess {
+          diagnosticsEngine.emit(.warn_scan_dylib_load_failed(swiftScanLibPath?.description ?? "built-in"))
+        }
       }
       return nil
+  }
+
+  /// Whether the requested action only parses its inputs, and so never loads
+  /// modules. Mirrors `FrontendOptions::shouldActionOnlyParse`.
+  private static func isParseOnlyAction(_ parsedOptions: inout ParsedOptions) -> Bool {
+    guard let mode = parsedOptions.getLast(in: .modes) else { return false }
+    switch mode.option {
+    case .parse, .dumpParse, .dumpInterfaceHash:
+      // Purely syntactic: these never resolve an import.
+      return true
+    case .emitImportedModules, .scanDependencies:
+      // These report what a module imports rather than loading it, and the
+      // frontend discovers that itself. Scanning first would duplicate the
+      // frontend's own work and fail on imports it would merely have listed.
+      return true
+    default:
+      return false
+    }
+  }
+
+  /// Determine whether this invocation should build module dependencies explicitly.
+  ///
+  /// Without an explicit `-explicit-module-build` or `-no-explicit-module-build`,
+  /// in `swiftc` batch mode, explicit module builds are enabled by default
+  /// unless the action only parses its inputs, there are no Swift source files
+  /// to scan, the language mode is Swift 4, or dependencies cannot be scanned
+  /// at all.
+  static func computeIsExplicitModuleBuildEnabled(
+    _ parsedOptions: inout ParsedOptions,
+    driverKind: DriverKind,
+    inputFiles: [TypedVirtualPath],
+    canScanDependencies: Bool,
+    diagnosticsEngine: DiagnosticsEngine
+  ) -> Bool {
+    if let requested = parsedOptions.hasFlag(positive: .driverExplicitModuleBuild,
+                                             negative: .driverNoExplicitModuleBuild) {
+      return requested
+    }
+    guard driverKind == .batch else { return false }
+    // Scanning for an action that never loads modules is wasted work, and it
+    // turns an unresolvable import into an error the action would not hit.
+    guard !isParseOnlyAction(&parsedOptions) else { return false }
+    // The scanner reads only Swift source files, so there is nothing to scan
+    // when compiling SIL or building and dumping Clang modules. Standard input
+    // must be left for the job that compiles it, since it can be read once.
+    guard inputFiles.contains(where: { $0.type == .swift && $0.file != .standardInput }) else {
+      return false
+    }
+    // An explicit build imports each SDK interface's Clang dependencies with
+    // this compilation's API notes version, and Swift 4 API notes rename APIs
+    // that interfaces written for later language modes use. `-swift-version`
+    // is an alias of `-language-mode`.
+    guard parsedOptions.getLastArgument(.languageMode)?.asSingle != "4" else { return false }
+    guard canScanDependencies else {
+      diagnosticsEngine.emit(
+        .warning("libSwiftScan is unavailable; disabling the default explicit module build for this swiftc invocation. Pass -explicit-module-build to force it on, or -no-explicit-module-build to silence this warning."),
+        location: nil)
+      return false
+    }
+    return true
   }
 
   static func computeToolchain(
