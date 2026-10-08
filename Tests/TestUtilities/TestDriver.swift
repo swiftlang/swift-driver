@@ -286,6 +286,7 @@ package struct TestDriver {
   package var numThreads: Int { driver.numThreads }
   package var packageName: String? { driver.packageName }
   package var interModuleDependencyOracle: InterModuleDependencyOracle { driver.interModuleDependencyOracle }
+  package var isExplicitModuleBuildEnabled: Bool { driver.isExplicitModuleBuildEnabled }
   package var absoluteSDKPath: AbsolutePath? { driver.absoluteSDKPath }
   package var isAutolinkExtractJobNeeded: Bool {
     mutating get { driver.isAutolinkExtractJobNeeded }

@@ -83,7 +83,7 @@ extension Driver {
       break
     }
 
-    let isPlanJobForExplicitModule = parsedOptions.contains(.driverExplicitModuleBuild) && explicitModulePlanner != nil
+    let isPlanJobForExplicitModule = isExplicitModuleBuildEnabled && explicitModulePlanner != nil
     let jobNeedPathRemap: Bool
     // If in ExplicitModuleBuild mode and the dependency graph has been computed, add module
     // dependencies.
@@ -206,7 +206,7 @@ extension Driver {
 
     // In explicit module build mode, the module cache and Clang build session
     // are only consulted by the dependency scanner.
-    if !parsedOptions.contains(.driverExplicitModuleBuild) || kind == .scanDependencies {
+    if !isExplicitModuleBuildEnabled || kind == .scanDependencies {
       try commandLine.appendLast(.moduleCachePath, from: &parsedOptions)
       if isFrontendArgSupported(.validateClangModulesOnce),
          isFrontendArgSupported(.clangBuildSessionFile) {
@@ -516,7 +516,7 @@ extension Driver {
         // the pch in the pchOutputDir and can start an implicit build in case
         // of a lookup failure.
         if parsedOptions.contains(.pchOutputDir) &&
-           !parsedOptions.contains(.driverExplicitModuleBuild) {
+           !isExplicitModuleBuildEnabled {
           commandLine.appendFlag(importBridgingHeaderFlag)
           try addPathArgument(VirtualPath.lookup(importedObjCHeader), to:&commandLine, remap: jobNeedPathRemap)
           try commandLine.appendLast(.pchOutputDir, from: &parsedOptions)
