@@ -14,11 +14,11 @@
 
 import SwiftOptions
 
-import class TSCBasic.LocalFileOutputByteStream
-import class TSCBasic.TerminalController
-import struct TSCBasic.RelativePath
-import struct TSCBasic.AbsolutePath
-import var TSCBasic.stderrStream
+@preconcurrency import class TSCBasic.LocalFileOutputByteStream
+@preconcurrency import class TSCBasic.TerminalController
+@preconcurrency import struct TSCBasic.RelativePath
+@preconcurrency import struct TSCBasic.AbsolutePath
+@preconcurrency import var TSCBasic.stderrStream
 
 /// Whether we should produce color diagnostics by default.
 fileprivate func shouldColorDiagnostics() -> Bool {

@@ -314,7 +314,7 @@ public final class MultiJobExecutor {
     // as errors so we don't e.g. reuse corrupted incremental build state.
     for (input, metadata) in context.recordedInputMetadata {
       guard try fileSystem.lastModificationTime(for: input.file) == metadata.mTime else {
-        let err = Job.InputError.inputUnexpectedlyModified(input)
+        let err = Job.InputError.inputUnexpectedlyModified(input.file.name)
         context.diagnosticsEngine.emit(err)
         throw err
       }
@@ -510,8 +510,11 @@ class ExecuteAllCompilationJobsRule: LLBuildRule {
     engine.taskIsComplete(DriverBuildValue.jobExecution(success: allInputsSucceeded))
   }
 }
+
+extension LLTaskBuildEngine: @unchecked Sendable {}
+
 /// A rule for a single compiler invocation.
-class ExecuteJobRule: LLBuildRule {
+final class ExecuteJobRule: LLBuildRule, @unchecked Sendable {
   struct RuleKey: LLBuildKey {
     typealias BuildValue = DriverBuildValue
     typealias BuildRule = ExecuteJobRule

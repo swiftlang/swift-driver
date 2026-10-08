@@ -26,12 +26,12 @@ import Musl
 import Bionic
 #endif
 
-import class TSCBasic.DiagnosticsEngine
-import enum TSCBasic.ProcessEnv
-import func TSCBasic.withTemporaryFile
-import struct TSCBasic.AbsolutePath
-import var TSCBasic.localFileSystem
-import var TSCBasic.stderrStream
+@preconcurrency import class TSCBasic.DiagnosticsEngine
+@preconcurrency import enum TSCBasic.ProcessEnv
+@preconcurrency import func TSCBasic.withTemporaryFile
+@preconcurrency import struct TSCBasic.AbsolutePath
+@preconcurrency import var TSCBasic.localFileSystem
+@preconcurrency import var TSCBasic.stderrStream
 
 let diagnosticsEngine = DiagnosticsEngine(handlers: [Driver.stderrDiagnosticsHandler])
 

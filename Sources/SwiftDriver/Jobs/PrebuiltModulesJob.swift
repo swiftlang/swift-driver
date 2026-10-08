@@ -15,14 +15,14 @@ import SwiftOptions
 import class Foundation.JSONEncoder
 import class Foundation.JSONSerialization
 
-import class TSCBasic.DiagnosticsEngine
-import protocol TSCBasic.WritableByteStream
-import struct TSCBasic.AbsolutePath
-import struct TSCBasic.ByteString
-import struct TSCBasic.ProcessResult
-import struct TSCBasic.RelativePath
-import var TSCBasic.localFileSystem
-import var TSCBasic.stderrStream
+@preconcurrency import class TSCBasic.DiagnosticsEngine
+@preconcurrency import protocol TSCBasic.WritableByteStream
+@preconcurrency import struct TSCBasic.AbsolutePath
+@preconcurrency import struct TSCBasic.ByteString
+@preconcurrency import struct TSCBasic.ProcessResult
+@preconcurrency import struct TSCBasic.RelativePath
+@preconcurrency import var TSCBasic.localFileSystem
+@preconcurrency import var TSCBasic.stderrStream
 
 enum InterfaceFlagKind {
   case regular, ignorable, ignorablePrivate

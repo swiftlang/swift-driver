@@ -21,7 +21,7 @@ import TestUtilities
 
 /// A source file to be used in an incremental test.
 /// User edits can be simulated by using `AddOn`s.
-public struct Source: Hashable, Comparable {
+public struct Source: Hashable, Comparable, Sendable {
 
   /// E.g. "main" for "main.swift"
   public let name: String

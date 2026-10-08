@@ -171,25 +171,12 @@ extension Collection where Element: StringProtocol {
   }
 }
 
-// MARK: - Mocking up a ModuleDependencyGraph
-protocol ModuleDependencyGraphMocker {
-  static var mockGraphCreator: MockModuleDependencyGraphCreator { get }
-}
-
-struct MockModuleDependencyGraphCreator {
-  let maxIndex: Int
-  let info: IncrementalCompilationState.IncrementalDependencyAndInputSetup
-
-  /// maxIndex must be larger than any index used
-  init(maxIndex: Int) {
+extension ModuleDependencyGraph {
+  static func mockUpAGraph(maxIndex: Int) -> ModuleDependencyGraph {
     let outputFileMap = OutputFileMap.mock(maxIndex: maxIndex)
-    self.info = IncrementalCompilationState.IncrementalDependencyAndInputSetup
+    let info = IncrementalCompilationState.IncrementalDependencyAndInputSetup
       .mock(outputFileMap: outputFileMap)
-    self.maxIndex = maxIndex
-  }
-
-  func mockUpAGraph() -> ModuleDependencyGraph {
-    .createForBuildingFromSwiftDeps(info.buildRecordInfo.buildRecord([], []), info)
+    return .createForBuildingFromSwiftDeps(info.buildRecordInfo.buildRecord([], []), info)
   }
 }
 

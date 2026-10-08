@@ -357,7 +357,7 @@ extension IncrementalCompilationState {
 extension IncrementalCompilationState {
   /// Options that control the behavior of various aspects of the
   /// incremental build.
-  public struct Options: OptionSet {
+  public struct Options: OptionSet, Sendable {
     public var rawValue: UInt8
 
     public init(rawValue: UInt8) {
@@ -395,7 +395,7 @@ extension IncrementalCompilationState {
 extension IncrementalCompilationState {
   enum WriteDependencyGraphError: LocalizedError {
     case noBuildRecordInfo,
-         couldNotWrite(path: VirtualPath, error: Error)
+         couldNotWrite(path: String, error: Error)
     var errorDescription: String? {
       switch self {
       case .noBuildRecordInfo:
