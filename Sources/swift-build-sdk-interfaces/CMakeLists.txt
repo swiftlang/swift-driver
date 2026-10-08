@@ -14,3 +14,8 @@ target_link_libraries(swift-build-sdk-interfaces PUBLIC
 
 install(TARGETS swift-build-sdk-interfaces
   DESTINATION bin)
+if(MSVC)
+  install(FILES $<TARGET_FILE_DIR:swift-build-sdk-interfaces>/$<TARGET_FILE_BASE_NAME:swift-build-sdk-interfaces>.pdb
+    DESTINATION bin
+    OPTIONAL)
+endif()
