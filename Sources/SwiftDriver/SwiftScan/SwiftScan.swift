@@ -247,6 +247,11 @@ private extension String {
     return api.swiftscan_swift_binary_detail_get_header_dependency != nil
   }
 
+  @_spi(Testing) public var supportsComputingMultipleCacheKeys : Bool {
+    return api.swiftscan_cache_compute_keys_from_input_indices != nil &&
+           api.swiftscan_string_set_dispose != nil
+  }
+
   @_spi(Testing) public var supportsStringDispose : Bool {
     return api.swiftscan_string_dispose != nil
   }
@@ -520,6 +525,7 @@ private extension swiftscan_functions_t {
     self.swiftscan_cas_dispose = loadOptional("swiftscan_cas_dispose")
     self.swiftscan_cache_compute_key = loadOptional("swiftscan_cache_compute_key")
     self.swiftscan_cache_compute_key_from_input_index = loadOptional("swiftscan_cache_compute_key_from_input_index")
+    self.swiftscan_cache_compute_keys_from_input_indices = loadOptional("swiftscan_cache_compute_keys_from_input_indices")
     self.swiftscan_cas_store = loadOptional("swiftscan_cas_store")
 
     self.swiftscan_cas_fs_builder_create = loadOptional("swiftscan_cas_fs_builder_create")
