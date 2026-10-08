@@ -395,7 +395,7 @@ public struct Driver {
   /// If loaded module trace is emitted by scanner.
   lazy var loadedModuleTraceEmittedByScanner: Bool = {
     // check to see if -dependency-only-import flag is supported.
-    isFrontendArgSupported(.dependencyOnlyImport) && parsedOptions.hasArgument(.driverExplicitModuleBuild)
+    isFrontendArgSupported(.dependencyOnlyImport) && isExplicitModuleBuildEnabled
   }()
 
   /// Whether compile jobs are passed -debug-module-path.
@@ -675,6 +675,12 @@ public struct Driver {
   /// Can either be an argument to the driver in many-module contexts where dependency information
   /// is shared across many targets; otherwise, a new instance is created by the driver itself.
   @_spi(Testing) public let interModuleDependencyOracle: InterModuleDependencyOracle
+
+  /// Whether this driver invocation will build module dependencies explicitly.
+  ///
+  /// Requested with `-explicit-module-build` and declined with
+  /// `-no-explicit-module-build`; if both are given, the last one wins.
+  @_spi(Testing) public let isExplicitModuleBuildEnabled: Bool
 
   /// A collection of all the flags the selected toolchain's `swift-frontend` supports
   public let supportedFrontendFlags: Set<String>
@@ -1052,6 +1058,9 @@ public struct Driver {
                                                                      fileSystem: self.fileSystem,
                                                                      compilerIntegratedTooling: self.compilerIntegratedTooling)
 
+    self.isExplicitModuleBuildEnabled = parsedOptions.hasFlag(positive: .driverExplicitModuleBuild,
+                                                              negative: .driverNoExplicitModuleBuild) ?? false
+
     // Compute the host machine's triple
     self.hostTriple =
       try Self.computeHostTriple(&self.parsedOptions, diagnosticsEngine: diagnosticEngine,
@@ -1228,7 +1237,7 @@ public struct Driver {
     // Caching options.
     let cachingEnabled = parsedOptions.hasArgument(.cacheCompileJob) || env.keys.contains("SWIFT_ENABLE_CACHING")
     if cachingEnabled {
-      if !parsedOptions.hasArgument(.driverExplicitModuleBuild) {
+      if !self.isExplicitModuleBuildEnabled {
         diagnosticsEngine.emit(.warning("-cache-compile-job cannot be used without explicit module build, turn off caching"),
                                location: nil)
         self.enableCaching = false
