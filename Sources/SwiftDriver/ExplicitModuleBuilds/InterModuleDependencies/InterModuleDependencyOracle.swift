@@ -97,6 +97,13 @@ public class InterModuleDependencyOracle {
     return swiftScan.supportsBinaryModuleHeaderDependencies || swiftScan.supportsBinaryModuleHeaderDependency
   }
 
+  @_spi(Testing) public func supportsComputingMultipleCacheKeys() throws -> Bool {
+    guard let swiftScan = swiftScanLibInstance else {
+      fatalError("Attempting to query supported scanner API with no scanner instance.")
+    }
+    return swiftScan.supportsComputingMultipleCacheKeys
+  }
+
   @_spi(Testing) public var supportsBridgingHeaderPCHCommand: Bool {
     guard let swiftScan = swiftScanLibInstance else {
       // If no scanner, feature is not supported.

@@ -1367,14 +1367,15 @@ extension Driver {
   public mutating func computeOutputCacheKeyForJob(commandLine: [Job.ArgTemplate],
                                                    inputs: [(TypedVirtualPath, Int)]) throws -> [TypedVirtualPath: String] {
     // No caching setup, return empty dictionary.
-    guard let cas = self.cas else {
+    guard let cas = self.cas, !inputs.isEmpty else {
       return [:]
     }
     // Resolve command-line first.
     let arguments: [String] = try executor.resolver.resolveArgumentList(for: commandLine)
 
-    return try inputs.reduce(into: [:]) { keys, input in
-      keys[input.0] = try cas.computeCacheKey(commandLine: arguments, index: input.1)
+    let keys = try cas.computeCacheKeys(commandLine: arguments, indices: inputs.map { $0.1 })
+    return zip(inputs, keys).reduce(into: [:]) { result, inputAndKey in
+      result[inputAndKey.0.0] = inputAndKey.1
     }
   }
 

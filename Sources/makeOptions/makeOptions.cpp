@@ -346,6 +346,7 @@ int makeOptions_main() {
         emitFlagIf(swift::options::SupplementaryOutput, ".supplementaryOutput");
         emitFlagIf(swift::options::ArgumentIsFileList, ".argumentIsFileList");
         emitFlagIf(swift::options::CacheInvariant, ".cacheInvariant");
+        emitFlagIf(swift::options::ArgumentIsCASID, ".argumentIsCASID");
         out << "]";
       }
 
