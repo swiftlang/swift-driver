@@ -124,6 +124,9 @@ def get_swiftpm_options(args):
     if args.verbose:
         swiftpm_args += ["--verbose"]
 
+    if args.jobs:
+        swiftpm_args += ["-j", str(args.jobs)]
+
     build_os = args.build_target.split("-")[2]
     if build_os.startswith("macosx"):
         swiftpm_args += [
@@ -290,6 +293,8 @@ def handle_invocation(args):
         test_args += ["-Xswiftc", "-enable-testing"]
         if should_test_parallel():
             test_args += ["--parallel"]
+            if args.jobs:
+                test_args += ["--num-workers", str(args.jobs)]
         # The test suite consults these variables to control what tests get run
         env["SWIFT_DRIVER_ENABLE_INTEGRATION_TESTS"] = "1"
         if args.lit_test_dir:
@@ -919,6 +924,8 @@ def cmake_build(
     ninja_cmd = [args.ninja_bin]
     if args.verbose:
         ninja_cmd.append("-v")
+    if args.jobs:
+        ninja_cmd.append("-j%s" % (args.jobs))
     if ninja_target is not None:
         ninja_cmd.append(ninja_target)
 
@@ -1109,6 +1116,10 @@ def main():
             default=False,
             help="when true, installs without rebuilding",
         )
+        parser.add_argument(
+            "-j", "--jobs",
+            type=int,
+            help="the number of parallel jobs to use")
 
     subparsers = parser.add_subparsers(
         title="subcommands", dest="action", metavar="action"
