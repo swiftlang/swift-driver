@@ -208,6 +208,11 @@ public struct ClangModuleDetails: Codable, Hashable {
 
   /// The module cache key of the output module.
   public var moduleCacheKey: String?
+
+  /// Directories whose contents this module enumerated, such as umbrella
+  /// directories. Report changes to them with
+  /// `InterModuleDependencyOracle.addInvalidatedPaths`.
+  public var directoryDependencies: [TextualVirtualPath]?
 }
 
 public struct ModuleInfo: Codable, Hashable {
