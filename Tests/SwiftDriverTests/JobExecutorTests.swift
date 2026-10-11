@@ -492,6 +492,19 @@ extension DarwinToolchain {
     }
   }
 
+  @Test func temporaryDirectoryIsRemovedOnResolverDeinit() throws {
+    var resolver: ArgsResolver? = try ArgsResolver(fileSystem: localFileSystem)
+    let temporaryFile = VirtualPath.temporaryWithKnownContents(
+      try .init(validating: "resolver-cleanup.txt"),
+      "temporary contents".data(using: .utf8)!
+    )
+    let resolvedPath = try AbsolutePath(validating: resolver!.resolve(.path(temporaryFile)))
+
+    #expect(localFileSystem.exists(resolvedPath))
+    resolver = nil
+    #expect(!localFileSystem.exists(resolvedPath))
+  }
+
   @Test func resolveSquashedArgs() throws {
     try withTemporaryDirectory { path in
       let resolver = try ArgsResolver(fileSystem: localFileSystem, temporaryDirectory: .absolute(path))
