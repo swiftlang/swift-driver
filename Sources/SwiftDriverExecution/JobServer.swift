@@ -93,9 +93,13 @@ final class JobServer {
   /// pool shuts down -- neither of which makes the pool itself readable.
   private let wakeupReadFD: CInt
   private let wakeupWriteFD: CInt
+
+  /// The thread parked in a blocking `read` on an inherited pool, if any. Such a
+  /// read cannot be woken by the self-pipe, only interrupted by a signal.
+  private var blockedReader: pthread_t?
 #endif
 
-  /// Guards `isImplicitTokenAvailable` and `isShutDown`.
+  /// Guards `isImplicitTokenAvailable`, `isShutDown` and `blockedReader`.
   private let lock = NSLock()
   private var isImplicitTokenAvailable = true
   private var isShutDown = false
@@ -155,6 +159,9 @@ final class JobServer {
   private func signalWakeup() {
     _ = SetEvent(wakeupEvent)
   }
+
+  /// Waits on the semaphore are already woken by `wakeupEvent`.
+  func interruptBlockedRead() {}
 #else
   /// Not private: the tests construct a client over a pipe they control.
   init?(auth: String) {
@@ -199,6 +206,8 @@ final class JobServer {
       self.readFD = readFD
       self.writeFD = writeFD
       self.ownsDescriptors = false
+      // Reads on these descriptors block, so arm the signal that can interrupt one.
+      _ = Self.isReadInterruptSignalInstalled
     }
   }
 
@@ -224,6 +233,43 @@ final class JobServer {
         retryOnInterrupt { read(wakeupReadFD, raw.baseAddress, raw.count) }
       }
       if count <= 0 { break }
+    }
+  }
+
+  /// The signal `interruptBlockedRead` sends.
+  private static let readInterruptSignal = SIGUSR1
+
+  /// Installs, once per process, a no-op handler for `readInterruptSignal`
+  /// without `SA_RESTART`, so that delivering it makes a blocked `read` fail
+  /// with `EINTR` instead of resuming.
+  private static let isReadInterruptSignalInstalled: Bool = {
+#if canImport(Musl)
+    return false
+#else
+    let handler: @convention(c) (CInt) -> Void = { _ in }
+    var action = sigaction()
+#if canImport(Darwin) || os(OpenBSD) || os(FreeBSD)
+    action.__sigaction_u.__sa_handler = handler
+#elseif os(Android)
+    action.sa_handler = handler
+#else
+    action.__sigaction_handler = unsafeBitCast(
+      handler, to: sigaction.__Unnamed_union___sigaction_handler.self)
+#endif
+    sigemptyset(&action.sa_mask)
+    action.sa_flags = 0
+    return sigaction(readInterruptSignal, &action, nil) == 0
+#endif
+  }()
+
+  /// Interrupts a `read` blocked on an inherited pool, if one is in progress. A
+  /// signal that lands just before the `read` starts is lost, so callers that
+  /// need the reader out must keep calling this until it is.
+  func interruptBlockedRead() {
+    lock.lock()
+    defer { lock.unlock() }
+    if let reader = blockedReader {
+      _ = pthread_kill(reader, Self.readInterruptSignal)
     }
   }
 #endif
@@ -319,8 +365,29 @@ final class JobServer {
       if ready.wasWokenUp { drainWakeup() }
       guard ready.hasToken else { continue }
 
+      // On an inherited pipe we cannot set `O_NONBLOCK` without changing it for
+      // every other client, so if another process takes the byte we were woken
+      // for, this `read` blocks. Publish the thread so `interruptBlockedRead`
+      // can reach it -- checking for shutdown under the same lock, so a shutdown
+      // either is seen here or finds the reader to interrupt.
+      let isInterruptible = !ownsDescriptors && Self.isReadInterruptSignalInstalled
+      if isInterruptible {
+        lock.lock()
+        if isShutDown {
+          lock.unlock()
+          return nil
+        }
+        blockedReader = pthread_self()
+        lock.unlock()
+      }
       var byte: UInt8 = 0
-      let count = retryOnInterrupt { read(readFD, &byte, 1) }
+      let count = read(readFD, &byte, 1)
+      let readErrno = errno
+      if isInterruptible {
+        lock.lock()
+        blockedReader = nil
+        lock.unlock()
+      }
       if count == 1 {
         return Token(kind: .byte(byte))
       }
@@ -328,13 +395,12 @@ final class JobServer {
         // Every write end has been closed: the build is tearing down.
         return nil
       }
+      // Interrupted, by a signal or by `interruptBlockedRead`: loop and recheck.
+      if readErrno == EINTR { continue }
       // Another process took the byte we were woken for. On a FIFO the
       // descriptor is ours and non-blocking, so we loop and wait for the next
-      // token. On an inherited pipe we cannot set `O_NONBLOCK` without changing
-      // it for every other client, so the `read` above simply blocks -- correct
-      // but not interruptible, which is why `JobServerDispatcher` bounds how
-      // long it waits for this thread.
-      guard errno == EAGAIN || errno == EWOULDBLOCK else { return nil }
+      // token.
+      guard readErrno == EAGAIN || readErrno == EWOULDBLOCK else { return nil }
     }
   }
 
@@ -387,11 +453,15 @@ final class JobServerDispatcher {
   private var isShutDown = false
   private var hasBrokerFinished = false
 
-  /// How long `shutDown` waits for the broker before giving up. The broker can
-  /// be parked in an uninterruptible read, and a teardown that can block
-  /// indefinitely is worse than leaking a token from a build that is ending
-  /// anyway.
+  /// How long `shutDown` waits for the broker before giving up. A broker parked
+  /// in a read is interrupted by a signal, but that cannot be relied on
+  /// everywhere, and a teardown that can block indefinitely is worse than
+  /// leaking a token from a build that is ending anyway.
   private static let brokerShutDownTimeout: TimeInterval = 5
+
+  /// How often `shutDown` re-sends the interrupt to a broker parked in a read,
+  /// since one sent just before the read starts is lost.
+  private static let readInterruptInterval: TimeInterval = 0.01
 
   init(jobServer: JobServer, queue: OperationQueue, fallbackJobLimit: Int) {
     self.jobServer = jobServer
@@ -462,8 +532,11 @@ final class JobServerDispatcher {
 
     condition.lock()
     let deadline = Date(timeIntervalSinceNow: Self.brokerShutDownTimeout)
-    while !hasBrokerFinished {
-      guard condition.wait(until: deadline) else { break }
+    while !hasBrokerFinished && Date() < deadline {
+      // A read on an inherited pool is woken by neither of the above.
+      jobServer.interruptBlockedRead()
+      let retry = Date(timeIntervalSinceNow: Self.readInterruptInterval)
+      _ = condition.wait(until: min(deadline, retry))
     }
     condition.unlock()
 
