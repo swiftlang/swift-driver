@@ -64,6 +64,11 @@ final class JobServer {
 #endif
     }
     fileprivate let kind: Kind
+
+    fileprivate var isImplicit: Bool {
+      if case .implicit = kind { return true }
+      return false
+    }
   }
 
 #if os(Windows)
@@ -234,7 +239,7 @@ final class JobServer {
 
   /// Claims the free slot this process owns, if it is not already in use.
   /// Returns `nil` once the pool has shut down.
-  private func takeImplicitToken() -> Token? {
+  fileprivate func takeImplicitToken() -> Token? {
     lock.lock()
     defer { lock.unlock() }
     guard !isShutDown, isImplicitTokenAvailable else { return nil }
@@ -413,8 +418,35 @@ final class JobServerDispatcher {
       return
     }
     pending.append(body)
+    // Our own slot does not come from the pool, so spend it here rather than
+    // through a broker that may be parked in a read on the pool. Take from the
+    // front so earlier work keeps its place.
+    if let token = jobServer.takeImplicitToken() {
+      let work = pending.removeFirst()
+      condition.unlock()
+      queue.addOperation { self.run(work, holding: token) }
+      return
+    }
     condition.signal()
     condition.unlock()
+  }
+
+  /// Runs `work`, then hands the implicit token straight to the next pending
+  /// job instead of returning it, so this process keeps running at least one
+  /// job however long the broker waits for the pool. Pool tokens are always
+  /// written back, since siblings may be waiting on them.
+  private func run(_ work: @escaping () -> Void, holding token: JobServer.Token) {
+    work()
+    if token.isImplicit {
+      condition.lock()
+      let next = pending.isEmpty ? nil : pending.removeFirst()
+      condition.unlock()
+      if let next = next {
+        queue.addOperation { self.run(next, holding: token) }
+        return
+      }
+    }
+    jobServer.release(token)
   }
 
   /// Stops the broker and waits for the work it dispatched, so that every token
@@ -457,8 +489,9 @@ final class JobServerDispatcher {
       }
 
       // Take the token before claiming the work, so that we never hold a token
-      // with nothing to spend it on. Only this thread removes from `pending`,
-      // so it cannot have been emptied while we waited.
+      // with nothing to spend it on. Work handed to the implicit token by
+      // `enqueue` or `run` may have emptied `pending` meanwhile; the token then
+      // goes straight back below.
       guard let token = jobServer.acquire() else {
         return
       }
@@ -472,10 +505,7 @@ final class JobServerDispatcher {
         continue
       }
 
-      queue.addOperation {
-        defer { self.jobServer.release(token) }
-        work()
-      }
+      queue.addOperation { self.run(work, holding: token) }
     }
   }
 
