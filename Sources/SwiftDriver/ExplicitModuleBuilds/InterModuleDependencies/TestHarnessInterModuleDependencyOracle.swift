@@ -17,6 +17,7 @@ import struct TSCBasic.AbsolutePath
 /// Answers dependency scans with a graph holding only the main module, so driver tests plan without scanning sources.
 @_spi(Testing) public final class TestHarnessInterModuleDependencyOracle: InterModuleDependencyOracle {
   @_spi(Testing) public override func getDependencies(workingDirectory: AbsolutePath,
+                                                      compilerExecutablePath: AbsolutePath? = nil,
                                                       moduleAliases: [String: String]? = nil,
                                                       commandLine: [String],
                                                       diagnostics: inout [ScannerDiagnosticPayload])
@@ -40,6 +41,7 @@ import struct TSCBasic.AbsolutePath
   }
 
   @_spi(Testing) public override func getImports(workingDirectory: AbsolutePath,
+                                                 compilerExecutablePath: AbsolutePath? = nil,
                                                  moduleAliases: [String: String]? = nil,
                                                  commandLine: [String],
                                                  diagnostics: inout [ScannerDiagnosticPayload])
