@@ -37,24 +37,28 @@ public class InterModuleDependencyOracle {
   public init() {}
 
   @_spi(Testing) public func getDependencies(workingDirectory: AbsolutePath,
+                                             compilerExecutablePath: AbsolutePath? = nil,
                                              moduleAliases: [String: String]? = nil,
                                              commandLine: [String],
                                              diagnostics: inout [ScannerDiagnosticPayload])
   throws -> InterModuleDependencyGraph {
     precondition(hasScannerInstance)
     return try swiftScanLibInstance!.scanDependencies(workingDirectory: workingDirectory,
+                                                      compilerExecutablePath: compilerExecutablePath,
                                                       moduleAliases: moduleAliases,
                                                       invocationCommand: commandLine,
                                                       diagnostics: &diagnostics)
   }
 
   @_spi(Testing) public func getImports(workingDirectory: AbsolutePath,
+                                        compilerExecutablePath: AbsolutePath? = nil,
                                         moduleAliases: [String: String]? = nil,
                                         commandLine: [String],
                                         diagnostics: inout [ScannerDiagnosticPayload])
   throws -> InterModuleDependencyImports {
     precondition(hasScannerInstance)
     return try swiftScanLibInstance!.preScanImports(workingDirectory: workingDirectory,
+                                                    compilerExecutablePath: compilerExecutablePath,
                                                     moduleAliases: moduleAliases,
                                                     invocationCommand: commandLine,
                                                     diagnostics: &diagnostics)
