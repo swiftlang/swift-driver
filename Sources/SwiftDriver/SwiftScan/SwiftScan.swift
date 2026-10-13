@@ -163,7 +163,25 @@ private extension String {
     dylib.leak()
   }
 
+  /// Tell the scanner which compiler executable will run the jobs of this scan.
+  ///
+  /// The scanner finds tools and libraries, such as the C++ standard library,
+  /// relative to the compiler, as the compiler does. When the scanner and the
+  /// jobs it plans are not told the same executable, they can find different
+  /// installations. Libraries that predate this query ignore the path.
+  private func setMainExecutablePath(_ compilerExecutablePath: AbsolutePath?,
+                                     of invocation: swiftscan_scan_invocation_t?) {
+    guard let compilerExecutablePath,
+          let setMainExecutablePath = api.swiftscan_scan_invocation_set_main_executable_path else {
+      return
+    }
+    compilerExecutablePath.description.withCString {
+      setMainExecutablePath(invocation, $0)
+    }
+  }
+
   func preScanImports(workingDirectory: AbsolutePath,
+                      compilerExecutablePath: AbsolutePath? = nil,
                       moduleAliases: [String: String]?,
                       invocationCommand: [String],
                       diagnostics: inout [ScannerDiagnosticPayload]) throws -> InterModuleDependencyImports {
@@ -174,6 +192,7 @@ private extension String {
                                                         workingDirectory
                                                           .description
                                                           .cString(using: String.Encoding.utf8))
+    setMainExecutablePath(compilerExecutablePath, of: invocation)
     withArrayOfCStrings(invocationCommand) { invocationStringArray in
       api.swiftscan_scan_invocation_set_argv(invocation,
                                              Int32(invocationCommand.count),
@@ -198,6 +217,7 @@ private extension String {
   }
 
   func scanDependencies(workingDirectory: AbsolutePath,
+                        compilerExecutablePath: AbsolutePath? = nil,
                         moduleAliases: [String: String]?,
                         invocationCommand: [String],
                         diagnostics: inout [ScannerDiagnosticPayload]) throws -> InterModuleDependencyGraph {
@@ -208,6 +228,7 @@ private extension String {
                                                         workingDirectory
                                                           .description
                                                           .cString(using: String.Encoding.utf8))
+    setMainExecutablePath(compilerExecutablePath, of: invocation)
     withArrayOfCStrings(invocationCommand) { invocationStringArray in
       api.swiftscan_scan_invocation_set_argv(invocation,
                                              Int32(invocationCommand.count),
@@ -473,6 +494,12 @@ private extension swiftscan_functions_t {
     // Target Info query
     self.swiftscan_compiler_target_info_query_v2 =
       loadOptional("swiftscan_compiler_target_info_query_v2")
+
+    // Telling the scanner which compiler runs the scanned jobs
+    self.swiftscan_scan_invocation_set_main_executable_path =
+      loadOptional("swiftscan_scan_invocation_set_main_executable_path")
+    self.swiftscan_scan_invocation_get_main_executable_path =
+      loadOptional("swiftscan_scan_invocation_get_main_executable_path")
 
     // Scanner diagnostic emission query
     self.swiftscan_diagnostic_get_message =
