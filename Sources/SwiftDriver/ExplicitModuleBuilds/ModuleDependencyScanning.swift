@@ -272,8 +272,11 @@ public extension Driver {
                                                 useResponseFiles: .disabled,
                                                 using: executor.resolver)
       Self.sanitizeCommandForLibScanInvocation(&command)
+      // The scan finds tools and libraries relative to the compiler that runs the jobs.
+      let compilerExecutablePath = try toolchain.resolvedTool(.swiftCompiler).path
       do {
         imports = try interModuleDependencyOracle.getImports(workingDirectory: cwd,
+                                                             compilerExecutablePath: compilerExecutablePath,
                                                              moduleAliases: moduleOutputInfo.aliases,
                                                              commandLine: command,
                                                              diagnostics: &scanDiagnostics)
@@ -333,8 +336,11 @@ public extension Driver {
                                                 useResponseFiles: .disabled,
                                                 using: executor.resolver)
       Self.sanitizeCommandForLibScanInvocation(&command)
+      // The scan finds tools and libraries relative to the compiler that runs the jobs.
+      let compilerExecutablePath = try toolchain.resolvedTool(.swiftCompiler).path
       do {
         dependencyGraph = try interModuleDependencyOracle.getDependencies(workingDirectory: cwd,
+                                                                          compilerExecutablePath: compilerExecutablePath,
                                                                           moduleAliases: moduleOutputInfo.aliases,
                                                                           commandLine: command,
                                                                           diagnostics: &scanDiagnostics)

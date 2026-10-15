@@ -373,7 +373,7 @@ import Testing
       let plannedJobs = try await driver.planBuild().removingAutolinkExtractJobs()
       #expect(plannedJobs.count == 1)
       #expect(plannedJobs[0].kind == .compile)
-      expectEqual(plannedJobs[0].inputs.count, 2)
+      expectEqual(plannedJobs[0].inputs.count, 3)
       try expectEqual(plannedJobs[0].inputs[0].file, try toPath("main.swift"))
       try expectEqual(plannedJobs[0].inputs[1].file, try toPath("multi-threaded.swift"))
       #expect(plannedJobs[0].outputs.count == (driver.targetTriple.isDarwin ? 4 : 3))
@@ -976,11 +976,12 @@ import Testing
       var driver = try TestDriver(args: ["swiftc", "-typecheck", importHeaderFlag, "TestInputHeader.h", "foo.swift"])
       let plannedJobs = try await driver.planBuild()
       #expect(plannedJobs.count == 2)
-
       #expect(plannedJobs[0].kind == .generatePCH)
-      expectEqual(plannedJobs[0].inputs.count, 1)
-      try expectEqual(plannedJobs[0].inputs[0].file, try toPath("TestInputHeader.h"))
-      expectEqual(plannedJobs[0].inputs[0].type, .objcHeader)
+      expectEqual(plannedJobs[0].inputs.count, 2)
+      expectEqual(plannedJobs[0].inputs[0].type, .jsonSwiftArtifacts)
+      expectEqual(plannedJobs[0].inputs[1].type, .objcHeader)
+      try expectEqual(plannedJobs[0].inputs[1].file, try toPath("TestInputHeader.h"))
+
       #expect(plannedJobs[0].outputs.count == 1)
       #expect(matchTemporary(plannedJobs[0].outputs[0].file, "TestInputHeader.pch"))
       expectEqual(plannedJobs[0].outputs[0].type, .pch)
@@ -990,7 +991,7 @@ import Testing
       #expect(commandContainsTemporaryPath(plannedJobs[0].commandLine, "TestInputHeader.pch"))
 
       #expect(plannedJobs[1].kind == .compile)
-      expectEqual(plannedJobs[1].inputs.count, 2)
+      expectEqual(plannedJobs[1].inputs.count, 3)
       try expectEqual(plannedJobs[1].inputs[0].file, try toPath("foo.swift"))
       #expect(plannedJobs[1].commandLine.contains(.flag(importHeaderFlag)))
       #expect(commandContainsTemporaryPath(plannedJobs[1].commandLine, "TestInputHeader.pch"))
@@ -1004,8 +1005,9 @@ import Testing
       #expect(plannedJobs.count == 1)
 
       #expect(plannedJobs[0].kind == .compile)
-      expectEqual(plannedJobs[0].inputs.count, 1)
+      expectEqual(plannedJobs[0].inputs.count, 2)
       try expectEqual(plannedJobs[0].inputs[0].file, try toPath("foo.swift"))
+      expectEqual(plannedJobs[0].inputs[1].type, .jsonSwiftArtifacts)
       #expect(plannedJobs[0].commandLine.contains(.flag(importHeaderFlag)))
     }
 
@@ -1017,9 +1019,10 @@ import Testing
       #expect(plannedJobs.count == 2)
 
       #expect(plannedJobs[0].kind == .generatePCH)
-      expectEqual(plannedJobs[0].inputs.count, 1)
-      try expectEqual(plannedJobs[0].inputs[0].file, try toPath("TestInputHeader.h"))
-      expectEqual(plannedJobs[0].inputs[0].type, .objcHeader)
+      expectEqual(plannedJobs[0].inputs.count, 2)
+      expectEqual(plannedJobs[0].inputs[0].type, .jsonSwiftArtifacts)
+      expectEqual(plannedJobs[0].inputs[1].type, .objcHeader)
+      try expectEqual(plannedJobs[0].inputs[1].file, try toPath("TestInputHeader.h"))
       #expect(plannedJobs[0].outputs.count == 1)
       #expect(matchTemporary(plannedJobs[0].outputs[0].file, "TestInputHeader.pch"))
       expectEqual(plannedJobs[0].outputs[0].type, .pch)
@@ -1031,8 +1034,10 @@ import Testing
       #expect(commandContainsTemporaryPath(plannedJobs[0].commandLine, "TestInputHeader.pch"))
 
       #expect(plannedJobs[1].kind == .compile)
-      expectEqual(plannedJobs[1].inputs.count, 2)
+      expectEqual(plannedJobs[1].inputs.count, 3)
       try expectEqual(plannedJobs[1].inputs[0].file, try toPath("foo.swift"))
+      expectEqual(plannedJobs[1].inputs[1].type, .jsonSwiftArtifacts)
+      expectEqual(plannedJobs[1].inputs[2].type, .pch)
     }
 
     do {
@@ -1043,9 +1048,10 @@ import Testing
       #expect(plannedJobs.count == 2)
 
       #expect(plannedJobs[0].kind == .generatePCH)
-      expectEqual(plannedJobs[0].inputs.count, 1)
-      try expectEqual(plannedJobs[0].inputs[0].file, try toPath("TestInputHeader.h"))
-      expectEqual(plannedJobs[0].inputs[0].type, .objcHeader)
+      expectEqual(plannedJobs[0].inputs.count, 2)
+      expectEqual(plannedJobs[0].inputs[0].type, .jsonSwiftArtifacts)
+      expectEqual(plannedJobs[0].inputs[1].type, .objcHeader)
+      try expectEqual(plannedJobs[0].inputs[1].file, try toPath("TestInputHeader.h"))
       #expect(plannedJobs[0].outputs.count == 1)
       try expectEqual(
         plannedJobs[0].outputs[0].file.nativePathString(escaped: false),
@@ -1054,13 +1060,16 @@ import Testing
       expectEqual(plannedJobs[0].outputs[0].type, .pch)
       #expect(plannedJobs[0].commandLine.contains(.flag("-frontend")))
       #expect(plannedJobs[0].commandLine.contains(.flag("-emit-pch")))
-      #expect(plannedJobs[0].commandLine.contains(.flag("-pch-output-dir")))
-      #expect(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: "/pch"))))
+      #expect(!plannedJobs[0].commandLine.contains(.flag("-pch-output-dir")))
+      #expect(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: "/pch/TestInputHeader.pch"))))
 
       #expect(plannedJobs[1].kind == .compile)
-      expectEqual(plannedJobs[1].inputs.count, 2)
+      expectEqual(plannedJobs[1].inputs.count, 3)
       try expectEqual(plannedJobs[1].inputs[0].file, try toPath("foo.swift"))
-      #expect(plannedJobs[1].commandLine.contains(.flag("-pch-disable-validation")))
+      expectEqual(plannedJobs[1].inputs[1].type, .jsonSwiftArtifacts)
+      expectEqual(plannedJobs[1].inputs[2].type, .pch)
+      #expect(plannedJobs[1].commandLine.contains(.path(try VirtualPath(path: "/pch/TestInputHeader.pch"))))
+      #expect(!plannedJobs[1].commandLine.contains(.flag("-pch-disable-validation")))
     }
 
     do {
@@ -1072,8 +1081,9 @@ import Testing
       #expect(plannedJobs.count == 1)
 
       #expect(plannedJobs[0].kind == .compile)
-      expectEqual(plannedJobs[0].inputs.count, 1)
+      expectEqual(plannedJobs[0].inputs.count, 2)
       try expectEqual(plannedJobs[0].inputs[0].file, try toPath("foo.swift"))
+      expectEqual(plannedJobs[0].inputs[1].type, .jsonSwiftArtifacts)
       #expect(plannedJobs[0].commandLine.contains(.flag(importHeaderFlag)))
       #expect(!plannedJobs[0].commandLine.contains(.flag("-pch-output-dir")))
     }
@@ -1087,8 +1097,9 @@ import Testing
       #expect(plannedJobs.count == 1)
 
       #expect(plannedJobs[0].kind == .compile)
-      expectEqual(plannedJobs[0].inputs.count, 1)
+      expectEqual(plannedJobs[0].inputs.count, 2)
       try expectEqual(plannedJobs[0].inputs[0].file, try toPath("foo.swift"))
+      expectEqual(plannedJobs[0].inputs[1].type, .jsonSwiftArtifacts)
       #expect(plannedJobs[0].commandLine.contains(.flag(importHeaderFlag)))
       #expect(!plannedJobs[0].commandLine.contains(.flag("-pch-output-dir")))
     }
@@ -1102,9 +1113,10 @@ import Testing
       #expect(plannedJobs.count == 2)
 
       #expect(plannedJobs[0].kind == .generatePCH)
-      expectEqual(plannedJobs[0].inputs.count, 1)
-      try expectEqual(plannedJobs[0].inputs[0].file, try toPath("TestInputHeader.h"))
-      expectEqual(plannedJobs[0].inputs[0].type, .objcHeader)
+      expectEqual(plannedJobs[0].inputs.count, 2)
+      expectEqual(plannedJobs[0].inputs[0].type, .jsonSwiftArtifacts)
+      expectEqual(plannedJobs[0].inputs[1].type, .objcHeader)
+      try expectEqual(plannedJobs[0].inputs[1].file, try toPath("TestInputHeader.h"))
       #expect(plannedJobs[0].outputs.count == 2)
       #expect(matchTemporary(plannedJobs[0].outputs[0].file, "TestInputHeader.dia"))
       expectEqual(plannedJobs[0].outputs[0].type, .diagnostics)
@@ -1117,13 +1129,16 @@ import Testing
       #expect(commandContainsTemporaryPath(plannedJobs[0].commandLine, "TestInputHeader.dia"))
       #expect(plannedJobs[0].commandLine.contains(.flag("-frontend")))
       #expect(plannedJobs[0].commandLine.contains(.flag("-emit-pch")))
-      #expect(plannedJobs[0].commandLine.contains(.flag("-pch-output-dir")))
-      #expect(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: "/pch"))))
+      #expect(!plannedJobs[0].commandLine.contains(.flag("-pch-output-dir")))
+      #expect(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: "/pch/TestInputHeader.pch"))))
 
       #expect(plannedJobs[1].kind == .compile)
-      expectEqual(plannedJobs[1].inputs.count, 2)
+      expectEqual(plannedJobs[1].inputs.count, 3)
       try expectEqual(plannedJobs[1].inputs[0].file, try toPath("foo.swift"))
-      #expect(plannedJobs[1].commandLine.contains(.flag("-pch-disable-validation")))
+      expectEqual(plannedJobs[1].inputs[1].type, .jsonSwiftArtifacts)
+      expectEqual(plannedJobs[1].inputs[2].type, .pch)
+      #expect(plannedJobs[1].commandLine.contains(.path(try VirtualPath(path: "/pch/TestInputHeader.pch"))))
+      #expect(!plannedJobs[1].commandLine.contains(.flag("-pch-disable-validation")))
     }
 
     do {
@@ -1135,9 +1150,10 @@ import Testing
       #expect(plannedJobs.count == 3)
 
       #expect(plannedJobs[0].kind == .generatePCH)
-      expectEqual(plannedJobs[0].inputs.count, 1)
-      try expectEqual(plannedJobs[0].inputs[0].file, try toPath("TestInputHeader.h"))
-      expectEqual(plannedJobs[0].inputs[0].type, .objcHeader)
+      expectEqual(plannedJobs[0].inputs.count, 2)
+      expectEqual(plannedJobs[0].inputs[0].type, .jsonSwiftArtifacts)
+      expectEqual(plannedJobs[0].inputs[1].type, .objcHeader)
+      try expectEqual(plannedJobs[0].inputs[1].file, try toPath("TestInputHeader.h"))
       #expect(plannedJobs[0].outputs.count == 2)
       #expect(
         plannedJobs[0].outputs[0].file.name.range(
@@ -1160,13 +1176,16 @@ import Testing
       )
       #expect(plannedJobs[0].commandLine.contains(.flag("-frontend")))
       #expect(plannedJobs[0].commandLine.contains(.flag("-emit-pch")))
-      #expect(plannedJobs[0].commandLine.contains(.flag("-pch-output-dir")))
-      #expect(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: "/pch"))))
+      #expect(!plannedJobs[0].commandLine.contains(.flag("-pch-output-dir")))
+      #expect(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: "/pch/TestInputHeader.pch"))))
 
       #expect(plannedJobs[1].kind == .emitModule)
-      expectEqual(plannedJobs[1].inputs.count, 2)
+      expectEqual(plannedJobs[1].inputs.count, 3)
       try expectEqual(plannedJobs[1].inputs[0].file, try toPath("foo.swift"))
-      #expect(plannedJobs[1].commandLine.contains(.flag("-pch-disable-validation")))
+      expectEqual(plannedJobs[1].inputs[1].type, .pch)
+      expectEqual(plannedJobs[1].inputs[2].type, .jsonSwiftArtifacts)
+      #expect(plannedJobs[1].commandLine.contains(.path(try VirtualPath(path: "/pch/TestInputHeader.pch"))))
+      #expect(!plannedJobs[1].commandLine.contains(.flag("-pch-disable-validation")))
 
       // FIXME: validate that merge module is correct job and that it has correct inputs and flags
     }
@@ -1180,9 +1199,10 @@ import Testing
       #expect(plannedJobs.count == 2)
 
       #expect(plannedJobs[0].kind == .generatePCH)
-      expectEqual(plannedJobs[0].inputs.count, 1)
-      try expectEqual(plannedJobs[0].inputs[0].file, try toPath("TestInputHeader.h"))
-      expectEqual(plannedJobs[0].inputs[0].type, .objcHeader)
+      expectEqual(plannedJobs[0].inputs.count, 2)
+      expectEqual(plannedJobs[0].inputs[0].type, .jsonSwiftArtifacts)
+      expectEqual(plannedJobs[0].inputs[1].type, .objcHeader)
+      try expectEqual(plannedJobs[0].inputs[1].file, try toPath("TestInputHeader.h"))
       #expect(plannedJobs[0].outputs.count == 1)
       try expectEqual(
         plannedJobs[0].outputs[0].file.nativePathString(escaped: false),
@@ -1191,12 +1211,15 @@ import Testing
       expectEqual(plannedJobs[0].outputs[0].type, .pch)
       #expect(plannedJobs[0].commandLine.contains(.flag("-frontend")))
       #expect(plannedJobs[0].commandLine.contains(.flag("-emit-pch")))
-      #expect(plannedJobs[0].commandLine.contains(.flag("-pch-output-dir")))
-      #expect(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: "/pch"))))
+      #expect(!plannedJobs[0].commandLine.contains(.flag("-pch-output-dir")))
+      #expect(plannedJobs[0].commandLine.contains(.path(try VirtualPath(path: "/pch/TestInputHeader.pch"))))
 
       #expect(plannedJobs[1].kind == .compile)
-      expectEqual(plannedJobs[1].inputs.count, 2)
+      expectEqual(plannedJobs[1].inputs.count, 3)
       try expectEqual(plannedJobs[1].inputs[0].file, try toPath("foo.swift"))
+      expectEqual(plannedJobs[1].inputs[1].type, .jsonSwiftArtifacts)
+      expectEqual(plannedJobs[1].inputs[2].type, .pch)
+      #expect(plannedJobs[1].commandLine.contains(.path(try VirtualPath(path: "/pch/TestInputHeader.pch"))))
       #expect(!plannedJobs[1].commandLine.contains(.flag("-pch-disable-validation")))
     }
 
@@ -1208,9 +1231,10 @@ import Testing
       #expect(plannedJobs.count == 2)
 
       #expect(plannedJobs[0].kind == .generatePCH)
-      expectEqual(plannedJobs[0].inputs.count, 1)
-      try expectEqual(plannedJobs[0].inputs[0].file, try toPath("TestInputHeader.h"))
-      expectEqual(plannedJobs[0].inputs[0].type, .objcHeader)
+      expectEqual(plannedJobs[0].inputs.count, 2)
+      expectEqual(plannedJobs[0].inputs[0].type, .jsonSwiftArtifacts)
+      expectEqual(plannedJobs[0].inputs[1].type, .objcHeader)
+      try expectEqual(plannedJobs[0].inputs[1].file, try toPath("TestInputHeader.h"))
       #expect(plannedJobs[0].outputs.count == 1)
       #expect(matchTemporary(plannedJobs[0].outputs[0].file, "TestInputHeader.pch"))
       expectEqual(plannedJobs[0].outputs[0].type, .pch)
@@ -1221,8 +1245,10 @@ import Testing
       #expect(commandContainsTemporaryPath(plannedJobs[0].commandLine, "TestInputHeader.pch"))
 
       #expect(plannedJobs[1].kind == .compile)
-      expectEqual(plannedJobs[1].inputs.count, 2)
+      expectEqual(plannedJobs[1].inputs.count, 3)
       try expectEqual(plannedJobs[1].inputs[0].file, try toPath("foo.swift"))
+      expectEqual(plannedJobs[1].inputs[1].type, .jsonSwiftArtifacts)
+      expectEqual(plannedJobs[1].inputs[2].type, .pch)
     }
 
     // Immediate mode doesn't generate a pch
@@ -1379,8 +1405,9 @@ import Testing
     #expect(plannedJobs.count == 3)
     #expect(plannedJobs[0].kind == .generatePCH)
     #expect(plannedJobs[1].kind == .compile)
-    #expect(plannedJobs[1].inputs[0].file.extension == "swift")
-    #expect(plannedJobs[1].inputs[1].file.extension == "pch")
+    #expect(plannedJobs[1].inputs[0].type == .swift)
+    #expect(plannedJobs[1].inputs[1].type == .jsonSwiftArtifacts)
+    #expect(plannedJobs[1].inputs[2].type == .pch)
   }
 
   @Test func internalPCHasCompileInput() async throws {
@@ -1398,8 +1425,9 @@ import Testing
     #expect(plannedJobs.count == 3)
     #expect(plannedJobs[0].kind == .generatePCH)
     #expect(plannedJobs[1].kind == .compile)
-    #expect(plannedJobs[1].inputs[0].file.extension == "swift")
-    #expect(plannedJobs[1].inputs[1].file.extension == "pch")
+    #expect(plannedJobs[1].inputs[0].type == .swift)
+    #expect(plannedJobs[1].inputs[1].type == .jsonSwiftArtifacts)
+    #expect(plannedJobs[1].inputs[2].type == .pch)
   }
 
   @Test func cxxInteropOptions() async throws {
@@ -1629,9 +1657,10 @@ import Testing
       #expect(!driver.diagnosticEngine.hasErrors)
       #expect(plannedJobs.count == 1)
       #expect(plannedJobs[0].kind == .compile)
-      expectEqual(plannedJobs[0].inputs.count, 2)
+      expectEqual(plannedJobs[0].inputs.count, 3)
       try expectEqual(plannedJobs[0].inputs[0].file, try toPath("main.swift"))
       try expectEqual(plannedJobs[0].inputs[1].file, try toPath("multi-threaded.swift"))
+      expectEqual(plannedJobs[0].inputs[2].type, .jsonSwiftArtifacts)
       #expect(plannedJobs[0].outputs.count == (driver.targetTriple.isDarwin ? 4 : 3))
       #expect(try plannedJobs[0].outputs[0].file == toPath("test.swiftmodule"))
     }

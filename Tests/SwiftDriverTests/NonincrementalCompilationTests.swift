@@ -253,6 +253,8 @@ import Testing
       try await assertDriverDiagnostics(
         args: [
           "swiftc", "-module-name", "theModule", "-working-directory", path.pathString,
+          // These builds run their compiles; none of them exercise explicit modules.
+          "-no-explicit-module-build",
           main.pathString, other.pathString,
         ] + otherArgs + sdkArguments
       ) { driver, verifier in

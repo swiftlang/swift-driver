@@ -227,6 +227,27 @@ extension Trait where Self == KnownIssueTestTrait {
   }
 }
 
+package struct RealDependencyScanTrait: TestTrait & SuiteTrait & TestScoping {
+  package var isRecursive: Bool {
+    true
+  }
+
+  package func provideScope(
+    for test: Testing.Test,
+    testCase: Testing.Test.Case?,
+    performing function: @Sendable () async throws -> Void
+  ) async throws {
+    try await TestDriver.$usesRealDependencyScanner.withValue(true) {
+      try await function()
+    }
+  }
+}
+
+extension Trait where Self == RealDependencyScanTrait {
+  /// Makes `TestDriver` use the real dependency scanner instead of `TestHarnessInterModuleDependencyOracle`.
+  package static var realDependencyScan: Self { Self() }
+}
+
 // MARK: - Feature availability
 
 /// A shared Driver instance used for checking feature support at test discovery time.

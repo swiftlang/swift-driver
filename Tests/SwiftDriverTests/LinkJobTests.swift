@@ -519,7 +519,11 @@ import Testing
 
     do {
       var driver = try TestDriver(
-        args: commonArgs + ["-emit-executable", "-Onone", "-emit-module", "-g", "-target", "x86_64-apple-macosx10.15"],
+        args: commonArgs + [
+          "-emit-executable", "-Onone", "-emit-module", "-g", "-target", "x86_64-apple-macosx10.15",
+          // -add_ast_path is only emitted for implicit module builds.
+          "-no-explicit-module-build",
+        ],
         env: env
       )
       let plannedJobs = try await driver.planBuild()
@@ -1345,7 +1349,9 @@ import Testing
 
   @Test func emitModuleTrace() async throws {
     do {
-      var driver = try TestDriver(args: ["swiftc", "-typecheck", "-emit-loaded-module-trace", "foo.swift"])
+      var driver = try TestDriver(args: [
+        "swiftc", "-typecheck", "-emit-loaded-module-trace", "foo.swift", "-no-explicit-module-build",
+      ])
       let plannedJobs = try await driver.planBuild()
       #expect(plannedJobs.count == 1)
       let job = plannedJobs[0]
@@ -1360,7 +1366,7 @@ import Testing
       var driver = try TestDriver(args: [
         "swiftc", "-typecheck",
         "-emit-loaded-module-trace",
-        "foo.swift", "bar.swift", "baz.swift",
+        "foo.swift", "bar.swift", "baz.swift", "-no-explicit-module-build",
       ])
       let plannedJobs = try await driver.planBuild()
       let tracedJobs = try plannedJobs.filter {
@@ -1376,7 +1382,7 @@ import Testing
       // opposed to the first input.
       var driver = try TestDriver(args: [
         "swiftc", "-emit-loaded-module-trace",
-        "foo.o", "bar.swift", "baz.o",
+        "foo.o", "bar.swift", "baz.o", "-no-explicit-module-build",
       ])
       let plannedJobs = try await driver.planBuild()
       let tracedJobs = try plannedJobs.filter {
@@ -1394,7 +1400,7 @@ import Testing
       var driver = try TestDriver(
         args: [
           "swiftc", "-typecheck",
-          "-emit-loaded-module-trace", "foo.swift",
+          "-emit-loaded-module-trace", "foo.swift", "-no-explicit-module-build",
         ],
         env: env
       )
@@ -1525,7 +1531,7 @@ import Testing
     #expect(linkJob.commandLine.contains(.flag("--gcc-toolchain=/foo/as/blarpy")))
   }
 
-  @Test(.requireHostOS(.macosx, comment: "sdkArguments does not work on Linux")) func cleaningUpOldCompilationOutputs()
+  @Test(.requireHostOS(.macosx, comment: "sdkArguments does not work on Linux"), .realDependencyScan) func cleaningUpOldCompilationOutputs()
     async throws
   {
     // Build something, create an error, see if the .o and .swiftdeps files get cleaned up

@@ -189,7 +189,133 @@ func getStdlibShimsPaths(_ driver: Driver) throws -> (AbsolutePath, AbsolutePath
 }
 
 /// Test that for the given JSON module dependency graph, valid jobs are generated
-@Suite struct ExplicitModuleBuildTests {
+@Suite(.realDependencyScan) struct ExplicitModuleBuildTests {
+  /// `-nonlib-dependency-scanner` selects the out-of-process scanner rather
+  /// than making scanning unavailable, so the default must stay on.
+  @Test func nonlibDependencyScannerKeepsExplicitModuleBuildDefault() async throws {
+    try await assertNoDriverDiagnostics(args: "swiftc", "-c", "foo.swift", "-nonlib-dependency-scanner") {
+      driver in
+      #expect(driver.isExplicitModuleBuildEnabled)
+    }
+  }
+
+  /// A missing scanner library downgrades the default; it must not also
+  /// promise an out-of-process fallback that will not happen.
+  @Test func missingScannerLibraryWarnsOnlyAboutTheDowngrade() async throws {
+    var env = ProcessEnv.block
+    env["SWIFT_DRIVER_SWIFTSCAN_LIB"] = "/nonexistent/lib_InternalSwiftScan.dylib"
+    try await assertDriverDiagnostics(args: "swiftc", "-c", "foo.swift", env: env) { driver, verifier in
+      verifier.expect(.warning("libSwiftScan is unavailable; disabling the default explicit module build"))
+      #expect(!driver.isExplicitModuleBuildEnabled)
+    }
+  }
+
+  /// Parse-only actions never load modules, so the default explicit module
+  /// build must not scan their dependencies.
+  @Test func parseOnlyActionsSkipDependencyScanning() async throws {
+    try await withTemporaryDirectory { path in
+      let main = path.appending(component: "main.swift")
+      try localFileSystem.writeFileContents(main, bytes: "import DoesNotExist\nlet x = 1\n")
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+
+      for action in ["-parse", "-dump-parse", "-emit-imported-modules"] {
+        var driver = try TestDriver(
+          args: ["swiftc", action, main.nativePathString(escaped: false)] + sdkArgumentsForTesting
+        )
+        let jobs = try await driver.planBuild()
+        #expect(!driver.diagnosticEngine.hasErrors, "\(action) should not resolve module dependencies")
+        #expect(
+          !jobs.contains { $0.commandLine.contains(.flag("-explicit-swift-module-map-file")) },
+          "\(action) should not be planned as an explicit module build"
+        )
+      }
+    }
+  }
+
+  /// The scanner reads only Swift sources, so an invocation without any keeps
+  /// the default off, such as compiling SIL or building a Clang module.
+  @Test func inputsWithoutSwiftSourcesSkipDependencyScanning() async throws {
+    try await withTemporaryDirectory { path in
+      let sil = path.appending(component: "main.sil")
+      try localFileSystem.writeFileContents(sil, bytes: "sil_stage canonical\n")
+      let moduleMap = path.appending(component: "module.modulemap")
+      try localFileSystem.writeFileContents(moduleMap, bytes: "module M { header \"M.h\" }\n")
+      try localFileSystem.writeFileContents(path.appending(component: "M.h"), bytes: "")
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+
+      for args in [
+        ["-emit-ir", sil.nativePathString(escaped: false)],
+        ["-emit-pcm", "-module-name", "M", moduleMap.nativePathString(escaped: false)],
+      ] {
+        var driver = try TestDriver(args: ["swiftc"] + args + sdkArgumentsForTesting)
+        let jobs = try await driver.planBuild()
+        #expect(!driver.diagnosticEngine.hasErrors, "\(args[0]) should plan without scanning")
+        #expect(!driver.isExplicitModuleBuildEnabled, "\(args[0]) has no Swift sources to scan")
+        #expect(
+          !jobs.contains { $0.commandLine.contains(.flag("-clang-target")) },
+          "\(args[0]) should not take the explicit build's Clang target"
+        )
+      }
+
+      // Standard input can be read only once, by the job that compiles it, so
+      // the scanner must not read it first. Planning would scan, so only check
+      // the mode, which is decided before any input is read.
+      let stdinDriver = try TestDriver(
+        args: [
+          "swiftc", "-emit-module", "-module-name", "M",
+          "-o", path.appending(component: "M.swiftmodule").nativePathString(escaped: false), "-",
+        ] + sdkArgumentsForTesting
+      )
+      #expect(!stdinDriver.isExplicitModuleBuildEnabled, "standard input has no source file to scan")
+    }
+  }
+
+  /// Only the job that dumps the AST takes a format for it. The dependency
+  /// scanner rejects `-dump-ast-format`, so it must not be forwarded there.
+  @Test func dumpASTFormatIsNotForwardedToTheScanner() async throws {
+    try await withTemporaryDirectory { path in
+      let main = path.appending(component: "main.swift")
+      try localFileSystem.writeFileContents(main, bytes: "let x = 1\n")
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+
+      var driver = try TestDriver(
+        args: ["swiftc", "-dump-ast", "-dump-ast-format", "json", main.nativePathString(escaped: false)]
+          + sdkArgumentsForTesting
+      )
+      guard driver.isFrontendArgSupported(.dumpAstFormat) else { return }
+      let scannerCommand = try driver.dependencyScannerInvocationCommand().1
+      #expect(!scannerCommand.contains(.flag("-dump-ast-format")))
+      let jobs = try await driver.planBuild()
+      #expect(!driver.diagnosticEngine.hasErrors)
+      let compileJob = try #require(jobs.first { $0.kind == .compile })
+      #expect(compileJob.commandLine.contains(.flag("-dump-ast-format")))
+    }
+  }
+
+  /// An explicit build imports each SDK interface's Clang dependencies with
+  /// this compilation's API notes version. Swift 4 API notes rename APIs that
+  /// interfaces written for later modes use, so Swift 4 keeps the default off.
+  @Test func swift4LanguageModeKeepsImplicitModuleBuild() throws {
+    try withTemporaryDirectory { path in
+      let main = path.appending(component: "main.swift")
+      try localFileSystem.writeFileContents(main, bytes: "let x = 1\n")
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+
+      for (version, expectExplicit) in [("4", false), ("4.2", true), ("5", true)] {
+        let driver = try TestDriver(
+          args: ["swiftc", "-swift-version", version, main.nativePathString(escaped: false)]
+            + sdkArgumentsForTesting
+        )
+        #expect(driver.isExplicitModuleBuildEnabled == expectExplicit, "-swift-version \(version)")
+      }
+      let requested = try TestDriver(
+        args: ["swiftc", "-swift-version", "4", "-explicit-module-build", main.nativePathString(escaped: false)]
+          + sdkArgumentsForTesting
+      )
+      #expect(requested.isExplicitModuleBuildEnabled, "an explicit request is still honored")
+    }
+  }
+
   @Test func moduleDependencyBuildCommandGeneration() async throws {
     do {
       let driver = try TestDriver(args: [
@@ -622,7 +748,7 @@ func getStdlibShimsPaths(_ driver: Driver) throws -> (AbsolutePath, AbsolutePath
 
       // An implicit build has nothing else recording where the module came
       // from, so it still needs the serialized AST.
-      #expect(try await planLinkJob([]).passesASTPath)
+      #expect(try await planLinkJob(["-no-explicit-module-build"]).passesASTPath)
 
       // Dropping the AST is tied to the frontend recording this module's path
       // via -debug-module-path. A frontend too old to do so still needs it.
@@ -1092,6 +1218,87 @@ func getStdlibShimsPaths(_ driver: Driver) throws -> (AbsolutePath, AbsolutePath
           }
         }
       }
+    }
+  }
+
+  /// An implicit build hands `-pch-output-dir` to the frontend, which creates the
+  /// directory. An explicit build names the PCH itself and passes it with `-o`,
+  /// so the directory must exist before the PCH job runs.
+  @Test func explicitBuildCreatesPCHOutputDirectory() async throws {
+    let (stdlibPath, shimsPath, _, _) = try getDriverArtifactsForScanning()
+    try await withTemporaryDirectory { path in
+      let moduleCachePath = path.appending(component: "ModuleCache")
+      try localFileSystem.createDirectory(moduleCachePath)
+      let main = path.appending(component: "main.swift")
+      try localFileSystem.writeFileContents(main, bytes: "let x = bridgedValue")
+      let bridgingHeader = path.appending(component: "Bridging.h")
+      try localFileSystem.writeFileContents(bridgingHeader, bytes: "static const int bridgedValue = 1;")
+      let pchOutputDir = path.appending(components: "not", "yet", "created")
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+
+      var driver = try TestDriver(
+        args: [
+          "swiftc",
+          "-I", stdlibPath.nativePathString(escaped: false),
+          "-I", shimsPath.nativePathString(escaped: false),
+          "-explicit-module-build",
+          "-module-cache-path", moduleCachePath.nativePathString(escaped: false),
+          "-working-directory", path.nativePathString(escaped: false),
+          "-disable-implicit-concurrency-module-import",
+          "-disable-implicit-string-processing-module-import",
+          "-import-objc-header", bridgingHeader.nativePathString(escaped: false),
+          "-pch-output-dir", pchOutputDir.nativePathString(escaped: false),
+          "-c", main.nativePathString(escaped: false),
+        ] + sdkArgumentsForTesting
+      )
+      let jobs = try await driver.planBuild()
+      let pchJob = try #require(jobs.first { $0.kind == .generatePCH })
+      #expect(!pchJob.commandLine.contains(.flag("-pch-output-dir")))
+      // Planning alone must not touch the file system.
+      #expect(!localFileSystem.exists(pchOutputDir))
+
+      try await driver.run(jobs: jobs)
+      #expect(!driver.diagnosticEngine.hasErrors)
+      let pchOutput = try #require(pchJob.outputs.first { $0.type == .pch })
+      #expect(localFileSystem.exists(try #require(pchOutput.file.absolutePath)))
+    }
+  }
+
+  /// With `-o -` the compile job's product is its standard output. Once module
+  /// jobs run alongside it, the compile runs as a child of the driver, and its
+  /// standard output must still reach the driver's.
+  @Test func explicitBuildWritesStandardOutputProductToStandardOutput() async throws {
+    let (stdlibPath, shimsPath, _, _) = try getDriverArtifactsForScanning()
+    try await withTemporaryDirectory { path in
+      let moduleCachePath = path.appending(component: "ModuleCache")
+      try localFileSystem.createDirectory(moduleCachePath)
+      let main = path.appending(component: "main.swift")
+      try localFileSystem.writeFileContents(main, bytes: "let x = 1")
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+
+      var driver = try TestDriver(
+        args: [
+          "swiftc",
+          "-I", stdlibPath.nativePathString(escaped: false),
+          "-I", shimsPath.nativePathString(escaped: false),
+          "-explicit-module-build",
+          "-module-cache-path", moduleCachePath.nativePathString(escaped: false),
+          "-working-directory", path.nativePathString(escaped: false),
+          "-disable-implicit-concurrency-module-import",
+          "-disable-implicit-string-processing-module-import",
+          "-emit-ir", "-o", "-", main.nativePathString(escaped: false),
+        ] + sdkArgumentsForTesting,
+        // The integrated driver discards job output; a standalone one relays it.
+        integratedDriver: false
+      )
+      let jobs = try await driver.planBuild()
+      // A single job would run in place, replacing this process.
+      try #require(jobs.count > 1, "the empty module cache should add module jobs")
+
+      try await driver.run(jobs: jobs)
+      #expect(!driver.diagnosticEngine.hasErrors)
+      #expect(driver.capturedStdout.contains("; ModuleID"))
+      #expect(!driver.capturedStderr.contains("; ModuleID"))
     }
   }
 
@@ -3206,14 +3413,14 @@ func getStdlibShimsPaths(_ driver: Driver) throws -> (AbsolutePath, AbsolutePath
       do {
         let diagnosticEngine = DiagnosticsEngine()
         var driver = try TestDriver(
-          args: baseCommandLine + ["-print-explicit-dependency-graph"],
+          args: baseCommandLine + ["-print-explicit-dependency-graph", "-no-explicit-module-build"],
           diagnosticsEngine: diagnosticEngine
         )
         let _ = try await driver.planBuild()
         #expect(diagnosticEngine.hasErrors)
         #expect(
           diagnosticEngine.diagnostics.first?.message.data.description
-            == "'-print-explicit-dependency-graph' cannot be specified if '-explicit-module-build' is not present"
+            == "'-print-explicit-dependency-graph' requires explicit module builds, which are disabled for this compilation"
         )
       }
       do {
