@@ -33,6 +33,7 @@ public struct OptionAttributes: OptionSet, Hashable {
   public static let supplementaryOutput           = OptionAttributes(rawValue: 0x800)
   public static let argumentIsFileList            = OptionAttributes(rawValue: 0x1000)
   public static let cacheInvariant                = OptionAttributes(rawValue: 0x2000)
+  public static let argumentIsCASID               = OptionAttributes(rawValue: 0x4000)
 }
 
 /// Describes a command-line option.

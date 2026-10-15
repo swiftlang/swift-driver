@@ -1505,6 +1505,46 @@ struct CachingBuildTests {
     }
   }
 
+  @Test(.requireScannerSupportsComputingMultipleCacheKeys())
+  func cacheBatchBuildMultipleCacheKeys() async throws {
+    try await withTemporaryDirectory { path in
+      let moduleCachePath = path.appending(component: "ModuleCache")
+      let casPath = path.appending(component: "cas")
+      try localFileSystem.createDirectory(moduleCachePath)
+      let inputs = (0..<4).map { path.appending(component: "file\($0).swift") }
+      for (index, input) in inputs.enumerated() {
+        try localFileSystem.writeFileContents(input) {
+          $0.send("public func foo\(index)() {}")
+        }
+      }
+      var driver = try TestDriver(args: [
+        "swiftc", "-c", "-module-name", "Test", "-parse-stdlib",
+        "-disable-implicit-string-processing-module-import",
+        "-disable-implicit-concurrency-module-import",
+        "-explicit-module-build", "-enable-batch-mode", "-driver-batch-count", "2",
+        "-module-cache-path", moduleCachePath.nativePathString(escaped: false),
+        "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: false),
+        "-working-directory", path.nativePathString(escaped: false),
+      ] + inputs.map { $0.nativePathString(escaped: false) })
+      let jobs = try await driver.planBuild()
+      let cas = try #require(driver.cas)
+      let resolver = try ArgsResolver(fileSystem: localFileSystem)
+
+      // The keys computed for all the inputs of a job in one call are the same
+      // as the keys computed for each input.
+      let compileJobs = jobs.filter { $0.kind == .compile }
+      #expect(compileJobs.count == 2)
+      for job in compileJobs {
+        #expect(job.outputCacheKeys.count == job.primaryInputs.count)
+        let arguments: [String] = try resolver.resolveArgumentList(for: job.commandLine)
+        for (input, key) in job.outputCacheKeys {
+          let index = try #require(job.inputs.firstIndex(of: input))
+          #expect(try cas.computeCacheKey(commandLine: arguments, index: index) == key)
+        }
+      }
+    }
+  }
+
   @Test func cacheWholeModuleBuildPlan() async throws {
     try await withTemporaryDirectory { path in
       let moduleCachePath = path.appending(component: "ModuleCache")

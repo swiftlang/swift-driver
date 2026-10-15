@@ -178,6 +178,12 @@ extension Trait where Self == Testing.ConditionTrait {
     return enabled(if: supported, comment ?? "libSwiftScan does not support framework binary dependency reporting")
   }
 
+  /// Requires that libSwiftScan supports computing multiple cache keys in one call.
+  package static func requireScannerSupportsComputingMultipleCacheKeys(_ comment: Comment? = nil) -> Self {
+    let supported = (try? _scannerOracle?.supportsComputingMultipleCacheKeys()) ?? false
+    return enabled(if: supported, comment ?? "libSwiftScan does not support computing multiple cache keys")
+  }
+
   /// Requires that libSwiftScan supports binary module header dependencies.
   package static func requireScannerSupportsBinaryModuleHeaderDependencies(_ comment: Comment? = nil) -> Self {
     let supported = (try? _scannerOracle?.supportsBinaryModuleHeaderDependencies()) ?? false

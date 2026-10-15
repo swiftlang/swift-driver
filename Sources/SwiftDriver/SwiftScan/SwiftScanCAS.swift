@@ -308,6 +308,32 @@ public final class SwiftScanCAS {
     return try scanner.toSwiftString(casid)
   }
 
+  /// Compute the cache keys for the inputs at `indices` with a single call if
+  /// supported by libSwiftScan. Otherwise, compute the key for each input.
+  public func computeCacheKeys(commandLine: [String], indices: [Int]) throws -> [String] {
+    guard scanner.supportsComputingMultipleCacheKeys else {
+      return try indices.map { try computeCacheKey(commandLine: commandLine, index: $0) }
+    }
+    let inputIndices = indices.map { UInt32($0) }
+    let keys = try scanner.handleCASError { err_msg in
+      withArrayOfCStrings(commandLine) { commandArray in
+        inputIndices.withUnsafeBufferPointer { indexArray in
+          scanner.api.swiftscan_cache_compute_keys_from_input_indices(cas,
+                                                                      Int32(commandLine.count),
+                                                                      commandArray,
+                                                                      indexArray.baseAddress,
+                                                                      indexArray.count,
+                                                                      &err_msg)
+        }
+      }
+    }
+    guard let keys else {
+      throw DependencyScanningError.casError("failed to compute cache keys")
+    }
+    defer { scanner.api.swiftscan_string_set_dispose(keys) }
+    return try scanner.toSwiftStringArray(keys.pointee)
+  }
+
   public func createReplayInstance(commandLine: [String]) throws -> CacheReplayInstance {
     let instance = try scanner.handleCASError { err_msg in
       withArrayOfCStrings(commandLine) { commandArray in
