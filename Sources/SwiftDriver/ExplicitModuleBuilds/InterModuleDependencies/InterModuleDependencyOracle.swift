@@ -147,6 +147,25 @@ public class InterModuleDependencyOracle {
     return swiftScan.supportsSeparateImportOnlyDependencies
   }
 
+  @_spi(Testing) public func supportsDirectoryDependencies() throws -> Bool {
+    guard let swiftScan = swiftScanLibInstance else {
+      fatalError("Attempting to query supported scanner API with no scanner instance.")
+    }
+    return swiftScan.supportsDirectoryDependencies
+  }
+
+  /// Report that `paths` changed since the previous build. Must be called
+  /// before the first scan, with paths spelled as in
+  /// `ClangModuleDetails.directoryDependencies`.
+  public func addInvalidatedPaths(_ paths: [AbsolutePath]) throws {
+    guard let swiftScan = swiftScanLibInstance else {
+      throw DependencyScanningError.failedToInstantiateScanner
+    }
+    guard !paths.isEmpty else { return }
+    // No need to synchronize with `queue`, the scanner is thread-safe here.
+    swiftScan.addInvalidatedPaths(paths.map { $0.pathString })
+  }
+
   public func getOrCreateCAS(pluginPath: AbsolutePath?, onDiskPath: AbsolutePath?, pluginOptions: [(String, String)]) throws -> SwiftScanCAS {
     guard let swiftScan = swiftScanLibInstance else {
       fatalError("Attempting to reset scanner cache with no scanner instance.")

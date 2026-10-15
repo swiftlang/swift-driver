@@ -325,6 +325,11 @@ private extension String {
     return api.swiftscan_module_info_get_library_level != nil
   }
 
+  @_spi(Testing) public var supportsDirectoryDependencies : Bool {
+    return api.swiftscan_clang_detail_get_directory_deps != nil &&
+           api.swiftscan_scanner_add_invalidated_paths != nil
+  }
+
   internal func mapToDriverDiagnosticPayload(_ diagnosticSetRef: UnsafeMutablePointer<swiftscan_diagnostic_set_t>) throws -> [ScannerDiagnosticPayload] {
     var result: [ScannerDiagnosticPayload] = []
     let diagnosticRefArray = Array(UnsafeBufferPointer(start: diagnosticSetRef.pointee.diagnostics,
@@ -358,6 +363,16 @@ private extension String {
   @_spi(Testing) public func canQuerySupportedArguments() -> Bool {
     return api.swiftscan_compiler_supported_arguments_query != nil &&
            api.swiftscan_string_set_dispose != nil
+  }
+
+  internal func addInvalidatedPaths(_ paths: [String]) {
+    guard let addInvalidated = api.swiftscan_scanner_add_invalidated_paths,
+          !paths.isEmpty else {
+      return
+    }
+    withArrayOfCStrings(paths) { pathArray in
+      addInvalidated(scanner, pathArray, paths.count)
+    }
   }
 
   @_spi(Testing) public func querySupportedArguments() throws -> Set<String> {
@@ -507,6 +522,12 @@ private extension swiftscan_functions_t {
       loadOptional("swiftscan_swift_binary_detail_get_module_cache_key")
     self.swiftscan_clang_detail_get_module_cache_key =
       loadOptional("swiftscan_clang_detail_get_module_cache_key")
+
+    // Directory dependencies
+    self.swiftscan_clang_detail_get_directory_deps =
+      loadOptional("swiftscan_clang_detail_get_directory_deps")
+    self.swiftscan_scanner_add_invalidated_paths =
+      loadOptional("swiftscan_scanner_add_invalidated_paths")
 
     self.swiftscan_cas_options_create = loadOptional("swiftscan_cas_options_create")
     self.swiftscan_cas_options_set_plugin_path = loadOptional("swiftscan_cas_options_set_plugin_path")

@@ -347,10 +347,17 @@ private extension SwiftScan {
     let moduleCacheKey = supportsCaching ? try getOptionalStringDetail(from: moduleDetailsRef,
                                                      using: api.swiftscan_clang_detail_get_module_cache_key) : nil
 
+    let directoryDependencies =
+      supportsDirectoryDependencies
+        ? try getOptionalPathArrayDetail(from: moduleDetailsRef,
+                                         using: api.swiftscan_clang_detail_get_directory_deps!)
+        : nil
+
     return ClangModuleDetails(moduleMapPath: moduleMapPath,
                               contextHash: contextHash,
                               commandLine: commandLine,
-                              moduleCacheKey: moduleCacheKey)
+                              moduleCacheKey: moduleCacheKey,
+                              directoryDependencies: directoryDependencies)
   }
 }
 

@@ -184,6 +184,12 @@ extension Trait where Self == Testing.ConditionTrait {
     return enabled(if: supported, comment ?? "libSwiftScan does not support binary module header dependencies")
   }
 
+  /// Requires that libSwiftScan supports directory dependencies.
+  package static func requireScannerSupportsDirectoryDependencies(_ comment: Comment? = nil) -> Self {
+    let supported = (try? _scannerOracle?.supportsDirectoryDependencies()) ?? false
+    return enabled(if: supported, comment ?? "libSwiftScan does not support directory dependencies")
+  }
+
   /// Requires that explicit module verify interface is supported.
   package static func requireExplicitModuleVerifyInterface(_ comment: Comment? = nil) -> Self {
     let supported = _featureCheckDriver?.isFrontendArgSupported(.inputFileKey) ?? false
