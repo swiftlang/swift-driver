@@ -40,7 +40,13 @@ extension Driver {
     addSupplementalOutput(path: objcGeneratedHeaderPath, flag: "-emit-objc-header-path", type: .objcHeader)
     addSupplementalOutput(path: tbdPath, flag: "-emit-tbd-path", type: .tbd)
     addSupplementalOutput(path: moduleOutputPaths.apiDescriptorFilePath, flag: "-emit-api-descriptor-path", type: .jsonAPIDescriptor)
-    addSupplementalOutput(path: emitModuleSerializedDiagnosticsFilePath, flag: "-serialize-diagnostics-path", type: .emitModuleDiagnostics)
+    let emitModuleDiagnosticsType = Self.emitModuleSerializedDiagnosticsType(for: serializedDiagnosticsType)
+    addSupplementalOutput(path: emitModuleSerializedDiagnosticsFilePath, flag: "-serialize-diagnostics-path",
+                          type: emitModuleDiagnosticsType)
+    // The format goes with the path, as for compile jobs.
+    if emitModuleSerializedDiagnosticsFilePath != nil && emitModuleDiagnosticsType == .emitModuleSARIFDiagnostics {
+      commandLine.appendFlag("-serialize-diagnostics=sarif")
+    }
     addSupplementalOutput(path: emitModuleDependenciesFilePath, flag: "-emit-dependencies-path", type: .emitModuleDependencies)
 
     // Skip files created by other jobs when emitting a module and building at the same time

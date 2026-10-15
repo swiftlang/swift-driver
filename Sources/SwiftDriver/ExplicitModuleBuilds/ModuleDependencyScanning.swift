@@ -232,6 +232,10 @@ public extension Driver {
     if let depScanSerializedDiagnosticsPath = dependencyScanSerializedDiagnosticsPath {
       commandLine.appendFlag("-serialize-diagnostics-path")
       commandLine.appendPath(VirtualPath.lookup(depScanSerializedDiagnosticsPath))
+      // The format goes with the path, as for compile jobs.
+      if serializedDiagnosticsType == .sarifDiagnostics {
+        commandLine.appendFlag("-serialize-diagnostics=sarif")
+      }
     }
 
     // loadedModuleTrace file.
