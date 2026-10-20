@@ -18,10 +18,11 @@ import protocol TSCBasic.DiagnosticData
 import struct TSCBasic.Diagnostic
 import var TSCBasic.stdoutStream
 
-public enum PlanningError: Error, DiagnosticData {
+public enum PlanningError: Error, DiagnosticData, Equatable {
   case replReceivedInput
   case emitPCMWrongInputFiles
   case dumpPCMWrongInputFiles
+  case clangCodeGenTargetContextUnsupported(String)
 
   public var description: String {
     switch self {
@@ -33,6 +34,8 @@ public enum PlanningError: Error, DiagnosticData {
 
     case .dumpPCMWrongInputFiles:
       return "Emitting information about Clang module requires exactly one input file (pre-compiled module)"
+    case .clangCodeGenTargetContextUnsupported(let reason):
+      return "'-experimental-clang-codegen-target-context' \(reason)"
     }
   }
 }
@@ -114,6 +117,9 @@ extension Driver {
         parsedOptions.contains(.explainModuleDependency)) &&
        inputFiles.contains(where: { $0.type.isPartOfSwiftCompilation }) {
       let interModuleDependencyGraph = try scanModuleDependencies(forVariantModule: forVariantModule)
+      if parsedOptions.contains(.driverExperimentalClangCodegenTargetContext) {
+        try scanClangCodeGenDependencies(of: interModuleDependencyGraph)
+      }
       return try ExplicitDependencyBuildPlanner(dependencyGraph: interModuleDependencyGraph,
                                                 toolchain: toolchain,
                                                 integratedDriver: integratedDriver,
@@ -226,7 +232,18 @@ extension Driver {
     guard var resolvedModulePlanner = explicitModulePlanner else {
       return
     }
-    let modulePrebuildJobs = try resolvedModulePlanner.generateExplicitModuleDependenciesBuildJobs()
+    var modulePrebuildJobs = try resolvedModulePlanner.generateExplicitModuleDependenciesBuildJobs()
+    for index in modulePrebuildJobs.indices
+        where modulePrebuildJobs[index].kind == .compileModuleFromInterface {
+      var job = modulePrebuildJobs[index]
+      addClangCodeGenModuleDependencies(
+        inputs: &job.inputs, commandLine: &job.commandLine,
+        forSwiftModule: job.moduleName)
+      try addClangProducerModuleDependencies(
+        in: resolvedModulePlanner.dependencyGraph, consumer: .swift(job.moduleName),
+        inputs: &job.inputs, commandLine: &job.commandLine)
+      modulePrebuildJobs[index] = job
+    }
     // If asked, add jobs to precompile module dependencies. Otherwise exit.
     // We may have a dependency graph but not be required to add pre-compile jobs to the build plan,
     // for example when `-explain-dependency` is being used.
@@ -240,13 +257,19 @@ extension Driver {
     } else {
       let reporter: IncrementalCompilationState.Reporter? = incrementalRemarks ?
                                      IncrementalCompilationState.Reporter(diagnosticEngine: diagnosticEngine, outputFileMap: outputFileMap) : nil
-      mandatoryModuleCompileJobs =
-        try resolvedModulePlanner.filterMandatoryModuleDependencyCompileJobs(modulePrebuildJobs,
-                                                                             fileSystem: fileSystem,
-                                                                             cas: cas,
-                                                                             reporter: reporter)
+      let ordinaryJobs = try resolvedModulePlanner.filterMandatoryModuleDependencyCompileJobs(
+        modulePrebuildJobs, fileSystem: fileSystem, cas: cas, reporter: reporter)
+      let contextInvalidated = try clangContextInvalidatedSwiftModules(
+        in: resolvedModulePlanner.dependencyGraph)
+      mandatoryModuleCompileJobs = contextInvalidated.isEmpty ? ordinaryJobs : modulePrebuildJobs.filter {
+        ordinaryJobs.contains($0) ||
+          ($0.kind == .compileModuleFromInterface &&
+           contextInvalidated.contains(.swift($0.moduleName)))
+      }
     }
     mandatoryModuleCompileJobs.forEach(addJob)
+    try addClangCodeGenDependencyJobs(semanticJobs: modulePrebuildJobs,
+                                      addJob: addJob)
   }
 
 

@@ -154,6 +154,10 @@ public struct SwiftModuleDetails: Codable, Hashable {
   /// corresponding to the main module being built.
   public var contextHash: String?
 
+  /// Exact native invocation exported by experimental context scans.
+  public var clangTargetContext: String? = nil
+  public var clangContextArguments: [String]? = nil
+
   /// A flag to indicate whether or not this module is a framework.
   public var isFramework: Bool?
 
@@ -175,6 +179,11 @@ public struct SwiftPrebuiltExternalModuleDetails: Codable, Hashable {
   /// The path to the already-compiled module that must be used instead of
   /// generating a job to build this module.
   public var compiledModulePath: TextualVirtualPath
+
+  /// Header contexts required by this binary's serialized foreign references.
+  public var clangTargetContexts: [String]? = nil
+  /// Raw native arguments, each prefixed with its producer context and "=".
+  public var clangContextArguments: [String]? = nil
 
   /// The path to the .swiftModuleDoc file.
   public var moduleDocPath: TextualVirtualPath?

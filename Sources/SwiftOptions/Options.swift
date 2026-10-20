@@ -566,7 +566,15 @@ extension Option {
   public static let experimentalAllowNonResilientAccess: Option = Option("-experimental-allow-non-resilient-access", .flag, attributes: [.frontend], helpText: "Deprecated; use -allow-non-resilient-access instead")
   public static let experimentalAllowedReexportedModules: Option = Option("-experimental-allowed-reexported-modules=", .commaJoined, attributes: [.noDriver], helpText: "Allow reexporting symbols from the provided modules if they are themselves exported from the main module. This is a comma separated list of module names.")
   public static let experimentalCForeignReferenceTypes: Option = Option("-experimental-c-foreign-reference-types", .flag, attributes: [.helpHidden, .frontend, .moduleInterface], helpText: "Enable experimental C foreign references types. Deprecated, has no effect.")
+  public static let experimentalClangCodegenDependency: Option = Option("-experimental-clang-codegen-dependency", .separate, attributes: [.frontend, .noDriver], metaVar: "<name>", helpText: "Scan a Clang module's dependencies for deployment-target code generation")
+  public static let experimentalClangCodegenModuleFile: Option = Option("-experimental-clang-codegen-module-file", .separate, attributes: [.frontend, .noDriver], metaVar: "<name>=<path>", helpText: "Specify a Clang module for deployment-target code generation")
+  public static let driverExperimentalClangCodegenTargetContext: Option = Option("-experimental-clang-codegen-target-context", .flag, attributes: [.helpHidden], helpText: "Build separate Clang modules for deployment-target code generation")
+  public static let experimentalClangContextArgument: Option = Option("-experimental-clang-context-argument", .separate, attributes: [.frontend, .noDriver], metaVar: "<argument>", helpText: "Specify a saved Clang driver argument for a named dependency scan")
   public static let experimentalClangImporterDirectCc1Scan: Option = Option("-experimental-clang-importer-direct-cc1-scan", .flag, attributes: [.helpHidden, .frontend], helpText: "Enables swift driver to construct swift-frontend invocations using -direct-clang-cc1-module-build")
+  public static let experimentalClangProducerContextArgument: Option = Option("-experimental-clang-producer-context-argument", .separate, attributes: [.frontend, .noDriver], metaVar: "<context>=<argument>", helpText: "Specify a saved Clang argument for a serialized producer context")
+  public static let experimentalClangProducerModuleFile: Option = Option("-experimental-clang-producer-module-file", .separate, attributes: [.frontend, .noDriver], metaVar: "<context>=<name>=<path>", helpText: "Specify a Clang module for validating a serialized Swift producer context")
+  public static let experimentalClangSdkContext: Option = Option("-experimental-clang-sdk-context", .separate, attributes: [.frontend, .noDriver], metaVar: "<context>", helpText: "Specify the native Clang invocation of the shared SDK module graph")
+  public static let experimentalClangTargetContext: Option = Option("-experimental-clang-target-context", .separate, attributes: [.frontend, .noDriver], metaVar: "<triple>", helpText: "Use the effective Swift target to identify a Clang declaration context")
   public static let emitModuleSeparately: Option = Option("-experimental-emit-module-separately", .flag, attributes: [.helpHidden], helpText: "Emit module files as a distinct job")
   public static let experimentalEmitVariantModule: Option = Option("-experimental-emit-variant-module", .flag, attributes: [], helpText: "When a target variant triple is specified, the same driver invocation will emit two Swift modules, one for the primary target and one for the variant.")
   public static let driverExperimentalExplicitModuleBuild: Option = Option("-experimental-explicit-module-build", .flag, alias: Option.driverExplicitModuleBuild, attributes: [.helpHidden], helpText: "Prebuild module dependencies to make them explicit")
@@ -1629,7 +1637,15 @@ extension Option {
       Option.experimentalAllowNonResilientAccess,
       Option.experimentalAllowedReexportedModules,
       Option.experimentalCForeignReferenceTypes,
+      Option.experimentalClangCodegenDependency,
+      Option.experimentalClangCodegenModuleFile,
+      Option.driverExperimentalClangCodegenTargetContext,
+      Option.experimentalClangContextArgument,
       Option.experimentalClangImporterDirectCc1Scan,
+      Option.experimentalClangProducerContextArgument,
+      Option.experimentalClangProducerModuleFile,
+      Option.experimentalClangSdkContext,
+      Option.experimentalClangTargetContext,
       Option.emitModuleSeparately,
       Option.experimentalEmitVariantModule,
       Option.driverExperimentalExplicitModuleBuild,

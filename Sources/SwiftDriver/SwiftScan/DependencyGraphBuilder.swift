@@ -235,6 +235,12 @@ private extension SwiftScan {
     let contextHash =
       try getOptionalStringDetail(from: moduleDetailsRef,
                           using: api.swiftscan_swift_textual_detail_get_context_hash)
+    let clangTargetContext = api.swiftscan_swift_textual_detail_get_clang_target_context != nil
+      ? try getOptionalStringDetail(from: moduleDetailsRef,
+          using: api.swiftscan_swift_textual_detail_get_clang_target_context) : nil
+    let clangContextArguments = api.swiftscan_swift_textual_detail_get_clang_context_arguments != nil
+      ? try getOptionalStringArrayDetail(from: moduleDetailsRef,
+          using: api.swiftscan_swift_textual_detail_get_clang_context_arguments) : nil
     let isFramework = api.swiftscan_swift_textual_detail_get_is_framework(moduleDetailsRef)
     let moduleCacheKey = supportsCaching ?  try getOptionalStringDetail(from: moduleDetailsRef,
                                                      using: api.swiftscan_swift_textual_detail_get_module_cache_key) : nil
@@ -270,6 +276,8 @@ private extension SwiftScan {
                               commandLine: commandLine,
                               bridgingPchCommandLine : bridgingPchCommandLine,
                               contextHash: contextHash,
+                              clangTargetContext: clangTargetContext?.isEmpty == true ? nil : clangTargetContext,
+                              clangContextArguments: clangContextArguments?.isEmpty == true ? nil : clangContextArguments,
                               isFramework: isFramework,
                               swiftOverlayDependencies: swiftOverlayDependencies,
                               sourceImportDependencies: sourceImportedDependencies,
@@ -319,7 +327,17 @@ private extension SwiftScan {
     let moduleCacheKey = supportsCaching ? try getOptionalStringDetail(from: moduleDetailsRef,
                                                      using: api.swiftscan_swift_binary_detail_get_module_cache_key) : nil
 
+    let clangTargetContexts = api.swiftscan_swift_binary_detail_get_clang_target_contexts != nil
+      ? try getOptionalStringArrayDetail(from: moduleDetailsRef,
+          using: api.swiftscan_swift_binary_detail_get_clang_target_contexts) : nil
+    let clangContextArguments = api.swiftscan_swift_binary_detail_get_clang_context_arguments != nil
+      ? try getOptionalStringArrayDetail(from: moduleDetailsRef,
+          using: api.swiftscan_swift_binary_detail_get_clang_context_arguments) : nil
     return SwiftPrebuiltExternalModuleDetails(compiledModulePath: compiledModulePath,
+                                              clangTargetContexts: clangTargetContexts?.isEmpty == true
+                                                ? nil : clangTargetContexts,
+                                              clangContextArguments: clangContextArguments?.isEmpty == true
+                                                ? nil : clangContextArguments,
                                               moduleDocPath: moduleDocPath,
                                               moduleSourceInfoPath: moduleSourceInfoPath,
                                               headerDependencyPaths: headerDependencies,

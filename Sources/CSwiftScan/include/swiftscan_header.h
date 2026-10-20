@@ -20,7 +20,7 @@
 #include <stdint.h>
 
 #define SWIFTSCAN_VERSION_MAJOR 2
-#define SWIFTSCAN_VERSION_MINOR 4
+#define SWIFTSCAN_VERSION_MINOR 5
 
 //=== Public Scanner Data Types -------------------------------------------===//
 
@@ -175,6 +175,10 @@ typedef struct {
   (*swiftscan_swift_textual_detail_get_bridging_pch_command_line)(swiftscan_module_details_t);
   swiftscan_string_ref_t
   (*swiftscan_swift_textual_detail_get_context_hash)(swiftscan_module_details_t);
+  swiftscan_string_ref_t
+  (*swiftscan_swift_textual_detail_get_clang_target_context)(swiftscan_module_details_t);
+  swiftscan_string_set_t *
+  (*swiftscan_swift_textual_detail_get_clang_context_arguments)(swiftscan_module_details_t);
   bool
   (*swiftscan_swift_textual_detail_get_is_framework)(swiftscan_module_details_t);
   swiftscan_string_set_t *
@@ -205,6 +209,11 @@ typedef struct {
   (*swiftscan_swift_binary_detail_get_module_cache_key)(swiftscan_module_details_t);
   swiftscan_string_set_t *
   (*swiftscan_swift_binary_detail_get_header_dependency_module_dependencies)(swiftscan_module_details_t);
+
+  swiftscan_string_set_t *
+  (*swiftscan_swift_binary_detail_get_clang_target_contexts)(swiftscan_module_details_t);
+  swiftscan_string_set_t *
+  (*swiftscan_swift_binary_detail_get_clang_context_arguments)(swiftscan_module_details_t);
 
   //=== Swift Binary Module Details deprecated APIs--------------------------===//
   swiftscan_string_set_t *
