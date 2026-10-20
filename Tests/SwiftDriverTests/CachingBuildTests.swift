@@ -1017,7 +1017,9 @@ struct CachingBuildTests {
         /// command-line that compiles swift should contains -cache-replay-prefix-map
         #expect(command.contains(where: { $0 == "-cache-replay-prefix-map" }))
         if job.kind == .compile {
-          #expect(command.contains(where: { $0 == "-in-process-plugin-server-path" }))
+          // The scanner provides the in-process plugin server path if needed.
+          #expect(command.contains(where: { $0 == "-in-process-plugin-server-path" }) ==
+                  !driver.isFrontendArgSupported(.resolvedInProcessPluginServerPath))
         }
         let hasPath = !command.contains(where: {
           $0 == "-plugin-path" || $0 == "-external-plugin-path" || $0 == "-load-plugin-library"
