@@ -8,6 +8,7 @@
 
 add_library(SwiftDriver
   "ExplicitModuleBuilds/ExplicitDependencyBuildPlanner.swift"
+  "ExplicitModuleBuilds/ClangCodeGenDependencies.swift"
   "ExplicitModuleBuilds/ModuleDependencyScanning.swift"
   "ExplicitModuleBuilds/SerializableModuleArtifacts.swift"
   "ExplicitModuleBuilds/InterModuleDependencies/CommonDependencyOperations.swift"

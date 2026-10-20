@@ -505,6 +505,10 @@ private extension swiftscan_functions_t {
       loadOptional("swiftscan_string_dispose")
 
     // isFramework on binary module dependencies
+    self.swiftscan_swift_binary_detail_get_clang_target_contexts =
+      loadOptional("swiftscan_swift_binary_detail_get_clang_target_contexts")
+    self.swiftscan_swift_binary_detail_get_clang_context_arguments =
+      loadOptional("swiftscan_swift_binary_detail_get_clang_context_arguments")
     self.swiftscan_swift_binary_detail_get_is_framework =
       loadOptional("swiftscan_swift_binary_detail_get_is_framework")
 
@@ -657,6 +661,10 @@ private extension swiftscan_functions_t {
       try loadRequired("swiftscan_swift_binary_detail_get_compiled_module_path")
     self.swiftscan_swift_textual_detail_get_is_framework =
       try loadRequired("swiftscan_swift_textual_detail_get_is_framework")
+    self.swiftscan_swift_textual_detail_get_clang_target_context =
+      loadOptional("swiftscan_swift_textual_detail_get_clang_target_context")
+    self.swiftscan_swift_textual_detail_get_clang_context_arguments =
+      loadOptional("swiftscan_swift_textual_detail_get_clang_context_arguments")
     self.swiftscan_swift_textual_detail_get_context_hash =
       try loadRequired("swiftscan_swift_textual_detail_get_context_hash")
     self.swiftscan_dependency_graph_get_main_module_name =

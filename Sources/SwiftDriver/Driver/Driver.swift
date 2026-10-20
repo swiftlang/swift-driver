@@ -363,6 +363,16 @@ public struct Driver {
   /// The graph of explicit module dependencies of this module, if the driver has planned an explicit module build.
   public private(set) var intermoduleDependencyGraph: InterModuleDependencyGraph? = nil
 
+  /// A separate dependency graph for deployment-target Clang code generation.
+  var clangCodeGenModulePlanner: ExplicitDependencyBuildPlanner? = nil
+
+  /// Deployment dependency graphs for individual textual Swift interfaces.
+  var clangInterfaceModulePlanners: [String: ExplicitDependencyBuildPlanner] = [:]
+  var clangInterfaceTargetContexts: [String: String] = [:]
+
+  /// Referenced Clang contexts preserved by prebuilt Swift modules.
+  var clangBinaryModulePlanners: [String: [String: ExplicitDependencyBuildPlanner]] = [:]
+
   /// The path of the SDK.
   public var absoluteSDKPath: AbsolutePath? {
     guard let path = frontendTargetInfo.sdkPath?.path else {
@@ -1504,6 +1514,7 @@ public struct Driver {
   }
 
   public mutating func planBuild() throws -> [Job] {
+    try validateClangCodeGenTargetContext()
     let (jobs, incrementalCompilationState, explicitModulePlanner) = try planPossiblyIncrementalBuild()
     self.incrementalCompilationState = incrementalCompilationState
     self.intermoduleDependencyGraph = explicitModulePlanner?.dependencyGraph

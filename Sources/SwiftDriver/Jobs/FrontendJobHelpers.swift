@@ -110,6 +110,25 @@ extension Driver {
       jobNeedPathRemap = false
     }
 
+    if parsedOptions.contains(.driverExperimentalClangCodegenTargetContext),
+       kind == .scanDependencies || kind == .compile || kind == .emitModule ||
+         kind == .verifyModuleInterface {
+      commandLine.appendFlag("-experimental-clang-target-context")
+      commandLine.appendFlag(targetTriple.triple)
+    }
+
+    // Root module emission also imports source and serializes inlinable bodies.
+    // It must evaluate header constants in the same context as object emission.
+    if kind == .compile || kind == .emitModule || kind == .verifyModuleInterface {
+      addClangCodeGenModuleDependencies(inputs: &inputs,
+                                         commandLine: &commandLine)
+      if let planner = explicitModulePlanner {
+        try addClangProducerModuleDependencies(
+          in: planner.dependencyGraph, consumer: .swift(planner.dependencyGraph.mainModuleName),
+          inputs: &inputs, commandLine: &commandLine)
+      }
+    }
+
     // Check if dependency scanner has put the job into direct clang cc1 mode.
     // If dependency scanner put us into direct cc1 mode, avoid adding `-Xcc` options, since
     // dependency scanner already adds needed flags and -Xcc options known by swift-driver are

@@ -314,6 +314,13 @@ public extension Driver {
 
   mutating func performDependencyScan(forVariantModule: Bool = false) throws -> InterModuleDependencyGraph {
     let scannerJob = try dependencyScanningJob(forVariantModule: forVariantModule)
+    return try performDependencyScan(scannerJob: scannerJob,
+                                     oracle: interModuleDependencyOracle)
+  }
+
+  mutating func performDependencyScan(scannerJob: Job,
+                                       oracle: InterModuleDependencyOracle)
+  throws -> InterModuleDependencyGraph {
     let forceResponseFiles = parsedOptions.hasArgument(.driverForceResponseFiles)
     let dependencyGraph: InterModuleDependencyGraph
 
@@ -334,7 +341,7 @@ public extension Driver {
                                                 using: executor.resolver)
       Self.sanitizeCommandForLibScanInvocation(&command)
       do {
-        dependencyGraph = try interModuleDependencyOracle.getDependencies(workingDirectory: cwd,
+        dependencyGraph = try oracle.getDependencies(workingDirectory: cwd,
                                                                           moduleAliases: moduleOutputInfo.aliases,
                                                                           commandLine: command,
                                                                           diagnostics: &scanDiagnostics)
