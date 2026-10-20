@@ -122,10 +122,9 @@ final class ResponseFileDispatchTests: XCTestCase {
 }
 
 final class TemporaryDirectoryCleanupTests: XCTestCase {
-  // https://github.com/swiftlang/swift-driver/issues/2049: jobs the driver
-  // execs in place skip its cleanup, so it must not create a temporary
-  // directory that they don't use.
-  func testInPlaceJobsLeaveNoTemporaryDirectory() throws {
+  // Jobs the driver execs in place skip its cleanup, so it must neither create a temporary
+  // directory they don't use nor exec a job that writes temporary files.
+  func testSingleJobsLeaveNoTemporaryDirectory() throws {
     #if os(Windows)
     throw XCTSkip("The driver doesn't take its temporary directory from TMPDIR on Windows")
     #else
@@ -144,7 +143,14 @@ final class TemporaryDirectoryCleanupTests: XCTestCase {
 
       var env = ProcessEnv.block
       env["TMPDIR"] = tmpDir.pathString
-      for args in [["-print-target-info"], ["-parse", source.pathString]] {
+      for args in [
+        ["-print-target-info"],
+        ["-parse", source.pathString],
+        // These write a file list or a response file to the temporary
+        // directory, so the job must run as a child process.
+        ["-parse", source.pathString, "-driver-filelist-threshold=0"],
+        ["-parse", source.pathString, "-driver-force-response-files"],
+      ] {
         _ = try TSCBasic.Process.checkNonZeroExit(
           arguments: [driver.pathString, "--driver-mode=swiftc"] + args,
           environmentBlock: env
