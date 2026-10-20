@@ -704,4 +704,42 @@ extension DarwinToolchain {
       #expect(hasMultipleOutputs, "Should have additional SIL/IR outputs when using -save-temps")
     }
   }
+
+  @Test func indexMultipleFilesExecution() async throws {
+    try await withTemporaryDirectory(removeTreeOnDeinit: true) { path in
+      let first = path.appending(component: "first.swift")
+      let second = path.appending(component: "second.swift")
+      let third = path.appending(component: "third.swift")
+      try localFileSystem.writeFileContents(first, bytes: "func foo() {}\n")
+      try localFileSystem.writeFileContents(second, bytes: "func bar() { foo() }\n")
+      try localFileSystem.writeFileContents(third, bytes: "\n")
+
+      let indexStore = path.appending(component: "idx")
+      let diags = DiagnosticsEngine()
+      let executor = try SwiftDriverExecutor(
+        diagnosticsEngine: diags,
+        processSet: ProcessSet(),
+        fileSystem: localFileSystem,
+        env: ProcessEnv.block
+      )
+      var driver = try TestDriver(
+        args: [
+          "swiftc",
+          "-index-file",
+          first.pathString,
+          second.pathString,
+          third.pathString,
+          "-index-file-path", first.pathString,
+          "-index-file-path", second.pathString,
+          "-index-store-path", indexStore.pathString,
+        ] + getHostToolchainSdkArg(executor),
+        diagnosticsEngine: diags,
+        executor: executor
+      )
+      let jobs = try await driver.planBuild()
+      #expect(jobs.count == 1)
+      try await driver.run(jobs: jobs)
+      #expect(!diags.hasErrors)
+    }
+  }
 }

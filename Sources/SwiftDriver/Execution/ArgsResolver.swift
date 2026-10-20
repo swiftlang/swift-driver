@@ -246,8 +246,13 @@ public final class ArgsResolver {
     return false
   }
 
-  /// Remove the temporary directory from disk. Does nothing if the resolver
-  /// never created one.
+  /// Whether the resolver has a temporary directory, either supplied by the
+  /// caller or created on first use.
+  var hasTemporaryDirectory: Bool {
+    lock.withLock { temporaryDirectory != nil }
+  }
+
+  /// Remove the temporary directory from disk, if there is one.
   public func removeTemporaryDirectory() throws {
     // Only try to remove if we have an absolute path.
     if let absPath = lock.withLock({ temporaryDirectory })?.absolutePath {
