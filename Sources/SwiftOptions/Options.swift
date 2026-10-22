@@ -866,6 +866,7 @@ extension Option {
   public static let requirementMachineMaxSplitConcreteEquivClassAttempts: Option = Option("-requirement-machine-max-split-concrete-equiv-class-attempts=", .joined, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Set the maximum concrete number of attempts at splitting concrete equivalence classes before giving up. There should never be a reason to change this")
   public static let requirementMachineMaxTypeDifferences: Option = Option("-requirement-machine-max-type-differences=", .joined, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Set the maximum number of type difference structures allocated before giving up")
   public static let resolveImports: Option = Option("-resolve-imports", .flag, attributes: [.frontend, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Parse and resolve imports in input file(s)", group: .modes)
+  public static let resolvedInProcessPluginServerPath: Option = Option("-resolved-in-process-plugin-server-path", .separate, attributes: [.frontend, .noDriver, .argumentIsPath], helpText: "Path to dynamic library plugin server resolved by the dependency scanner. Overrides '-in-process-plugin-server-path'")
   public static let resolvedPluginVerification: Option = Option("-resolved-plugin-verification", .flag, attributes: [.frontend, .noDriver], helpText: "verify resolved plugins")
   public static let resourceDir: Option = Option("-resource-dir", .separate, attributes: [.helpHidden, .frontend, .synthesizeInterface, .argumentIsPath], metaVar: "</usr/lib/swift>", helpText: "The directory that holds the compiler resource files")
   public static let remarkHiddenTypeLayoutSerialization: Option = Option("-Rhidden-type-layout-serialization", .flag, attributes: [.frontend, .doesNotAffectIncrementalBuild], helpText: "Emit remarks about hidden type layout serialization")
@@ -1943,6 +1944,7 @@ extension Option {
       Option.requirementMachineMaxSplitConcreteEquivClassAttempts,
       Option.requirementMachineMaxTypeDifferences,
       Option.resolveImports,
+      Option.resolvedInProcessPluginServerPath,
       Option.resolvedPluginVerification,
       Option.resourceDir,
       Option.remarkHiddenTypeLayoutSerialization,

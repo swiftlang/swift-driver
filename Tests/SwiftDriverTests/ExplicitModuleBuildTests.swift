@@ -2879,7 +2879,9 @@ func getStdlibShimsPaths(_ driver: Driver) throws -> (AbsolutePath, AbsolutePath
           continue
         }
         let command = try job.commandLine.map { try resolver.resolve($0) }
-        #expect(command.contains { $0 == "-in-process-plugin-server-path" })
+        // The scanner provides the in-process plugin server path if needed.
+        #expect(command.contains { $0 == "-in-process-plugin-server-path" } ==
+                !driver.isFrontendArgSupported(.resolvedInProcessPluginServerPath))
       }
     }
   }

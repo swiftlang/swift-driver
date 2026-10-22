@@ -1225,7 +1225,11 @@ extension Driver {
     }
     let pluginPathRoot = VirtualPath.absolute(try toolchain.executableDir.parentDirectory)
 
-    if isFrontendArgSupported(.inProcessPluginServerPath) {
+    // For explicit module build, the scanner provides the in-process plugin
+    // server path when it is needed.
+    let skipInProcessPluginServer = skipMacroSearchPath &&
+      isFrontendArgSupported(.resolvedInProcessPluginServerPath)
+    if isFrontendArgSupported(.inProcessPluginServerPath) && !skipInProcessPluginServer {
       commandLine.appendFlag(.inProcessPluginServerPath)
 #if os(Windows)
       commandLine.appendPath(pluginPathRoot.appending(components: "bin", sharedLibraryName("SwiftInProcPluginServer")))
