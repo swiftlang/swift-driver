@@ -31,6 +31,7 @@ add_library(SwiftDriver
 
   Execution/ArgsResolver.swift
   Execution/DriverExecutor.swift
+  Execution/GnuJobserverFlags.swift
   Execution/ParsableOutput.swift
   Execution/ProcessProtocol.swift
   Execution/ProcessSet.swift
