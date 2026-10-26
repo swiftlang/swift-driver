@@ -1971,6 +1971,7 @@ extension Driver {
     }
 
     let forceResponseFiles = parsedOptions.contains(.driverForceResponseFiles)
+    let useResponseFiles: ResponseFileHandling = forceResponseFiles ? .forced : .heuristic
 
     // If we're only supposed to print the jobs, do so now.
     if parsedOptions.contains(.driverPrintJobs) {
@@ -2033,9 +2034,7 @@ extension Driver {
       assert(inPlaceJobs.count == 1,
              "Cannot execute multiple jobs in-place")
       inPlaceJob = inPlaceJobs.first
-    } else if jobs.count == 1 && !parsedOptions.hasArgument(.parseableOutput) &&
-                buildRecordInfo == nil {
-      // Only one job and no cleanup required, e.g. not writing build record
+    } else if jobs.count == 1, try canExecInPlace(onlyJob: jobs[0], useResponseFiles: useResponseFiles) {
       inPlaceJob = jobs[0]
       childJobs = []
     } else {
@@ -2069,7 +2068,7 @@ extension Driver {
       // In verbose mode, print out the job
       if parsedOptions.contains(.v) {
         let arguments: [String] = try executor.resolver.resolveArgumentList(for: inPlaceJob,
-                                                                            useResponseFiles: forceResponseFiles ? .forced : .heuristic)
+                                                                            useResponseFiles: useResponseFiles)
         stdoutStream.send("\(arguments.map { $0.spm_shellEscaped() }.joined(separator: " "))\n")
         stdoutStream.flush()
       }
@@ -2084,6 +2083,25 @@ extension Driver {
         diagnosticEngine.emit(.warn_unused_option(option))
       }
     }
+  }
+
+  /// Whether the driver can exec `job`, its only job, in place of itself
+  /// instead of running it as a child process.
+  /// This is only allowed when the driver has nothing left to do: no
+  /// parseable output, no build record, no unused-option warnings, and no
+  /// temporary files to remove.
+  private func canExecInPlace(onlyJob job: Job, useResponseFiles: ResponseFileHandling) throws -> Bool {
+    if parsedOptions.hasArgument(.parseableOutput) || buildRecordInfo != nil ||
+        parsedOptions.hasArgument(.driverWarnUnusedOptions) {
+      return false
+    }
+    if parsedOptions.hasArgument(.saveTemps) {
+      return true
+    }
+    // Resolve the job as executing it will, which creates the temporary
+    // directory if the job writes a temporary file or a response file.
+    let _: [String] = try executor.resolver.resolveArgumentList(for: job, useResponseFiles: useResponseFiles)
+    return !executor.resolver.hasTemporaryDirectory
   }
 
   mutating func createToolExecutionDelegate() -> ToolExecutionDelegate {

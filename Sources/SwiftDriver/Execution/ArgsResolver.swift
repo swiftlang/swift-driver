@@ -41,31 +41,46 @@ public final class ArgsResolver {
   /// The file system used by the resolver.
   private let fileSystem: FileSystem
 
-  /// Path to the directory that will contain the temporary files.
+  /// Path to the directory that will contain the temporary files, or `nil`
+  /// if the resolver hasn't needed one yet.
   // FIXME: We probably need a dedicated type for this...
-  private let temporaryDirectory: VirtualPath
+  private var temporaryDirectory: VirtualPath?
 
   private let lock = NSLock()
 
+  /// Creates a resolver.
+  ///
+  /// - Parameter temporaryDirectory: The directory for temporary files. It's
+  ///   created now if it doesn't exist. If `nil`, the resolver creates a unique
+  ///   directory lazily, the first time it needs one.
   public init(fileSystem: FileSystem, temporaryDirectory: VirtualPath? = nil) throws {
     self.pathMapping = [:]
     self.fileSystem = fileSystem
 
     if let temporaryDirectory = temporaryDirectory {
       self.temporaryDirectory = temporaryDirectory
-      let temporaryDirExists = try fileSystem.exists(self.temporaryDirectory)
-      if !temporaryDirExists, let temporaryDirAbsPath = self.temporaryDirectory.absolutePath {
+      let temporaryDirExists = try fileSystem.exists(temporaryDirectory)
+      if !temporaryDirExists, let temporaryDirAbsPath = temporaryDirectory.absolutePath {
         try fileSystem.createDirectory(temporaryDirAbsPath, recursive: true)
       }
-    } else {
-      // FIXME: withTemporaryDirectory uses FileManager.default, need to create a FileSystem.temporaryDirectory api.
-      let tmpDir: AbsolutePath = try withTemporaryDirectory(removeTreeOnDeinit: false) { path in
-        // FIXME: TSC removes empty directories even when removeTreeOnDeinit is false. This seems like a bug.
-        try fileSystem.writeFileContents(path.appending(component: ".keep-directory")) { $0.send("") }
-        return path
-      }
-      self.temporaryDirectory = .absolute(tmpDir)
     }
+  }
+
+  /// Returns the temporary directory, creating it on first use.
+  /// Needs to be done inside of `lock`.
+  private func unsafeTemporaryDirectory() throws -> VirtualPath {
+    if let temporaryDirectory = temporaryDirectory {
+      return temporaryDirectory
+    }
+    // FIXME: withTemporaryDirectory uses FileManager.default, need to create a FileSystem.temporaryDirectory api.
+    let tmpDir: AbsolutePath = try withTemporaryDirectory(removeTreeOnDeinit: false) { path in
+      // FIXME: TSC removes empty directories even when removeTreeOnDeinit is false. This seems like a bug.
+      try fileSystem.writeFileContents(path.appending(component: ".keep-directory")) { $0.send("") }
+      return path
+    }
+    let created = VirtualPath.absolute(tmpDir)
+    temporaryDirectory = created
+    return created
   }
 
   public func resolveArgumentList(for job: Job, useResponseFiles: ResponseFileHandling = .heuristic)
@@ -151,7 +166,7 @@ public final class ArgsResolver {
 
     // Return the path from the temporary directory if this is a temporary file.
     if path.isTemporary {
-      let actualPath = temporaryDirectory.appending(component: path.name)
+      let actualPath = try unsafeTemporaryDirectory().appending(component: path.name)
       switch path {
       case .temporary:
         break // No special behavior required.
@@ -215,7 +230,9 @@ public final class ArgsResolver {
       assert(!forceResponseFiles || job.supportsResponseFiles,
              "Platform does not support response files for job: \(job)")
       let uuid = UUID().uuidString
-      let responseFilePath = temporaryDirectory.appending(component: "arguments-\(uuid).resp")
+      let responseFilePath = try lock.withLock {
+        try unsafeTemporaryDirectory()
+      }.appending(component: "arguments-\(uuid).resp")
 
       // FIXME: Need a way to support this for distributed build systems...
       if let absPath = responseFilePath.absolutePath {
@@ -229,10 +246,16 @@ public final class ArgsResolver {
     return false
   }
 
-  /// Remove the temporary directory from disk.
+  /// Whether the resolver has a temporary directory, either supplied by the
+  /// caller or created on first use.
+  var hasTemporaryDirectory: Bool {
+    lock.withLock { temporaryDirectory != nil }
+  }
+
+  /// Remove the temporary directory from disk, if there is one.
   public func removeTemporaryDirectory() throws {
     // Only try to remove if we have an absolute path.
-    if let absPath = temporaryDirectory.absolutePath {
+    if let absPath = lock.withLock({ temporaryDirectory })?.absolutePath {
       try fileSystem.removeFileTree(absPath)
     }
   }
