@@ -136,8 +136,8 @@ fileprivate let modules = [importedModule, mainModule]
 fileprivate extension Change {
   var expectedCompilationsWithIncrementalImports: [Source] {
     switch self {
-    case .exposeFuncInStruct:    return [callFunctionInExtension, imported, instantiatesS, main]
-    case .exposeFuncInExtension: return [callFunctionInExtension, imported,                main]
+    case .exposeFuncInStruct:    return [callFunctionInExtension, imported, instantiatesS, main, noUseOfS]
+    case .exposeFuncInExtension: return [callFunctionInExtension, imported, instantiatesS, main, noUseOfS]
     }
   }
 
