@@ -241,6 +241,11 @@ typedef struct {
   (*swiftscan_scan_invocation_get_argc)(swiftscan_scan_invocation_t);
   swiftscan_string_set_t *
   (*swiftscan_scan_invocation_get_argv)(swiftscan_scan_invocation_t);
+  // Optional: not present in older libSwiftScan versions.
+  void
+  (*swiftscan_scan_invocation_set_main_executable_path)(swiftscan_scan_invocation_t, const char *);
+  swiftscan_string_ref_t
+  (*swiftscan_scan_invocation_get_main_executable_path)(swiftscan_scan_invocation_t);
 
   //=== Cleanup Functions ---------------------------------------------------===//
   void
