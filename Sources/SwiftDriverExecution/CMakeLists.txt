@@ -7,6 +7,7 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(SwiftDriverExecution
+  JobServer.swift
   llbuild.swift
   MultiJobExecutor.swift
   SwiftDriverExecutor.swift)
