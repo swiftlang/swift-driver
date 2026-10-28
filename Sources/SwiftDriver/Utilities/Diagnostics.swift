@@ -204,4 +204,8 @@ extension Diagnostic.Message {
   static func warning_debug_module_is_temporary(_ moduleName: String) -> Diagnostic.Message {
     .warning("debug info contains path to a temporary swiftmodule for module '\(moduleName)'; pass '-emit-module' or '-emit-module-path' so the debugger can load it")
   }
+
+  static func error_unknown_index_environment_option(_ option: String) -> Diagnostic.Message {
+    .error("unknown option '\(option)' passed via 'SWIFT_PROJECT_INDEX_OPTIONS' environment variable")
+  }
 }
