@@ -20,6 +20,7 @@ import protocol TSCBasic.FileSystem
 import struct TSCBasic.AbsolutePath
 import struct TSCBasic.ByteString
 import struct TSCBasic.SHA256
+import protocol TSCBasic.WritableByteStream
 
 /// How the resolver is to handle usage of response files
 public enum ResponseFileHandling {
@@ -120,9 +121,7 @@ public final class ArgsResolver {
       return flag
 
     case .path(let path):
-      return try lock.withLock {
-        return try unsafeResolve(path: path)
-      }
+      return try resolve(path: path)
 
     case .responseFilePath(let path):
       return "@\(try resolve(.path(path)))"
@@ -139,6 +138,12 @@ public final class ArgsResolver {
       return try option + args.map {
         try resolve($0)
       }.joined(separator: " ")
+    }
+  }
+
+  public func resolve(path: VirtualPath) throws -> String {
+    return try lock.withLock {
+      return try unsafeResolve(path: path)
     }
   }
 
@@ -185,13 +190,23 @@ public final class ArgsResolver {
     return result
   }
 
+  public func createFileListContents(contents: [VirtualPath], stream out: WritableByteStream) {
+    lock.withLock {
+      unsafeCreateFileListContents(contents: contents, stream: out)
+    }
+  }
+
+  private func unsafeCreateFileListContents(contents: [VirtualPath], stream out: WritableByteStream) {
+    for path in contents {
+      try! out.send("\(unsafeResolve(path: path))\n")
+    }
+  }
+
   private func createFileList(path: VirtualPath, contents: [VirtualPath]) throws {
     // FIXME: Need a way to support this for distributed build systems...
     if let absPath = path.absolutePath {
       try fileSystem.writeFileContents(absPath) { out in
-        for path in contents {
-          try! out.send("\(unsafeResolve(path: path))\n")
-        }
+        unsafeCreateFileListContents(contents: contents, stream: out)
       }
     }
   }

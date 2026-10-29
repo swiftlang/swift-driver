@@ -492,6 +492,63 @@ extension DarwinToolchain {
     }
   }
 
+  @Test func temporaryOutputContentsFromArgTemplates() async throws {
+    try await withTemporaryDirectory { tmpDir in
+      var driver = try TestDriver(args: [
+        "swiftc", "foo.swift", "bar.swift", "baz.swift", "-module-name", "Test",
+        "-emit-module", "-emit-library", "-driver-filelist-threshold=0",
+      ])
+      let jobs = try await driver.planBuild()
+      let resolver = try ArgsResolver(fileSystem: localFileSystem, temporaryDirectory: .absolute(tmpDir))
+
+      func collectPaths(_ arg: Job.ArgTemplate) -> [VirtualPath] {
+        switch arg {
+        case .flag:
+          return []
+        case .path(let path), .responseFilePath(let path), .joinedOptionAndPath(_, let path):
+          return [path]
+        case .commaJoinedOptionAndPaths(_, let paths):
+          return paths
+        case .squashedArgumentList(_, let args):
+          return args.flatMap(collectPaths)
+        }
+      }
+
+      var sawFileList = false
+      var sawOutputFileMap = false
+      for job in jobs {
+        for path in job.commandLine.flatMap(collectPaths) {
+          // Compute the contents of temporary files without relying on what the
+          // resolver writes to disk.
+          let expectedContents: ByteString
+          switch path {
+          case .temporaryWithKnownContents(_, let contents):
+            expectedContents = ByteString(contents)
+          case .fileList(_, .list(let items)):
+            sawFileList = true
+            let stream = BufferedOutputByteStream()
+            resolver.createFileListContents(contents: items, stream: stream)
+            expectedContents = stream.bytes
+          case .fileList(_, .outputFileMap(let map)):
+            sawOutputFileMap = true
+            expectedContents = try map.encode()
+          default:
+            continue
+          }
+
+          let resolvedPath = try resolver.resolve(path: path)
+          let resolvedAbsPath = try AbsolutePath(validating: resolvedPath)
+          #expect(resolvedAbsPath.parentDirectory == tmpDir)
+          #expect(try resolvedPath == resolver.resolve(.path(path)))
+          let onDiskContents = try localFileSystem.readFileContents(resolvedAbsPath)
+          #expect(onDiskContents == expectedContents, "Mismatched contents for \(resolvedPath)")
+        }
+      }
+      #expect(sawFileList)
+      #expect(sawOutputFileMap)
+    }
+  }
+
   @Test func resolveSquashedArgs() throws {
     try withTemporaryDirectory { path in
       let resolver = try ArgsResolver(fileSystem: localFileSystem, temporaryDirectory: .absolute(path))
