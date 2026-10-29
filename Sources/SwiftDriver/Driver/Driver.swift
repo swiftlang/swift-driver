@@ -419,6 +419,9 @@ public struct Driver {
   /// Path to the serialized diagnostics file.
   let serializedDiagnosticsFilePath: VirtualPath.Handle?
 
+  /// The format diagnostics are serialized in.
+  let serializedDiagnosticsFormat: FileType
+
   /// Path to the serialized diagnostics file of the emit-module task.
   let emitModuleSerializedDiagnosticsFilePath: VirtualPath.Handle?
 
@@ -1355,8 +1358,11 @@ public struct Driver {
         emitModuleSeparately: emitModuleSeparately,
         outputFileMap: self.outputFileMap,
         moduleName: moduleOutputInfo.name)
+    self.serializedDiagnosticsFormat = Self.serializedDiagnosticsFormat(&parsedOptions,
+                                                                        diagnosticEngine: diagnosticsEngine)
     self.serializedDiagnosticsFilePath = try Self.computeSupplementaryOutputPath(
-        &parsedOptions, type: .diagnostics, isOutputOptions: [.serializeDiagnostics],
+        &parsedOptions, type: self.serializedDiagnosticsFormat,
+        isOutputOptions: [.serializeDiagnostics, .serializeDiagnosticsEQ],
         outputPath: .serializeDiagnosticsPath,
         compilerOutputType: compilerOutputType,
         compilerMode: compilerMode,
@@ -1364,7 +1370,8 @@ public struct Driver {
         outputFileMap: self.outputFileMap,
         moduleName: moduleOutputInfo.name)
     self.emitModuleSerializedDiagnosticsFilePath = try Self.computeSupplementaryOutputPath(
-        &parsedOptions, type: .emitModuleDiagnostics, isOutputOptions: [.serializeDiagnostics],
+        &parsedOptions, type: Self.emitModuleSerializedDiagnosticsFormat(for: self.serializedDiagnosticsFormat),
+        isOutputOptions: [.serializeDiagnostics, .serializeDiagnosticsEQ],
         outputPath: .emitModuleSerializeDiagnosticsPath,
         compilerOutputType: compilerOutputType,
         compilerMode: compilerMode,
@@ -1372,7 +1379,8 @@ public struct Driver {
         outputFileMap: self.outputFileMap,
         moduleName: moduleOutputInfo.name)
     self.dependencyScanSerializedDiagnosticsPath = try Self.computeSupplementaryOutputPath(
-        &parsedOptions, type: .dependencyScanDiagnostics, isOutputOptions: [.serializeDiagnostics],
+        &parsedOptions, type: Self.dependencyScanSerializedDiagnosticsFormat(for: self.serializedDiagnosticsFormat),
+        isOutputOptions: [.serializeDiagnostics, .serializeDiagnosticsEQ],
         outputPath: .dependencyScanSerializeDiagnosticsPath,
         compilerOutputType: compilerOutputType,
         compilerMode: compilerMode,
@@ -4004,6 +4012,42 @@ extension Driver {
 
 // Supplementary outputs.
 extension Driver {
+  /// The format diagnostics are serialized in.
+  static func serializedDiagnosticsFormat(
+    _ parsedOptions: inout ParsedOptions,
+    diagnosticEngine: DiagnosticsEngine
+  ) -> FileType {
+    // The last of the bare flag, which means 'dia', and '=<format>' wins.
+    var format = FileType.diagnostics
+    for parsed in parsedOptions.arguments(for: .serializeDiagnostics, .serializeDiagnosticsEQ) {
+      guard parsed.option == .serializeDiagnosticsEQ else {
+        format = .diagnostics
+        continue
+      }
+      switch parsed.argument.asSingle {
+      case "sarif":
+        format = .sarifDiagnostics
+      case "dia":
+        format = .diagnostics
+      case let name:
+        diagnosticEngine.emit(.error_unsupported_argument(argument: name, option: .serializeDiagnosticsEQ))
+      }
+    }
+    return format
+  }
+
+  /// The format the emit-module job's diagnostics are serialized in, the same
+  /// as the rest of the compilation.
+  static func emitModuleSerializedDiagnosticsFormat(for format: FileType) -> FileType {
+    format == .sarifDiagnostics ? .emitModuleSARIFDiagnostics : .emitModuleDiagnostics
+  }
+
+  /// The format the dependency scan's diagnostics are serialized in, the same
+  /// as the rest of the compilation.
+  static func dependencyScanSerializedDiagnosticsFormat(for format: FileType) -> FileType {
+    format == .sarifDiagnostics ? .dependencyScanSARIFDiagnostics : .dependencyScanDiagnostics
+  }
+
   /// Determine the output path for a supplementary output.
   static func computeSupplementaryOutputPath(
     _ parsedOptions: inout ParsedOptions,
@@ -4049,7 +4093,7 @@ extension Driver {
 
     // Emit-module serialized diagnostics are always specified as a single-output
     // file
-    if type == .emitModuleDiagnostics,
+    if type == .emitModuleDiagnostics || type == .emitModuleSARIFDiagnostics,
        let singleOutputPath = try outputFileMap?.existingOutputForSingleInput(
            outputType: type) {
       return singleOutputPath

@@ -241,6 +241,46 @@ extension DarwinToolchain {
     }
   }
 
+  /// A failed compile job loses its outputs, except for its diagnostics, which
+  /// explain the failure.
+  @Test(.skipHostOS(.win32, comment: "Uses /bin/sh"),
+        arguments: [FileType.diagnostics, .sarifDiagnostics])
+  func failedCompilationKeepsDiagnostics(diagnosticsType: FileType) throws {
+    try withTemporaryDirectory { path in
+      let object = path.appending(component: "main.o")
+      let diagnostics = path.appending(component: "main.\(diagnosticsType.rawValue)")
+
+      // Stands in for a frontend that writes its outputs and then fails.
+      let compile = Job(
+        moduleName: "main",
+        kind: .compile,
+        tool: ResolvedTool(path: try AbsolutePath(validating: "/bin/sh"), supportsResponseFiles: false),
+        commandLine: [
+          "-c", "touch \"$0\" \"$1\"; exit 1",
+          .path(.absolute(object)), .path(.absolute(diagnostics)),
+        ],
+        inputs: [],
+        primaryInputs: [],
+        outputs: [
+          .init(file: VirtualPath.absolute(object).intern(), type: .object),
+          .init(file: VirtualPath.absolute(diagnostics).intern(), type: diagnosticsType),
+        ]
+      )
+      let executor = MultiJobExecutor(
+        workload: .all([compile]),
+        resolver: try ArgsResolver(fileSystem: localFileSystem),
+        executorDelegate: JobCollectingDelegate(),
+        diagnosticsEngine: DiagnosticsEngine()
+      )
+      #expect(throws: (any Error).self) {
+        try executor.execute(env: ProcessEnv.block, fileSystem: localFileSystem)
+      }
+
+      #expect(!localFileSystem.exists(object))
+      #expect(localFileSystem.exists(diagnostics))
+    }
+  }
+
   /// Ensure the executor is capable of forwarding its standard input to the compile job that requires it.
   @Test(.requireHostOS(.macosx)) func inputForwarding() async throws {
     let hostTriple = try TestDriver(args: ["swiftc", "test.swift"]).hostTriple
