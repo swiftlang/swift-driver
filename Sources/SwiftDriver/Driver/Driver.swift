@@ -14,6 +14,7 @@
 import SwiftOptions
 
 import class Dispatch.DispatchQueue
+import protocol Foundation.LocalizedError
 import class TSCBasic.DiagnosticsEngine
 import class TSCBasic.ThreadSafeOutputByteStream
 import class TSCBasic.UnknownLocation
@@ -48,6 +49,12 @@ extension Driver.ErrorDiagnostics: CustomStringConvertible {
     case .emitted:
       return "errors were encountered"
     }
+  }
+}
+
+extension Driver.Error: LocalizedError {
+  public var errorDescription: String? {
+    return self.description
   }
 }
 
