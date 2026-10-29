@@ -139,11 +139,7 @@ public struct OutputFileMap: Hashable, Codable {
     return outputFileMap
   }
 
-  /// Store the output file map at the given path.
-  public func store(
-    fileSystem: FileSystem,
-    file: AbsolutePath
-  ) throws {
+  public func encode() throws -> ByteString {
     let encoder = JSONEncoder()
 
   #if os(Linux) || os(Android)
@@ -155,7 +151,15 @@ public struct OutputFileMap: Hashable, Codable {
   #endif
 
     let contents = try encoder.encode(OutputFileMapJSON.fromVirtualOutputFileMap(entries).entries)
-    try fileSystem.writeFileContents(file, bytes: ByteString(contents))
+    return ByteString(contents)
+  }
+
+  /// Store the output file map at the given path.
+  public func store(
+    fileSystem: FileSystem,
+    file: AbsolutePath
+  ) throws {
+    try fileSystem.writeFileContents(file, bytes: self.encode())
   }
 
   /// Human-readable textual representation
