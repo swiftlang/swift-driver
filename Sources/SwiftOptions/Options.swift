@@ -660,6 +660,7 @@ extension Option {
   public static let inProcessPluginServerPath: Option = Option("-in-process-plugin-server-path", .separate, attributes: [.frontend, .argumentIsPath], helpText: "Path to dynamic library plugin server")
   public static let includeSpiSymbols: Option = Option("-include-spi-symbols", .flag, attributes: [.helpHidden, .frontend, .noInteractive, .supplementaryOutput], helpText: "Add symbols with SPI information to the symbol graph")
   public static let includeSubmodules: Option = Option("-include-submodules", .flag, attributes: [.noDriver, .synthesizeInterface], helpText: "Also print the declarations synthesized for any Clang submodules")
+  public static let incrementalBuildStats: Option = Option("-incremental-build-stats", .flag, attributes: [.helpHidden, .frontend, .doesNotAffectIncrementalBuild, .cacheInvariant], helpText: "Collect only the statistics that measure incremental build performance in -stats-output-dir")
   public static let incrementalDependencyScanCachePath: Option = Option("-incremental-dependency-scan-cache-path", .separate, attributes: [.helpHidden, .argumentIsPath], metaVar: "<path>", helpText: "Specify the path to serialize/reuse the dependency scan cache")
   public static let incrementalDependencyScan: Option = Option("-incremental-dependency-scan", .flag, attributes: [.helpHidden], helpText: "Re-use/validate prior build dependency scan artifacts")
   public static let incremental: Option = Option("-incremental", .flag, attributes: [.helpHidden, .noInteractive, .doesNotAffectIncrementalBuild], helpText: "Perform an incremental build if possible")
@@ -933,6 +934,7 @@ extension Option {
   public static let solverDisableCrashFailDiagnostic: Option = Option("-solver-disable-crash-fail-diagnostic", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Do not trigger assertion failure on 'failed to produce diagnostic for expression'")
   public static let solverDisableDiagnoseValidSalvage: Option = Option("-solver-disable-diagnose-valid-salvage", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Accept valid solutions in diagnostic mode")
   public static let solverDisableEnumerateSupertypes: Option = Option("-solver-disable-enumerate-supertypes", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable an inefficient form of inference in the solver, which allows certain optimizations")
+  public static let solverDisableExtremeEdgeContraction: Option = Option("-solver-disable-extreme-edge-contraction", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable an experimental optimization which will be on by default at some point")
   public static let solverDisablePerformanceHacks: Option = Option("-solver-disable-performance-hacks", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable various constraint solver performance optimizations that have been subsumed by subsequent improvements")
   public static let solverDisablePreparedOverloads: Option = Option("-solver-disable-prepared-overloads", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable experimental prepared overloads optimization")
   public static let solverDisablePromoteSupertypes: Option = Option("-solver-disable-promote-supertypes", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Disable an experimental optimization which will be on by default at some point")
@@ -944,6 +946,7 @@ extension Option {
   public static let solverEnableCrashFailDiagnostic: Option = Option("-solver-enable-crash-fail-diagnostic", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Trigger assertion failure on 'failed to produce diagnostic for expression'")
   public static let solverEnableDiagnoseValidSalvage: Option = Option("-solver-enable-diagnose-valid-salvage", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Reject valid solutions in diagnostic mode")
   public static let solverEnableEnumerateSupertypes: Option = Option("-solver-enable-enumerate-supertypes", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable an inefficient form of inference in the solver, which prevents certain optimizations")
+  public static let solverEnableExtremeEdgeContraction: Option = Option("-solver-enable-extreme-edge-contraction", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable an experimental optimization which will be on by default at some point")
   public static let solverEnablePerformanceHacks: Option = Option("-solver-enable-performance-hacks", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable various constraint solver performance optimizations that have been subsumed by subsequent improvements")
   public static let solverEnablePreparedOverloads: Option = Option("-solver-enable-prepared-overloads", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable experimental prepared overloads optimization")
   public static let solverEnablePromoteSupertypes: Option = Option("-solver-enable-promote-supertypes", .flag, attributes: [.helpHidden, .frontend, .noDriver], helpText: "Enable an experimental optimization which will be on by default at some point")
@@ -1738,6 +1741,7 @@ extension Option {
       Option.inProcessPluginServerPath,
       Option.includeSpiSymbols,
       Option.includeSubmodules,
+      Option.incrementalBuildStats,
       Option.incrementalDependencyScanCachePath,
       Option.incrementalDependencyScan,
       Option.incremental,
@@ -2011,6 +2015,7 @@ extension Option {
       Option.solverDisableCrashFailDiagnostic,
       Option.solverDisableDiagnoseValidSalvage,
       Option.solverDisableEnumerateSupertypes,
+      Option.solverDisableExtremeEdgeContraction,
       Option.solverDisablePerformanceHacks,
       Option.solverDisablePreparedOverloads,
       Option.solverDisablePromoteSupertypes,
@@ -2022,6 +2027,7 @@ extension Option {
       Option.solverEnableCrashFailDiagnostic,
       Option.solverEnableDiagnoseValidSalvage,
       Option.solverEnableEnumerateSupertypes,
+      Option.solverEnableExtremeEdgeContraction,
       Option.solverEnablePerformanceHacks,
       Option.solverEnablePreparedOverloads,
       Option.solverEnablePromoteSupertypes,
