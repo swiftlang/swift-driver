@@ -16,13 +16,21 @@
 @_spi(Testing) public struct Multidictionary<Key: Hashable, Value: Hashable>: Collection, Equatable {
   private var forwardDictionary: Dictionary<Key, Set<Value>> = [:]
 
-  /// Reverse index used to make value removal more efficient.
-  private var reverseIndex: Dictionary<Value, Set<Key>> = [:]
+  /// Reverse index used to make value removal more efficient. It's only built
+  /// by the first `removeOccurrences(of:)`, and maintained afterwards, since
+  /// maintaining it on every insertion would make building large dependency
+  /// graphs, for example when reading the priors, much slower.
+  private var reverseIndex: Dictionary<Value, Set<Key>>? = nil
 
   public typealias Element = (Key, Set<Value>)
   public typealias Index = Dictionary<Key, Set<Value>>.Index
 
   public init() {}
+
+  public static func == (lhs: Self, rhs: Self) -> Bool {
+    // The reverse index is derived from the forward dictionary.
+    lhs.forwardDictionary == rhs.forwardDictionary
+  }
 
   /// The number of key-value pairs in this multi-dictionary.
   public var count: Int {
@@ -90,8 +98,13 @@
   /// - Parameter v: The value to search for among the key-value associations in
   ///                this dictionary.
   /// - Returns: The set of keys associated with the given value.
+  /// - Complexity: O(*n*), where *n* is the number of keys, until the first
+  ///   `removeOccurrences(of:)` builds the reverse index.
   public func keysContainingValue(_ v: Value) -> Set<Key> {
-    return self.reverseIndex[v] ?? []
+    if let reverseIndex = self.reverseIndex {
+      return reverseIndex[v] ?? []
+    }
+    return Set(self.forwardDictionary.lazy.filter { $0.value.contains(v) }.map(\.key))
   }
 
   /// Inserts the given value in the set of values associated with the given key.
@@ -103,10 +116,12 @@
   ///            other values for the given key. Else, returns `false.
   @discardableResult
   public mutating func insertValue(_ v: Value, forKey key: Key) -> Bool {
-    let inserted1 = self.reverseIndex[v, default: []].insert(key).inserted
-    let inserted2 = self.forwardDictionary[key, default: []].insert(v).inserted
-    assert(inserted1 == inserted2)
-    return inserted1
+    let inserted = self.forwardDictionary[key, default: []].insert(v).inserted
+    if self.reverseIndex != nil {
+      let insertedKey = self.reverseIndex![v, default: []].insert(key).inserted
+      assert(insertedKey == inserted)
+    }
+    return inserted
   }
 
   /// Removes the given value from the set of values associated with the given key.
@@ -117,10 +132,12 @@
   /// - Returns: The removed element, if any.
   @discardableResult
   public mutating func removeValue(_ v: Value, forKey key: Key) -> Value? {
-    let removedKey = self.reverseIndex[v]?.remove(key)
     let removedVal = self.forwardDictionary[key]?.remove(v)
-    assert((removedKey == nil && removedVal == nil) ||
-           (removedKey != nil && removedVal != nil))
+    if self.reverseIndex != nil {
+      let removedKey = self.reverseIndex![v]?.remove(key)
+      assert((removedKey == nil && removedVal == nil) ||
+             (removedKey != nil && removedVal != nil))
+    }
     return removedVal
   }
 
@@ -132,7 +149,16 @@
   ///
   /// - Parameter v: The value to remove.
   public mutating func removeOccurrences(of v: Value) {
-    for k in self.reverseIndex.removeValue(forKey: v) ?? [] {
+    if self.reverseIndex == nil {
+      var reverseIndex = Dictionary<Value, Set<Key>>()
+      for (k, vs) in self.forwardDictionary {
+        for v in vs {
+          reverseIndex[v, default: []].insert(k)
+        }
+      }
+      self.reverseIndex = reverseIndex
+    }
+    for k in self.reverseIndex!.removeValue(forKey: v) ?? [] {
       self.forwardDictionary[k]!.remove(v)
     }
     assert(expensivelyCheckThatValueIsRemoved(v))
@@ -140,7 +166,7 @@
 
   /// For assertions. Returns true `v` is removed from all `forwardDictionary` values.
   private func expensivelyCheckThatValueIsRemoved(_ v: Value) -> Bool {
-    if self.reverseIndex[v] != nil {
+    if self.reverseIndex?[v] != nil {
       return false
     }
     return !self.forwardDictionary.values.contains(where: { $0.contains(v) })
