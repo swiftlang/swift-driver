@@ -697,6 +697,12 @@ func getStdlibShimsPaths(_ driver: Driver) throws -> (AbsolutePath, AbsolutePath
     #expect(try !temporaryModuleWarning(["-explicit-module-build", "-gline-tables-only"]).emitted)
   }
 
+  @Test func driverErrorLocalizedDescription() {
+    // In-process clients that only read `localizedDescription` should see the driver's message.
+    let error: any Error = Driver.Error.missingModuleDependency("Foo")
+    #expect(error.localizedDescription == "Missing Module Dependency Info: Foo")
+  }
+
   @Test(.requireScannerSupportsImportInfos()) func explicitImportDetails() async throws {
     try await withTemporaryDirectory { path in
       let (_, _, _, _) = try getDriverArtifactsForScanning()
