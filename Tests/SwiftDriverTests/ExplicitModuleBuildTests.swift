@@ -3293,14 +3293,14 @@ func getStdlibShimsPaths(_ driver: Driver) throws -> (AbsolutePath, AbsolutePath
       do {
         let diagnosticEngine = DiagnosticsEngine()
         var driver = try TestDriver(
-          args: baseCommandLine + ["-print-explicit-dependency-graph"],
+          args: baseCommandLine + ["-print-explicit-dependency-graph", "-no-explicit-module-build"],
           diagnosticsEngine: diagnosticEngine
         )
         let _ = try await driver.planBuild()
         #expect(diagnosticEngine.hasErrors)
         #expect(
           diagnosticEngine.diagnostics.first?.message.data.description
-            == "'-print-explicit-dependency-graph' cannot be specified if '-explicit-module-build' is not present"
+            == "'-print-explicit-dependency-graph' requires explicit module builds, which are disabled for this compilation"
         )
       }
       do {
