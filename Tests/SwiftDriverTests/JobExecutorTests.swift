@@ -118,7 +118,7 @@ extension DarwinToolchain {
   }
 }
 
-@Suite(.serialized) struct JobExecutorTests {
+@Suite(.serialized, .realDependencyScan) struct JobExecutorTests {
   @Test(.requireHostOS(.macosx)) func darwinBasic() async throws {
     let hostTriple = try TestDriver(args: ["swiftc", "test.swift"]).hostTriple
     let executor = try SwiftDriverExecutor(
@@ -615,6 +615,7 @@ extension DarwinToolchain {
             "swiftc", main.pathString,
             "-driver-filelist-threshold", "0",
             "-o", outputPath.pathString,
+            "-no-explicit-module-build",
           ] + getHostToolchainSdkArg(executor),
           diagnosticsEngine: diags,
           executor: executor
@@ -659,6 +660,7 @@ extension DarwinToolchain {
             "-ir-output-dir", path.pathString,
             "-driver-filelist-threshold", "0",
             "-o", outputPath.pathString,
+            "-no-explicit-module-build",
           ] + getHostToolchainSdkArg(executor),
           diagnosticsEngine: diags,
           executor: executor
@@ -703,6 +705,7 @@ extension DarwinToolchain {
             "-driver-filelist-threshold", "0",
             "-Xfrontend", "-debug-crash-immediately",
             "-o", outputPath.pathString,
+            "-no-explicit-module-build",
           ] + getHostToolchainSdkArg(executor),
           diagnosticsEngine: diags,
           executor: executor

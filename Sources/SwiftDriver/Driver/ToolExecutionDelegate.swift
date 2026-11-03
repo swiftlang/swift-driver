@@ -131,7 +131,15 @@ import class TSCBasic.Process
       break
 
     case .regular, .verbose:
-      let output = (try? result.utf8Output() + result.utf8stderrOutput()) ?? ""
+      // A job whose output is standard output (`-o -`) writes its product
+      // there, which may be binary, so pass those bytes through unchanged.
+      // `-o -` reaches the job as an output path named `-`.
+      let writesProductToStdout = job.outputs.contains { $0.file.name == "-" }
+      if writesProductToStdout, let product = try? result.output.get(), !product.isEmpty {
+        stdoutStream.send(product)
+        stdoutStream.flush()
+      }
+      let output = (try? (writesProductToStdout ? "" : result.utf8Output()) + result.utf8stderrOutput()) ?? ""
       if !output.isEmpty {
         Driver.stdErrQueue.sync {
           stderrStream.send(output)

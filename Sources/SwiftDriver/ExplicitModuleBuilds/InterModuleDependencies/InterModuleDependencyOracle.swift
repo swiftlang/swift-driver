@@ -36,25 +36,34 @@ public class InterModuleDependencyOracle {
   /// Allow external clients to instantiate the oracle
   public init() {}
 
+  /// - Parameter compilerExecutablePath: The compiler executable that will run the
+  ///   jobs of the modules this scan reports. The scanner finds tools and libraries
+  ///   relative to it, so a client that knows it should pass it, or the scan and
+  ///   the jobs can find different installations of, for example, the C++ standard
+  ///   library.
   @_spi(Testing) public func getDependencies(workingDirectory: AbsolutePath,
+                                             compilerExecutablePath: AbsolutePath? = nil,
                                              moduleAliases: [String: String]? = nil,
                                              commandLine: [String],
                                              diagnostics: inout [ScannerDiagnosticPayload])
   throws -> InterModuleDependencyGraph {
     precondition(hasScannerInstance)
     return try swiftScanLibInstance!.scanDependencies(workingDirectory: workingDirectory,
+                                                      compilerExecutablePath: compilerExecutablePath,
                                                       moduleAliases: moduleAliases,
                                                       invocationCommand: commandLine,
                                                       diagnostics: &diagnostics)
   }
 
   @_spi(Testing) public func getImports(workingDirectory: AbsolutePath,
+                                        compilerExecutablePath: AbsolutePath? = nil,
                                         moduleAliases: [String: String]? = nil,
                                         commandLine: [String],
                                         diagnostics: inout [ScannerDiagnosticPayload])
   throws -> InterModuleDependencyImports {
     precondition(hasScannerInstance)
     return try swiftScanLibInstance!.preScanImports(workingDirectory: workingDirectory,
+                                                    compilerExecutablePath: compilerExecutablePath,
                                                     moduleAliases: moduleAliases,
                                                     invocationCommand: commandLine,
                                                     diagnostics: &diagnostics)

@@ -923,6 +923,7 @@ import CRT
     let objName = compileJob.outputs[0].file.basename
     let autolinkJob = plannedJobs.first { $0.kind == .autolinkExtract }
     let autolinkName = autolinkJob?.outputs[0].file.basename
+    let moduleMapName = try #require(compileJob.inputs.first(where: { $0.type == .jsonSwiftArtifacts })).file.name
 
     var serializer = DOTJobGraphSerializer(jobs: plannedJobs)
     var output = ""
@@ -938,12 +939,15 @@ import CRT
           "emitModule (\(executableName("swift-frontend")))" [style=bold];
           "\(rebase("test.swift"))" [fontsize=12];
           "\(rebase("test.swift"))" -> "emitModule (\(executableName("swift-frontend")))" [color=blue];
+          "\(moduleMapName)" [fontsize=12];
+          "\(moduleMapName)" -> "emitModule (\(executableName("swift-frontend")))" [color=blue];
           "\(rebase("test.swiftmodule"))" [fontsize=12];
           "emitModule (\(executableName("swift-frontend")))" -> "\(rebase("test.swiftmodule"))" [color=green];
           "\(rebase("test.swiftdoc"))" [fontsize=12];
           "emitModule (\(executableName("swift-frontend")))" -> "\(rebase("test.swiftdoc"))" [color=green];
           "compile (\(executableName("swift-frontend")))" [style=bold];
           "\(rebase("test.swift"))" -> "compile (\(executableName("swift-frontend")))" [color=blue];
+          "\(moduleMapName)" -> "compile (\(executableName("swift-frontend")))" [color=blue];
           "\(objName)" [fontsize=12];
           "compile (\(executableName("swift-frontend")))" -> "\(objName)" [color=green];
           "autolinkExtract (\(executableName("swift-autolink-extract")))" [style=bold];
@@ -967,6 +971,8 @@ import CRT
           "emitModule (\(executableName("swift-frontend")))" [style=bold];
           "\(rebase("test.swift"))" [fontsize=12];
           "\(rebase("test.swift"))" -> "emitModule (\(executableName("swift-frontend")))" [color=blue];
+          "\(moduleMapName)" [fontsize=12];
+          "\(moduleMapName)" -> "emitModule (\(executableName("swift-frontend")))" [color=blue];
           "\(rebase("test.swiftmodule"))" [fontsize=12];
           "emitModule (\(executableName("swift-frontend")))" -> "\(rebase("test.swiftmodule"))" [color=green];
           "\(rebase("test.swiftdoc"))" [fontsize=12];
@@ -975,6 +981,7 @@ import CRT
           "emitModule (\(executableName("swift-frontend")))" -> "\(rebase("test.abi.json"))" [color=green];
           "compile (\(executableName("swift-frontend")))" [style=bold];
           "\(rebase("test.swift"))" -> "compile (\(executableName("swift-frontend")))" [color=blue];
+          "\(moduleMapName)" -> "compile (\(executableName("swift-frontend")))" [color=blue];
           "\(objName)" [fontsize=12];
           "compile (\(executableName("swift-frontend")))" -> "\(objName)" [color=green];
           "link (\(linkerDriver))" [style=bold];
@@ -993,12 +1000,15 @@ import CRT
           "emitModule (\(executableName("swift-frontend")))" [style=bold];
           "\(rebase("test.swift"))" [fontsize=12];
           "\(rebase("test.swift"))" -> "emitModule (\(executableName("swift-frontend")))" [color=blue];
+          "\(moduleMapName)" [fontsize=12];
+          "\(moduleMapName)" -> "emitModule (\(executableName("swift-frontend")))" [color=blue];
           "\(rebase("test.swiftmodule"))" [fontsize=12];
           "emitModule (\(executableName("swift-frontend")))" -> "\(rebase("test.swiftmodule"))" [color=green];
           "\(rebase("test.swiftdoc"))" [fontsize=12];
           "emitModule (\(executableName("swift-frontend")))" -> "\(rebase("test.swiftdoc"))" [color=green];
           "compile (\(executableName("swift-frontend")))" [style=bold];
           "\(rebase("test.swift"))" -> "compile (\(executableName("swift-frontend")))" [color=blue];
+          "\(moduleMapName)" -> "compile (\(executableName("swift-frontend")))" [color=blue];
           "\(objName)" [fontsize=12];
           "compile (\(executableName("swift-frontend")))" -> "\(objName)" [color=green];
           "link (\(linkerDriver))" [style=bold];
@@ -1535,6 +1545,8 @@ import CRT
       var driver = try TestDriver(args: [
         "swiftc", "-validate-clang-modules-once",
         "-clang-build-session-file", "testClangModuleValidateOnce.session",
+        // Under an explicit module build these are passed only to the scanner.
+        "-no-explicit-module-build",
         "foo.swift",
       ])
       let jobs = try await driver.planBuild().removingAutolinkExtractJobs()
@@ -1725,8 +1737,9 @@ import CRT
         1,
         "Emit module job should only have one swiftinterface output"
       )
-      expectEqual(verifyJob.inputs.count, 1)
+      expectEqual(verifyJob.inputs.count, 2)
       expectEqual(verifyJob.inputs[0], emitInterfaceOutput[0])
+      expectEqual(verifyJob.inputs[1].type, .jsonSwiftArtifacts)
       expectJobInvocationMatches(verifyJob, .path(emitInterfaceOutput[0].file))
       #expect(!verifyJob.commandLine.contains("-downgrade-typecheck-interface-error"))
       #expect(!emitJob.commandLine.contains("-no-verify-emitted-module-interface"))
@@ -1756,8 +1769,9 @@ import CRT
         "Emit module job should only have one swiftinterface output"
       )
       expectEqual(verifyJob.kind, .verifyModuleInterface)
-      expectEqual(verifyJob.inputs.count, 1)
+      expectEqual(verifyJob.inputs.count, 2)
       expectEqual(verifyJob.inputs[0], emitInterfaceOutput[0])
+      expectEqual(verifyJob.inputs[1].type, .jsonSwiftArtifacts)
       expectJobInvocationMatches(verifyJob, .path(emitInterfaceOutput[0].file))
       #expect(!verifyJob.commandLine.contains("-downgrade-typecheck-interface-error"))
       #expect(!verifyJob.commandLine.contains("-no-downgrade-typecheck-interface-error"))
@@ -1862,7 +1876,6 @@ import CRT
       ])
       let plannedJobs = try await driver.planBuild()
       #expect(plannedJobs.map(\.kind) == [.emitModule, .verifyModuleInterface])
-
       let emitJob = try plannedJobs.findJob(.emitModule)
       expectJobInvocationMatches(emitJob, .flag("-check-api-availability-only"))
 
@@ -1914,8 +1927,9 @@ import CRT
         1,
         "There should be one public swiftinterface output"
       )
-      expectEqual(verifyJob.inputs.count, 1)
+      expectEqual(verifyJob.inputs.count, 2)
       expectEqual(verifyJob.inputs[0], publicOutputs[0])
+      expectEqual(verifyJob.inputs[1].type, .jsonSwiftArtifacts)
       #expect(verifyJob.outputs.isEmpty)
     }
 
@@ -1961,8 +1975,9 @@ import CRT
         1,
         "There should be one public swiftinterface output"
       )
-      expectEqual(verifyJob.inputs.count, 1)
+      expectEqual(verifyJob.inputs.count, 2)
       expectEqual(verifyJob.inputs[0], publicOutputs[0])
+      expectEqual(verifyJob.inputs[1].type, .jsonSwiftArtifacts)
       #expect(verifyJob.outputs.isEmpty)
     }
   }
@@ -2025,8 +2040,10 @@ import CRT
     }
   }
 
-  @Test func cachingBuildOptions() async throws {
-    try await assertDriverDiagnostics(args: "swiftc", "foo.swift", "-emit-module", "-cache-compile-job") {
+  @Test(.realDependencyScan) func cachingBuildOptions() async throws {
+    try await assertDriverDiagnostics(
+      args: "swiftc", "foo.swift", "-emit-module", "-cache-compile-job", "-no-explicit-module-build"
+    ) {
       $1.expect(.warning("-cache-compile-job cannot be used without explicit module build, turn off caching"))
     }
     try await assertNoDriverDiagnostics(
