@@ -983,9 +983,26 @@ extension Driver {
     let defaultSizeLimit = 25
     let sizeLimit = info.sizeLimit ?? defaultSizeLimit
 
-    let numTasks = numParallelJobs ?? 1
+    // With compilation caching, the primaries of a batch are part of its
+    // cache key, so a partition count that follows the value of -j gives two
+    // machines with different core counts different keys for every module of
+    // more than one file. Build systems pass -j with the machine's core count
+    // (swift-build passes it after OTHER_SWIFT_FLAGS), so under caching a
+    // fixed count stands in for its value; -driver-batch-count still
+    // overrides it, and no -j keeps one job.
+    let numTasks: Int
+    if let numParallelJobs {
+      numTasks = enableCaching ? Self.defaultCachingBatchCount : numParallelJobs
+    } else {
+      numTasks = 1
+    }
     return max(numTasks, divideRoundingUp(numInputFiles, sizeLimit))
   }
+
+  /// The minimum number of batch partitions when compilation caching is on
+  /// and -j is given, in place of its value, so that batch composition, and
+  /// with it every batch's cache key, is the same on every machine.
+  @_spi(Testing) public static let defaultCachingBatchCount = 6
 
   /// Describes the partitions used when batching.
   private struct BatchPartitions {

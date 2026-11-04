@@ -1547,6 +1547,55 @@ struct CachingBuildTests {
     }
   }
 
+  /// The primaries of a batch are part of its cache key, so with caching the
+  /// partitions must not follow -j: machines with different core counts would
+  /// never share a key for a module of more than one file.
+  @Test func cacheBatchPartitionsIndependentOfJobCount() async throws {
+    try await withTemporaryDirectory { path in
+      let moduleCachePath = path.appending(component: "ModuleCache")
+      let casPath = path.appending(component: "cas")
+      try localFileSystem.createDirectory(moduleCachePath)
+      let inputs = (0..<20).map { path.appending(component: "file\($0).swift") }
+      for (index, input) in inputs.enumerated() {
+        try localFileSystem.writeFileContents(input) {
+          $0.send("public func foo\(index)() {}")
+        }
+      }
+      func partitions(_ extraArgs: [String]) async throws -> [[VirtualPath]] {
+        var driver = try TestDriver(args: [
+          "swiftc", "-c", "-module-name", "Test", "-parse-stdlib",
+          "-disable-implicit-string-processing-module-import",
+          "-disable-implicit-concurrency-module-import",
+          "-explicit-module-build", "-enable-batch-mode",
+          "-module-cache-path", moduleCachePath.nativePathString(escaped: false),
+          "-working-directory", path.nativePathString(escaped: false),
+        ] + extraArgs + inputs.map { $0.nativePathString(escaped: false) })
+        return try await driver.planBuild()
+          .filter { $0.kind == .compile }
+          .map { $0.primaryInputs.map(\.file) }
+      }
+      let caching = ["-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: false)]
+
+      // Without caching, -j still sets the number of partitions.
+      #expect(try await partitions(["-j", "2"]).count == 2)
+      #expect(try await partitions(["-j", "8"]).count == 8)
+
+      // With caching, every value of -j gives the same partitions.
+      let reference = try await partitions(caching + ["-j", "2"])
+      #expect(reference.count == Driver.defaultCachingBatchCount)
+      #expect(reference.joined().count == inputs.count)
+      for jobs in ["1", "8", "16"] {
+        #expect(try await partitions(caching + ["-j", jobs]) == reference)
+      }
+
+      // With caching and no -j, one batch per 25 files, as before.
+      #expect(try await partitions(caching).count == 1)
+
+      // An explicit -driver-batch-count still wins.
+      #expect(try await partitions(caching + ["-j", "8", "-driver-batch-count", "3"]).count == 3)
+    }
+  }
+
   @Test func cacheWholeModuleBuildPlan() async throws {
     try await withTemporaryDirectory { path in
       let moduleCachePath = path.appending(component: "ModuleCache")
