@@ -78,6 +78,25 @@ def call_output(cmd, cwd=None, stderr=False, verbose=False):
         error(str(e))
 
 
+def get_developer_dir():
+    """
+    Returns the active Xcode developer directory: $DEVELOPER_DIR if set,
+    otherwise the output of `xcode-select -p`. Returns None on non-Darwin
+    hosts or if it cannot be determined.
+    """
+    if platform.system() != "Darwin":
+        return None
+    developer_dir = os.environ.get("DEVELOPER_DIR")
+    if developer_dir:
+        return developer_dir
+    try:
+        return subprocess.check_output(
+            ["xcode-select", "-p"], universal_newlines=True
+        ).strip() or None
+    except Exception:
+        return None
+
+
 def get_dispatch_cmake_arg(args):
     """
     Returns the CMake argument to the Dispatch configuration to use
@@ -706,6 +725,13 @@ def build_using_cmake(args, toolchain_bin, build_dir, targets):
             base_swift_flags.append("/^toolchain")
             base_swift_flags.append("-scanner-prefix-map")
             base_swift_flags.append(args.package_path + "=/^src")
+            # Map the Xcode developer directory so that paths into Xcode
+            # outside of the SDK and toolchain (e.g. macro plugin search
+            # paths) are canonical.
+            developer_dir = get_developer_dir()
+            if developer_dir:
+                base_swift_flags.append("-scanner-prefix-map")
+                base_swift_flags.append(developer_dir + "=/^xcode")
         if args.caching_enable_mccas:
             base_swift_flags.append("-Xfrontend")
             base_swift_flags.append("-cas-backend")
