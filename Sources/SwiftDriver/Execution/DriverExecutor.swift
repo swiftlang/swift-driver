@@ -106,6 +106,16 @@ extension DriverExecutor {
 
 public struct DriverExecutorWorkload {
   public let continueBuildingAfterErrors: Bool
+
+  /// Whether the build participates in the GNU make jobserver advertised in
+  /// `MAKEFLAGS`. When true, its token pool bounds concurrency, with `-j` as a
+  /// further ceiling only if `hasExplicitJobLimit`.
+  public let useGnuJobserver: Bool
+
+  /// Whether the parallel job limit was set explicitly (by `-j` or
+  /// `SWIFTC_MAXIMUM_DETERMINISM`) rather than defaulted.
+  public let hasExplicitJobLimit: Bool
+
   public enum Kind {
     case all([Job])
     case incremental(IncrementalCompilationState)
@@ -118,8 +128,12 @@ public struct DriverExecutorWorkload {
 
   public init(_ allJobs: [Job],
               _ incrementalCompilationState: IncrementalCompilationState?,
-              continueBuildingAfterErrors: Bool) {
+              continueBuildingAfterErrors: Bool,
+              useGnuJobserver: Bool = false,
+              hasExplicitJobLimit: Bool = false) {
     self.continueBuildingAfterErrors = continueBuildingAfterErrors
+    self.useGnuJobserver = useGnuJobserver
+    self.hasExplicitJobLimit = hasExplicitJobLimit
     self.kind = incrementalCompilationState
       .map {.incremental($0)}
       ?? .all(allJobs)

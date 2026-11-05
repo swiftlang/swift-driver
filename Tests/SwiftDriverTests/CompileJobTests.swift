@@ -299,6 +299,37 @@ import Testing
         Issue.record("Expected batch compile, got \(driver.compilerMode)")
       }
     }
+
+    // Under a jobserver, batching without `-j` would cap concurrency below the pool.
+    var jobserverEnv = ProcessEnv.block
+    jobserverEnv["MAKEFLAGS"] = "-j --jobserver-auth=3,4"
+    try await assertDriverDiagnostics(
+      args: ["swiftc", "-enable-batch-mode", "-experimental-use-gnu-jobserver"],
+      env: jobserverEnv
+    ) { driver, diagnostics in
+      #expect(driver.compilerMode == .standardCompile)
+      diagnostics.expect(
+        .warning("ignoring '-enable-batch-mode' because '-experimental-use-gnu-jobserver' was specified without '-j'")
+      )
+    }
+
+    // An explicit `-j`, no advertised pool, or no opt-in all keep batch mode.
+    var noPoolEnv = jobserverEnv
+    noPoolEnv["MAKEFLAGS"] = nil
+    for (args, env) in [
+      (["-experimental-use-gnu-jobserver", "-j", "4"], jobserverEnv),
+      (["-experimental-use-gnu-jobserver"], noPoolEnv),
+      ([], jobserverEnv),
+    ] {
+      try await assertDriverDiagnostics(args: ["swiftc", "-enable-batch-mode"] + args, env: env) { driver, _ in
+        switch driver.compilerMode {
+        case .batchCompile:
+          break
+        default:
+          Issue.record("Expected batch compile, got \(driver.compilerMode)")
+        }
+      }
+    }
   }
 
   @Test func singleThreadedWholeModuleOptimizationCompiles() async throws {
@@ -910,6 +941,13 @@ import Testing
     var env = ProcessEnv.block
     env["SWIFTC_MAXIMUM_DETERMINISM"] = "1"
     try expectEqual(try TestDriver(args: ["swiftc", "-j", "4"], env: env).numParallelJobs, 1)
+    try expectEqual(try TestDriver(args: ["swiftc"], env: env).numParallelJobs, 1)
+  }
+
+  @Test func gnuJobserverOptIn() throws {
+    #expect(try TestDriver(args: ["swiftc", "foo.swift"]).useGnuJobserver == false)
+    #expect(try TestDriver(args: ["swiftc", "foo.swift",
+      "-experimental-use-gnu-jobserver"]).useGnuJobserver == true)
   }
 
   @Test func multithreadingDiagnostics() async throws {
