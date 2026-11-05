@@ -2025,8 +2025,10 @@ import CRT
     }
   }
 
-  @Test func cachingBuildOptions() async throws {
-    try await assertDriverDiagnostics(args: "swiftc", "foo.swift", "-emit-module", "-cache-compile-job") {
+  @Test(.realDependencyScan) func cachingBuildOptions() async throws {
+    try await assertDriverDiagnostics(
+      args: "swiftc", "foo.swift", "-emit-module", "-cache-compile-job", "-no-explicit-module-build"
+    ) {
       $1.expect(.warning("-cache-compile-job cannot be used without explicit module build, turn off caching"))
     }
     try await assertNoDriverDiagnostics(

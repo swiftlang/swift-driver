@@ -143,7 +143,12 @@ extension Module {
     let diagnosticsEngine = DiagnosticsEngine(handlers: handlers)
 
     let args = try arguments(in: context)
-    var driver = try TestDriver(args: args, diagnosticsEngine: diagnosticsEngine)
+    // These builds run their compiles against the real toolchain, so they get
+    // the real oracle rather than the test-harness one. It goes unqueried while
+    // `-no-explicit-module-build` is in `boilerPlateArgs`, but it is the right
+    // oracle for a build that executes.
+    var driver = try TestDriver(args: args, diagnosticsEngine: diagnosticsEngine,
+                                interModuleDependencyOracle: InterModuleDependencyOracle())
     let jobs = try await driver.planBuild()
     try await driver.run(jobs: jobs)
 
@@ -157,7 +162,11 @@ extension Module {
       "-no-color-diagnostics",
       "-incremental",
       "-driver-show-incremental",
-      "-driver-show-job-lifecycle"]
+      "-driver-show-job-lifecycle",
+      // These tests count which sources recompiled. Explicit module builds
+      // would add module-building jobs only when the module cache is cold, so
+      // the job set would vary between runs on the same machine.
+      "-no-explicit-module-build"]
 
     var searchPaths: [String] {
       let swiftModules = self.imports.map {
