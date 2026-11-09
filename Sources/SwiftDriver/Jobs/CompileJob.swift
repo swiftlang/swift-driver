@@ -100,6 +100,7 @@ extension Driver {
          .clangModuleMap, .jsonCompilerFeatures, .jsonTargetInfo, .jsonSwiftArtifacts,
          .indexUnitOutputPath, .modDepCache, .jsonAPIBaseline, .jsonABIBaseline,
          .swiftConstValues, .jsonAPIDescriptor, .moduleSummary, .moduleSemanticInfo, .dependencyScanDiagnostics,
+         .sarifDiagnostics, .emitModuleSARIFDiagnostics, .dependencyScanSARIFDiagnostics,
          .cachedDiagnostics, .jsonSupportedFeatures, nil:
       return false
     }
@@ -551,12 +552,13 @@ extension FileType {
 
     case .swift, .dSYM, .autolink, .dependencies, .emitModuleDependencies,
          .swiftDocumentation, .pcm, .diagnostics, .emitModuleDiagnostics,
+         .sarifDiagnostics, .emitModuleSARIFDiagnostics,
          .objcHeader, .image, .swiftDeps, .moduleTrace, .tbd, .yamlOptimizationRecord,
          .bitstreamOptimizationRecord, .swiftInterface, .privateSwiftInterface, .packageSwiftInterface,
          .swiftSourceInfoFile, .clangModuleMap, .jsonSwiftArtifacts,
          .indexUnitOutputPath, .modDepCache, .jsonAPIBaseline, .jsonABIBaseline,
          .swiftConstValues, .jsonAPIDescriptor, .moduleSummary, .moduleSemanticInfo,
-         .cachedDiagnostics, .dependencyScanDiagnostics:
+         .cachedDiagnostics, .dependencyScanDiagnostics, .dependencyScanSARIFDiagnostics:
       fatalError("Output type can never be a primary output")
     }
   }
