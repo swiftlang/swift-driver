@@ -118,7 +118,6 @@ let package = Package(
       name: "swift-help",
       dependencies: [
         "SwiftOptions",
-        .product(name: "ArgumentParser", package: "swift-argument-parser"),
         .product(name: swiftToolsSupportCoreLibName, package: "swift-tools-support-core"),
       ],
       exclude: ["CMakeLists.txt"]),
@@ -164,17 +163,33 @@ if ProcessInfo.processInfo.environment["SWIFT_DRIVER_LLBUILD_FWK"] == nil {
     }
 }
 
+let useArgumentParserPackage = ProcessInfo.processInfo.environment["SWIFT_DRIVER_ARGPARSER_FWK"] == nil
+
 if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
   package.dependencies += [
     .package(url: "https://github.com/swiftlang/swift-tools-support-core.git", branch: "main"),
-    // The 'swift-argument-parser' version declared here must match that
-    // used by 'swift-package-manager' and 'sourcekit-lsp'. Please coordinate
-    // dependency version changes here with those projects.
-    .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.5.1"),
   ]
-} else {
+  if useArgumentParserPackage {
     package.dependencies += [
-        .package(path: "../swift-tools-support-core"),
-        .package(path: "../swift-argument-parser"),
+      // The 'swift-argument-parser' version declared here must match that
+      // used by 'swift-package-manager' and 'sourcekit-lsp'. Please coordinate
+      // dependency version changes here with those projects.
+      .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.5.1"),
     ]
+  }
+} else {
+  package.dependencies += [
+    .package(path: "../swift-tools-support-core"),
+  ]
+  if useArgumentParserPackage {
+    package.dependencies += [
+      .package(path: "../swift-argument-parser"),
+    ]
+  }
+}
+
+if useArgumentParserPackage {
+  package.targets.first(where: { $0.name == "swift-help" })!.dependencies += [
+    .product(name: "ArgumentParser", package: "swift-argument-parser"),
+  ]
 }
