@@ -495,6 +495,48 @@ struct IncrementalExplicitBuildTests: DiagVerifiable {
     }
   }
 
+  /// Source file timestamps updated but contents are the same: with file-hashing,
+  /// the emit-module job should be skipped even though, in an explicit module build,
+  /// its inputs also include the explicit module dependencies.
+  @Test(arguments: TestBuildConfig.availableExplicitConfigs)
+  func explicitIncrementalEmitModuleOnlyWithHashing(config: TestBuildConfig) async throws {
+    let h = try IncrementalTestHarness(config: config)
+
+    let args =
+      [
+        "swiftc",
+        "-module-name", h.module,
+        "-emit-module", "-emit-module-path",
+        h.derivedDataPath.appending(component: h.module + ".swiftmodule").pathString,
+        "-incremental",
+        "-enable-incremental-file-hashing",
+        "-output-file-map", h.OFM.pathString,
+        "-no-color-diagnostics",
+      ] + h.inputPathsAndContents.map { $0.0.pathString }.sorted() + h.explicitBuildArgs + h.sdkArgumentsForTesting
+
+    // Initial build.
+    try await h.doABuildWithoutExpectations(arguments: args)
+
+    try h.touch("main")
+    try h.touch("other")
+    // Subsequent build: contents are unchanged, so the module should not be re-emitted.
+    let driver = try await h.doABuildWithoutExpectations(arguments: args)
+    let mandatoryJobs = try #require(driver.incrementalCompilationState?.mandatoryJobsInOrder)
+    #expect(
+      !mandatoryJobs.contains { $0.kind == .emitModule },
+      "emit-module should be skipped when using hashes and content unchanged"
+    )
+
+    h.replace(contentsOf: "main", with: "let foo = 2")
+    // Subsequent build: contents changed, so the module must be re-emitted.
+    let changedDriver = try await h.doABuildWithoutExpectations(arguments: args)
+    let changedMandatoryJobs = try #require(changedDriver.incrementalCompilationState?.mandatoryJobsInOrder)
+    #expect(
+      changedMandatoryJobs.contains { $0.kind == .emitModule },
+      "emit-module should run when using hashes and content has changed"
+    )
+  }
+
   // MARK: - Compilation caching incremental tests
 
   @Test(
