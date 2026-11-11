@@ -174,6 +174,59 @@ struct IncrementalInputModificationTests: DiagVerifiable {
     }
   }
 
+  /// Changing the incremental invalidation key, which stands for inputs the driver can't see such as the SDK's
+  /// contents, should trigger a full recompile.
+  @Test func changingIncrementalInvalidationKeyLeadsToRecompile() async throws {
+    let h = try IncrementalTestHarness()
+    h.incrementalInvalidationKey = "sdk-1"
+    try await h.buildInitialState()
+    h.incrementalInvalidationKey = "sdk-2"
+    try await h.doABuild(
+      "change incremental invalidation key",
+      checkDiagnostics: true,
+      extraArguments: [],
+      whenAutolinking: h.autolinkLifecycleExpectedDiags
+    ) {
+      readGraph
+      differentArgsPassed
+      disablingIncrementalDifferentArgsPassed
+      findingBatchingCompiling("main", "other")
+      reading(deps: "main", "other")
+      schedLinking
+    }
+  }
+
+  /// Passing the same incremental invalidation key again should not recompile anything.
+  @Test func sameIncrementalInvalidationKeyDoesNotRecompile() async throws {
+    let h = try IncrementalTestHarness()
+    h.incrementalInvalidationKey = "sdk-1"
+    try await h.buildInitialState()
+    let driver = try await h.checkNullBuild(extraArguments: [])
+    let mandatoryJobs = try #require(driver.incrementalCompilationState?.mandatoryJobsInOrder)
+    #expect(mandatoryJobs.isEmpty)
+  }
+
+  /// Starting to pass an incremental invalidation key to a build that didn't have one should trigger a full
+  /// recompile, because the driver can't know the earlier build used the same inputs.
+  @Test func addingIncrementalInvalidationKeyLeadsToRecompile() async throws {
+    let h = try IncrementalTestHarness()
+    try await h.buildInitialState()
+    h.incrementalInvalidationKey = "sdk-1"
+    try await h.doABuild(
+      "add incremental invalidation key",
+      checkDiagnostics: true,
+      extraArguments: [],
+      whenAutolinking: h.autolinkLifecycleExpectedDiags
+    ) {
+      readGraph
+      differentArgsPassed
+      disablingIncrementalDifferentArgsPassed
+      findingBatchingCompiling("main", "other")
+      reading(deps: "main", "other")
+      schedLinking
+    }
+  }
+
   /// Reordering options which affect incremental builds should trigger a full recompile.
   @Test func optionReorderingLeadsToRecompile() async throws {
     let h = try IncrementalTestHarness()

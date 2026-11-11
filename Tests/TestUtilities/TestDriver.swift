@@ -186,6 +186,7 @@ package struct TestDriver {
     fileSystem: FileSystem? = nil,
     integratedDriver: Bool = true,
     interModuleDependencyOracle: InterModuleDependencyOracle? = nil,
+    incrementalInvalidationKey: String? = nil,
     stdoutStream: ThreadSafeOutputByteStream? = nil,
     stderrStream: ThreadSafeOutputByteStream? = nil
   ) throws {
@@ -212,6 +213,7 @@ package struct TestDriver {
       executor: exec,
       integratedDriver: integratedDriver,
       interModuleDependencyOracle: interModuleDependencyOracle,
+      incrementalInvalidationKey: incrementalInvalidationKey,
       stdoutStream: stdout,
       stderrStream: stderr
     )
