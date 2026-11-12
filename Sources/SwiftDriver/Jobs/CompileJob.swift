@@ -44,12 +44,17 @@ extension Driver {
   }
 
   mutating func computePrimaryOutput(for input: TypedVirtualPath, outputType: FileType,
-                                        isTopLevel: Bool) throws -> TypedVirtualPath {
+                                        isTopLevel: Bool,
+                                        multipleIndexFiles: Bool) throws -> TypedVirtualPath {
     if let path = try outputFileMap?.existingOutput(inputFile: input.fileHandle, outputType: outputType) {
       return TypedVirtualPath(file: path, type: outputType)
     }
 
-    if isTopLevel {
+    // Each -index-file-path in one compile needs its own index-data output.
+    // The module name is shared, and one -o cannot name every primary.
+    let perInputIndexData = outputType == .indexData && multipleIndexFiles
+
+    if isTopLevel && !perInputIndexData {
       if let baseOutput = parsedOptions.getLastArgument(.o)?.asSingle,
          let baseOutputPath = try? VirtualPath.intern(path: baseOutput) {
         return TypedVirtualPath(file: baseOutputPath, type: outputType)
@@ -61,7 +66,7 @@ extension Driver {
     }
 
     let baseName: String
-    if !compilerMode.usesPrimaryFileInputs && numThreads == 0 {
+    if !perInputIndexData && !compilerMode.usesPrimaryFileInputs && numThreads == 0 {
       baseName = moduleOutputInfo.name
     } else {
       baseName = input.file.basenameWithoutExt
@@ -188,7 +193,8 @@ extension Driver {
         isPrimary || (!usesPrimaryFileInputs && isMultithreaded && outputType.isAfterLLVM) {
         let output = try computePrimaryOutput(for: input,
                                               outputType: outputType,
-                                              isTopLevel: isTopLevel)
+                                              isTopLevel: isTopLevel,
+                                              multipleIndexFiles: indexFilePaths.count > 1)
         primaryOutputs.append(output)
         inputOutputMap[input] = [output]
 
@@ -207,7 +213,8 @@ extension Driver {
       let input = TypedVirtualPath(file: OutputFileMap.singleInputKey, type: inputs[firstSwiftInput].type)
       let output = try computePrimaryOutput(for: input,
                                             outputType: outputType,
-                                            isTopLevel: isTopLevel)
+                                            isTopLevel: isTopLevel,
+                                            multipleIndexFiles: false)
       primaryOutputs.append(output)
       inputOutputMap[input] = [output]
 
