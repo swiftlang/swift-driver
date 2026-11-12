@@ -923,6 +923,7 @@ def cmake_build(
         "Ninja",
         "-DCMAKE_MAKE_PROGRAM=%s" % args.ninja_bin,
         "-DCMAKE_BUILD_TYPE:=Release",
+        "-DCMAKE_Swift_COMPILATION_MODE:=wholemodule",
         "-DCMAKE_Swift_FLAGS=" + " ".join(swift_flags),
         "-DCMAKE_Swift_COMPILER:=%s" % (swiftc_exec),
     ]
