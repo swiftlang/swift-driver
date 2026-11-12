@@ -87,6 +87,7 @@ import class Dispatch.DispatchQueue
     outputFileMap: OutputFileMap?,
     incremental: Bool,
     parsedOptions: ParsedOptions,
+    incrementalInvalidationKey: String?,
     recordedInputMetadata: [TypedVirtualPath: FileMetadata]
   ) {
     // Cannot write a buildRecord without a path.
@@ -99,7 +100,7 @@ import class Dispatch.DispatchQueue
     else {
       return nil
     }
-    let currentArgsHash = BuildRecordArguments.computeHash(parsedOptions)
+    let currentArgsHash = BuildRecordArguments.computeHash(parsedOptions, incrementalInvalidationKey: incrementalInvalidationKey)
     let compilationInputModificationDates =
       recordedInputMetadata.filter { input, _ in
         input.type.isPartOfSwiftCompilation
@@ -210,13 +211,19 @@ import class Dispatch.DispatchQueue
 }
 
 public struct BuildRecordArguments {
-  /// Compute a hash of the parsed options that affect incremental builds.
-  public static func computeHash(_ parsedOptionsArg: ParsedOptions) -> String {
+  /// Compute a hash of the parsed options that affect incremental builds, and of the invalidation key if there is one.
+  ///
+  /// Without a key the hash is the same as it was before keys existed, so adding the key doesn't invalidate
+  /// the build records of clients that don't use it.
+  public static func computeHash(_ parsedOptionsArg: ParsedOptions, incrementalInvalidationKey: String? = nil) -> String {
     var parsedOptions = parsedOptionsArg
-    let hashInput = parsedOptions
+    var hashInput = parsedOptions
       .filter { $0.option.affectsIncrementalBuild && $0.option.kind != .input}
       .map { $0.description } // The description includes the spelling of the option itself and, if present, its argument(s).
       .joined()
+    if let incrementalInvalidationKey, !incrementalInvalidationKey.isEmpty {
+      hashInput += "\u{0}incremental-invalidation-key:" + incrementalInvalidationKey
+    }
     return SHA256().hash(hashInput).hexadecimalRepresentation
   }
 }
