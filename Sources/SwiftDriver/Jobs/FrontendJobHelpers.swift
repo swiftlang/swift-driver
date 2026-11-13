@@ -293,6 +293,9 @@ extension Driver {
     try commandLine.appendLast(.traceStatsEvents, from: &parsedOptions)
     try commandLine.appendLast(.profileStatsEvents, from: &parsedOptions)
     try commandLine.appendLast(.profileStatsEntities, from: &parsedOptions)
+    if isFrontendArgSupported(.incrementalBuildStats) {
+      try commandLine.appendLast(.incrementalBuildStats, from: &parsedOptions)
+    }
     try commandLine.appendLast(.solverShrinkUnsolvedThreshold, from: &parsedOptions)
     try commandLine.appendLast(in: .O, from: &parsedOptions)
     try commandLine.appendLast(.RemoveRuntimeAsserts, from: &parsedOptions)

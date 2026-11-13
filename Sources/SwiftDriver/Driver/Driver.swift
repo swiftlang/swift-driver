@@ -370,6 +370,10 @@ public struct Driver {
   /// Set during planning because needs the jobs to look at outputs.
   @_spi(Testing) public private(set) var incrementalCompilationState: IncrementalCompilationState? = nil
 
+  /// The time and random number in the names of the files that
+  /// -incremental-build-stats writes, fixed when the driver is created.
+  let incrementalBuildStatisticsFileID = IncrementalBuildStatisticsFileID()
+
   /// The graph of explicit module dependencies of this module, if the driver has planned an explicit module build.
   public private(set) var intermoduleDependencyGraph: InterModuleDependencyGraph? = nil
 
@@ -2187,6 +2191,14 @@ extension Driver {
   }
 
   public func writeIncrementalBuildInformation(_ jobs: [Job]) {
+    // Before the guard below, so that a build that isn't incremental writes its
+    // statistics too. Without an incremental state, every file compiles.
+    writeIncrementalBuildStatistics(
+      jobs: jobs,
+      skippedInputs: incrementalCompilationState?.blockingConcurrentMutationToProtectedState {
+        $0.skippedCompilationInputs
+      })
+
     // In case the write fails, don't crash the build.
     // A mitigation to rdar://76359678.
     // If the write fails, import incrementality is lost, but it is not a fatal error.
