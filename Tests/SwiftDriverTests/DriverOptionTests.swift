@@ -475,6 +475,25 @@ import Testing
       expectJobInvocationMatches(jobs[0], .flag("-debug-prefix-map"), .flag("old=new"))
     }
 
+    // RC_DEBUG_PREFIX_MAP must reach the bridging header -emit-pch job too,
+    // since the prefix map is part of the PCH hash (rdar://192731789).
+    do {
+      var env = ProcessEnv.block
+      env["SWIFT_DRIVER_TESTS_ENABLE_EXEC_PATH_FALLBACK"] = "1"
+      env["RC_DEBUG_PREFIX_MAP"] = "old=new"
+      var driver = try TestDriver(args: ["swiftc", "-c", "-g", "-target", "arm64-apple-macos12",
+                                         "-import-objc-header", "header.h", "-pch-output-dir", "/pch",
+                                         "foo.swift", "bar.swift"], env: env)
+      let jobs = try await driver.planBuild()
+      let pchJobs = jobs.filter { $0.kind == .generatePCH }
+      #expect(pchJobs.count == 1)
+      let compileJobs = jobs.filter { $0.kind == .compile }
+      #expect(compileJobs.count == 2)
+      for job in pchJobs + compileJobs {
+        expectJobInvocationMatches(job, .flag("-debug-prefix-map"), .flag("old=new"))
+      }
+    }
+
     try await assertDriverDiagnostics(
       args: "swiftc",
       "foo.swift",

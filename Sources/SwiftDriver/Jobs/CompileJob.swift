@@ -420,11 +420,6 @@ extension Driver {
       commandLine.appendFlag(.debugInfoStoreInvocation)
     }
 
-    if let map = toolchain.globalDebugPathRemapping {
-      commandLine.appendFlag(.debugPrefixMap)
-      commandLine.appendFlag(map)
-    }
-
     if isFrontendArgSupported(.debugModulePath) {
       try commandLine.appendLast(.debugModulePath, from: &parsedOptions)
     }
