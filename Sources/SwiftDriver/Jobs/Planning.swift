@@ -983,9 +983,19 @@ extension Driver {
     let defaultSizeLimit = 25
     let sizeLimit = info.sizeLimit ?? defaultSizeLimit
 
-    let numTasks = numParallelJobs ?? 1
+    // Under caching the primaries are in each batch's cache key, so the batch
+    // count can't follow -j (core counts differ between machines).
+    let numTasks: Int
+    if let numParallelJobs {
+      numTasks = enableCaching ? Self.defaultCachingBatchCount : numParallelJobs
+    } else {
+      numTasks = 1
+    }
     return max(numTasks, divideRoundingUp(numInputFiles, sizeLimit))
   }
+
+  /// The batch count used in place of -j under caching.
+  @_spi(Testing) public static let defaultCachingBatchCount = 6
 
   /// Describes the partitions used when batching.
   private struct BatchPartitions {
