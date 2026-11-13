@@ -113,6 +113,11 @@ add_library(SwiftDriver
   ToolingInterface/SimpleExecutor.swift
   ToolingInterface/ToolingUtil.swift
 
+  Tracing/TraceClock.swift
+  Tracing/TraceEvent.swift
+  Tracing/TraceEventsWriter.swift
+  Tracing/TraceLanes.swift
+
   Utilities/DOTJobGraphSerializer.swift
   Utilities/DOTModuleDependencyGraphSerializer.swift
   Utilities/DateAdditions.swift
