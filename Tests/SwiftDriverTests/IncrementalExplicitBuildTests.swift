@@ -445,6 +445,74 @@ struct IncrementalExplicitBuildTests: DiagVerifiable {
     }
   }
 
+  // A binary dependency built from source carries incremental information
+  // (fingerprints), so an interface change to one of its declarations should
+  // only invalidate the inputs that use that declaration. With caching and a
+  // prefix map the dependency is recorded by its abstract name,
+  // `Lib.swiftmodule`, and the driver must resolve that name before reading it.
+  //
+  //   main.swift: uses Used     other.swift: imports Lib, uses nothing
+  //                  \               /
+  //              Lib.swiftmodule (binary, fingerprinted)
+  //
+  // After a member is added to `Used`, only `main` must be recompiled.
+  @Test(arguments: TestBuildConfig.availableExplicitConfigs)
+  func explicitIncrementalBuildFingerprintedBinaryDependencyInterfaceChange(config: TestBuildConfig) async throws {
+    let h = try IncrementalTestHarness(config: config)
+    let libSourceDir = h.tempDir.appending(component: "LibSources")
+    try localFileSystem.createDirectory(libSourceDir)
+    let libSource = libSourceDir.appending(component: "Lib.swift")
+    let libModule = h.explicitSwiftDependenciesPath.appending(component: "Lib.swiftmodule")
+
+    func buildLib(_ contents: String) async throws {
+      try localFileSystem.writeFileContents(libSource, bytes: ByteString(encodingAsUTF8: contents))
+      // An emit-module job serializes the module's dependency graph into the
+      // `.swiftmodule`, which is what makes the dependency fingerprinted.
+      var driver = try TestDriver(
+        args: [
+          "swiftc",
+          "-module-name", "Lib",
+          "-parse-as-library",
+          "-swift-version", "5",
+          "-emit-module",
+          "-emit-module-path", libModule.nativePathString(escaped: false),
+          "-Xfrontend", "-disable-implicit-concurrency-module-import",
+          "-Xfrontend", "-disable-implicit-string-processing-module-import",
+          libSource.nativePathString(escaped: false),
+        ] + h.sdkArgumentsForTesting
+      )
+      let jobs = try await driver.planBuild()
+      try await driver.run(jobs: jobs)
+      #expect(!driver.diagnosticEngine.hasErrors)
+    }
+
+    try await buildLib(
+      """
+      public struct Used { public init() {}; public var number: Int { 1 } }
+      public struct Unrelated { public init() {} }
+      """
+    )
+    h.replace(contentsOf: "main", with: "import Lib\nlet foo = Used().number")
+    h.replace(contentsOf: "other", with: "import Lib\nlet bar = 2")
+    try await h.buildInitialState(checkDiagnostics: false)
+
+    // Change the interface of `Used`, which only `main` uses.
+    try await buildLib(
+      """
+      public struct Used { public init() {}; public var number: Int { 1 }; public var extra: Int { 2 } }
+      public struct Unrelated { public init() {} }
+      """
+    )
+
+    let driver = try await h.doABuildWithoutExpectations(
+      arguments: h.commonArgs + h.configBuildArgs + h.sdkArgumentsForTesting
+    )
+    let mandatoryJobs = try #require(driver.incrementalCompilationState?.mandatoryJobsInOrder)
+    let recompiled = mandatoryJobs.filter { $0.kind == .compile }
+      .flatMap(\.primaryInputs).map(\.file.basename).sorted()
+    #expect(recompiled == ["main.swift"])
+  }
+
   // MARK: - Emit module only
 
   @Test(arguments: TestBuildConfig.availableExplicitConfigs)
