@@ -2389,8 +2389,10 @@ extension Driver {
     if wantBatchMode {
       // Batches are fixed here, but a jobserver sizes concurrency at runtime;
       // without `-j` they'd be sized for one job and cap the tokens we can use.
+      // An explicit batch count already fixes the batches, so keep it.
       if parsedOptions.contains(.experimentalUseGnuJobserver),
          !parsedOptions.hasArgument(.j),
+         !parsedOptions.hasArgument(.driverBatchCount),
          let makeFlags = env["MAKEFLAGS"],
          GnuJobserverFlags.parseAuthentication(from: makeFlags) != nil {
         diagnosticsEngine.emit(.warn_ignoring_batch_mode_for_jobserver)

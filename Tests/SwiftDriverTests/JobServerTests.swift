@@ -129,6 +129,62 @@ final class JobServerTests: XCTestCase {
     XCTAssertEqual(returned.sorted(), tokens.sorted())
   }
 
+  func testExplicitJobLimitLeavesSpareTokensInThePool() throws {
+    // `-j 2` under `make -j7`: we may run two jobs, so we must never take more
+    // than one token from the pool, however many jobs are pending.
+    let tokens = [UInt8](repeating: UInt8(ascii: "+"), count: 6)
+    let jobLimit = 2
+
+    var descriptors: [CInt] = [0, 0]
+    XCTAssertEqual(pipe(&descriptors), 0)
+    let readEnd = descriptors[0], writeEnd = descriptors[1]
+    defer {
+      close(readEnd)
+      close(writeEnd)
+    }
+    for var token in tokens {
+      XCTAssertEqual(write(writeEnd, &token, 1), 1)
+    }
+
+    let jobServer = try XCTUnwrap(JobServer(auth: "\(readEnd),\(writeEnd)"))
+    let queue = OperationQueue()
+    queue.maxConcurrentOperationCount = .max
+    let dispatcher = JobServerDispatcher(jobServer: jobServer, queue: queue,
+                                         fallbackJobLimit: jobLimit, jobLimit: jobLimit)
+    dispatcher.start()
+
+    let jobCount = 30
+    let finished = expectation(description: "all \(jobCount) jobs ran")
+    finished.expectedFulfillmentCount = jobCount
+    let lock = NSLock()
+    var running = 0, peak = 0, fewestLeft = Int.max
+    for _ in 0..<jobCount {
+      dispatcher.enqueue {
+        // Give the broker time to over-acquire if it is going to.
+        Thread.sleep(forTimeInterval: 0.01)
+        var available: CInt = 0
+        _ = ioctl(readEnd, Self.fionread, &available)
+        lock.lock()
+        running += 1
+        peak = max(peak, running)
+        fewestLeft = min(fewestLeft, Int(available))
+        lock.unlock()
+        Thread.sleep(forTimeInterval: 0.01)
+        lock.lock(); running -= 1; lock.unlock()
+        finished.fulfill()
+      }
+    }
+    wait(for: [finished], timeout: 120)
+    dispatcher.shutDown()
+
+    lock.lock(); defer { lock.unlock() }
+    XCTAssertLessThanOrEqual(peak, jobLimit, "ran more jobs at once than `-j` allows")
+    XCTAssertGreaterThan(peak, 1, "never took a pool token below `-j`")
+    XCTAssertGreaterThanOrEqual(fewestLeft, tokens.count - (jobLimit - 1),
+                                "took tokens from the pool that `-j` left no room to spend")
+    XCTAssertEqual(drain(readEnd).count, tokens.count)
+  }
+
   func testEmptyPoolSerializesOnTheImplicitToken() throws {
     // A client with no spare tokens may still run one job at a time. Returning
     // the implicit token puts nothing into the pipe, so this covers a waiter
@@ -296,6 +352,13 @@ final class JobServerTests: XCTestCase {
   }
 
   // MARK: - Helpers
+
+  /// `FIONREAD`, which Darwin defines with a macro Swift cannot import.
+#if canImport(Darwin)
+  private static let fionread: UInt = 0x4004_667F
+#else
+  private static let fionread = UInt(FIONREAD)
+#endif
 
   /// Runs `jobCount` trivial jobs through a dispatcher over `jobServer` and
   /// reports the most that were ever in flight at once.

@@ -295,11 +295,12 @@ import Testing
       )
     }
 
-    // An explicit `-j`, no advertised pool, or no opt-in all keep batch mode.
+    // An explicit `-j` or batch count, no advertised pool, or no opt-in all keep batch mode.
     var noPoolEnv = jobserverEnv
     noPoolEnv["MAKEFLAGS"] = nil
     for (args, env) in [
       (["-experimental-use-gnu-jobserver", "-j", "4"], jobserverEnv),
+      (["-experimental-use-gnu-jobserver", "-driver-batch-count", "4"], jobserverEnv),
       (["-experimental-use-gnu-jobserver"], noPoolEnv),
       ([], jobserverEnv),
     ] {

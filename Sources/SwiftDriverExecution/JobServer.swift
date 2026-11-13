@@ -446,10 +446,18 @@ final class JobServerDispatcher {
   /// so the queue must enforce this limit itself instead of bursting unbounded.
   private let fallbackJobLimit: Int
 
-  /// Guards `pending`, `isShutDown` and `hasBrokerFinished`, and wakes the
-  /// broker thread.
+  /// The most tokens this process holds at once: an explicit `-j`, or `.max`
+  /// to let the pool alone bound us. Enforced before taking a token rather than
+  /// on `queue`, so tokens we could not spend yet stay in the pool for siblings.
+  private let jobLimit: Int
+
+  /// Guards `pending`, `tokensHeld`, `isShutDown` and `hasBrokerFinished`, and
+  /// wakes the broker thread.
   private let condition = NSCondition()
   private var pending: [() -> Void] = []
+  /// Tokens taken (or reserved by the broker while it waits on the pool) and
+  /// not yet released.
+  private var tokensHeld = 0
   private var isShutDown = false
   private var hasBrokerFinished = false
 
@@ -463,10 +471,12 @@ final class JobServerDispatcher {
   /// since one sent just before the read starts is lost.
   private static let readInterruptInterval: TimeInterval = 0.01
 
-  init(jobServer: JobServer, queue: OperationQueue, fallbackJobLimit: Int) {
+  init(jobServer: JobServer, queue: OperationQueue, fallbackJobLimit: Int,
+       jobLimit: Int = .max) {
     self.jobServer = jobServer
     self.queue = queue
     self.fallbackJobLimit = fallbackJobLimit
+    self.jobLimit = jobLimit
   }
 
   func start() {
@@ -491,7 +501,8 @@ final class JobServerDispatcher {
     // Our own slot does not come from the pool, so spend it here rather than
     // through a broker that may be parked in a read on the pool. Take from the
     // front so earlier work keeps its place.
-    if let token = jobServer.takeImplicitToken() {
+    if tokensHeld < jobLimit, let token = jobServer.takeImplicitToken() {
+      tokensHeld += 1
       let work = pending.removeFirst()
       condition.unlock()
       queue.addOperation { self.run(work, holding: token) }
@@ -507,16 +518,20 @@ final class JobServerDispatcher {
   /// written back, since siblings may be waiting on them.
   private func run(_ work: @escaping () -> Void, holding token: JobServer.Token) {
     work()
-    if token.isImplicit {
-      condition.lock()
-      let next = pending.isEmpty ? nil : pending.removeFirst()
+    condition.lock()
+    if token.isImplicit, !pending.isEmpty {
+      let next = pending.removeFirst()
       condition.unlock()
-      if let next = next {
-        queue.addOperation { self.run(next, holding: token) }
-        return
-      }
+      queue.addOperation { self.run(next, holding: token) }
+      return
     }
+    // Release before unlocking: `work` may have just made a dependent job
+    // ready, and an `enqueue` slipping in between would find the implicit
+    // token still taken and leave its job to a broker parked in a pool read.
     jobServer.release(token)
+    tokensHeld -= 1
+    condition.signal()
+    condition.unlock()
   }
 
   /// Stops the broker and waits for the work it dispatched, so that every token
@@ -551,10 +566,15 @@ final class JobServerDispatcher {
 
     while true {
       condition.lock()
-      while pending.isEmpty && !isShutDown {
+      while (pending.isEmpty || tokensHeld >= jobLimit) && !isShutDown {
         condition.wait()
       }
       let shouldStop = isShutDown
+      if !shouldStop {
+        // Reserve the slot before waiting on the pool, so `enqueue` cannot
+        // take the implicit token past `jobLimit` meanwhile.
+        tokensHeld += 1
+      }
       condition.unlock()
 
       if shouldStop {
@@ -566,15 +586,21 @@ final class JobServerDispatcher {
       // `enqueue` or `run` may have emptied `pending` meanwhile; the token then
       // goes straight back below.
       guard let token = jobServer.acquire() else {
+        condition.lock()
+        tokensHeld -= 1
+        condition.unlock()
         return
       }
 
       condition.lock()
       let work = pending.isEmpty ? nil : pending.removeFirst()
+      if work == nil {
+        jobServer.release(token)
+        tokensHeld -= 1
+      }
       condition.unlock()
 
       guard let work = work else {
-        jobServer.release(token)
         continue
       }
 

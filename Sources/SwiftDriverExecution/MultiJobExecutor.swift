@@ -362,10 +362,12 @@ public final class MultiJobExecutor {
       // A jobserver is a build-wide concurrency limit, so the tokens we hold
       // bound how many jobs run. An explicit `-j` still caps us below that, but
       // the default of 1 must not, or it would serialize the very builds a
-      // jobserver widens.
-      jobQueue.maxConcurrentOperationCount = workload.hasExplicitJobLimit ? numParallelJobs : Int.max
-      jobServerDispatcher = JobServerDispatcher(jobServer: jobServer, queue: jobQueue,
-                                                fallbackJobLimit: numParallelJobs)
+      // jobserver widens. The dispatcher enforces the cap before taking tokens,
+      // so the queue stays uncapped until its teardown.
+      jobQueue.maxConcurrentOperationCount = Int.max
+      jobServerDispatcher = JobServerDispatcher(
+        jobServer: jobServer, queue: jobQueue, fallbackJobLimit: numParallelJobs,
+        jobLimit: workload.hasExplicitJobLimit ? numParallelJobs : .max)
     } else {
       jobQueue.maxConcurrentOperationCount = numParallelJobs
       jobServerDispatcher = nil
