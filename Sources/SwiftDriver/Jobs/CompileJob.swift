@@ -422,7 +422,7 @@ extension Driver {
 
     if let map = toolchain.globalDebugPathRemapping {
       commandLine.appendFlag(.debugPrefixMap)
-      commandLine.appendFlag(map)
+      commandLine.appendFlag(remapPrefixMapping(map))
     }
 
     if isFrontendArgSupported(.debugModulePath) {

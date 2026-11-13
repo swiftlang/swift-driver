@@ -321,7 +321,10 @@ extension Driver {
       try commandLine.appendLast(.dumpAstFormat, from: &parsedOptions)
     }
     try commandLine.appendAll(.D, from: &parsedOptions)
-    try commandLine.appendAll(.debugPrefixMap, .coveragePrefixMap, .filePrefixMap, from: &parsedOptions)
+    for prefixMap in parsedOptions.arguments(for: .debugPrefixMap, .coveragePrefixMap, .filePrefixMap) {
+      commandLine.appendFlag(prefixMap.option)
+      commandLine.appendFlag(remapPrefixMapping(prefixMap.argument.asSingle))
+    }
     try commandLine.appendAllArguments(.Xfrontend, from: &parsedOptions)
     try commandLine.appendLast(.warnConcurrency, from: &parsedOptions)
     if isFrontendArgSupported(.noAllocations) {
@@ -1285,6 +1288,24 @@ extension Driver {
     }
     let mappedPath = remapPath(absolute: absPath)
     return try! VirtualPath(path: mappedPath.pathString)
+  }
+
+  /// Remap the prefix of a `<prefix>=<replacement>` mapping, like the ones of
+  /// `-debug-prefix-map`. The frontend applies the mapping to the paths it
+  /// sees, which are remapped with caching, so the prefix has to be remapped
+  /// the same way.
+  public mutating func remapPrefixMapping(_ mapping: String) -> String {
+    guard isCachingEnabled,
+          let separator = mapping.firstIndex(of: "="),
+          let prefix = try? AbsolutePath(validating: String(mapping[..<separator])) else {
+      return mapping
+    }
+    var mappedPrefix = remapPath(absolute: prefix).pathString
+    // The frontend matches the prefix as a string, so keep a trailing separator.
+    if mapping[..<separator].hasSuffix("/") && !mappedPrefix.hasSuffix("/") {
+      mappedPrefix += "/"
+    }
+    return mappedPrefix + mapping[separator...]
   }
 
   /// Helper function to add path to commandLine. Function will validate the path, and remap the path if needed.
