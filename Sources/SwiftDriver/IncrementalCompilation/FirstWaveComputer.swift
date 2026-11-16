@@ -217,7 +217,9 @@ extension IncrementalCompilationState.FirstWaveComputer {
     guard useHashes else {
         return false
     }
-    let inputs:[TypedVirtualPath] = emitModuleJob.inputs
+    // Only compare the Swift source inputs, as above. Other inputs of the emit-module job, such as
+    // explicit module dependencies, are not compilation inputs and so have no recorded metadata.
+    let inputs:[TypedVirtualPath] = emitModuleJob.inputs.swiftSourceFiles.map { $0.typedFile }
     for input:TypedVirtualPath in inputs {
         guard let currentDate:FileMetadata = buildRecordInfo.compilationInputModificationDates[input] else {
             reporter?.report("Missing file metadata for: \(input)")
