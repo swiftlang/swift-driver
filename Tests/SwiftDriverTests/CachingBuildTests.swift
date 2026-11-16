@@ -1037,6 +1037,45 @@ struct CachingBuildTests {
     .skipHostOS(.win32, comment: "Skipping due to improper path mapping handling."),
     .requireFrontendArgSupport(.scannerPrefixMapPaths)
   )
+  func prefixMapOptionsRemap() async throws {
+    try await withTemporaryDirectory { path in
+      let main = path.appending(component: "testPrefixMapOptions.swift")
+      try localFileSystem.writeFileContents(main) {
+        $0.send("public func f() {}")
+      }
+      let casPath = path.appending(component: "cas")
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+      let dependencyOracle = InterModuleDependencyOracle()
+      var driver = try TestDriver(
+        args: [
+          "swiftc", "-g", "-explicit-module-build",
+          "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: false),
+          "-working-directory", path.nativePathString(escaped: false),
+          "-scanner-prefix-map", path.description + "=/^tmp",
+          "-debug-prefix-map", path.description + "=/foo",
+          "-coverage-prefix-map", path.appending(component: "sub").description + "/=bar/",
+          "-file-prefix-map", "/unmapped=/baz",
+          main.nativePathString(escaped: false),
+        ] + sdkArgumentsForTesting,
+        interModuleDependencyOracle: dependencyOracle
+      )
+      let scanLibPath = try #require(try driver.getSwiftScanLibPath())
+      try dependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
+
+      // The frontend applies the mappings to the remapped paths, so their
+      // prefixes are remapped the same way.
+      let jobs = try await driver.planBuild()
+      let compileJob = try #require(jobs.first { $0.kind == .compile })
+      #expect(compileJob.commandLine.contains(subsequence: ["-debug-prefix-map", "/^tmp=/foo"]))
+      #expect(compileJob.commandLine.contains(subsequence: ["-coverage-prefix-map", "/^tmp/sub/=bar/"]))
+      #expect(compileJob.commandLine.contains(subsequence: ["-file-prefix-map", "/unmapped=/baz"]))
+    }
+  }
+
+  @Test(
+    .skipHostOS(.win32, comment: "Skipping due to improper path mapping handling."),
+    .requireFrontendArgSupport(.scannerPrefixMapPaths)
+  )
   func warnPrefixMappingWithExternalBridgingHeader() async throws {
     try await withTemporaryDirectory { path in
       let main = path.appending(component: "testPrefixMapBridgingHeader.swift")
