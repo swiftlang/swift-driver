@@ -322,6 +322,10 @@ extension Driver {
     }
     try commandLine.appendAll(.D, from: &parsedOptions)
     try commandLine.appendAll(.debugPrefixMap, .coveragePrefixMap, .filePrefixMap, from: &parsedOptions)
+    if let map = toolchain.globalDebugPathRemapping {
+      commandLine.appendFlag(.debugPrefixMap)
+      commandLine.appendFlag(map)
+    }
     try commandLine.appendAllArguments(.Xfrontend, from: &parsedOptions)
     try commandLine.appendLast(.warnConcurrency, from: &parsedOptions)
     if isFrontendArgSupported(.noAllocations) {
