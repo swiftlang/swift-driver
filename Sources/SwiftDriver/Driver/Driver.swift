@@ -277,6 +277,10 @@ public struct Driver {
   /// The specified maximum number of parallel jobs to execute.
   @_spi(Testing) public let numParallelJobs: Int?
 
+  /// Whether to participate in the GNU make jobserver advertised in `MAKEFLAGS`,
+  /// letting its shared token pool bound concurrency across the whole build.
+  @_spi(Testing) public let useGnuJobserver: Bool
+
   /// The set of sanitizers that were requested
   let enabledSanitizers: Set<Sanitizer>
 
@@ -1035,7 +1039,7 @@ public struct Driver {
     self.showJobLifecycle = parsedOptions.contains(.driverShowJobLifecycle)
 
     // Determine the compilation mode.
-    self.compilerMode = try Self.computeCompilerMode(&parsedOptions, driverKind: driverKind, diagnosticsEngine: diagnosticEngine)
+    self.compilerMode = try Self.computeCompilerMode(&parsedOptions, driverKind: driverKind, env: env, diagnosticsEngine: diagnosticEngine)
 
     self.shouldAttemptIncrementalCompilation = Self.shouldAttemptIncrementalCompilation(&parsedOptions,
                                                                                         diagnosticEngine: diagnosticsEngine,
@@ -1163,6 +1167,7 @@ public struct Driver {
     // Multithreading.
     self.numThreads = Self.determineNumThreads(&parsedOptions, compilerMode: compilerMode, diagnosticsEngine: diagnosticEngine)
     self.numParallelJobs = Self.determineNumParallelJobs(&parsedOptions, diagnosticsEngine: diagnosticEngine, env: env)
+    self.useGnuJobserver = parsedOptions.contains(.experimentalUseGnuJobserver)
 
     var mode = DigesterMode.api
     if let modeArg = parsedOptions.getLastArgument(.digesterMode)?.asSingle {
@@ -2179,7 +2184,9 @@ extension Driver {
     try executor.execute(
       workload: .init(allJobs,
                       incrementalCompilationState,
-                      continueBuildingAfterErrors: continueBuildingAfterErrors),
+                      continueBuildingAfterErrors: continueBuildingAfterErrors,
+                      useGnuJobserver: useGnuJobserver,
+                      hasExplicitJobLimit: numParallelJobs != nil),
       delegate: jobExecutionDelegate,
       numParallelJobs: numParallelJobs ?? 1,
       forceResponseFiles: forceResponseFiles,
@@ -2402,6 +2409,7 @@ extension Driver {
   private static func computeCompilerMode(
     _ parsedOptions: inout ParsedOptions,
     driverKind: DriverKind,
+    env: ProcessEnvironmentBlock,
     diagnosticsEngine: DiagnosticsEngine
   ) throws -> CompilerMode {
     // Some output flags affect the compiler mode.
@@ -2474,6 +2482,17 @@ extension Driver {
 
     // For batch mode, collect information
     if wantBatchMode {
+      // Batches are fixed here, but a jobserver sizes concurrency at runtime;
+      // without `-j` they'd be sized for one job and cap the tokens we can use.
+      // An explicit batch count already fixes the batches, so keep it.
+      if parsedOptions.contains(.experimentalUseGnuJobserver),
+         !parsedOptions.hasArgument(.j),
+         !parsedOptions.hasArgument(.driverBatchCount),
+         let makeFlags = env["MAKEFLAGS"],
+         GnuJobserverFlags.parseAuthentication(from: makeFlags) != nil {
+        diagnosticsEngine.emit(.warn_ignoring_batch_mode_for_jobserver)
+        return .standardCompile
+      }
       let batchSeed = parseIntOption(&parsedOptions, option: .driverBatchSeed, diagnosticsEngine: diagnosticsEngine)
       let batchCount = parseIntOption(&parsedOptions, option: .driverBatchCount, diagnosticsEngine: diagnosticsEngine)
       let batchSizeLimit = parseIntOption(&parsedOptions, option: .driverBatchSizeLimit, diagnosticsEngine: diagnosticsEngine)
@@ -2487,6 +2506,10 @@ extension Driver {
 extension Diagnostic.Message {
   static func warn_ignoring_batch_mode(_ option: Option) -> Diagnostic.Message {
     .warning("ignoring '-enable-batch-mode' because '\(option.spelling)' was also specified")
+  }
+
+  static var warn_ignoring_batch_mode_for_jobserver: Diagnostic.Message {
+    .warning("ignoring '-enable-batch-mode' because '-experimental-use-gnu-jobserver' was specified without '-j'")
   }
 }
 
@@ -2757,17 +2780,17 @@ extension Driver {
     diagnosticsEngine: DiagnosticsEngine,
     env: ProcessEnvironmentBlock
   ) -> Int? {
-    guard let numJobs = parseIntOption(&parsedOptions, option: .j, diagnosticsEngine: diagnosticsEngine) else {
-      return nil
-    }
+    let numJobs = parseIntOption(&parsedOptions, option: .j, diagnosticsEngine: diagnosticsEngine)
 
-    guard numJobs >= 1 else {
+    if let numJobs = numJobs, numJobs < 1 {
       diagnosticsEngine.emit(.error_invalid_arg_value(arg: .j, value: String(numJobs)))
       return nil
     }
 
     if let determinismRequested = env["SWIFTC_MAXIMUM_DETERMINISM"], !determinismRequested.isEmpty {
-      diagnosticsEngine.emit(.remark_max_determinism_overriding(.j))
+      if numJobs != nil {
+        diagnosticsEngine.emit(.remark_max_determinism_overriding(.j))
+      }
       return 1
     }
 
