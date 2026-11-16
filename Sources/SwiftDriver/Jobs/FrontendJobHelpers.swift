@@ -307,7 +307,7 @@ extension Driver {
     try commandLine.appendLast(.printEducationalNotes, from: &parsedOptions)
     try commandLine.appendLast(.diagnosticStyle, from: &parsedOptions)
     try commandLine.appendLast(.locale, from: &parsedOptions)
-    try commandLine.appendLast(.localizationPath, from: &parsedOptions)
+    try addLastArgumentWithPath(.localizationPath, to: &commandLine, remap: jobNeedPathRemap)
     try commandLine.appendLast(.requireExplicitAvailability, from: &parsedOptions)
     try commandLine.appendLast(.requireExplicitAvailabilityTarget, from: &parsedOptions)
     try commandLine.appendLast(.libraryLevel, from: &parsedOptions)

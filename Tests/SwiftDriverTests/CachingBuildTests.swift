@@ -1233,6 +1233,60 @@ struct CachingBuildTests {
     }
   }
 
+  @Test(
+    .skipHostOS(.win32, comment: "Skipping due to improper path mapping handling."),
+    .requireFrontendArgSupport(.scannerPrefixMapPaths)
+  )
+  func localizationPathRemapping() async throws {
+    try await withTemporaryDirectory { path in
+      let main = path.appending(component: "testLocalizationPathRemapping.swift")
+      try localFileSystem.writeFileContents(main) {
+        $0.send("import C;")
+      }
+      let localizationPath = path.appending(component: "loc")
+      try localFileSystem.createDirectory(localizationPath)
+      try localFileSystem.writeFileContents(localizationPath.appending(component: "fr.strings"), bytes: .init())
+
+      let cHeadersPath: AbsolutePath =
+        try testInputsPath.appending(component: "ExplicitModuleBuilds")
+        .appending(component: "CHeaders")
+      let swiftModuleInterfacesPath: AbsolutePath =
+        try testInputsPath.appending(component: "ExplicitModuleBuilds")
+        .appending(component: "Swift")
+      let casPath = path.appending(component: "cas")
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+      let dependencyOracle = InterModuleDependencyOracle()
+      var driver = try TestDriver(
+        args: [
+          "swiftc",
+          "-I", cHeadersPath.nativePathString(escaped: false),
+          "-I", swiftModuleInterfacesPath.nativePathString(escaped: false),
+          "-explicit-module-build",
+          "-cache-compile-job", "-cas-path", casPath.nativePathString(escaped: false),
+          "-working-directory", path.nativePathString(escaped: false),
+          "-disable-clang-target",
+          "-scanner-prefix-map-paths", path.nativePathString(escaped: false), "/^tmp",
+          "-locale", "fr",
+          "-localization-path", localizationPath.nativePathString(escaped: false),
+          main.nativePathString(escaped: false),
+        ] + sdkArgumentsForTesting,
+        interModuleDependencyOracle: dependencyOracle
+      )
+      let scanLibPath = try #require(try driver.getSwiftScanLibPath())
+      try dependencyOracle.verifyOrCreateScannerInstance(swiftScanLibPath: scanLibPath)
+      let resolver = try ArgsResolver(fileSystem: localFileSystem)
+
+      let compileJobs = try await driver.planBuild().filter { $0.kind == .compile }
+      #expect(!compileJobs.isEmpty)
+      for job in compileJobs {
+        let command = try job.commandLine.map { try resolver.resolve($0) }
+        let index = try #require(command.firstIndex(of: "-localization-path"))
+        #expect(command[index + 1] == "/^tmp/loc")
+      }
+      #expect(!driver.diagnosticEngine.hasErrors)
+    }
+  }
+
   /// With caching + prefix mapping, the supplementary output file map must
   /// only be keyed by prefix-mapped source paths — never by the original
   /// pre-mapping path. Covers WMO + batch with/without opt records.
