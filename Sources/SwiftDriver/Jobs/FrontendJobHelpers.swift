@@ -315,7 +315,7 @@ extension Driver {
       try commandLine.appendAll(.ipiClangModule, from: &parsedOptions)
     }
     try commandLine.appendLast(.lto, from: &parsedOptions)
-    try commandLine.appendLast(.accessNotesPath, from: &parsedOptions)
+    try addLastArgumentWithPath(.accessNotesPath, to: &commandLine, remap: jobNeedPathRemap)
     try commandLine.appendLast(.enableActorDataRaceChecks, .disableActorDataRaceChecks, from: &parsedOptions)
     if isFrontendArgSupported(.dumpAstFormat) {
       try commandLine.appendLast(.dumpAstFormat, from: &parsedOptions)
