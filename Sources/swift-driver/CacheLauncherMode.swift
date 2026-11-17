@@ -1,4 +1,4 @@
-//===---------- CacheLauncherMode.swift - swift-cache Launcher Mode -------===//
+//===----------------------------------------------------------------------===//
 //
 // This source file is part of the Swift open source project
 //
