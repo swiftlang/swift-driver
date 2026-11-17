@@ -182,6 +182,11 @@ import class Dispatch.DispatchQueue
     }
   }
 
+  /// The jobs that finished so far in this build, with their results.
+  var finishedJobs: [JobResult] {
+    self.confinementQueue.sync { finishedJobResults }
+  }
+
   /// A build-record-relative path to the location of a serialized copy of the
   /// driver's dependency graph.
   ///
