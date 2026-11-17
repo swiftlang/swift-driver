@@ -956,6 +956,10 @@ struct CachingBuildTests {
         $0.send("import E;")
         $0.send("import G;")
       }
+      let accessNotes = path.appending(component: "test.accessnotes")
+      try localFileSystem.writeFileContents(accessNotes) {
+        $0.send("Reason: Testing\nNotes:\n- Name: 'foo()'\n  ObjC: true\n")
+      }
 
       let cHeadersPath: AbsolutePath =
         try testInputsPath.appending(component: "ExplicitModuleBuilds")
@@ -981,6 +985,7 @@ struct CachingBuildTests {
           "-scanner-prefix-map-toolchain", "/^toolchain",
           "-scanner-prefix-map", testInputsPath.description + "=/^src",
           "-scanner-prefix-map", path.description + "=/^tmp",
+          "-access-notes-path", accessNotes.nativePathString(escaped: false),
           main.nativePathString(escaped: false),
         ] + sdkArgumentsForTesting,
         env: env,
@@ -993,6 +998,8 @@ struct CachingBuildTests {
 
       #expect(scannerCommand.contains("-scanner-prefix-map-paths"))
       #expect(scannerCommand.contains(try testInputsPath.description))
+      // The scanner reads the access notes from disk, so it gets the original path.
+      #expect(scannerCommand.contains(accessNotes.description))
       #if os(Windows)
       #expect(scannerCommand.contains("\\^src"))
       #else
@@ -1016,6 +1023,10 @@ struct CachingBuildTests {
         }
         /// command-line that compiles swift should contains -cache-replay-prefix-map
         #expect(command.contains(where: { $0 == "-cache-replay-prefix-map" }))
+        if job.kind == .compile || job.kind == .emitModule {
+          // Access notes are read from the CASFS, which is keyed by remapped paths.
+          #expect(command.contains("/^tmp/test.accessnotes"))
+        }
         if job.kind == .compile {
           // The scanner provides the in-process plugin server path if needed.
           #expect(command.contains(where: { $0 == "-in-process-plugin-server-path" }) ==
