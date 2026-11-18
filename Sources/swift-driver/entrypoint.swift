@@ -80,9 +80,26 @@ struct Entrypoint {
       }
       interruptSignalSource.resume()
 
+      var commandLine = CommandLine.arguments
+
+      // When invoked as `swift-cache /path/to/swiftc ...`, continue as the
+      // wrapped compiler invocation.
+      let isCacheLauncher = try CacheLauncher.isLauncher(commandLine[0])
+      if isCacheLauncher {
+        switch try CacheLauncher.resolve(commandLine, diagnosticsEngine: diagnosticsEngine) {
+        case .forward(let compilerCommand):
+          try exec(path: compilerCommand[0], args: compilerCommand)
+        case .runInProcess(let compilerCommand):
+          commandLine = compilerCommand
+        }
+      }
+
       // Fallback to legacy driver if forced to
-      if CommandLine.arguments.contains(Option.disallowForwardingDriver.spelling) ||
+      if commandLine.contains(Option.disallowForwardingDriver.spelling) ||
          ProcessEnv.block["SWIFT_USE_OLD_DRIVER"] != nil {
+        if isCacheLauncher {
+          diagnosticsEngine.emit(.warning("caching disabled because the legacy driver is used"))
+        }
         // If CommandLine.argument[0] is not an absolute path, we would form a path
         // relative to the current directory rather than relative to the actual
         // location of the binary. Use the Founation `NSProcessInfo` type to compute
@@ -91,7 +108,7 @@ struct Entrypoint {
         // relative to the location of the executable but with the desired
         // invocation for a multi-call binary.
         let executable: URL = URL(fileURLWithPath: ProcessInfo.processInfo.arguments[0])
-        let invocation: URL = URL(fileURLWithPath: CommandLine.arguments[0])
+        let invocation: URL = URL(fileURLWithPath: commandLine[0])
 
         #if compiler(>=6.2)
         let legacyExecutablePath: URL =
@@ -115,7 +132,7 @@ struct Entrypoint {
         let path: String = legacyExecutablePath.withUnsafeFileSystemRepresentation { String(cString: $0!) }
 
         if localFileSystem.exists(try AbsolutePath(validating: path)) {
-          let legacyDriverCommand = [path] + CommandLine.arguments[1...]
+          let legacyDriverCommand = [path] + commandLine[1...]
           try exec(path: path, args: legacyDriverCommand)
         } else {
           throw Driver.Error.unknownOrMissingSubcommand(
@@ -127,16 +144,20 @@ struct Entrypoint {
       }
 
       // Expand response files before selecting the invocation mode, -frontend can be in the response file.
-      let expandedArguments = try Driver.expandResponseFiles(
-        CommandLine.arguments,
+      var expandedArguments = try Driver.expandResponseFiles(
+        commandLine,
         fileSystem: localFileSystem,
         diagnosticsEngine: diagnosticsEngine)
+      if isCacheLauncher {
+        expandedArguments = try CacheLauncher.addCachingArguments(
+          to: expandedArguments, env: ProcessEnv.block, diagnosticsEngine: diagnosticsEngine)
+      }
       let (mode, arguments) = try Driver.invocationRunMode(forArgs: expandedArguments)
       if case .subcommand(let subcommand) = mode {
         // We are running as a subcommand, try to find the subcommand adjacent to the executable we are running as.
         // If we didn't find the tool there, let the OS search for it.
         let subcommandPath: AbsolutePath?
-        if let executablePath = Process.findExecutable(CommandLine.arguments[0]) {
+        if let executablePath = Process.findExecutable(commandLine[0]) {
           // Attempt to resolve the executable symlink in order to be able to
           // resolve compiler-adjacent library locations.
           subcommandPath = try TSCBasic.resolveSymlinks(executablePath).parentDirectory.appending(component: subcommand)
