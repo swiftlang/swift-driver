@@ -954,6 +954,10 @@ public struct Driver {
   ///   Used when in `integratedDriver` mode as a substitute for the driver knowing its executable path.
   /// - Parameter interModuleDependencyOracle: An oracle for querying inter-module dependencies,
   ///   shared across different module builds by a build system.
+  /// - Parameter incrementalInvalidationKey: An opaque string describing inputs to the compilation which the driver
+  ///   can't see, such as the contents of the SDK. If it differs from the key the previous incremental build used,
+  ///   the driver doesn't use that build's incremental state and compiles everything. It has no effect on builds
+  ///   that aren't incremental.
   /// - Parameter stdoutStream: Stream the driver writes informational stdout to.
   /// - Parameter stderrStream: Stream the driver writes informational stderr to.
   public init(
@@ -966,6 +970,7 @@ public struct Driver {
     compilerIntegratedTooling: Bool = false,
     compilerExecutableDir: AbsolutePath? = nil,
     interModuleDependencyOracle: InterModuleDependencyOracle? = nil,
+    incrementalInvalidationKey: String? = nil,
     stdoutStream: ThreadSafeOutputByteStream = TSCBasic.stdoutStream,
     stderrStream: ThreadSafeOutputByteStream = TSCBasic.stderrStream
   ) throws {
@@ -1248,6 +1253,7 @@ public struct Driver {
       outputFileMap: outputFileMap,
       incremental: self.shouldAttemptIncrementalCompilation,
       parsedOptions: parsedOptions,
+      incrementalInvalidationKey: incrementalInvalidationKey,
       recordedInputMetadata: recordedInputMetadata)
 
     self.supportedFrontendFlags =

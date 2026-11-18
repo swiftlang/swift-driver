@@ -22,6 +22,7 @@ import Testing
 func assertDriverDiagnostics<Result>(
   args: [String],
   env: ProcessEnvironmentBlock = ProcessEnv.block,
+  incrementalInvalidationKey: String? = nil,
   file: String = #file,
   fileID: String = #fileID,
   line: Int = #line,
@@ -35,7 +36,8 @@ func assertDriverDiagnostics<Result>(
   var driver = try TestDriver(
     args: args,
     env: env,
-    diagnosticsEngine: DiagnosticsEngine(handlers: [matcher.emit(_:), testDiagnosticsHandler])
+    diagnosticsEngine: DiagnosticsEngine(handlers: [matcher.emit(_:), testDiagnosticsHandler]),
+    incrementalInvalidationKey: incrementalInvalidationKey
   )
   return try await body(&driver, matcher)
 }
