@@ -14,6 +14,7 @@
 ##===----------------------------------------------------------------------===##
 
 import argparse
+import contextlib
 import errno
 import json
 import os
@@ -246,12 +247,34 @@ def should_test_parallel():
     return True
 
 
-def remove_package_resolved(package_path):
-    resolved_path = os.path.join(package_path, "Package.resolved")
-    if not os.path.exists(resolved_path):
+@contextlib.contextmanager
+def package_resolved_moved_aside(args):
+    """Moves Package.resolved aside while SwiftPM runs with local dependencies.
+
+    SwiftPM fetches the remote pins in Package.resolved before it evaluates the
+    manifest's local path dependencies. Moving it aside avoids accessing the
+    network for dependencies that are never used. The file is restored
+    afterwards so the source tree is left unmodified.
+    """
+    resolved_path = os.path.join(args.package_path, "Package.resolved")
+    moved_path = resolved_path + ".moved-aside"
+    if args.no_local_deps or not os.path.exists(resolved_path):
+        yield
         return
-    print("-- note: removing %s to use local dependencies" % resolved_path)
-    os.remove(resolved_path)
+    try:
+        os.rename(resolved_path, moved_path)
+    except OSError as e:
+        # e.g. a read-only source tree. SwiftPM still works, it just fetches
+        # the pinned remote dependencies.
+        print("-- warning: could not move %s aside: %s" % (resolved_path, e))
+        yield
+        return
+    print("-- note: moved %s aside to use local dependencies" % resolved_path)
+    try:
+        yield
+    finally:
+        # Overwrite any Package.resolved that SwiftPM wrote in the meantime.
+        os.replace(moved_path, resolved_path)
 
 
 def handle_invocation(args):
@@ -271,10 +294,6 @@ def handle_invocation(args):
     # Use local dependencies (i.e. checked out next to swift-driver).
     if not args.no_local_deps:
         env["SWIFTCI_USE_LOCAL_DEPS"] = "1"
-        # SwiftPM fetches the remote pins in Package.resolved before it
-        # evaluates the manifest's local path dependencies. Remove it so that
-        # building with local dependencies doesn't access the network.
-        remove_package_resolved(args.package_path)
 
     if args.ninja_bin:
         env["NINJA_BIN"] = args.ninja_bin
@@ -287,7 +306,8 @@ def handle_invocation(args):
     if args.action == "build":
         has_hosts = args.cross_compile_hosts
         if has_hosts and "-macosx" not in has_hosts[0]:
-            swiftpm("build", swift_exec, swiftpm_args, env)
+            with package_resolved_moved_aside(args):
+                swiftpm("build", swift_exec, swiftpm_args, env)
         else:
             build_using_cmake(args, toolchain_bin, args.build_path, targets)
 
@@ -311,15 +331,17 @@ def handle_invocation(args):
         env["SWIFT_DRIVER_ENABLE_INTEGRATION_TESTS"] = "1"
         if args.lit_test_dir:
             env["SWIFT_DRIVER_LIT_DIR"] = args.lit_test_dir
-        swiftpm("test", swift_exec, test_args, env)
+        with package_resolved_moved_aside(args):
+            swiftpm("test", swift_exec, test_args, env)
     elif args.action == "install":
         if "-apple-macosx" in args.build_target:
             build_using_cmake(args, toolchain_bin, args.build_path, targets)
             install(args, args.build_path, targets)
         else:
-            bin_path = swiftpm_bin_path(swift_exec, swiftpm_args, env)
-            if not args.install_only:
-                swiftpm("build", swift_exec, swiftpm_args, env)
+            with package_resolved_moved_aside(args):
+                bin_path = swiftpm_bin_path(swift_exec, swiftpm_args, env)
+                if not args.install_only:
+                    swiftpm("build", swift_exec, swiftpm_args, env)
             non_darwin_install(args, bin_path)
     else:
         assert False, "unknown action '{}'".format(args.action)
