@@ -467,13 +467,16 @@ public typealias ExternalTargetModuleDetailsMap = [ModuleDependencyId: ExternalT
     guard let moduleDependencies = reachabilityMap[moduleId] else {
       fatalError("Expected reachability information for the module: \(moduleId.moduleName).")
     }
+    let bridgingHeaderDeps = try Self.collectHeaderModuleDeps(
+      of: moduleId,
+      in: dependencyGraph,
+      reachabilityMap: reachabilityMap
+    )
     for dependencyId in moduleDependencies {
       try Self.addModuleDependency(of: moduleId, in: dependencyGraph, dependencyId: dependencyId,
                                    clangDependencyArtifacts: &clangDependencyArtifacts,
                                    swiftDependencyArtifacts: &swiftDependencyArtifacts,
-                                   bridgingHeaderDeps: try collectHeaderModuleDeps(of: moduleId,
-                                                                                   in: dependencyGraph,
-                                                                                   reachabilityMap: reachabilityMap))
+                                   bridgingHeaderDeps: bridgingHeaderDeps)
     }
   }
 
