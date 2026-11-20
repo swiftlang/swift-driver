@@ -172,4 +172,48 @@ import Testing
     #expect(dict.keysContainingValue(3) == ["c"])
     #expect(dict.keysContainingValue(4) == ["c"])
   }
+
+  /// The reverse index is only built by the first `removeOccurrences(of:)`; insertions and removals afterwards keep it
+  /// up to date.
+  @Test func reverseIndexMaintainedAfterRemoveOccurrences() throws {
+    var dict = multidictionaryWith([
+      "a": [1],
+      "b": [1, 2],
+    ])
+    #expect(dict.keysContainingValue(1) == ["a", "b"])
+
+    dict.removeOccurrences(of: 1)
+    dict.insertValue(3, forKey: "a")
+    dict.insertValue(2, forKey: "c")
+    dict.removeValue(2, forKey: "b")
+
+    #expect(dict.keysContainingValue(1) == [])
+    #expect(dict.keysContainingValue(2) == ["c"])
+    #expect(dict.keysContainingValue(3) == ["a"])
+    dict.removeOccurrences(of: 2)
+    #expect(dict["c"] == [])
+    #expect(dict.keysContainingValue(2) == [])
+  }
+
+  /// Building the reverse index in one copy doesn't affect another, and doesn't affect equality.
+  @Test func copiesWithAndWithoutReverseIndex() throws {
+    let original = multidictionaryWith([
+      "a": [1],
+      "b": [1, 2],
+    ])
+    var copy = original
+    copy.removeOccurrences(of: 3)
+    #expect(copy == original)
+
+    copy.removeOccurrences(of: 1)
+    #expect(copy != original)
+    #expect(original["a"] == [1])
+    #expect(original.keysContainingValue(1) == ["a", "b"])
+    #expect(copy.keysContainingValue(1) == [])
+
+    var copy2 = copy
+    copy2.insertValue(1, forKey: "a")
+    #expect(copy.keysContainingValue(1) == [])
+    #expect(copy2.keysContainingValue(1) == ["a"])
+  }
 }
