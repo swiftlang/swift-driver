@@ -12,7 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 /// Attributes that describe where and how the option is used.
-public struct OptionAttributes: OptionSet, Hashable {
+public struct OptionAttributes: OptionSet, Hashable, Sendable {
   public let rawValue: UInt
 
   public init(rawValue: UInt) {
@@ -37,9 +37,9 @@ public struct OptionAttributes: OptionSet, Hashable {
 }
 
 /// Describes a command-line option.
-public struct Option {
+public struct Option: Sendable {
   /// The kind of option we have, which determines how it will be parsed.
-  public enum Kind: Hashable {
+  public enum Kind: Hashable, Sendable {
     /// An input file, which doesn't have a spelling but contains a single extension Driver {
     /// argument.
     case input
@@ -72,7 +72,7 @@ public struct Option {
 
   /// The option that this aliases, if any, as a closure that produces the
   /// valid.
-  private let aliasFunction: (() -> Option)?
+  private let aliasFunction: (@Sendable () -> Option)?
 
   /// The attributes that describe where and how the attribute is used.
   public let attributes: OptionAttributes
@@ -98,7 +98,7 @@ public struct Option {
               numArgs: UInt = 0) {
     self.spelling = spelling
     self.kind = kind
-    self.aliasFunction = alias.map { aliasOption in { aliasOption }}
+    self.aliasFunction = alias.map { aliasOption in { @Sendable in aliasOption }}
     self.attributes = attributes
     self.metaVar = metaVar
     self.helpText = helpText

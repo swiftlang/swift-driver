@@ -387,7 +387,7 @@ int makeOptions_main() {
 
   // Render the Option.Group type.
   out << "\nextension Option {\n";
-  out << "  public enum Group {\n";
+  out << "  public enum Group: Sendable {\n";
   for (const auto &group : groups) {
     out << "    case " << group.id << "\n";
   }
