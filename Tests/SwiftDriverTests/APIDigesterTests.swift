@@ -257,6 +257,47 @@ import Testing
     }
   }
 
+  private static let moduleLoadingDigesterJobs: [(kind: Job.Kind, args: [String])] = [
+    (.generateAPIBaseline, ["-emit-digester-baseline"]),
+    (
+      .generateABIBaseline,
+      ["-emit-module-interface", "-enable-library-evolution", "-emit-digester-baseline", "-digester-mode", "abi"]
+    ),
+    (.compareAPIBaseline, ["-compare-to-baseline-path", "/baseline/path"]),
+  ]
+
+  @Test func cxxInteroperabilityModePrecedence() throws {
+    let cases: [(args: [String], mode: String?)] = [
+      ([], nil),
+      (["-cxx-interoperability-mode=off", "-cxx-interoperability-mode=default"], "default"),
+      (["-cxx-interoperability-mode=default", "-cxx-interoperability-mode=off"], nil),
+      (["-Xfrontend", "-cxx-interoperability-mode=swift-6"], "swift-6"),
+      (["-cxx-interoperability-mode=default", "-Xfrontend", "-cxx-interoperability-mode=off"], nil),
+      (["-Xfrontend", "-enable-experimental-cxx-interop"], "default"),
+    ]
+    for (args, mode) in cases {
+      var driver = try TestDriver(args: ["swiftc", "foo.swift", "-emit-module"] + args)
+      #expect(driver.unwrap { $0.compileJobCxxInteroperabilityMode() } == mode, "\(args)")
+    }
+  }
+
+  @Test func cxxInteroperabilityModeIsForwarded() async throws {
+    let cxxInterop = ["-cxx-interoperability-mode=default"]
+    for (kind, args) in Self.moduleLoadingDigesterJobs {
+      var driver = try TestDriver(args: ["swiftc", "foo.swift", "-emit-module"] + cxxInterop + args)
+      let digesterJob = try #require(await driver.planBuild().first { $0.kind == kind })
+      let expected = driver.isFeatureSupported(.api_digester_cxx_interop) ? cxxInterop : []
+      #expect(flags(digesterJob.commandLine, withPrefix: "-cxx-interoperability-mode") == expected, "\(kind)")
+    }
+  }
+
+  private func flags(_ commandLine: [Job.ArgTemplate], withPrefix prefix: String) -> [String] {
+    commandLine.compactMap {
+      if case .flag(let flag) = $0, flag.hasPrefix(prefix) { return flag }
+      return nil
+    }
+  }
+
   @Test func comparisonOptionValidation() async throws {
     try await assertDriverDiagnostics(args: [
       "swiftc", "foo.swift",
