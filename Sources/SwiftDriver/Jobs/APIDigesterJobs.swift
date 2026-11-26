@@ -199,5 +199,54 @@ extension Driver {
     try commandLine.appendAll(.F, .Fsystem, from: &parsedOptions)
 
     try commandLine.appendLast(.swiftVersion, from: &parsedOptions)
+
+    let cxxInteropMode = compileJobCxxInteroperabilityMode()
+    let digesterSupportsCxxInterop = isFeatureSupported(.api_digester_cxx_interop)
+    if Self.shouldPassXccToDigester(cxxInteropEnabled: cxxInteropMode != nil,
+                                    digesterSupportsXcc: isFeatureSupported(.api_digester_xcc),
+                                    digesterSupportsCxxInterop: digesterSupportsCxxInterop) {
+      // As in compile jobs, relative paths in -Xcc arguments are relative to -working-directory.
+      if let workingDirectory {
+        commandLine.appendFlag(.Xcc)
+        commandLine.appendFlag(.workingDirectory)
+        commandLine.appendFlag(.Xcc)
+        commandLine.appendPath(.absolute(workingDirectory))
+      }
+      try commandLine.appendAll(.Xcc, from: &parsedOptions)
+    }
+    if digesterSupportsCxxInterop, let cxxInteropMode {
+      commandLine.appendFlag("-cxx-interoperability-mode=\(cxxInteropMode)")
+    }
+  }
+
+  /// Whether to pass the user's -Xcc arguments to the API digester.
+  @_spi(Testing) public static func shouldPassXccToDigester(
+    cxxInteropEnabled: Bool,
+    digesterSupportsXcc: Bool,
+    digesterSupportsCxxInterop: Bool
+  ) -> Bool {
+    // Digesters that can't be put into C++ mode reject C++ -Xcc arguments such as -std.
+    digesterSupportsXcc && (!cxxInteropEnabled || digesterSupportsCxxInterop)
+  }
+
+  /// The equivalent C++ interoperability mode the compile jobs use, or `nil` if it's disabled.
+  @_spi(Testing) public mutating func compileJobCxxInteroperabilityMode() -> String? {
+    // Compile jobs pass -Xfrontend arguments and unknown flags after -cxx-interoperability-mode.
+    let modePrefix = "-cxx-interoperability-mode="
+    var mode = parsedOptions.getLastArgument(.cxxInteroperabilityMode)?.asSingle
+    var enablesExperimentalCxxInterop = false
+    let frontendFlags = parsedOptions.arguments(for: .Xfrontend).map(\.argument.asSingle)
+      + savedUnknownDriverFlagsForSwiftFrontend
+    for flag in frontendFlags {
+      if flag.hasPrefix(modePrefix) {
+        mode = String(flag.dropFirst(modePrefix.count))
+      } else if flag == "-enable-experimental-cxx-interop" {
+        enablesExperimentalCxxInterop = true
+      }
+    }
+    if mode == nil && enablesExperimentalCxxInterop {
+      return "default"
+    }
+    return mode == "off" ? nil : mode
   }
 }

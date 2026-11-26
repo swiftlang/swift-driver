@@ -257,6 +257,100 @@ import Testing
     }
   }
 
+  private static let moduleLoadingDigesterJobs: [(kind: Job.Kind, args: [String])] = [
+    (.generateAPIBaseline, ["-emit-digester-baseline"]),
+    (
+      .generateABIBaseline,
+      ["-emit-module-interface", "-enable-library-evolution", "-emit-digester-baseline", "-digester-mode", "abi"]
+    ),
+    (.compareAPIBaseline, ["-compare-to-baseline-path", "/baseline/path"]),
+  ]
+
+  @Test func cxxInteroperabilityModePrecedence() throws {
+    let cases: [(args: [String], mode: String?)] = [
+      ([], nil),
+      (["-cxx-interoperability-mode=off", "-cxx-interoperability-mode=default"], "default"),
+      (["-cxx-interoperability-mode=default", "-cxx-interoperability-mode=off"], nil),
+      (["-Xfrontend", "-cxx-interoperability-mode=swift-6"], "swift-6"),
+      (["-cxx-interoperability-mode=default", "-Xfrontend", "-cxx-interoperability-mode=off"], nil),
+      (["-Xfrontend", "-enable-experimental-cxx-interop"], "default"),
+    ]
+    for (args, mode) in cases {
+      var driver = try TestDriver(args: ["swiftc", "foo.swift", "-emit-module"] + args)
+      #expect(driver.unwrap { $0.compileJobCxxInteroperabilityMode() } == mode, "\(args)")
+    }
+  }
+
+  @Test func cxxInteroperabilityModeIsForwarded() async throws {
+    let cxxInterop = ["-cxx-interoperability-mode=default"]
+    for (kind, args) in Self.moduleLoadingDigesterJobs {
+      var driver = try TestDriver(args: ["swiftc", "foo.swift", "-emit-module"] + cxxInterop + args)
+      let digesterJob = try #require(await driver.planBuild().first { $0.kind == kind })
+      let expected = driver.isFeatureSupported(.api_digester_cxx_interop) ? cxxInterop : []
+      #expect(flags(digesterJob.commandLine, withPrefix: "-cxx-interoperability-mode") == expected, "\(kind)")
+    }
+  }
+
+  @Test func xccRequiresDigesterSupport() {
+    func passesXcc(cxxInterop: Bool, digesterXcc: Bool, digesterCxxInterop: Bool) -> Bool {
+      Driver.shouldPassXccToDigester(
+        cxxInteropEnabled: cxxInterop,
+        digesterSupportsXcc: digesterXcc,
+        digesterSupportsCxxInterop: digesterCxxInterop
+      )
+    }
+    #expect(!passesXcc(cxxInterop: false, digesterXcc: false, digesterCxxInterop: false))
+    #expect(passesXcc(cxxInterop: false, digesterXcc: true, digesterCxxInterop: false))
+    #expect(!passesXcc(cxxInterop: true, digesterXcc: true, digesterCxxInterop: false))
+    #expect(passesXcc(cxxInterop: true, digesterXcc: true, digesterCxxInterop: true))
+  }
+
+  @Test func xccIsForwarded() async throws {
+    let xcc = ["-Xcc", "-DFOO", "-Xcc", "-I/some/include"]
+    for cxxInterop in [[], ["-cxx-interoperability-mode=default"]] {
+      for (kind, args) in Self.moduleLoadingDigesterJobs {
+        var driver = try TestDriver(args: ["swiftc", "foo.swift", "-emit-module"] + cxxInterop + xcc + args)
+        let digesterJob = try #require(await driver.planBuild().first { $0.kind == kind })
+        let forwarded = Driver.shouldPassXccToDigester(
+          cxxInteropEnabled: !cxxInterop.isEmpty,
+          digesterSupportsXcc: driver.isFeatureSupported(.api_digester_xcc),
+          digesterSupportsCxxInterop: driver.isFeatureSupported(.api_digester_cxx_interop)
+        )
+        let description = "\(kind) \(cxxInterop)"
+        if forwarded {
+          #expect(digesterJob.commandLine.contains(subsequence: xcc.map { .flag($0) }), "\(description)")
+        } else {
+          #expect(!digesterJob.commandLine.contains("-Xcc"), "\(description)")
+        }
+      }
+    }
+  }
+
+  @Test func xccIsRelativeToWorkingDirectory() async throws {
+    let workingDirectory = try AbsolutePath(validating: "/proj")
+    for (kind, args) in Self.moduleLoadingDigesterJobs {
+      let workingDirectoryArgs = ["-working-directory", workingDirectory.pathString]
+      let driverArgs = ["swiftc", "foo.swift", "-emit-module"] + workingDirectoryArgs + ["-Xcc", "-Iinclude"] + args
+      var driver = try TestDriver(args: driverArgs)
+      let digesterJob = try #require(await driver.planBuild().first { $0.kind == kind })
+      if driver.isFeatureSupported(.api_digester_xcc) {
+        let expected: [Job.ArgTemplate] = [
+          "-Xcc", "-working-directory", "-Xcc", .path(.absolute(workingDirectory)), "-Xcc", "-Iinclude",
+        ]
+        #expect(digesterJob.commandLine.contains(subsequence: expected), "\(kind)")
+      } else {
+        #expect(!digesterJob.commandLine.contains("-Xcc"), "\(kind)")
+      }
+    }
+  }
+
+  private func flags(_ commandLine: [Job.ArgTemplate], withPrefix prefix: String) -> [String] {
+    commandLine.compactMap {
+      if case .flag(let flag) = $0, flag.hasPrefix(prefix) { return flag }
+      return nil
+    }
+  }
+
   @Test func comparisonOptionValidation() async throws {
     try await assertDriverDiagnostics(args: [
       "swiftc", "foo.swift",

@@ -715,6 +715,8 @@ public struct Driver {
     case emit_abi_descriptor = "emit-abi-descriptor"
     case compilation_caching = "compilation-caching"
     case debug_info_explicit_dependency = "debug-info-explicit-dependency"
+    case api_digester_xcc = "api-digester-Xcc"
+    case api_digester_cxx_interop = "api-digester-cxx-interop"
   }
 
   lazy var sdkPath: VirtualPath? = {
