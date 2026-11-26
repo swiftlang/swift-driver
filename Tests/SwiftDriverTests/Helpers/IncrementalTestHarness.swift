@@ -25,6 +25,9 @@ final class IncrementalTestHarness {
   let config: TestBuildConfig
   let sdkArgumentsForTesting: [String]
 
+  /// The incremental invalidation key every build of this harness passes to the driver.
+  var incrementalInvalidationKey: String?
+
   var tempDir: AbsolutePath = try! AbsolutePath(validating: "/tmp")
   var derivedDataDir: AbsolutePath {
     tempDir.appending(component: "derivedData")
@@ -848,7 +851,7 @@ extension IncrementalTestHarness {
     expecting expectedDiags: [Diagnostic.Message],
     arguments: [String]
   ) async throws -> TestDriver {
-    try await assertDriverDiagnostics(args: arguments) {
+    try await assertDriverDiagnostics(args: arguments, incrementalInvalidationKey: incrementalInvalidationKey) {
       driver,
       verifier in
       verifier.forbidUnexpected(.error, .warning, .note, .remark, .ignored)
@@ -873,7 +876,7 @@ extension IncrementalTestHarness {
 
   @discardableResult
   func doABuildWithoutExpectations(arguments: [String]) async throws -> TestDriver {
-    var driver = try TestDriver(args: arguments)
+    var driver = try TestDriver(args: arguments, incrementalInvalidationKey: incrementalInvalidationKey)
     await doTheCompile(&driver)
     return driver
   }
