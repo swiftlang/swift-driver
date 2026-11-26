@@ -2176,7 +2176,7 @@ extension Option {
 }
 
 extension Option {
-  public enum Group {
+  public enum Group: Sendable {
     case O
     case codeFormatting
     case debugCrash

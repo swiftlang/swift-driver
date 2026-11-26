@@ -1,4 +1,4 @@
-// swift-tools-version:5.10
+// swift-tools-version:6.0
 
 import PackageDescription
 import class Foundation.ProcessInfo
@@ -7,7 +7,7 @@ let macOSPlatform: SupportedPlatform
 if let deploymentTarget = ProcessInfo.processInfo.environment["SWIFTPM_MACOS_DEPLOYMENT_TARGET"] {
     macOSPlatform = .macOS(deploymentTarget)
 } else {
-    macOSPlatform = .macOS(.v12)
+    macOSPlatform = .macOS(.v15)
 }
 
 let swiftToolsSupportCoreLibName = (ProcessInfo.processInfo.environment["SWIFT_DRIVER_USE_STSC_DYLIB"] == nil) ? "SwiftToolsSupport-auto": "SwiftToolsSupport"
@@ -16,7 +16,7 @@ let package = Package(
   name: "swift-driver",
   platforms: [
     macOSPlatform,
-    .iOS(.v15),
+    .iOS(.v18),
   ],
   products: [
     .executable(
@@ -102,7 +102,8 @@ let package = Package(
       dependencies: [
         .product(name: swiftToolsSupportCoreLibName, package: "swift-tools-support-core"),
       ],
-      exclude: ["CMakeLists.txt"]),
+      exclude: ["CMakeLists.txt"],
+      swiftSettings: [.swiftLanguageMode(.v6)]),
     .testTarget(
       name: "SwiftOptionsTests",
       dependencies: ["SwiftOptions"]),
@@ -140,6 +141,7 @@ let package = Package(
         .linkedLibrary("swiftCore", .when(platforms: [.windows])), // for swift_addNewDSOImage
       ]),
   ],
+  swiftLanguageModes: [.v5],
   cxxLanguageStandard: .cxx17
 )
 
