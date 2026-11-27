@@ -939,7 +939,7 @@ extension Driver {
         flag: "-emit-reference-dependencies-path")
 
       try addOutputOfType(
-        outputType: .diagnostics,
+        outputType: serializedDiagnosticsFormat,
         finalOutputPath: serializedDiagnosticsFilePath,
         input: input,
         flag: "-serialize-diagnostics-path")
@@ -1181,6 +1181,11 @@ extension Driver {
         commandLine.appendFlag(flaggedPair.flag)
         commandLine.appendPath(flaggedPair.output.file)
       }
+    }
+
+    // The format flag enables serialization, so pass it only with a SARIF output.
+    if flaggedInputOutputPairs.contains(where: { $0.output.type == .sarifDiagnostics }) {
+      commandLine.appendFlag("-serialize-diagnostics=sarif")
     }
 
     return flaggedInputOutputPairs.map { $0.output }

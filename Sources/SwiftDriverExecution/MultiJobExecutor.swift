@@ -707,7 +707,7 @@ fileprivate extension Job {
   /// Don't leave incorrect compiler outputs lying around, but don't remove diagnostics!
   func removeOutputsOfFailedCompilation(from fileSystem: TSCBasic.FileSystem) {
     guard kind.isCompile else {return}
-    for output in outputs where output.type != .diagnostics {
+    for output in outputs where output.type != .diagnostics && output.type != .sarifDiagnostics {
       guard let absolutePath = output.file.absolutePath else { continue }
       try? fileSystem.removeFileTree(absolutePath)
     }

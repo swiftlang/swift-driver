@@ -86,11 +86,20 @@ public enum FileType: String, Hashable, CaseIterable, Codable {
   /// Clang/Swift serialized diagnostics
   case diagnostics = "dia"
 
+  /// Diagnostics serialized to SARIF
+  case sarifDiagnostics = "sarif"
+
   /// Serialized diagnostics produced by module-generation
   case emitModuleDiagnostics = "emit-module.dia"
 
+  /// Diagnostics produced by module-generation, serialized to SARIF
+  case emitModuleSARIFDiagnostics = "emit-module.sarif"
+
   /// Serialized diagnostics produced by dependency scanning
   case dependencyScanDiagnostics = "dependency-scan.dia"
+
+  /// Diagnostics produced by dependency scanning, serialized to SARIF
+  case dependencyScanSARIFDiagnostics = "dependency-scan.sarif"
 
   /// Serialized diagnostics produced by module-generation
   case emitModuleDependencies = "emit-module.d"
@@ -256,11 +265,20 @@ extension FileType: CustomStringConvertible {
     case .diagnostics:
       return "diagnostics"
 
+    case .sarifDiagnostics:
+      return "sarif-diagnostics"
+
     case .emitModuleDiagnostics:
       return "emit-module-diagnostics"
 
+    case .emitModuleSARIFDiagnostics:
+      return "emit-module-sarif-diagnostics"
+
     case .dependencyScanDiagnostics:
       return "dependency-scan-diagnostics"
+
+    case .dependencyScanSARIFDiagnostics:
+      return "dependency-scan-sarif-diagnostics"
 
     case .jsonAPIBaseline:
       return "api-baseline-json"
@@ -300,6 +318,7 @@ extension FileType {
          .importedModules, .indexData, .remap, .dSYM, .autolink, .dependencies,
          .emitModuleDependencies, .swiftDocumentation, .pcm, .diagnostics,
          .emitModuleDiagnostics, .dependencyScanDiagnostics, .objcHeader, .image, .swiftDeps, .moduleTrace,
+         .sarifDiagnostics, .emitModuleSARIFDiagnostics, .dependencyScanSARIFDiagnostics,
          .tbd, .yamlOptimizationRecord, .bitstreamOptimizationRecord,
          .swiftInterface, .privateSwiftInterface, .packageSwiftInterface, .swiftSourceInfoFile,
          .jsonDependencies, .clangModuleMap, .jsonTargetInfo, .jsonCompilerFeatures,
@@ -428,10 +447,16 @@ extension FileType {
       return "bitstream-opt-record"
     case .diagnostics:
       return "diagnostics"
+    case .sarifDiagnostics:
+      return "sarif-diagnostics"
     case .emitModuleDiagnostics:
       return "emit-module-diagnostics"
+    case .emitModuleSARIFDiagnostics:
+      return "emit-module-sarif-diagnostics"
     case .dependencyScanDiagnostics:
       return "dependency-scan-diagnostics"
+    case .dependencyScanSARIFDiagnostics:
+      return "dependency-scan-sarif-diagnostics"
     case .indexUnitOutputPath:
       return "index-unit-output-path"
     case .jsonAPIBaseline:
@@ -463,7 +488,8 @@ extension FileType {
          .jsonDependencies, .clangModuleMap, .jsonCompilerFeatures, .jsonTargetInfo,
          .jsonSwiftArtifacts, .jsonAPIBaseline, .jsonABIBaseline, .swiftConstValues,
          .jsonAPIDescriptor, .moduleSummary, .moduleSemanticInfo, .cachedDiagnostics,
-         .raw_llvmIr, .jsonSupportedFeatures:
+         .raw_llvmIr, .jsonSupportedFeatures, .sarifDiagnostics, .emitModuleSARIFDiagnostics,
+         .dependencyScanSARIFDiagnostics:
       return true
     case .image, .object, .dSYM, .pch, .sib, .raw_sib, .swiftModule,
          .swiftDocumentation, .swiftSourceInfoFile, .llvmBitcode, .diagnostics,
@@ -483,6 +509,7 @@ extension FileType {
          .autolink, .swiftModule, .swiftDocumentation, .swiftInterface,
          .privateSwiftInterface, .packageSwiftInterface, .swiftSourceInfoFile, .raw_sil, .raw_sib,
          .diagnostics, .emitModuleDiagnostics, .objcHeader, .swiftDeps, .remap,
+         .sarifDiagnostics, .emitModuleSARIFDiagnostics, .dependencyScanSARIFDiagnostics,
          .importedModules, .tbd, .moduleTrace, .indexData, .yamlOptimizationRecord,
          .modDepCache, .bitstreamOptimizationRecord, .pcm, .pch, .jsonDependencies,
          .clangModuleMap, .jsonCompilerFeatures, .jsonTargetInfo, .jsonSwiftArtifacts,
@@ -498,7 +525,8 @@ extension FileType {
     switch self {
     case .swift, .ast, .indexData, .indexUnitOutputPath, .jsonCompilerFeatures, .jsonTargetInfo, .jsonSupportedFeatures:
       return false
-    case .sil, .sib, .image, .object, .dSYM, .dependencies, .autolink, .swiftModule, .swiftDocumentation, .swiftInterface, .privateSwiftInterface, .packageSwiftInterface, .swiftSourceInfoFile, .swiftConstValues, .assembly, .raw_sil, .raw_sib, .llvmIR, .llvmBitcode, .diagnostics, .emitModuleDiagnostics, .emitModuleDependencies, .objcHeader, .swiftDeps, .modDepCache, .remap, .importedModules, .tbd, .jsonDependencies, .jsonSwiftArtifacts, .moduleTrace, .yamlOptimizationRecord, .bitstreamOptimizationRecord, .pcm, .pch, .clangModuleMap, .jsonAPIBaseline, .jsonABIBaseline, .jsonAPIDescriptor, .moduleSummary, .moduleSemanticInfo, .cachedDiagnostics, .raw_llvmIr, .dependencyScanDiagnostics:
+    case .sil, .sib, .image, .object, .dSYM, .dependencies, .autolink, .swiftModule, .swiftDocumentation, .swiftInterface, .privateSwiftInterface, .packageSwiftInterface, .swiftSourceInfoFile, .swiftConstValues, .assembly, .raw_sil, .raw_sib, .llvmIR, .llvmBitcode, .diagnostics, .emitModuleDiagnostics, .emitModuleDependencies, .objcHeader, .swiftDeps, .modDepCache, .remap, .importedModules, .tbd, .jsonDependencies, .jsonSwiftArtifacts, .moduleTrace, .yamlOptimizationRecord, .bitstreamOptimizationRecord, .pcm, .pch, .clangModuleMap, .jsonAPIBaseline, .jsonABIBaseline, .jsonAPIDescriptor, .moduleSummary, .moduleSemanticInfo, .cachedDiagnostics, .raw_llvmIr, .dependencyScanDiagnostics,
+         .sarifDiagnostics, .emitModuleSARIFDiagnostics, .dependencyScanSARIFDiagnostics:
       return true
     }
   }
@@ -507,6 +535,7 @@ extension FileType {
   var supportCaching: Bool {
     switch self {
     case .diagnostics, .emitModuleDiagnostics, // diagnostics are cached using cached diagnostics.
+         .sarifDiagnostics, .emitModuleSARIFDiagnostics,
          // Those are by-product from swift-driver and not considered outputs need caching.
          .jsonSwiftArtifacts, .remap, .indexUnitOutputPath, .modDepCache,
          // the remaining should not be an output from a caching swift job.
@@ -515,6 +544,7 @@ extension FileType {
       return false
     case .assembly, .llvmIR, .llvmBitcode, .object, .sil, .sib, .ast,
          .dependencies, .emitModuleDependencies, .swiftModule, .dependencyScanDiagnostics,
+         .dependencyScanSARIFDiagnostics,
          .swiftDocumentation, .swiftInterface, .privateSwiftInterface, .packageSwiftInterface,
          .swiftSourceInfoFile, .raw_sil, .raw_sib, .objcHeader, .swiftDeps, .tbd,
          .moduleTrace, .indexData, .yamlOptimizationRecord,
