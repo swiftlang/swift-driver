@@ -551,8 +551,8 @@ extension ModuleDependencyGraph {
     mutationSafetyPrecondition()
     guard
       let source = fed.incrementalDependencySource,
-      let unserializedDepGraph = source.read(info: info,
-                                             internedStringTable: internedStringTable)
+      let unserializedDepGraph = currencyCache.resolved(source, of: fed.externalDependency)
+        .read(info: info, internedStringTable: internedStringTable)
     else {
       return nil
     }
@@ -599,6 +599,19 @@ extension ModuleDependencyGraph {
         return VirtualPath.lookup(handle)
       }
       return externalDependency.path
+    }
+
+    /// The source to read an external dependency's incremental information from.
+    ///
+    /// With caching and a prefix map, a dependency is recorded by its abstract
+    /// path (e.g. "B.swiftmodule"). Read the file it resolves to, as the
+    /// currency check does, and keep the abstract name as the source's identity.
+    func resolved(_ source: DependencySource, of externalDependency: ExternalDependency) -> DependencySource {
+      guard let handle = externalModulePathMap[externalDependency.fileNameString] else {
+        return source
+      }
+      return DependencySource(typedFile: TypedVirtualPath(file: handle, type: source.typedFile.type),
+                              internedFileName: source.internedFileName)
     }
 
     mutating func updateHash(_ externalDependency: ExternalDependency) {
