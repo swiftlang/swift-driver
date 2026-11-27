@@ -192,7 +192,7 @@ private func checkCachingBuildJobDependencies(
   }
 }
 
-@Suite(.enabled(if: cachingFeatureSupported, "caching not supported"))
+@Suite(.enabled(if: cachingFeatureSupported, "caching not supported"), .realDependencyScan)
 struct CachingBuildTests {
 
   /// A scenario exercising `-supplementary-output-file-map` emission with

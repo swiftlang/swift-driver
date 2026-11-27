@@ -83,6 +83,8 @@ final class IncrementalTestHarness {
       //        "-v",
       "-save-temps",
       "-incremental",
+      // Explicit configs append -explicit-module-build, which takes precedence over this.
+      "-no-explicit-module-build",
       "-no-color-diagnostics",
       "-swift-version", "5",
       // Keep implicitly imported modules out of the incremental remarks; on

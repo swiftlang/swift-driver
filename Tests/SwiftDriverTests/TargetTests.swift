@@ -550,6 +550,7 @@ import CRT
         "swiftc", "-target",
         "arm64-apple-ios12.0", "foo.swift",
         "-sdk", sdkRoot.pathString,
+        "-no-explicit-module-build",
       ],
       env: envVars
     )

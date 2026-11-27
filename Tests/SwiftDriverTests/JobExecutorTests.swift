@@ -441,7 +441,7 @@ extension DarwinToolchain {
     #endif
   }
 
-  @Test func inputModifiedDuringMultiJobBuild() async throws {
+  @Test(.realDependencyScan) func inputModifiedDuringMultiJobBuild() async throws {
     try await withTemporaryDirectory { path in
       let main = path.appending(component: "main.swift")
       try localFileSystem.writeFileContents(main, bytes: "let foo = 1")
@@ -615,6 +615,7 @@ extension DarwinToolchain {
             "swiftc", main.pathString,
             "-driver-filelist-threshold", "0",
             "-o", outputPath.pathString,
+            "-no-explicit-module-build",
           ] + getHostToolchainSdkArg(executor),
           diagnosticsEngine: diags,
           executor: executor
@@ -659,6 +660,7 @@ extension DarwinToolchain {
             "-ir-output-dir", path.pathString,
             "-driver-filelist-threshold", "0",
             "-o", outputPath.pathString,
+            "-no-explicit-module-build",
           ] + getHostToolchainSdkArg(executor),
           diagnosticsEngine: diags,
           executor: executor
@@ -703,6 +705,7 @@ extension DarwinToolchain {
             "-driver-filelist-threshold", "0",
             "-Xfrontend", "-debug-crash-immediately",
             "-o", outputPath.pathString,
+            "-no-explicit-module-build",
           ] + getHostToolchainSdkArg(executor),
           diagnosticsEngine: diags,
           executor: executor

@@ -23,6 +23,10 @@ import Testing
     try withTemporaryDirectory { path in
       let inputFile = path.appending(components: "test.swift")
       try localFileSystem.writeFileContents(inputFile) { $0.send("public func foo()") }
+      let mainFile = path.appending(components: "main.swift")
+      try localFileSystem.writeFileContents(mainFile) { $0.send("") }
+      let libFile = path.appending(components: "lib.swift")
+      try localFileSystem.writeFileContents(libFile) { $0.send("") }
 
       // Expected success scenarios:
       do {
@@ -41,7 +45,7 @@ import Testing
       do {
         let testCommand =
           "-emit-executable " + inputFile.description
-          + " main.swift lib.swift -module-name createCompilerInvocation -emit-module -emit-objc-header -o t.out"
+          + " \(mainFile.description) \(libFile.description) -module-name createCompilerInvocation -emit-module -emit-objc-header -o t.out"
         var emittedDiagnostics: [Diagnostic] = []
         #expect(
           !getSingleFrontendInvocationFromDriverArgumentsV2(
@@ -56,7 +60,7 @@ import Testing
       do {
         let testCommand =
           "-c " + inputFile.description
-          + " main.swift lib.swift -module-name createCompilerInvocation -emit-module -emit-objc-header"
+          + " \(mainFile.description) \(libFile.description) -module-name createCompilerInvocation -emit-module -emit-objc-header"
         var emittedDiagnostics: [Diagnostic] = []
         #expect(
           !getSingleFrontendInvocationFromDriverArgumentsV2(
@@ -130,6 +134,10 @@ import Testing
     try withTemporaryDirectory { path in
       let inputFile = path.appending(components: "test.swift")
       try localFileSystem.writeFileContents(inputFile) { $0.send("public func foo()") }
+      let mainFile = path.appending(components: "main.swift")
+      try localFileSystem.writeFileContents(mainFile) { $0.send("") }
+      let libFile = path.appending(components: "lib.swift")
+      try localFileSystem.writeFileContents(libFile) { $0.send("") }
 
       let envBlock = ProcessEnv.block
       let env = envBlock.legacyVars
@@ -155,7 +163,7 @@ import Testing
       do {
         let testCommand =
           "-emit-executable " + inputFile.description
-          + " main.swift lib.swift -module-name createCompilerInvocation -emit-module -emit-objc-header -o t.out"
+          + " \(mainFile.description) \(libFile.description) -module-name createCompilerInvocation -emit-module -emit-objc-header -o t.out"
         var emittedDiagnostics: [Diagnostic] = []
         #expect(
           !getSingleFrontendInvocationFromDriverArgumentsV3(
@@ -172,7 +180,7 @@ import Testing
       do {
         let testCommand =
           "-c " + inputFile.description
-          + " main.swift lib.swift -module-name createCompilerInvocation -emit-module -emit-objc-header"
+          + " \(mainFile.description) \(libFile.description) -module-name createCompilerInvocation -emit-module -emit-objc-header"
         var emittedDiagnostics: [Diagnostic] = []
         #expect(
           !getSingleFrontendInvocationFromDriverArgumentsV3(
@@ -254,6 +262,10 @@ import Testing
     try withTemporaryDirectory { path in
       let inputFile = path.appending(components: "test.swift")
       try localFileSystem.writeFileContents(inputFile) { $0.send("public func foo()") }
+      let mainFile = path.appending(components: "main.swift")
+      try localFileSystem.writeFileContents(mainFile) { $0.send("") }
+      let libFile = path.appending(components: "lib.swift")
+      try localFileSystem.writeFileContents(libFile) { $0.send("") }
 
       let envBlock = ProcessEnv.block
       let env = envBlock.legacyVars
@@ -279,7 +291,7 @@ import Testing
       do {
         let testCommand =
           "-emit-executable " + inputFile.description
-          + " main.swift lib.swift -module-name createCompilerInvocation -emit-module -emit-objc-header -o t.out"
+          + " \(mainFile.description) \(libFile.description) -module-name createCompilerInvocation -emit-module -emit-objc-header -o t.out"
         var emittedDiagnostics: [Diagnostic] = []
         #expect(
           !getSingleFrontendInvocationFromDriverArgumentsV4(
@@ -296,7 +308,7 @@ import Testing
       do {
         let testCommand =
           "-c " + inputFile.description
-          + " main.swift lib.swift -module-name createCompilerInvocation -emit-module -emit-objc-header"
+          + " \(mainFile.description) \(libFile.description) -module-name createCompilerInvocation -emit-module -emit-objc-header"
         var emittedDiagnostics: [Diagnostic] = []
         #expect(
           !getSingleFrontendInvocationFromDriverArgumentsV4(
@@ -378,6 +390,10 @@ import Testing
     try withTemporaryDirectory { path in
       let inputFile = path.appending(components: "test.swift")
       try localFileSystem.writeFileContents(inputFile) { $0.send("public func foo()") }
+      let mainFile = path.appending(components: "main.swift")
+      try localFileSystem.writeFileContents(mainFile) { $0.send("") }
+      let libFile = path.appending(components: "lib.swift")
+      try localFileSystem.writeFileContents(libFile) { $0.send("") }
 
       let env = ProcessEnv.block
       let resolver = try ArgsResolver(fileSystem: localFileSystem)
@@ -402,7 +418,7 @@ import Testing
       do {
         let testCommand =
           "-emit-executable " + inputFile.description
-          + " main.swift lib.swift -module-name createCompilerInvocation -emit-module -emit-objc-header -o t.out"
+          + " \(mainFile.description) \(libFile.description) -module-name createCompilerInvocation -emit-module -emit-objc-header -o t.out"
         var emittedDiagnostics: [Diagnostic] = []
         #expect(
           !getSingleFrontendInvocationFromDriverArgumentsV5(
@@ -419,7 +435,7 @@ import Testing
       do {
         let testCommand =
           "-c " + inputFile.description
-          + " main.swift lib.swift -module-name createCompilerInvocation -emit-module -emit-objc-header"
+          + " \(mainFile.description) \(libFile.description) -module-name createCompilerInvocation -emit-module -emit-objc-header"
         var emittedDiagnostics: [Diagnostic] = []
         #expect(
           !getSingleFrontendInvocationFromDriverArgumentsV5(
@@ -501,13 +517,17 @@ import Testing
     try withTemporaryDirectory { path in
       let inputFile = path.appending(components: "test.swift")
       try localFileSystem.writeFileContents(inputFile) { $0.send("public func foo()") }
+      let mainFile = path.appending(components: "main.swift")
+      try localFileSystem.writeFileContents(mainFile) { $0.send("") }
+      let libFile = path.appending(components: "lib.swift")
+      try localFileSystem.writeFileContents(libFile) { $0.send("") }
       let driverPath = "swiftc"
 
       // Basic compilation test
       do {
         let testCommandStr =
           "-emit-executable " + inputFile.description
-          + " main.swift lib.swift -module-name createCompilerInvocation -emit-module -emit-objc-header -o t.out"
+          + " \(mainFile.description) \(libFile.description) -module-name createCompilerInvocation -emit-module -emit-objc-header -o t.out"
         let testCommand = testCommandStr.split(separator: " ").compactMap { String($0) }
 
         // Invoke the C shim from CToolingTestShim which calls the `getSingleFrontendInvocationFromDriverArgumentsV2`

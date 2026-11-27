@@ -189,7 +189,7 @@ func getStdlibShimsPaths(_ driver: Driver) throws -> (AbsolutePath, AbsolutePath
 }
 
 /// Test that for the given JSON module dependency graph, valid jobs are generated
-@Suite struct ExplicitModuleBuildTests {
+@Suite(.realDependencyScan) struct ExplicitModuleBuildTests {
   @Test func moduleDependencyBuildCommandGeneration() async throws {
     do {
       let driver = try TestDriver(args: [
