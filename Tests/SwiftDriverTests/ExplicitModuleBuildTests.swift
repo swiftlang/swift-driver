@@ -1101,6 +1101,109 @@ func getStdlibShimsPaths(_ driver: Driver) throws -> (AbsolutePath, AbsolutePath
     }
   }
 
+  /// An implicit build hands `-pch-output-dir` to the frontend, which creates the
+  /// directory. An explicit build names the PCH itself and passes it with `-o`,
+  /// so the directory must exist before the PCH job runs.
+  @Test func explicitBuildCreatesPCHOutputDirectory() async throws {
+    let (stdlibPath, shimsPath, _, _) = try getDriverArtifactsForScanning()
+    try await withTemporaryDirectory { path in
+      let moduleCachePath = path.appending(component: "ModuleCache")
+      try localFileSystem.createDirectory(moduleCachePath)
+      let main = path.appending(component: "main.swift")
+      try localFileSystem.writeFileContents(main, bytes: "let x = bridgedValue")
+      let bridgingHeader = path.appending(component: "Bridging.h")
+      try localFileSystem.writeFileContents(bridgingHeader, bytes: "static const int bridgedValue = 1;")
+      let pchOutputDir = path.appending(components: "not", "yet", "created")
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+
+      var driver = try TestDriver(
+        args: [
+          "swiftc",
+          "-I", stdlibPath.nativePathString(escaped: false),
+          "-I", shimsPath.nativePathString(escaped: false),
+          "-explicit-module-build",
+          "-module-cache-path", moduleCachePath.nativePathString(escaped: false),
+          "-working-directory", path.nativePathString(escaped: false),
+          "-disable-implicit-concurrency-module-import",
+          "-disable-implicit-string-processing-module-import",
+          "-import-objc-header", bridgingHeader.nativePathString(escaped: false),
+          "-pch-output-dir", pchOutputDir.nativePathString(escaped: false),
+          "-c", main.nativePathString(escaped: false),
+        ] + sdkArgumentsForTesting
+      )
+      let jobs = try await driver.planBuild()
+      let pchJob = try #require(jobs.first { $0.kind == .generatePCH })
+      #expect(!pchJob.commandLine.contains(.flag("-pch-output-dir")))
+      // Planning alone must not touch the file system.
+      #expect(!localFileSystem.exists(pchOutputDir))
+
+      try await driver.run(jobs: jobs)
+      #expect(!driver.diagnosticEngine.hasErrors)
+      let pchOutput = try #require(pchJob.outputs.first { $0.type == .pch })
+      #expect(localFileSystem.exists(try #require(pchOutput.file.absolutePath)))
+    }
+  }
+
+  /// With `-o -` the compile job's product is its standard output. Once module
+  /// jobs run alongside it, the compile runs as a child of the driver, and its
+  /// standard output must still reach the driver's.
+  @Test func explicitBuildWritesStandardOutputProductToStandardOutput() async throws {
+    let (stdlibPath, shimsPath, _, _) = try getDriverArtifactsForScanning()
+    try await withTemporaryDirectory { path in
+      let moduleCachePath = path.appending(component: "ModuleCache")
+      try localFileSystem.createDirectory(moduleCachePath)
+      let main = path.appending(component: "main.swift")
+      try localFileSystem.writeFileContents(main, bytes: "let x = 1")
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+
+      var driver = try TestDriver(
+        args: [
+          "swiftc",
+          "-I", stdlibPath.nativePathString(escaped: false),
+          "-I", shimsPath.nativePathString(escaped: false),
+          "-explicit-module-build",
+          "-module-cache-path", moduleCachePath.nativePathString(escaped: false),
+          "-working-directory", path.nativePathString(escaped: false),
+          "-disable-implicit-concurrency-module-import",
+          "-disable-implicit-string-processing-module-import",
+          "-emit-ir", "-o", "-", main.nativePathString(escaped: false),
+        ] + sdkArgumentsForTesting,
+        // The integrated driver discards job output; a standalone one relays it.
+        integratedDriver: false
+      )
+      let jobs = try await driver.planBuild()
+      // A single job would run in place, replacing this process.
+      try #require(jobs.count > 1, "the empty module cache should add module jobs")
+
+      try await driver.run(jobs: jobs)
+      #expect(!driver.diagnosticEngine.hasErrors)
+      #expect(driver.capturedStdout.contains("; ModuleID"))
+      #expect(!driver.capturedStderr.contains("; ModuleID"))
+    }
+  }
+
+  /// Only the job that dumps the AST takes a format for it. The dependency
+  /// scanner rejects `-dump-ast-format`, so it must not be forwarded there.
+  @Test func dumpASTFormatIsNotForwardedToTheScanner() async throws {
+    try await withTemporaryDirectory { path in
+      let main = path.appending(component: "main.swift")
+      try localFileSystem.writeFileContents(main, bytes: "let x = 1\n")
+      let sdkArgumentsForTesting = (try? Driver.sdkArgumentsForTesting()) ?? []
+
+      var driver = try TestDriver(
+        args: ["swiftc", "-explicit-module-build", "-dump-ast", "-dump-ast-format", "json", main.nativePathString(escaped: false)]
+          + sdkArgumentsForTesting
+      )
+      guard driver.isFrontendArgSupported(.dumpAstFormat) else { return }
+      let scannerCommand = try driver.dependencyScannerInvocationCommand().1
+      #expect(!scannerCommand.contains(.flag("-dump-ast-format")))
+      let jobs = try await driver.planBuild()
+      #expect(!driver.diagnosticEngine.hasErrors)
+      let compileJob = try #require(jobs.first { $0.kind == .compile })
+      #expect(compileJob.commandLine.contains(.flag("-dump-ast-format")))
+    }
+  }
+
   @Test func registerModuleDependencyFlag() async throws {
     let (stdlibPath, shimsPath, _, _) = try getDriverArtifactsForScanning()
     try await withTemporaryDirectory { path in
