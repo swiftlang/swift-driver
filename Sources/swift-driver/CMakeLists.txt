@@ -8,6 +8,7 @@
 
 add_executable(swift-driver
   entrypoint.swift
+  CacheLauncherMode.swift
   empty.swift)
 target_link_libraries(swift-driver PUBLIC
   SwiftDriver
