@@ -17,6 +17,7 @@ import class Foundation.Bundle
 
 import func TSCBasic.getEnvSearchPaths
 import func TSCBasic.lookupExecutablePath
+import func TSCBasic.resolveSymlinks
 import class TSCBasic.DiagnosticsEngine
 import protocol TSCBasic.FileSystem
 import struct TSCBasic.AbsolutePath
@@ -282,8 +283,9 @@ extension Toolchain {
                                           .appending(component: libraryName)
 #else
     let compilerPath = try getToolPath(.swiftCompiler)
-    let toolchainRootPath = compilerPath.parentDirectory // bin
-                                        .parentDirectory // toolchain root
+    let resolvedCompilerPath = (try? resolveSymlinks(compilerPath)) ?? compilerPath
+    let toolchainRootPath = resolvedCompilerPath.parentDirectory // bin
+                                                .parentDirectory // toolchain root
 
     let searchPaths = [toolchainRootPath.appending(component: "lib")
                                         .appending(component: "swift")
